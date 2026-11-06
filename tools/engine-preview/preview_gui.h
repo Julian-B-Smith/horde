@@ -10,8 +10,7 @@ namespace preview {
 
 const clap_plugin_gui_t* gui_extension();
 
-constexpr clap_id kPresetId = 0xB00001, kVoicesId = 0xB00002;
-constexpr int kMaxVoicesParam = 16;
+constexpr clap_id kPresetId = 0xB00001;   // 0xB00002 was Voices, retired 2026-11-05: never reuse it for another meaning
 
 int bank_size();
 const char* preset_name(int index);
@@ -21,7 +20,12 @@ const char* row_key(int row);
 int row_steps(int row);   // the option count for a stepped row, 0 for a continuous one
 
 int preset(void* plugin);
-int voices(void* plugin);
+// The engine's voice.polyphony, the one voice control: not a host parameter, so the window sets it through the edit
+// queue like the page does. Its options are consecutive voice counts, polyphony_lo() to polyphony_hi().
+int polyphony_lo();
+int polyphony_hi();
+int polyphony(void* plugin);
+void set_polyphony(void* plugin, int voices);
 double row_host_value(void* plugin, int row);
 void row_text(int row, double host_value, char* out, std::size_t size);
 void stats(void* plugin, int preset_index, double* mean_pct, double* worst_pct, unsigned long long* overruns);

@@ -218,7 +218,7 @@ int main(int argc, char** argv) {
       collect<NSSlider>(window.contentView, sliders);
       std::printf("     %lu menus, %lu sliders\n", (unsigned long)popups.count, (unsigned long)sliders.count);
       NSPopUpButton* preset = nil;
-      for (NSPopUpButton* b in popups) if (b.numberOfItems > 40 && !preset) preset = b;
+      for (NSPopUpButton* b in popups) if (b.numberOfItems == 83 && !preset) preset = b;   // Polyphony's menu has 64
       check(preset != nil && preset.numberOfItems == 83, "the preset menu lists all 83");
 
       // Must-fail by construction: the value starts elsewhere, so only the window's action can make this read 5.

@@ -4,9 +4,11 @@
 // own offline render (horde_offline_render, written by the builder), bit for bit. The offline render shares none of
 // the plug-in's code, so a pass says the shell plays the bank as the renders do: the levelled state, the routes and
 // the note order all arrive intact. DT-2 is why bit-exact is the right bar: output doesn't depend on block splits.
-//   smoke <horde-engine-preview.clap> [<plant.clap>]
-// Controls that must fail: a different preset's render must differ, and the plant build (no routes) must miss on a
-// routed preset. Without them, an always-equal comparison would read as a pass.
+//   smoke <horde-engine-preview.clap> [<plant.clap> [<plant-map.clap>]]
+// Controls that must fail: a different preset's render must differ, and the plant build (no routes, and the retired
+// Voices limit of 4 put back) must miss on a routed preset and sound 4 voices of a 12-note chord. The second plant
+// shifts the bridge's key map by one row, and the full-row mapping audit must read it red. Without them, an
+// always-equal comparison would read as a pass.
 #include <clap/clap.h>
 #include <dlfcn.h>
 #include <sys/stat.h>
@@ -217,6 +219,77 @@ void one_block(const clap_plugin_t* plugin) {
   process(plugin, none, l, r, 256);
 }
 
+// How many voices a snapshot's `observe` lists: the sounding ones (section 3).
+int voices_in(const std::string& frame) {
+  int n = 0;
+  for (std::size_t i = frame.find("{\"level\":"); i != std::string::npos; i = frame.find("{\"level\":", i + 1)) ++n;
+  return n;
+}
+
+// Sends one message with the next seq and runs blocks and frames until it is acknowledged (a load needs its engine
+// swap); returns the acknowledging frame, or "" if it never came.
+std::string send_until_acked(const clap_plugin_t* plugin, const preview_bridge_ext* bridge, long long& seq, const std::string& body) {
+  const long long mine = ++seq;
+  bridge->receive(plugin, ("{\"seq\":" + std::to_string(mine) + "," + body + "}").c_str());
+  for (int round = 0; round < 6; ++round) {
+    one_block(plugin);
+    const std::string frame = bridge->frame(plugin);
+    if (ack_of(frame) >= mine) return frame;
+  }
+  return "";
+}
+
+// v for a stepped row of consecutive integers (polyphony): the option holding `count`.
+double v_of_count(const horde::ParamInfo& row, int count) { return (count - row.lo) / double(row.steps - 1); }
+
+// Holds a chord of `n` notes, reads how many voices the frame says sound, then releases it and lets the tail end.
+int voices_for_chord(const clap_plugin_t* plugin, const preview_bridge_ext* bridge, int n) {
+  float l[512], r[512];
+  Events on;
+  for (int k = 0; k < n; ++k) on.note(true, 0, 3000 + k, std::int16_t(48 + k), 0.8);
+  process(plugin, on, l, r, 512);
+  for (int b = 0; b < 8; ++b) {
+    Events none;
+    process(plugin, none, l, r, 512);
+  }
+  const int sounding = voices_in(bridge->frame(plugin));
+  Events off;
+  for (int k = 0; k < n; ++k) off.note(false, 0, 3000 + k, std::int16_t(48 + k), 0);
+  process(plugin, off, l, r, 512);
+  for (int b = 0; b < 2000; ++b) {
+    Events none;
+    process(plugin, none, l, r, 512);
+  }
+  return sounding;
+}
+
+// The full-row mapping audit: every non-reserved row set through the bridge to a v unlike its current one must read
+// back that exact v in the engine and in the next frame's params. A stepped row goes to its last option and its first
+// (first then last when it already sits on the last). Returns the keys that failed.
+std::vector<std::string> audit_rows(const clap_plugin_t* plugin, const preview_bridge_ext* bridge, long long& seq, int& passed) {
+  std::vector<std::string> failed;
+  passed = 0;
+  bridge->frame(plugin);   // whatever was pending goes now, so each frame below carries only the row just set
+  for (std::size_t i = 0; i < horde::manifest_size(); ++i) {
+    const horde::ParamInfo& row = horde::manifest_param(i);
+    if (row.reserved) continue;
+    const double now = bridge->engine_v(plugin, row.id);
+    std::vector<double> targets;
+    if (row.law == horde::Law::Step && row.steps > 1) targets = now == 1.0 ? std::vector<double>{0.0, 1.0} : std::vector<double>{1.0, 0.0};
+    else targets = {now == 0.375 ? 0.625 : 0.375};
+    bool ok = true;
+    for (double v : targets) {
+      char body[200];
+      std::snprintf(body, sizeof body, "\"type\":\"set\",\"values\":{\"%s\":%.17g}", row.key, v);
+      const std::string frame = send_until_acked(plugin, bridge, seq, body);
+      ok = ok && bridge->engine_v(plugin, row.id) == v && param_in(frame, row.key) == v;
+    }
+    if (ok) ++passed;
+    else failed.emplace_back(row.key);
+  }
+  return failed;
+}
+
 int find_preset(const char* name) {
   for (int i = 0; i < kBankSize; ++i)
     if (!std::strcmp(kBank[i].name, name)) return i;
@@ -241,6 +314,7 @@ int main(int argc, char** argv) {
   const std::uint32_t n_params = p.params->count(p.plugin);
   std::printf("     %u host parameters\n", n_params);
   check(n_params <= 64, "at most 64 host parameters, so Live shows the panel without the plug-in's window");
+  check(n_params == 48, "48 of them: 47 rows and Preset, with no separate Voices limit (\"One control: Polyphony\")");
   clap_param_info_t info;
   check(p.params->get_info(p.plugin, 0, &info) && !std::strcmp(info.name, "Preset"), "the first parameter is Preset");
 
@@ -271,8 +345,8 @@ int main(int argc, char** argv) {
     std::string frame = bridge->frame(p.plugin);
     check(ack_of(frame) == 1 && params_rows(frame) == engine_rows, "the frame that acknowledges hello carries every engine row (" + std::to_string(engine_rows) + ")");
     check(has(frame, "\"hello\":{\"build\":\"engine ") && has(frame, "\"presets\":{\"names\":[") && has(frame, "\"params\":{") &&
-              has(frame, "\"plugin\":{\"voices\":4,\"build\":\"engine "),
-          "after hello the snapshot carries the build label, the presets, Voices and every engine row");
+              has(frame, "\"plugin\":{\"build\":\"engine ") && !has(frame, "\"voices\":4"),
+          "after hello the snapshot carries the build label, the presets and every engine row, and no Voices");
     const std::size_t at = frame.find("\"manifest_hash\":\"");
     const std::string engine_hash = at == std::string::npos ? "" : frame.substr(at + 17, 64);
     std::printf("     engine manifest hash %s\n", engine_hash.c_str());
@@ -409,11 +483,8 @@ int main(int argc, char** argv) {
 
   // State: a saved chunk brings back the preset and a moved value, and stays small.
   {
-    const clap_id voices_id = 0xB00002;
     Events set;
-    set.param(voices_id, 3);
     float l[64], r[64];
-    process(p.plugin, set, l, r, 64);
     (void)play(p, presets[1], {128});
     // A row only the page can set rides in the saved state too ("current settings only", every engine row).
     const double page_value = 0.375;
@@ -440,10 +511,10 @@ int main(int argc, char** argv) {
       return std::int64_t(n);
     }};
     check(p.state->load(p.plugin, &is), "state loads");
-    double preset = -1, voices = -1;
+    check(!has(buffer.text, "voices"), "the saved chunk has no Voices line");
+    double preset = -1;
     p.params->get_value(p.plugin, 0xB00001, &preset);
-    p.params->get_value(p.plugin, voices_id, &voices);
-    check(int(preset) == presets[1] && int(voices) == 3, "the preset and Voices come back");
+    check(int(preset) == presets[1], "the preset comes back");
     if (page_row) {
       Events none;
       process(p.plugin, none, l, r, 64);   // asks for the main thread, which builds the loaded state's engine
@@ -453,9 +524,75 @@ int main(int argc, char** argv) {
     }
     check(has(bridge->frame(p.plugin), "\"state\":\"horde-engine-preview 2"), "the page hears of a load once, with the state");
     check(!has(bridge->frame(p.plugin), "\"state\""), "and not in the next frame");
-    Events restore;
-    restore.param(voices_id, 4);
-    process(p.plugin, restore, l, r, 64);
+  }
+
+  // ---- Polyphony is the one voice control (the human, 2026-11-05) ----
+  const horde::ParamInfo* polyphony = horde::find_param("voice.polyphony");
+  check(polyphony != nullptr, "the engine has voice.polyphony");
+  long long seq = 2000;
+  if (polyphony && page_row) {
+    // Each preset's own polyphony, read from a probe engine of the same build, not through the plug-in. Every bank
+    // preset asks for 16 on 1ad270a, so the cap's other side (8 or fewer kept) is held in bridge_test, on the rule.
+    int above = -1, counted = 0;
+    for (int i = 0; i < kBankSize; ++i) {
+      auto probe = horde::make_engine();
+      if (!probe || !probe->prepare(44100, 64) || !probe->load_state(kBank[i].state).ok) continue;
+      const double count = polyphony->lo + std::round(probe->param_v(polyphony->id) * double(polyphony->steps - 1));
+      if (count > 8) {
+        ++counted;
+        if (above < 0) above = i;
+      }
+    }
+    std::printf("     %d of %d bank presets ask for more than 8 voices\n", counted, kBankSize);
+    const double eight = v_of_count(*polyphony, 8);
+    check(above >= 0, "the bank has a preset above 8 voices");
+    if (above >= 0) {
+      const std::string frame = send_until_acked(p.plugin, bridge, seq, "\"type\":\"preset\",\"index\":" + std::to_string(above));
+      check(bridge->engine_v(p.plugin, polyphony->id) == eight && param_in(frame, "voice.polyphony") == eight,
+            std::string(kBank[above].name) + ": a preset above 8 voices loads at 8, in the engine and in the frame that completes the load");
+    }
+    {
+      // A polyphony chosen by hand and saved stands through a load, below the cap and above it.
+      for (int count : {6, 12}) {
+        char chunk[160];
+        std::snprintf(chunk, sizeof chunk, "horde-engine-preview 2\npreset %d\n%u %.17g\n", above, polyphony->id, v_of_count(*polyphony, count));
+        struct Buffer { std::string text; std::size_t read = 0; } buffer{chunk};
+        clap_istream_t is{&buffer, [](const clap_istream_t* s, void* data, std::uint64_t size) -> std::int64_t {
+          auto* b = static_cast<Buffer*>(s->ctx);
+          const std::size_t n = std::min<std::size_t>(size, b->text.size() - b->read);
+          std::memcpy(data, b->text.data() + b->read, n);
+          b->read += n;
+          return std::int64_t(n);
+        }};
+        p.state->load(p.plugin, &is);
+        one_block(p.plugin);
+        if (callback_requested) { callback_requested = false; p.plugin->on_main_thread(p.plugin); }
+        one_block(p.plugin);
+        check(bridge->engine_v(p.plugin, polyphony->id) == v_of_count(*polyphony, count),
+              "a saved polyphony of " + std::to_string(count) + ", set by hand, stands through the load");
+      }
+    }
+    const double twelve = v_of_count(*polyphony, 12);
+    char body[160];
+    std::snprintf(body, sizeof body, "\"type\":\"set\",\"values\":{\"voice.polyphony\":%.17g}", twelve);
+    (void)send_until_acked(p.plugin, bridge, seq, body);
+    check(bridge->engine_v(p.plugin, polyphony->id) == twelve, "polyphony set to 12 by hand stands in the engine");
+    const int sounding = voices_for_chord(p.plugin, bridge, 12);
+    std::printf("     a held 12-note chord at polyphony 12: %d voices sounding\n", sounding);
+    check(sounding == 12, "and a held 12-note chord sounds 12 voices");
+    (void)send_until_acked(p.plugin, bridge, seq, "\"type\":\"plugin\",\"voices\":4");
+    check(bridge->engine_v(p.plugin, polyphony->id) == twelve, "an old page's Voices message is acknowledged and changes nothing");
+  }
+
+  // ---- The full-row mapping audit ----
+  {
+    int passed = 0;
+    const std::vector<std::string> failed = audit_rows(p.plugin, bridge, seq, passed);
+    std::string list;
+    for (const auto& key : failed) list += " " + key;
+    std::printf("     mapping audit: %d of %d rows read back exactly%s%s\n", passed, engine_rows, failed.empty() ? "" : "; failed:", list.c_str());
+    check(failed.empty() && passed == engine_rows, "every engine row set through the bridge reads back its exact v in the engine and the next frame");
+    (void)send_until_acked(p.plugin, bridge, seq, "\"type\":\"preset\",\"index\":" + std::to_string(presets[0]));   // a load puts every row back
   }
 
   // Silence is skipped (OU-4): a released chord's tail ends, and the blocks after it must be counted as skipped.
@@ -519,11 +656,36 @@ int main(int argc, char** argv) {
     const auto heard = play(plant, routed, {128});
     const auto reference = offline(routed);
     check(first_difference(heard, reference) != heard.size(), "control: a build with no routes misses the routed preset's render");
+    const auto* plant_bridge = static_cast<const preview_bridge_ext*>(plant.plugin->get_extension(plant.plugin, kPreviewBridgeExt));
+    if (plant_bridge && polyphony) {
+      long long plant_seq = 0;
+      char body[160];
+      std::snprintf(body, sizeof body, "\"type\":\"set\",\"values\":{\"voice.polyphony\":%.17g}", v_of_count(*polyphony, 12));
+      (void)send_until_acked(plant.plugin, plant_bridge, plant_seq, body);
+      const int sounding = voices_for_chord(plant.plugin, plant_bridge, 12);
+      check(sounding != 12, "control: with the old Voices limit of 4 put back, the 12-note chord sounds " + std::to_string(sounding) + ", not 12");
+    }
     plant.plugin->stop_processing(plant.plugin);
     plant.plugin->deactivate(plant.plugin);
     plant.plugin->destroy(plant.plugin);
   } else {
     check(false, "the plant build was not given, so its control did not run");
+  }
+  if (argc > 3) {
+    Loaded shifted;
+    check(shifted.open(argv[3]), "the shifted-key-map plant loads");
+    const auto* shifted_bridge = static_cast<const preview_bridge_ext*>(shifted.plugin->get_extension(shifted.plugin, kPreviewBridgeExt));
+    if (shifted_bridge) {
+      long long shifted_seq = 0;
+      int passed = 0;
+      const std::vector<std::string> failed = audit_rows(shifted.plugin, shifted_bridge, shifted_seq, passed);
+      check(!failed.empty(), "control: with the key map one row off, the mapping audit fails " + std::to_string(failed.size()) + " rows");
+    }
+    shifted.plugin->stop_processing(shifted.plugin);
+    shifted.plugin->deactivate(shifted.plugin);
+    shifted.plugin->destroy(shifted.plugin);
+  } else {
+    check(false, "the shifted-key-map plant was not given, so the audit's control did not run");
   }
 
   std::printf("%s (%d failed)\n", failures ? "engine-preview smoke: RED" : "engine-preview smoke: GREEN", failures);

@@ -6,12 +6,13 @@
 //
 // Four choices worth keeping in mind before changing this file:
 // - At most 64 host parameters. Live gives a plug-in with up to 64 a panel of sliders automatically; above that the
-//   panel opens empty and is filled by touching controls in the plug-in's window. So 47 rows plus Preset and Voices
-//   are host parameters, and every engine row has a shadow v besides (the page and the saved state read it); a row
-//   outside the 47 can be set from the page but isn't host-automatable.
+//   panel opens empty and is filled by touching controls in the plug-in's window. So 47 rows plus Preset are host
+//   parameters: 48, since the separate Voices limit went (the human, 2026-11-05: "One control: Polyphony"). Every
+//   engine row has a shadow v besides (the page and the saved state read it); a row outside the 47 can be set from the
+//   page but isn't host-automatable.
 // - A preset change builds a whole new engine on the main thread and hands it to the audio thread. load_state and
 //   prepare aren't real-time (RT-1), and the swap keeps the audio thread free of them. Sounding notes stop at the swap.
-// - The saved chunk is the preset's index, Voices and the rows that differ from what the preset loads, not the
+// - The saved chunk is the preset's index and the rows that differ from what the preset loads, not the
 //   engine's state text. It stays small (large chunks make hosts drop state silently), and it never reads the engine
 //   from the main thread while audio runs.
 // - GUI 3's bridge (bridge_core.h, B628) runs on the main thread. Page messages reach audio through the same lock-free
@@ -44,17 +45,18 @@
 
 namespace {
 
-// kPresetId and kVoicesId (preview_gui.h) sit above the engine's id range: IF-11 keeps its ids below 0xB00000.
-using preview::kMaxVoicesParam;
+// kPresetId (preview_gui.h) sits above the engine's id range: IF-11 keeps its ids below 0xB00000.
 using preview::kPresetId;
-using preview::kVoicesId;
-constexpr int kMaxRows = 62;   // + Preset and Voices = Live's 64
+constexpr int kMaxRows = 63;   // + Preset = Live's 64
 constexpr int kMaxVoices = 64;
 constexpr int kMaxRouteKeys = 8;
 constexpr int kMaxTargets = 16;
 constexpr int kMaxEvents = 4096;
 constexpr int kEngineMaxBlock = 4096;   // the most prepare accepts (DT-2)
-constexpr int kDefaultVoices = 4;       // starts light: 8 voices of a heavy patch can overrun every block
+// The plug-in's own safety rule, not the engine's: a preset that loads asking for more voices than this gets this many,
+// set through the engine's own Param path before the load completes, so every display reads the truth. Eight voices of
+// a heavy patch can already overrun a block, and several bank presets ask for 16. A polyphony set by hand stands.
+constexpr int kPolyphonyCap = 8;
 // A power of two: edits waiting for the audio thread. A page `set` can carry every engine row at once (a preset morph,
 // a load), about 330 entries, and a message goes in whole or waits, so this holds a dozen of those.
 constexpr std::uint32_t kEditQueue = 4096;
@@ -191,7 +193,7 @@ struct Session {
   preview::bridge::Want want;
   std::vector<double> sent;      // per manifest row, the v last sent in `params` (NaN: never)
   int sent_preset = -1;
-  int sent_voices = -1;
+  bool sent_plugin = false;
   Load load;
   bool saw_hello = false;        // this page loads on hello: no resending until a frame lands (bridge_resend)
   bool hello_due = false;        // the hello reply rides with the next completed load
@@ -225,7 +227,6 @@ struct Plugin {
   std::vector<std::vector<double>> preset_v;   // main thread: per preset, every row's v as it loads (empty: not read yet)
 
   std::atomic<int> wanted_preset{0};
-  std::atomic<int> voices{kDefaultVoices};
   // v per manifest row: what the host, the page and the saved state read. Sized once at init.
   std::unique_ptr<std::atomic<double>[]> shadow;
 
@@ -282,8 +283,8 @@ void write_stats(Plugin& s) {
   const std::string temp = s.log_path + ".tmp";
   std::FILE* f = std::fopen(temp.c_str(), "w");
   if (!f) return;
-  std::fprintf(f, "# %s, sample_rate %.0f, last block %u frames, voices %d, non-finite samples zeroed %llu, idle blocks skipped %llu\n", kBuildLabel, s.sample_rate,
-               s.last_frames.load(std::memory_order_relaxed), s.voices.load(std::memory_order_relaxed),
+  std::fprintf(f, "# %s, sample_rate %.0f, last block %u frames, non-finite samples zeroed %llu, idle blocks skipped %llu\n", kBuildLabel, s.sample_rate,
+               s.last_frames.load(std::memory_order_relaxed),
                (unsigned long long)s.nonfinite.load(std::memory_order_relaxed), (unsigned long long)s.idle_blocks.load(std::memory_order_relaxed));
   std::fprintf(f, "preset\tsounding_blocks\tmean_pct_of_block\tworst_pct_of_block\toverruns\n");
   for (int i = 0; i < kBankSize; ++i) {
@@ -296,6 +297,16 @@ void write_stats(Plugin& s) {
   }
   std::fclose(f);
   std::rename(temp.c_str(), s.log_path.c_str());
+}
+
+// kPolyphonyCap applied to one preset's values as it loads (manifest order), in v: the row is a Step of consecutive
+// integers, so its value is lo + the option index (horde_engine.h, ParamInfo::lo).
+void cap_polyphony(std::vector<double>& values) {
+  static const horde::ParamInfo* row = horde::find_param("voice.polyphony");
+  if (!row || row->steps < 2) return;
+  const int m = manifest_index(row->id);
+  if (m < 0 || std::size_t(m) >= values.size()) return;
+  values[std::size_t(m)] = preview::bridge::capped_count_v(*row, values[std::size_t(m)], kPolyphonyCap);
 }
 
 Slot* build_slot(Plugin& s, int preset, bool keep_shadow) {
@@ -326,31 +337,33 @@ Slot* build_slot(Plugin& s, int preset, bool keep_shadow) {
     if (p) slot->env_velocity[k] = horde::value_of(*p, slot->engine->param_v(p->id));
   }
 
-  // What this preset loads, before any value of ours: the saved state keeps only the rows that differ from it.
+  // What this preset loads, as the plug-in loads it (polyphony capped), before any value of ours: the saved state keeps
+  // only the rows that differ from it. `actual` is what the engine holds now, so only rows that differ are sent.
   const Rows& t = rows();
+  std::vector<double> actual(t.all.size());
+  for (std::size_t m = 0; m < t.all.size(); ++m) actual[m] = slot->engine->param_v(t.all[m]->id);
   std::vector<double>& loaded = s.preset_v[std::size_t(preset)];
-  loaded.resize(t.all.size());
-  for (std::size_t m = 0; m < t.all.size(); ++m) loaded[m] = slot->engine->param_v(t.all[m]->id);
+  loaded = actual;
+  cap_polyphony(loaded);
 
   std::vector<horde::Event> setup;
   setup.reserve(t.all.size() + 1);
   for (std::size_t m = 0; m < t.all.size(); ++m) {
-    if (!keep_shadow) {
-      s.shadow[m].store(loaded[m], std::memory_order_relaxed);
-      continue;
-    }
+    if (!keep_shadow) s.shadow[m].store(loaded[m], std::memory_order_relaxed);
     if (t.all[m]->reserved) continue;   // not a host parameter: the engine refuses a Param to it (5.1, PA-7)
     horde::Event e;
     e.type = horde::EventType::Param;
     e.param_id = t.all[m]->id;
-    e.value = s.shadow[m].load(std::memory_order_relaxed);
-    if (e.value != loaded[m]) setup.push_back(e);
+    e.value = keep_shadow ? s.shadow[m].load(std::memory_order_relaxed) : loaded[m];
+    if (e.value != actual[m]) setup.push_back(e);
   }
+#ifdef HORDE_PREVIEW_PLANT_VOICE_CAP   // smoke.cpp's must-fail build: the retired Voices limit of 4, put back
   horde::Event cap;
   cap.type = horde::EventType::VoiceCap;
-  cap.integer = s.voices.load(std::memory_order_relaxed);
-  cap.flag = true;   // a full cap takes the oldest note, so a chord over the cap still plays its newest notes
+  cap.integer = 4;
+  cap.flag = true;
   setup.push_back(cap);
+#endif
   slot->engine->flush(setup.data(), setup.size());
   return slot.release();
 }
@@ -389,29 +402,21 @@ void set_param(Plugin& s, clap_id id, double value) {
     s.wanted_preset.store(std::clamp(int(std::lround(value)), 0, kBankSize - 1), std::memory_order_relaxed);
     return;
   }
+  const int m = manifest_index(id);
+  if (m < 0 || rows().all[std::size_t(m)]->reserved) return;
+  const int host = rows().host_of[std::size_t(m)];
+  // A host parameter's value is in the host's form; any other engine row can only come from the page, in v.
+  const double v = std::clamp(host >= 0 ? host_to_v(*rows().row[host], value) : value, 0.0, 1.0);
+  s.shadow[m].store(v, std::memory_order_relaxed);
   horde::Event e;
-  if (id == kVoicesId) {
-    const int count = std::clamp(int(std::lround(value)), 1, kMaxVoicesParam);
-    s.voices.store(count, std::memory_order_relaxed);
-    e.type = horde::EventType::VoiceCap;
-    e.integer = count;
-    e.flag = true;
-  } else {
-    const int m = manifest_index(id);
-    if (m < 0 || rows().all[std::size_t(m)]->reserved) return;
-    const int host = rows().host_of[std::size_t(m)];
-    // A host parameter's value is in the host's form; any other engine row can only come from the page, in v.
-    const double v = std::clamp(host >= 0 ? host_to_v(*rows().row[host], value) : value, 0.0, 1.0);
-    s.shadow[m].store(v, std::memory_order_relaxed);
-    e.type = horde::EventType::Param;
-    e.param_id = id;
-    e.value = v;
-  }
+  e.type = horde::EventType::Param;
+  e.param_id = id;
+  e.value = v;
   if (s.events.size() < kMaxEvents) s.events.push_back(e);
 }
 
 bool host_parameter(clap_id id) {
-  if (id == kPresetId || id == kVoicesId) return true;
+  if (id == kPresetId) return true;
   const int m = manifest_index(id);
   return m >= 0 && rows().host_of[std::size_t(m)] >= 0;
 }
@@ -792,10 +797,10 @@ void plugin_reset(const clap_plugin_t* p) {
 }
 
 // ---- params ----------------------------------------------------------------------------------------------------
-std::uint32_t params_count(const clap_plugin_t*) { return std::uint32_t(2 + rows().count); }
+std::uint32_t params_count(const clap_plugin_t*) { return std::uint32_t(1 + rows().count); }
 
 bool params_get_info(const clap_plugin_t*, std::uint32_t index, clap_param_info_t* info) {
-  if (index >= std::uint32_t(2 + rows().count)) return false;
+  if (index >= std::uint32_t(1 + rows().count)) return false;
   std::memset(info, 0, sizeof *info);
   info->flags = CLAP_PARAM_IS_AUTOMATABLE;
   if (index == 0) {
@@ -807,17 +812,8 @@ bool params_get_info(const clap_plugin_t*, std::uint32_t index, clap_param_info_
     info->default_value = default_preset();
     return true;
   }
-  if (index == 1) {
-    info->id = kVoicesId;
-    info->flags |= CLAP_PARAM_IS_STEPPED;
-    std::snprintf(info->name, sizeof info->name, "Voices");
-    info->min_value = 1;
-    info->max_value = kMaxVoicesParam;
-    info->default_value = kDefaultVoices;
-    return true;
-  }
   const Rows& t = rows();
-  const int i = int(index) - 2;
+  const int i = int(index) - 1;
   const horde::ParamInfo& row = *t.row[i];
   info->id = row.id;
   if (stepped(row)) info->flags |= CLAP_PARAM_IS_STEPPED;
@@ -831,7 +827,6 @@ bool params_get_info(const clap_plugin_t*, std::uint32_t index, clap_param_info_
 bool params_get_value(const clap_plugin_t* p, clap_id id, double* out) {
   Plugin& s = *self(p);
   if (id == kPresetId) { *out = s.wanted_preset.load(std::memory_order_relaxed); return true; }
-  if (id == kVoicesId) { *out = s.voices.load(std::memory_order_relaxed); return true; }
   const Rows& t = rows();
   for (int i = 0; i < t.count; ++i) {
     if (t.row[i]->id == id) { *out = v_to_host(*t.row[i], s.shadow[t.at[i]].load(std::memory_order_relaxed)); return true; }
@@ -844,7 +839,6 @@ bool params_value_to_text(const clap_plugin_t*, clap_id id, double value, char* 
     std::snprintf(out, size, "%s", kBank[std::clamp(int(std::lround(value)), 0, kBankSize - 1)].name);
     return true;
   }
-  if (id == kVoicesId) { std::snprintf(out, size, "%d", int(std::lround(value))); return true; }
   const Rows& t = rows();
   for (int i = 0; i < t.count; ++i) {
     if (t.row[i]->id != id) continue;
@@ -866,7 +860,6 @@ bool params_text_to_value(const clap_plugin_t*, clap_id id, const char* text, do
     }
     return false;
   }
-  if (id == kVoicesId) { *out = std::atof(text); return true; }
   return false;   // a continuous row's text is in its units, and no inverse law is exposed; the slider still works
 }
 
@@ -921,6 +914,7 @@ const std::vector<double>& preset_values(Plugin& s, int preset) {
   auto engine = horde::make_engine();
   if (engine && engine->prepare(44100, 64) && engine->load_state(kBank[preset].state).ok) {
     for (const auto* row : t.all) loaded.push_back(engine->param_v(row->id));
+    cap_polyphony(loaded);   // as build_slot loads it
   } else {
     loaded = t.default_v;   // a preset that won't load is never built either; its defaults stand in
   }
@@ -932,7 +926,6 @@ bool state_save(const clap_plugin_t* p, const clap_ostream_t* stream) {
   const Rows& t = rows();
   preview::bridge::SavedState saved;
   saved.preset = s.wanted_preset.load(std::memory_order_relaxed);
-  saved.voices = s.voices.load(std::memory_order_relaxed);
   std::vector<std::uint32_t> ids;
   std::vector<double> current;
   for (std::size_t m = 0; m < t.all.size(); ++m) {
@@ -971,7 +964,6 @@ bool state_load(const clap_plugin_t* p, const clap_istream_t* stream) {
   if (!preview::bridge::read_state(text, saved)) return false;
   const int preset = std::clamp(saved.preset, 0, kBankSize - 1);
   s.wanted_preset.store(preset, std::memory_order_relaxed);
-  if (saved.voices > 0) s.voices.store(std::clamp(saved.voices, 1, kMaxVoicesParam), std::memory_order_relaxed);
   // The preset's own values first, then the rows the state says differ: a row it doesn't name is the preset's.
   const Rows& t = rows();
   const std::vector<double>& loaded = preset_values(s, preset);
@@ -1032,7 +1024,8 @@ void note_refused(std::vector<std::string>& list, const std::string& what, bool&
 void resend_all(Plugin& s) {
   Session& ss = s.session;
   std::fill(ss.sent.begin(), ss.sent.end(), NAN);
-  ss.sent_preset = ss.sent_voices = -1;
+  ss.sent_preset = -1;
+  ss.sent_plugin = false;
 }
 
 // A new page in a new window: it knows nothing, and hasn't said hello.
@@ -1117,13 +1110,7 @@ void bridge_receive(Plugin& s, std::string_view json) {
       }
       break;
     case Kind::Plugin:
-      if (m.voices > 0) {
-        Edit e;
-        e.id = kVoicesId;
-        e.value = std::clamp(m.voices, 1, kMaxVoicesParam);
-        batch.push_back(e);
-      }
-      break;
+      break;   // an old page's Voices: acknowledged and held, since Polyphony is the one voice control
     case Kind::Hello:
       ss.saw_hello = true;
       ss.hello_due = true;
@@ -1158,7 +1145,7 @@ const std::string& bridge_frame(Plugin& s) {
   const bool holding = ss.load.pending && !completes;
   p.ack = holding ? std::min(acked, ss.load.seq - 1) : acked;
   if (completes) {
-    resend_all(s);   // every row, the presets and Voices, in this one frame
+    resend_all(s);   // every row, the presets and `plugin`, in this one frame
     ss.load.pending = false;
   }
 
@@ -1201,10 +1188,9 @@ const std::string& bridge_frame(Plugin& s) {
     ss.sent_preset = preset;
   }
   static const std::string build = kBuildLabel;
-  const int voices = s.voices.load(std::memory_order_relaxed);
-  if (voices != ss.sent_voices) {
-    p.voices = ss.sent_voices = voices;
-    p.plugin_build = &build;   // the label rides with Voices: GUI 3's page keeps `plugin`, and sends no hello
+  if (!ss.sent_plugin && !holding) {
+    p.plugin_build = &build;   // GUI 3's page keeps `plugin`; the label rides there as well as in the hello reply
+    ss.sent_plugin = true;
   }
   if (ss.state_due) p.state = &ss.state;
   if (ss.hello_due && completes) {
@@ -1282,7 +1268,6 @@ clap_id row_id(int row) { return rows().row[row]->id; }
 const char* row_key(int row) { return rows().row[row]->key; }
 int row_steps(int row) { return stepped(*rows().row[row]) ? int(rows().row[row]->steps) : 0; }
 int preset(void* plugin) { return static_cast<Plugin*>(plugin)->wanted_preset.load(std::memory_order_relaxed); }
-int voices(void* plugin) { return static_cast<Plugin*>(plugin)->voices.load(std::memory_order_relaxed); }
 double row_host_value(void* plugin, int row) {
   return v_to_host(*rows().row[row], static_cast<Plugin*>(plugin)->shadow[rows().at[row]].load(std::memory_order_relaxed));
 }
@@ -1307,6 +1292,20 @@ void edit(void* plugin, clap_id id, double host_value) {
   s.edit_head.store(head + 1, std::memory_order_release);
   // Live stops calling process on a silent track in some setups, and a flush still delivers the edit.
   if (s.host_params && s.host_params->request_flush) s.host_params->request_flush(s.host);
+}
+namespace {
+const horde::ParamInfo& polyphony_row() { return *horde::find_param("voice.polyphony"); }
+}  // namespace
+int polyphony_lo() { return int(polyphony_row().lo); }
+int polyphony_hi() { return int(polyphony_row().hi); }
+int polyphony(void* plugin) {
+  const horde::ParamInfo& row = polyphony_row();
+  const double v = static_cast<Plugin*>(plugin)->shadow[manifest_index(row.id)].load(std::memory_order_relaxed);
+  return int(row.lo + std::round(v * double(row.steps - 1)));
+}
+void set_polyphony(void* plugin, int voices) {
+  const horde::ParamInfo& row = polyphony_row();
+  edit(plugin, row.id, (std::clamp(voices, polyphony_lo(), polyphony_hi()) - row.lo) / double(row.steps - 1));   // in v: not a host parameter
 }
 void*& gui_slot(void* plugin) { return static_cast<Plugin*>(plugin)->gui; }
 void bridge_receive(void* plugin, const char* json) { ::bridge_receive(*static_cast<Plugin*>(plugin), json ? json : ""); }

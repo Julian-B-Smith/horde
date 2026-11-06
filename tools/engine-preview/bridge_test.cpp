@@ -161,25 +161,35 @@ int main() {
     const std::vector<double> loaded = {0.5, 0.25, 0.7};
     SavedState s;
     s.preset = 12;
-    s.voices = 6;
     s.values = differences(ids, {0.5, 0.1 + 0.2, 0.7}, loaded);
     check(s.values.size() == 1 && s.values[0].first == 3, "only the row that differs from the preset is kept");
     const std::string text = write_state(s);
     SavedState back;
-    check(read_state(text, back) && back.preset == 12 && back.voices == 6 && back.values.size() == 1 && back.values[0].first == 3 &&
+    check(!has(text, "voices") && read_state(text, back) && back.preset == 12 && back.values.size() == 1 && back.values[0].first == 3 &&
               back.values[0].second == 0.1 + 0.2,
           "the state round-trips, its v exactly");
     SavedState defaults;
     defaults.preset = 12;
-    defaults.voices = 4;
     defaults.values = differences(ids, loaded, loaded);
     const std::string small = write_state(defaults);
     std::printf("     a defaults-only state is %zu bytes\n", small.size());
     check(defaults.values.empty() && small.size() < 64, "a state holding only the preset's own values stays small");
     SavedState old;
     check(read_state("horde-engine-preview 1\npreset 3\nvoices 2\n4097 0.5\n", old) && old.preset == 3 && old.values.size() == 1,
-          "a version-1 chunk still reads");
+          "a version-1 chunk still reads, its retired Voices line ignored");
+    check(read_state("horde-engine-preview 2\npreset 5\nvoices 6\n4097 0.25\n", old) && old.preset == 5 && old.values.size() == 1 && old.values[0].second == 0.25,
+          "a version-2 chunk carrying Voices still loads, ignoring it");
     check(!read_state("something else\npreset 3\n", old), "control: a chunk that isn't ours is refused");
+  }
+
+  // ---- the polyphony cap ----------------------------------------------------------------------------------------
+  {
+    // Shaped as the engine's voice.polyphony: a Step of the counts 1 to 64. Every bank preset asks for 16, so the
+    // bank can't show a preset left alone; this does.
+    const horde::ParamInfo poly{9, "voice.polyphony", 1, 64, 15, Law::Step, ParamClass::Device, Rate::Stepped, false, 64, false};
+    const auto v = [](int count) { return (count - 1) / 63.0; };
+    check(capped_count_v(poly, v(16), 8) == v(8), "a load asking for 16 voices gets 8");
+    check(capped_count_v(poly, v(8), 8) == v(8) && capped_count_v(poly, v(6), 8) == v(6), "control: a load asking for 8 or fewer keeps its own");
   }
 
   // ---- the engine's own manifest --------------------------------------------------------------------------------
