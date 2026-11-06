@@ -179,7 +179,7 @@ void build(GuiState& g) {
 
   CGFloat y = kHeight - 34;
   [g.root addSubview:make_label("horde ENGINE PREVIEW", NSMakeRect(kGutter, y, 300, 22), 15, NSColor.labelColor)];
-  [g.root addSubview:make_label("Test build: oscillators only", NSMakeRect(kWidth - 216, y + 2, 200, 16), 11, NSColor.tertiaryLabelColor)];
+  [g.root addSubview:make_label(std::string(preview::build_label()) + " · oscillators only", NSMakeRect(kWidth - 336, y + 2, 320, 16), 11, NSColor.tertiaryLabelColor)];
   ((NSTextField*)g.root.subviews.lastObject).alignment = NSTextAlignmentRight;
 
   y -= 36;

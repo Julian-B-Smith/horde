@@ -1,0 +1,257 @@
+<!doctype html>
+<!-- bank-morph-lane-lab: what the bank's third tab, MORPH, holds in its 120 px. horde, 2026-11-05, row GB25. Origin: the human, "What if we add a third tab
+     here for "morph" here (pictured) which shows the morph corner presets, and when morph is activated on Main it automatically flips over (I don't love that
+     Main is the only page that doesn't show the morph corner presets interface anywhere)", then by poll: the tab on every page, and the lane "Let's workshop it
+     in a lab".
+
+     WHAT'S SETTLED (GUI-45). The bank's segments read MAC | MODS | MORPH on every page. Turning morph on from Main flips the bank to MORPH; from any other page
+     it doesn't, since the docked pad already shows the corners there. WHAT'S OPEN, AND IS WHAT THIS ASKS. What the lane holds (four candidates), what the tab
+     does while morph is off, and where the bank goes when morph turns off.
+
+     WHAT IS REAL. ModBank, CornerChips, XYPad and the Session are the design master's, vendored in arp-face/. The MORPH segment and the four lanes are drawn
+     here, because the master has no third segment yet: a ruling puts it there first (ADR-316). WHAT ISN'T. The corners' names are the master's SAMPLE names,
+     the modulators are two sketches, and nothing is heard. Nothing here edits gui3*, arp-face/ or the master.
+
+     HOUSE RULES. No Math.random and no clock but the Session's frame time. No wheel listener (B301). -->
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="lab-part" content="Presentation">
+<meta name="lab-review" content="GB25 · 2026-11-05">
+<title>Bank morph lane lab — what the MORPH tab holds</title>
+<link rel="stylesheet" href="arp-face/tokens.css">
+<link rel="stylesheet" href="arp-face/bundle.css">
+<style>
+  html, body { background: var(--bg); }
+  body { margin: 0; padding: 20px 16px 60px; color: var(--ink); font: 13px/1.5 var(--font-sans); }
+  .col { max-width: 1012px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+  h1 { font: 800 19px/1.2 var(--font-sans); margin: 0 0 6px; }
+  h2 { font: 800 14px/1.2 var(--font-sans); margin: 0 0 6px; }
+  p { margin: 0 0 6px; max-width: 84ch; }
+  .tagline { color: var(--hint); font-size: 12px; margin-bottom: 8px; }
+  .note { color: var(--hint); font-size: 12px; }
+  .card { border: 1.5px solid var(--ink); border-radius: var(--radius); padding: 12px; background: var(--panel); }
+  .picker { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px; }
+  .picker.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (max-width: 720px) { .picker { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .opt { all: unset; box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; gap: 3px; padding: 8px; border: 1px solid var(--div); border-radius: 4px; }
+  .opt:hover { border-color: var(--ink); }
+  .opt:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .opt[aria-pressed="true"] { border: 2px solid var(--ink); padding: 7px; }
+  .opt b { font: 700 12px/1.25 var(--font-sans); }
+  .opt span { color: var(--hint); font-size: 12px; line-height: 1.35; }
+  /* the mock window: a top bar with two pages and the morph switch, a body, and the foot row's bank at its shell size (302 x 120) */
+  .win { border: 1.5px solid var(--ink); border-radius: var(--radius); background: var(--bg); padding: 8px; display: flex; flex-direction: column; gap: 8px; max-width: 640px; }
+  .top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .tabs { display: flex; gap: 4px; }
+  .tabs button { all: unset; cursor: pointer; padding: 3px 10px; border: 1px solid var(--div); border-radius: 4px; font: 700 11px/16px var(--font-sans); }
+  .tabs button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .tabs button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .body { display: flex; gap: 10px; min-height: 196px; align-items: flex-start; }
+  .padbox { width: 180px; height: 180px; flex: 0 0 180px; }
+  .padbox .hd-xy { width: 100% !important; height: 100% !important; margin: 0 !important; }
+  .dock { display: flex; flex-direction: column; gap: 6px; width: 190px; }
+  .dock .padbox { width: 150px; height: 150px; flex-basis: 150px; }
+  .pagenote { color: var(--hint); font-size: 12px; max-width: 32ch; }
+  #bankHost { width: 302px; height: var(--size-bank-h); }
+  /* the MORPH lane sits where the bank's lanes are; the bank's own lanes, count and + hide while it shows */
+  #bankHost.morph .bk-lanes, #bankHost.morph .bk-side .cl-lab, #bankHost.morph .bk-side .hd-btn { display: none; }
+  .ml { flex: 1 1 auto; min-width: 0; display: flex; gap: 4px; overflow: hidden; }
+  .ml[hidden] { display: none; }
+  .ml .hd-corners { flex: 1 1 auto; gap: 0; }
+  .ml .hd-crow { min-height: 26px; height: 26px; position: relative; }
+  .ml .hd-crow .pick { width: 18px; height: 18px; margin: 0 3px; }
+  .ml .hd-crow .cname { font-size: 11px; }
+  .ml .hd-crow .lock, .ml .hd-crow .rev { width: 18px; height: 18px; }
+  .ml.off { opacity: .45; }
+  .offnote { display: flex; gap: 8px; align-items: center; padding: 5px 8px; font-size: 11px; color: var(--t2); background: var(--panel); border: 1px solid var(--div); border-radius: 4px; }
+  .offnote[hidden] { display: none; }
+  /* B: each row's weight at the puck, as a bar behind the row in the corner's own colour */
+  .ml .wbar { position: absolute; left: 0; top: 2px; bottom: 2px; background: var(--cc); opacity: .18; border-radius: 3px; pointer-events: none; }
+  .ml .wpct { font: 700 10px/1 var(--font-mono, monospace); color: var(--t2); width: 28px; text-align: right; flex: 0 0 auto; }
+  /* C: a save button per row */
+  .ml .save { flex: 0 0 auto; font: 800 8.5px/1 var(--font-sans); padding: 0 5px; height: 18px; }
+  /* D: the mini pad */
+  .mini { flex: 0 0 104px; width: 104px; height: 104px; align-self: center; touch-action: none; cursor: crosshair; }
+  .mini:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+  .ml.d .hd-crow .lock, .ml.d .hd-crow .rev { display: none; }
+  .status { font-size: 12px; color: var(--t2); min-height: 18px; }
+  .checks { font: 11.5px/1.5 var(--font-mono, monospace); color: var(--t2); white-space: pre-wrap; }
+  .checks .bad { color: var(--bad, #f55); }
+  .q li { margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<div class="col">
+  <div>
+    <h1>Bank morph lane lab — what the MORPH tab holds</h1>
+    <div class="tagline">GB25: the bank's third tab, MORPH, on every page; four candidates for its 120 px lane, and how it behaves with morph off. Turning morph on from Main flips to it.</div>
+    <p>You asked for a MORPH tab beside MAC and MODS, showing the corner presets, so Main has them too. It flips over by itself when you turn morph on from Main. That much is ruled (GUI-45); this lab asks the rest.</p>
+    <p class="note">Try it: pick Main, then turn Morph on. The bank flips to MORPH. Go to Osc 1 and turn it off and on: it doesn't flip, because the docked pad already shows the corners there. A corner's chip picks it for editing, as in the dock; drag the pad to see the weights move.</p>
+  </div>
+
+  <div class="card">
+    <h2>1. What the lane holds</h2>
+    <div class="picker" id="lanePick"></div>
+    <h2>2. While morph is off, the MORPH tab…</h2>
+    <div class="picker two" id="offPick"></div>
+    <h2>3. When morph turns off, the bank…</h2>
+    <div class="picker two" id="backPick"></div>
+  </div>
+
+  <div class="win" id="win">
+    <div class="top">
+      <div class="tabs" id="tabs"></div>
+      <label class="hd-row hd-label">Morph <button class="hd-toggle hd-focus" id="morphOn" type="button" role="switch" aria-checked="false" aria-label="Morph on"></button></label>
+    </div>
+    <div class="body" id="body"></div>
+    <div id="bankHost"></div>
+    <div class="status" id="status" role="status"></div>
+  </div>
+
+  <div class="card">
+    <h2>What I'd pick, and why</h2>
+    <p><b>Lane B, dimmed with a switch, and back to the tab you had.</b> B is the dock's rows plus how much of each corner you hear at the puck, which Main otherwise only shows as the puck's place. Saving stays on the Morph page, where its name field and Save all four are. Hiding the tab while morph is off would make the bank's segments change under the hand.</p>
+    <ul class="q">
+      <li><b>Engine impact:</b> none for A, B or D: the corners, their names, the pin and the lock are all state the shell has (GN-34 and GN-37 already ask who keeps it). C's per-row save is GUI-28's save, in a second place.</li>
+      <li><b>FX device (ADR-254):</b> it has a morph and a bank, so the same tab applies there.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h2>Self-check</h2>
+    <div class="checks" id="checks">Running…</div>
+  </div>
+</div>
+<script src="arp-face/bundle.js"></script>
+<script>
+(function main() {
+'use strict';
+const H = window.Horde, $ = id => document.getElementById(id);
+if (!H || !H.Session) { const n = document.createElement('p'); n.className = 'hd-note bad'; n.setAttribute('role', 'alert'); n.textContent = 'The design system did not load (arp-face/bundle.js). Open this lab from docs/design/.'; document.body.prepend(n); return; }
+function h(tag, a, ...kids) {
+  const e = document.createElement(tag);
+  for (const k in (a || {})) { const v = a[k]; if (k === 'class') e.className = v; else if (k === 'text') e.textContent = v; else if (v === true) e.setAttribute(k, ''); else if (v !== false && v != null) e.setAttribute(k, v); }
+  for (const c of kids.flat()) if (c != null) e.append(c);
+  return e;
+}
+const NS = 'http://www.w3.org/2000/svg', svg = (t, a) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); return e; };
+
+// ===== the candidates =====
+const LANES = [
+  ['a', 'A · The dock’s rows', 'The four corner rows the docked pad shows: chip, name, edited mark, lock, revert. One column, 26 px each.'],
+  ['b', 'B · Rows and weights', 'A, plus each corner’s weight at the puck as a bar in its colour and a percent: what you hear of it now.'],
+  ['c', 'C · Rows and save', 'A, plus SAVE on each row: the current sound into that corner (GUI-28’s save, in a second place).'],
+  ['d', 'D · Mini pad and rows', 'A 104 px pad you can drag beside the rows (chip and name). Main already has its pad; this is for the other pages.']
+];
+const OFFS = [['dim', 'Dimmed, with a switch', 'The tab stays. Its rows are dimmed and a “Turn morph on” button sits over them.'], ['hide', 'Hidden', 'The segments read MAC | MODS until morph is on, then MAC | MODS | MORPH.']];
+const BACKS = [['prev', 'Goes back to the tab you had', 'If the flip put you on MORPH, morph off returns you to MAC or MODS.'], ['stay', 'Stays on MORPH', 'The tab stays, dimmed (or hidden, per 2: then it falls back to MODS).']];
+const pick = { lane: 'b', off: 'dim', back: 'prev' };
+function picker(host, list, k) {
+  const bs = list.map(([id, t, d]) => { const b = h('button', { class: 'opt', type: 'button', 'aria-pressed': String(pick[k] === id) }, h('b', { text: t }), h('span', { text: d }));
+    b.addEventListener('click', () => { pick[k] = id; bs.forEach((x, i) => x.setAttribute('aria-pressed', String(list[i][0] === id))); buildLane(); paint(); }); host.append(b); return b; });
+}
+picker($('lanePick'), LANES, 'lane'); picker($('offPick'), OFFS, 'off'); picker($('backPick'), BACKS, 'back');
+
+// ===== the session: SAMPLE corners (the master's names) and two sketched modulators =====
+const CORNER_NAMES = ['Glass horde pad', 'Undertone cathedral', 'Smear and strike', 'Crushed bells'];
+const SOURCES = [{ id: 'lfo1', name: 'LFO 1', kind: 'lfo', f: t => .5 + .5 * Math.sin(t * 2 * Math.PI * .31) }, { id: 'env1', name: 'Env 1', kind: 'env', f: t => { const x = (t % 2.6) / 2.6; return x < .12 ? x / .12 : Math.exp(-(x - .12) * 4.2); } }];
+const S = new H.Session({ x: .38, y: .3, corners: CORNER_NAMES.slice(), sources: SOURCES, mappings: [{ param: 'osc.detune', src: 'lfo1', pol: 'uni', depth: .35 }] });
+const MODS = SOURCES.map(s => ({ id: s.id, name: s.name, kind: s.kind, kindLabel: s.kind.toUpperCase(), group: s.kind }));
+let page = 'main', morph = false, set = 'macros', before = null;   // before: the tab the flip left, for 3's "back"
+S.on(() => { $('status').textContent = S.message || ''; });
+
+// ===== the window =====
+const PAGES = [['main', 'Main'], ['osc1', 'Osc 1']];
+const tabBs = PAGES.map(([id, n]) => { const b = h('button', { type: 'button', text: n, 'aria-pressed': String(id === page) }); b.addEventListener('click', () => go(id)); $('tabs').append(b); return b; });
+function go(id) { page = id; tabBs.forEach((b, i) => b.setAttribute('aria-pressed', String(PAGES[i][0] === id))); body(); }
+function body() {
+  const el = $('body'); el.replaceChildren();
+  if (page === 'main') { const pb = h('div', { class: 'padbox' }); el.append(pb, h('div', { class: 'pagenote', text: 'Main: its pad sits on the page (with morph on), and until now nothing showed the corners’ names.' })); H.XYPad(pb, S); }
+  else if (morph) { const d = h('div', { class: 'dock' }), pb = h('div', { class: 'padbox' }), ch = h('div'); d.append(pb, ch); el.append(d, h('div', { class: 'pagenote', text: 'Osc 1: with morph on, the docked pad and its corners show in the rail.' })); H.XYPad(pb, S); H.CornerChips(ch, S); }
+  else el.append(h('div', { class: 'pagenote', text: 'Osc 1: with morph off, nothing docks.' }));
+}
+function setMorph(on) {
+  morph = on; $('morphOn').setAttribute('aria-checked', String(on));
+  if (on && page === 'main' && set !== 'morph') { before = set; setSet('morph', true); S.say('Morph on: the bank flipped to MORPH'); }
+  else if (!on && set === 'morph') {
+    if (pick.back === 'prev' && before) { setSet(before, true); S.say('Morph off: the bank went back to ' + (before === 'macros' ? 'MAC' : 'MODS')); }
+    else if (pick.off === 'hide') { setSet('mods', true); S.say('Morph off: MORPH is hidden, so the bank shows MODS'); }
+    else S.say('Morph off: the corners are dimmed until it’s on');
+    before = null;
+  } else S.say(on ? 'Morph on' + (page === 'main' ? '' : ': no flip, the docked pad shows the corners here') : 'Morph off');
+  body(); paint();
+}
+$('morphOn').addEventListener('click', () => setMorph(!morph));
+
+// ===== the bank: the master's ModBank, with a third segment drawn here =====
+const bank = H.ModBank($('bankHost'), S, { mods: () => MODS, macros: [1, 2, 3, 4, 5, 6, 7, 8].map(i => ({ id: 'macro' + i, name: i < 5 ? ['Tone', 'Space', 'Time', 'Motion'][i - 1] : 'Macro ' + i, touches: 0 })), keys: () => S.keys,
+  onSet: s => { if (set === 'morph') { set = s; paint(); } else set = s; before = null; } });
+const seg = $('bankHost').querySelector('.hd-bseg'), segM = h('button', { class: 'hd-focus', type: 'button', role: 'radio', text: 'MORPH', title: 'The four morph corners', 'data-set': 'morph' });
+seg.append(segM); seg.setAttribute('aria-label', 'Bank: macros, mods or morph');
+segM.addEventListener('click', () => { before = null; setSet('morph', true); });
+const lane = h('div', { class: 'ml' }); $('bankHost').insertBefore(lane, $('bankHost').querySelector('.bk-pop'));
+function setSet(s, quiet) { set = s; if (s !== 'morph') bank.set(s); paint(); if (!quiet) S.say('Bank: ' + s); }
+function paint() {
+  if (pick.off === 'hide' && !morph && set === 'morph') { set = 'mods'; bank.set('mods'); }
+  segM.hidden = pick.off === 'hide' && !morph;
+  const m = set === 'morph';
+  $('bankHost').classList.toggle('morph', m); lane.hidden = !m;
+  seg.querySelectorAll('button').forEach(b => b.setAttribute('aria-checked', String(m ? b === segM : b !== segM && b.dataset.set === set)));
+  lane.classList.toggle('off', m && !morph);
+  if (offNote) offNote.hidden = !(m && !morph);
+}
+let rowsEl = null, offNote = null, weightEls = [], mini = null;
+function buildLane() {
+  lane.replaceChildren(); lane.className = 'ml ' + pick.lane; weightEls = []; mini = null;
+  if (pick.lane === 'd') { mini = miniPad(); lane.append(mini.el); }
+  rowsEl = h('div'); lane.append(rowsEl); H.CornerChips(rowsEl, S);
+  const rows = [...rowsEl.querySelectorAll('.hd-crow')];
+  if (pick.lane === 'b') rows.forEach(r => { const bar = h('span', { class: 'wbar' }), pct = h('span', { class: 'wpct' }); r.prepend(bar); r.querySelector('.cname').after(pct); weightEls.push([bar, pct]); });
+  if (pick.lane === 'c') rows.forEach((r, i) => { const b = h('button', { class: 'hd-btn hd-sm hd-focus save', type: 'button', text: 'SAVE', title: 'Save the current sound into corner ' + 'ABCD'[i], 'aria-label': 'Save the current sound into corner ' + 'ABCD'[i] });
+    b.addEventListener('click', () => S.say('Saved the current sound into corner ' + 'ABCD'[i] + ' (MOCK: the Morph page asks for a name)')); r.querySelector('.lock').before(b); });
+  offNote = h('div', { class: 'offnote' }, h('span', { text: 'Morph is off' }), (() => { const b = h('button', { class: 'hd-btn hd-sm hd-focus', type: 'button', text: 'Turn morph on' }); b.addEventListener('click', () => setMorph(true)); return b; })());
+  offNote.style.cssText = 'position:absolute;right:10px;top:50%;transform:translateY(-50%);opacity:1'; $('bankHost').append(offNote);
+  [...$('bankHost').querySelectorAll('.offnote')].slice(0, -1).forEach(e => e.remove());
+}
+function miniPad() {
+  const el = svg('svg', { class: 'mini hd-focus', viewBox: '0 0 104 104', tabindex: '0', role: 'slider', 'aria-label': 'Morph pad, small' });
+  el.append(svg('rect', { x: 1, y: 1, width: 102, height: 102, rx: 4, fill: 'var(--well)', stroke: 'var(--ink)', 'stroke-width': 1.5 }));
+  [[8, 8], [96, 8], [8, 96], [96, 96]].forEach(([x, y], i) => el.append(svg('circle', { cx: x, cy: y, r: 5, fill: 'var(--c' + 'ABCD'[i] + ')' })));
+  const pk = svg('circle', { r: 6, fill: 'var(--ink)', stroke: 'var(--bg)', 'stroke-width': 2 }); el.append(pk);
+  const at = e => { const r = el.getBoundingClientRect(); S.pad.x = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)); S.pad.y = Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)); S.emit(); };
+  el.addEventListener('pointerdown', e => { if (e.button) return; el.setPointerCapture(e.pointerId); at(e); });
+  el.addEventListener('pointermove', e => { if (el.hasPointerCapture(e.pointerId)) at(e); });
+  el.addEventListener('keydown', e => { const d = { ArrowLeft: [-.05, 0], ArrowRight: [.05, 0], ArrowUp: [0, -.05], ArrowDown: [0, .05] }[e.key]; if (!d) return; e.preventDefault(); S.pad.x = Math.min(1, Math.max(0, S.pad.x + d[0])); S.pad.y = Math.min(1, Math.max(0, S.pad.y + d[1])); S.emit(); });
+  return { el, draw() { pk.setAttribute('cx', 4 + S.pad.x * 96); pk.setAttribute('cy', 4 + S.pad.y * 96); el.setAttribute('aria-valuetext', 'x ' + S.pad.x.toFixed(2) + ', y ' + S.pad.y.toFixed(2)); } };
+}
+let lastW = '';
+S.add({ render() {
+  const w = S.weights(), k = w.map(v => v.toFixed(3)).join() + pick.lane;
+  if (mini) mini.draw();
+  if (k === lastW) return; lastW = k;
+  weightEls.forEach(([bar, pct], i) => { bar.style.width = (w[i] * 100).toFixed(1) + '%'; pct.textContent = Math.round(w[i] * 100) + ' %'; });
+} });
+buildLane(); body(); paint(); S.start();
+
+// ===== self-check: each rule on the page, then the page back as it opened (a lab left mid-check is a dead lab) =====
+const out = [], line = (ok, msg) => out.push((ok ? 'OK  ' : 'FAILED  ') + msg);
+try {
+  go('main'); setMorph(true); line(set === 'morph' && !lane.hidden, 'Morph on from Main flips the bank to MORPH');
+  setMorph(false); line(set === 'macros', 'Morph off goes back to the tab the flip left (MAC), with 3 on "back"');
+  go('osc1'); setMorph(true); line(set === 'macros', 'Morph on from Osc 1 does not flip');
+  setMorph(false);
+  for (const [id] of LANES) { pick.lane = id; buildLane(); line(lane.querySelectorAll('.hd-crow').length === 4, 'Lane ' + id.toUpperCase() + ' draws four corner rows'); }
+  pick.lane = 'b'; buildLane(); S.pad.x = 0; S.pad.y = 0; lastW = ''; S.views.forEach(v => v.render && v.render(S)); line(weightEls[0][1].textContent === '100 %' && weightEls[3][1].textContent === '0 %', 'Lane B reads corner A at 100 % with the puck in A’s corner (control: D reads 0 %)');
+  pick.off = 'hide'; paint(); line(segM.hidden, 'With 2 on "hidden", MORPH is hidden while morph is off');
+  pick.off = 'dim'; paint(); line(!segM.hidden, 'With 2 on "dimmed", MORPH shows while morph is off');
+} catch (e) { line(false, 'threw: ' + e.message); }
+// back to how it opened: Main, morph off, MAC, lane B, the puck where it was
+S.pad.x = .38; S.pad.y = .3; set = 'macros'; bank.set('macros'); before = null; S.message = '';
+go('main'); morph = false; $('morphOn').setAttribute('aria-checked', 'false'); buildLane(); body(); paint(); lastW = '';
+$('checks').replaceChildren(...out.map(t => h('div', { class: t.startsWith('OK') ? '' : 'bad', text: t })));
+$('status').textContent = 'Ready. Turn Morph on from Main to see the flip.';
+})();
+</script>
+</body>
+</html>

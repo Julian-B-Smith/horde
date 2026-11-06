@@ -48,6 +48,11 @@ constexpr int kDefaultVoices = 4;       // starts light: 8 voices of a heavy pat
 constexpr std::uint32_t kEditQueue = 1024;   // a power of two: the window's edits waiting for the audio thread
 constexpr const char* kDefaultPreset = "Trance jitter";   // one of the lighter patches in the 2026-11-05 worst-block run
 constexpr const char* kStateMagic = "horde-engine-preview 1";
+#ifndef HORDE_PREVIEW_BUILD_LABEL
+#define HORDE_PREVIEW_BUILD_LABEL "engine unknown, build 0"
+#endif
+// Which engine commit and which build this is, so the human can tell test builds apart in Live (window, log, description).
+constexpr const char* kBuildLabel = HORDE_PREVIEW_BUILD_LABEL;
 
 // The rows on the panel. A key the engine doesn't have is skipped, and the smoke test prints how many stood.
 const char* const kExposedKeys[] = {
@@ -149,6 +154,7 @@ struct Plugin {
   std::vector<horde::Event> events;
   std::int32_t next_note_id = 1 << 24;   // above any id a host's own counter reaches in a session
   std::atomic<std::uint64_t> nonfinite{0};
+  std::atomic<std::uint64_t> idle_blocks{0};   // blocks skipped while the engine was silent (OU-4)
   std::atomic<std::uint32_t> last_frames{0};
   std::uint64_t frames_since_callback = 0;
   Stats stats[kBankSize];
@@ -173,8 +179,9 @@ void write_stats(Plugin& s) {
   const std::string temp = s.log_path + ".tmp";
   std::FILE* f = std::fopen(temp.c_str(), "w");
   if (!f) return;
-  std::fprintf(f, "# sample_rate %.0f, last block %u frames, voices %d, non-finite samples zeroed %llu\n", s.sample_rate, s.last_frames.load(std::memory_order_relaxed),
-               s.voices.load(std::memory_order_relaxed), (unsigned long long)s.nonfinite.load(std::memory_order_relaxed));
+  std::fprintf(f, "# %s, sample_rate %.0f, last block %u frames, voices %d, non-finite samples zeroed %llu, idle blocks skipped %llu\n", kBuildLabel, s.sample_rate,
+               s.last_frames.load(std::memory_order_relaxed), s.voices.load(std::memory_order_relaxed),
+               (unsigned long long)s.nonfinite.load(std::memory_order_relaxed), (unsigned long long)s.idle_blocks.load(std::memory_order_relaxed));
   std::fprintf(f, "preset\tsounding_blocks\tmean_pct_of_block\tworst_pct_of_block\toverruns\n");
   for (int i = 0; i < kBankSize; ++i) {
     const Stats& st = s.stats[i];
@@ -450,6 +457,9 @@ clap_process_status plugin_process(const clap_plugin_t* p, const clap_process_t*
     want_callback = true;
   }
   if (proc->audio_outputs_count == 0 || proc->frames_count == 0) return CLAP_PROCESS_CONTINUE;
+  // OU-4: a silent engine outputs exact zero and only its clock moves, so the shell may stop calling it. Measured on
+  // 1ad270a, a silent process() still cost 7 to 13 % of a core per instance (the human heard it as an ambient load);
+  // skip() costs about 0.1 to 0.4 %. Any event or window edit wakes the engine the same block.
   float* left = proc->audio_outputs[0].data32[0];
   float* right = proc->audio_outputs[0].data32[1];
   const std::uint32_t frames = proc->frames_count;
@@ -459,6 +469,20 @@ clap_process_status plugin_process(const clap_plugin_t* p, const clap_process_t*
     return CLAP_PROCESS_CONTINUE;
   }
 
+  const bool quiet_in = (!proc->in_events || proc->in_events->size(proc->in_events) == 0) &&
+                        s.edit_tail.load(std::memory_order_relaxed) == s.edit_head.load(std::memory_order_acquire);
+  if (quiet_in && s.live->engine->silent()) {
+    std::fill_n(left, frames, 0.0f);
+    std::fill_n(right, frames, 0.0f);
+    s.live->engine->skip(frames);
+    s.idle_blocks.fetch_add(1, std::memory_order_relaxed);
+    s.frames_since_callback += frames;
+    if (want_callback || s.frames_since_callback >= std::uint64_t(2 * s.sample_rate)) {
+      s.frames_since_callback = 0;
+      s.host->request_callback(s.host);
+    }
+    return CLAP_PROCESS_CONTINUE;
+  }
   const int preset = s.live->preset;
   const bool was_silent = s.live->engine->silent();
   const auto t0 = std::chrono::steady_clock::now();
@@ -753,8 +777,9 @@ const void* plugin_get_extension(const clap_plugin_t*, const char* id) {
 // ---- factory ---------------------------------------------------------------------------------------------------
 const char* const kFeatures[] = {CLAP_PLUGIN_FEATURE_INSTRUMENT, CLAP_PLUGIN_FEATURE_SYNTHESIZER, CLAP_PLUGIN_FEATURE_STEREO, nullptr};
 const clap_plugin_descriptor_t kDescriptor = {
-    CLAP_VERSION, "com.mind-lathe.horde.engine-preview", "horde ENGINE PREVIEW", "Mind Lathe", "", "", "", "0.0.1",
-    "A throwaway test build of horde's new engine: sound and CPU only.", kFeatures};
+    // The brand is one word, "Mindlathe", in every host (autonomous doctrine CONVENTIONS, Decision 80); the AU already said so.
+    CLAP_VERSION, "com.mindlathe.horde-engine-preview", "horde ENGINE PREVIEW", "Mindlathe", "", "", "", "0.0.1",
+    "A throwaway test build of horde's new engine: sound and CPU only. " HORDE_PREVIEW_BUILD_LABEL, kFeatures};
 
 std::uint32_t factory_count(const clap_plugin_factory_t*) { return 1; }
 const clap_plugin_descriptor_t* factory_descriptor(const clap_plugin_factory_t*, std::uint32_t index) { return index == 0 ? &kDescriptor : nullptr; }
@@ -812,6 +837,7 @@ void edit(void* plugin, clap_id id, double host_value) {
   if (s.host_params && s.host_params->request_flush) s.host_params->request_flush(s.host);
 }
 void*& gui_slot(void* plugin) { return static_cast<Plugin*>(plugin)->gui; }
+const char* build_label() { return kBuildLabel; }
 }  // namespace preview
 
 extern "C" {
