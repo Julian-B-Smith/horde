@@ -1,4 +1,4 @@
-/* vendored from the horde Design System artifact, version 1793909482-958b, 2026-11-05; do not edit, re-vendor */
+/* vendored from the horde Design System artifact, version 1793941176-071d, 2026-11-05; do not edit, re-vendor */
 @import url("https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;800&family=Roboto+Mono:wght@400;500;600&display=swap");
 /* horde house components. Every colour is a token (tokens.json); nothing here is a hex.
    Sources: UI Spec §3-4 (values), gui2.html §4 skins, the SCALPEL lab (980×720 chassis),
@@ -1332,6 +1332,7 @@ canvas.hd-ring { outline:none; }
 .hd-bladeview { display:flex; flex-direction:column; gap:3px; min-width:0; }
 .hd-bladeview .bv-tools { display:flex; align-items:center; gap:6px; min-width:0; }
 .hd-bladeview .bv-leg { flex:0 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.hd-bladeview .bv-tools > :first-child, .hd-bladeview .bv-tools > :first-child .hd-pills { flex:none; flex-wrap:nowrap; }   /* GUI-49: four views stay on one row; the legend gives up its width instead (it ellipsizes) */
 .hd-bladeview .bv-hint { margin-left:auto; flex:none; white-space:nowrap; }
 .hd-bladeview .bv-map { display:flex; flex-wrap:wrap; align-items:center; gap:2px 10px; }
 .hd-bladeview .bv-map[hidden] { display:none; }
