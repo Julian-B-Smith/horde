@@ -12204,3 +12204,76 @@ The lead proposed: a lab for the morph's open questions; the morph built before 
 **What follows (B633).** The modulation spec reaches the clean room only when three things are settled: B396's five questions, the three new modulators' labs, and the MPE channels' bend range, which is B504's per-patch setting. Meanwhile the lead folds these rulings into the draft on #1424.
 
 **FX device (ADR-254).** The FX device hosts the same matrix over audio input (B528). It has notes only when MIDI is routed to it, so per-note LFOs, keytrack and MPE have nothing to follow without MIDI, and global LFOs are its default. Per-corner mappings carry over as the morph does (B616). The modulators' host-id block is append-only, so a second shell exposes it unchanged.
+
+**ADR-371 A1 (the human, 2026-11-06, by poll): the draft's remaining gaps, and two approvals.** When the rulings were folded into the draft (#1424), it found gaps that ADR-371 left open (its T11). The human answered:
+- **A synced LFO has a start-phase knob,** 0 to 360 degrees, which offsets its wave against the song's grid.
+- **Envelope mode's end:** the LFO holds its last point. At note-off that held value falls to zero along Osc 1's envelope release. The human's words: "Holds its last point and then follows the release of Osc 1." The lead's reading, confirmed by poll: "at note-off, the held value falls to zero along Osc 1's envelope release."
+- **A global LFO may use envelope mode.** Any new note restarts it.
+- **A new route starts linear.**
+- **GN-40's modulation question is answered** (the labs facilitator's poll, relayed): an Exempt control still takes modulation ("Yes, still modulated"). MD-59 stands as ruled. GN-40's other three readings wait for the morph round.
+- **The Map Mode spec may say per corner.** The human, asked whether the protected `docs/design-system/HORDE-Map-Mode-Spec.md` may change its "routes global for 1.0" to per corner, answered "Yes, edit it". The GUI session made that one edit (GUI-51, its own PR).
+
+Two readings, the lead's, open to overrule:
+- **Pitch bend and MPE per-note bend start bipolar,** as their natural shape (MQ13's principle). Every other keyboard source starts unipolar.
+- **IF-3 must publish per-note bend and lift,** since they are sources (MQ11).
+
+## ADR-372 — RULED by the human: the corner-mapping lab's five questions; loop strictness is a per-patch setting (B396 closed, B633)
+
+**Context.** MQ17 (ADR-371) made per-corner mappings part of 1.0. The labs facilitator put the corner-mapping lab (`docs/design/corner-mapping-lab.html`, B396) to the human live, 2026-11-06.
+
+**Rulings.**
+1. **A mapping that only some corners have, or on which corners disagree, fades with the corner** under Blend (the lab's "mix"). Each corner's mapping counts by its weight, so opposite polarities cancel in the middle and the mapping comes back inverted past it.
+2. **A depth wire stops at zero** (as MQ7 ruled). ADR-266 is kept: depth is a magnitude, and the polarity carries the sign.
+3. **Loops between corners are a setting.** The human: "Let's make this a setting." It has three modes: "Refuse any possible loop", "Refuse only inside a corner" and "Allow, one step late". It is **saved per patch**, so a preset carries its own mode. **A new patch defaults to "Allow, one step late".**
+4. **A preset loaded into a corner that would close a loop** (only under the two refusing modes): the human said "Load it minus the mapping but with a warning". The load goes through without that mapping, and the page names what it dropped.
+5. **The pad follows the loop setting.** Under the two refusing modes it counts as part of a loop. Under Allow it is read one step late. This option was the facilitator's, not the lab's; the human chose it.
+
+**The lab is closed** (the human, by poll: "Close it"). Its design consequences are the GUI session's GUI-53: GN-53 covers the setting and the load warning.
+
+**Armor note (the lead's, for B633).** The default, Allow, is the mode the lab says "can run wild". Its loops are bounded by construction: every target clamps to its own range, and a loop is read one control step late, so it cannot run away within a step. It can still oscillate at the control rate. The modulation spec round must state that bound and give it an oracle: a Layer-0 check that a worst-case allowed loop keeps every target in range, with a must-fail control. Under Blind-Spot Armor it is a named gate, not prose.
+
+**FX device (ADR-254).** The FX device carries the same setting with the same default, because its matrix is horde's.
+
+## ADR-373 — RULED by the human: the morph's ruled gaps and round 61's questions (B631)
+
+**Context.** The morph questions lab (GB29, #1423) put eight questions to the human, relayed by the GUI session (GUI-51): waypoint limits, pins across a mode change, region locks, X and Y as host parameters, mappings per corner, RAMPS, corner presets and Save current sound. Drafting round 61 from them left nine more questions, which the lead put to the human by poll, 2026-11-06.
+
+**The lab's rulings** (GUI-51; the round's text states them):
+- **Waypoints:** at most 8 per setting and 64 per patch, stored in order. Pins stay dormant under Quantum or Stepped and act again in Blend.
+- **A region lock keeps only the region's shape.** A corner edit still changes the locked setting's values inside its regions.
+- **X and Y are host parameters.**
+- **Mappings are per corner** (ADR-371 MQ17).
+- **RAMPS is dropped.** There are two kinds, Morphable and Structural.
+- **Corner presets come from both places:** the patch's own corners first, then a user library shared by every patch.
+- **Save current sound stores what you hear,** every setting, with the offsets baked.
+
+**The round's questions, answered by poll.**
+1. **Waypoints at Count Two are dormant.** The plain two-value blend plays.
+2. **A circular key takes no waypoints.**
+3. **Making a key Exempt keeps its pins and lock dormant,** so they return with Follow.
+4. **The waypoint law and Clamp are page choices,** saved per patch and never automated.
+5. **Save during a glide stores the glided value you hear now.**
+6. **Save bakes only the macro and X/Y offsets.** LFO and envelope modulation keeps moving around the saved value.
+7. **Save during a structural blend stores the heavier setting,** and the page notes what it couldn't keep as a mix. A corner never holds a mix (IF-4 unchanged).
+8. **Save on an Exempt key with a macro offset writes the pushed value into all four corners.**
+9. **The puck starts at corner A,** (0, 0), the legacy default.
+
+**What follows.** Round 61 (branch `b631-round-61`) takes these answers. The X and Y rows land together with the GUI session's layout placement of the two knobs, because the controls gate reads red on a host parameter with no page. `started_at` in IF-10 counts on the engine's sample clock from reset, as `VoiceView::start_sample` does (the lead's reading, for the test author to confirm).
+
+**FX device (ADR-254).** The morph carries over as B616 says, with the same state members.
+
+## ADR-374 — RULED by the human: Random's low end, the oscillators and a pitch envelope by convention (B578)
+
+**Context.** Playing the test plug-in, the human, 2026-11-06: "randomizing almost always makes a limp noisy twang at low volume. I think we'll need to be methodical about the chaos curve and what kinds of patches get generated at the low end of it."
+
+**Rulings.**
+1. **Randomizing one oscillator never changes its on/off switch.**
+2. **In a random patch, osc 1 is always on, except that sometimes only the sub is on. Osc 2 is never the only source.** The human: "osc 1 should always be on for random patches, or at least osc 2 should never be alone - maybe sometimes just the sub osc can be on."
+3. **Random leaves alone the settings of an oscillator the draw leaves off.** They make no sound.
+4. **At low chaos, blades are rare, and when they appear they lean toward low values and simple features.**
+5. **ENV 4 is the pitch envelope by convention, not exclusively** (chosen by poll). Random gives it a tight decay and often maps it to pitch.
+6. **The chaos curve's low end is worked out methodically.** This is ADR-342's open simplicity-prior tuning, now extended to the oscillators.
+
+**Consequences.** The GUI session builds 1 to 5 in the Random page and records them as GUI-n. Rule 6 is a tuning session with listening batches (Blind-Spot Armor: a capped batch, not interruptions). Nothing reaches the engine. If the factory bank's convention for ENV 4 needs an engine default, it is an ENGINE-NEEDS row.
+
+**FX device (ADR-254).** None: the FX device has no oscillators. ADR-342's FX-side rules stand.
