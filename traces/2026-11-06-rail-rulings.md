@@ -20,4 +20,9 @@
 - B28 (closed by D2, per the lab) and B133 (the rail moves after 1.0) are the lead's rows. The lead has the same text.
 - Whether the lab closes or stays pinned as the rail's bench is the human's call.
 
+**A second commit (the human: "Keep as the rail's bench", through the Labs facilitator).**
+- The lab's review pin is off, and nothing else in the lab changed.
+- The ledger note, GB17 and GUI-56's lab paragraph now say the lab is kept as the rail's bench after 1.0.
+- The index is regenerated.
+
 **Verify.** `./verify fast` on the commit this trace ships in.

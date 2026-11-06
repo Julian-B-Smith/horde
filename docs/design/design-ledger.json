@@ -363,7 +363,7 @@
   "morph-rail-lab.html": {
    "status": "ruled",
    "adr": "GUI-56",
-   "note": "GB17. The human answered all four (2026-11-06, through the Labs facilitator): rails drawn three ways, the puck scrubs the rail, distribution is D2's share bars in 1.0, and the rail is after 1.0 on every XY pad. It stays as the rail's starting bench until the human says whether it closes."
+   "note": "GB17. The human answered all four (2026-11-06, through the Labs facilitator): rails drawn three ways, the puck scrubs the rail, distribution is D2's share bars in 1.0, and the rail is after 1.0 on every XY pad. Kept as the rail's bench for the rounds after 1.0 (the human, 2026-11-06, through the Labs facilitator); its review pin is off."
   },
   "morph-law-bench.html": {
    "status": "retired",

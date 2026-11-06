@@ -11926,7 +11926,7 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 - The lab marks B28's design question closed by D2. B28 is the lead's row, so closing it is the lead's.
 - B133's rail moves after 1.0, also the lead's.
 
-**The lab.** It is ruled (GUI-56) and stays in the tree as the rail's starting bench. Whether it closes, or stays pinned as that bench, is the human's call (proposed in GB17).
+**The lab.** It is ruled (GUI-56). The human keeps it as the rail's bench for the rounds after 1.0 (2026-11-06, through the Labs facilitator: "Keep as the rail's bench"), and its review pin is off.
 
 **Engine impact.** GN-31, whose need narrows to "nothing new for distribution; the rail after 1.0".
 
