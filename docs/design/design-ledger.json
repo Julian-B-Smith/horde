@@ -7561,6 +7561,10 @@
    "reason": "Random's draw rules; the Random page's design is unchanged, and the GUI session records the build as GUI-n."
   },
   {
+   "adr": "ADR-375",
+   "reason": "The modulators' behaviour, ruled from the modulator lab; their cards' design is the GUI session's."
+  },
+  {
    "adr": "GUI-44",
    "reason": "A gate: GUI 3's browser check wired into ./verify fast, a hole where there's no browser. No design element."
   }

@@ -12279,3 +12279,16 @@ Two readings, the lead's, open to overrule:
 **FX device (ADR-254).** None: the FX device has no oscillators. ADR-342's FX-side rules stand.
 
 **ADR-374 A1 (the human, 2026-11-06, by poll): the envelope selector under Random.** The GUI session found a likely cause of the twang. Random may move a source's `env` selector to any other envelope, now including the tight ENV 4, so the note goes short. The human, verbatim: "How about at low to moderate chaos, the envelope assignment doesn't change, but it becomes more possible (maybe still bounded) at the upper end." At low and moderate chaos a source's `env` selector never changes. Toward the top of the range the chance of a change rises, possibly capped. The threshold and any cap are named stand-ins for the chaos-curve tuning (B634 item 6). The GUI session's other finding is that every on/off switch flipped at Amount 1, whatever the chaos; rules 1 and 2 cover that.
+
+## ADR-375 — RULED by the human: the three new modulators' big calls (B540, B126, B226; B633)
+
+**Context.** ADR-371's MQ12 admitted ORBITAL, the Kuramoto LFO and the 2-D random source to 1.0, each after its lab ruling. The labs facilitator put the modulator lab (`docs/design/shape-lab-mod.html`) to the human, 2026-11-06, after checking that it loads and plays. The human chose to rule the calls that change the sound and leave the fine details (units, ranges, trigger semantics) to the lead to propose as defaults.
+
+**Rulings.**
+- **The 2-D random (B540):** all three modes ship in 1.0: Walk, Jump and Scatter. The human, verbatim: "There also needs to be a way to turn glide all the way off so it just jumps between points, while I like the glide options as well." So the travel setting gets a zero that steps straight to the new point, beside the glide and spring laws. **In tempo it locks to the bar**, timed from the transport's bar 1, not from its own replay start.
+- **ORBITAL (B126):** **each preset's speed and energy outputs are scaled to a fixed full range** ("Yes, per preset"), as was ruled for acceleration, so they are audible without extra gain. This changes SPEC-ORBITAL §4's reading. Still to be put to the human: the speed thermostat and the edge cushion (B126's open items), and how the source count (8 bodies × 5 observables) meets the matrix's slots.
+- **The Kuramoto LFO (B226):** in 1.0 as it is ("Yes, as is").
+
+**What follows.** The lead proposes defaults for the lab's fine questions, and the facilitator puts any the human wants to hear to them. B633's item (2) closes when ORBITAL's open items are ruled.
+
+**FX device (ADR-254).** The FX device hosts the same modulators. The 2-D random's bar lock and ORBITAL's scaling carry over unchanged.
