@@ -34,7 +34,7 @@
 <div id="banner"></div>
 <div class="bar">
   <span>Preset</span><button id="prev">&lt;</button><select id="preset"></select><button id="next">&gt;</button>
-  <span style="margin-left:auto">Voices</span><select id="voices"></select>
+  <span style="margin-left:auto">Polyphony</span><select id="voices"></select>
 </div>
 <main>
   <div id="rows"></div>
@@ -81,8 +81,9 @@
     sliders[r.key] = { input: s, text: v };
   });
 
-  for (var i = 1; i <= 16; i++) { var o = document.createElement('option'); o.value = i; o.textContent = i; $('voices').appendChild(o); }
-  $('voices').addEventListener('change', function () { send({ type: 'plugin', voices: Number($('voices').value) }); });
+  // Polyphony is the engine's voice.polyphony, the one voice control: 1 to 64 voices, sent in v like any row.
+  for (var i = 1; i <= 64; i++) { var o = document.createElement('option'); o.value = i; o.textContent = i; $('voices').appendChild(o); }
+  $('voices').addEventListener('change', function () { send({ type: 'set', values: { 'voice.polyphony': (Number($('voices').value) - 1) / 63 } }); });
   $('preset').addEventListener('change', function () { send({ type: 'preset', index: Number($('preset').value) }); });
   $('prev').addEventListener('click', function () { send({ type: 'preset', index: Math.max(0, Number($('preset').value) - 1) }); });
   $('next').addEventListener('click', function () { send({ type: 'preset', index: Math.min($('preset').options.length - 1, Number($('preset').value) + 1) }); });
@@ -103,7 +104,8 @@
       }
       sel.value = s.presets.index;
     }
-    if (s.plugin) { $('voices').value = s.plugin.voices; $('build').textContent = s.plugin.build; }
+    if (s.plugin) $('build').textContent = s.plugin.build;
+    if (s.params && 'voice.polyphony' in s.params) $('voices').value = Math.round(s.params['voice.polyphony'] * 63) + 1;
     if (s.params) {
       for (var k in s.params) {
         var sl = sliders[k]; if (!sl || k === dragging) continue;

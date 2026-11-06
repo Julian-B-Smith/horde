@@ -49,6 +49,7 @@ struct Want {
   bool osc[2] = {true, true};   // which oscillators' parts the page draws (want.osc names them 1 and 2)
   bool members = false;         // members' phases and levels
   bool cycles = false;          // GN-41's member cycles: the engine has none yet, so this slice never sends them
+  bool summed = false;          // GN-4's summed output, the plug-in's own tap (B632): observe.summed
 };
 
 enum class Kind {
@@ -77,7 +78,7 @@ struct Message {
   std::string gesture_key;
   Want want;                           // Want
   int index = -1;                      // Preset
-  int voices = -1;                     // Plugin
+  int voices = -1;                     // Plugin: an old page's Voices, which the plug-in holds and drops
   bool has_hash = false;               // Hello
   std::string page_hash, page_manifest;   // Hello: the page's hash, and its manifest text if it sent one
 };
@@ -94,11 +95,11 @@ struct Mismatch {
 Mismatch check_hello(const Message& hello, const std::string& engine_hash, const std::string& engine_text);
 
 // ---- the saved state ("current settings only", section 6 ruling 2) ----------------------------------------------
-// The existing magic-line text, version 2: the preset, Voices, and every engine row whose v differs from what that
-// preset loads, by id. Version 1 (every exposed row, absolute) reads the same way: each line is a value to apply.
+// The existing magic-line text, version 2: the preset and every engine row whose v differs from what that preset
+// loads, by id. Version 1 (every exposed row, absolute) reads the same way: each line is a value to apply. A `voices`
+// line, which both versions wrote until the human ruled "One control: Polyphony" (2026-11-05), is read and ignored.
 struct SavedState {
   int preset = 0;
-  int voices = 0;
   std::vector<std::pair<std::uint32_t, double>> values;   // id, v
 };
 extern const char* const kStateMagic1;
@@ -108,6 +109,11 @@ bool read_state(std::string_view text, SavedState& out);   // false: not ours, a
 // The rows of `current` that differ from `loaded` (both indexed like `ids`), as (id, v).
 std::vector<std::pair<std::uint32_t, double>> differences(const std::vector<std::uint32_t>& ids, const std::vector<double>& current,
                                                           const std::vector<double>& loaded);
+
+// ---- the polyphony cap (the plug-in's own rule; preview_plugin.cpp kPolyphonyCap) --------------------------------
+// v for a stepped row of consecutive integers (voice.polyphony) as a load leaves it: `v` unchanged when its count is at
+// most `cap`, else the option holding `cap`.
+double capped_count_v(const horde::ParamInfo& row, double v, int cap);
 
 // ---- snapshots to the page --------------------------------------------------------------------------------------
 // A voice's note, from the plug-in's own note events (the engine's GUI frame has no note or gate).
@@ -122,6 +128,8 @@ struct NoteSlot {
 //   {sounding, voices: [{level, env: [4 stages], notes: {key, vel, gate}, osc: [{R, psi, frame, phases, levels,
 //    blades: [{pos, width}]}]}], meters: {osc1, osc2, sub, noise, out: {peak, clip}}, latches: {clip, nonFinite},
 //    counters: {IF-9's}}
+// plus, only when want.summed asks (B632; section 3 has no shape for it, so this is the simplest): summed: {rate,
+// samples: [..]}, the plug-in's own output, mono ((L + R) / 2), the newest window, every 16th sample.
 struct FrameInputs {
   const horde::GuiFrame* frame = nullptr;   // the engine's latest RC-8 frame, or null before its first
   bool engine_silent = true;                // OU-4, as the audio thread last saw it
@@ -129,6 +137,9 @@ struct FrameInputs {
   int unison[2] = {horde::kMaxMembers, horde::kMaxMembers};   // members to send per oscillator
   bool out_tapped = false;                  // the plug-in's own output peak since the last frame, when it has one
   float out_peak = 0;
+  const float* scope = nullptr;             // GN-4: the summed output's window, when `want.summed` asked and there is one
+  int scope_n = 0;
+  double scope_rate = 0;                    // samples per second of that window
 };
 std::string observe_json(const FrameInputs& in, const Want& want);
 
@@ -140,8 +151,7 @@ struct Pieces {
   std::string events;                                      // a JSON array, or empty
   const std::vector<std::string>* preset_names = nullptr;
   int preset_index = -1;
-  int voices = -1;                                         // `plugin`: the test plug-in's Voices (the read side of the
-  const std::string* plugin_build = nullptr;               // `plugin` message) and the build label, which ride together
+  const std::string* plugin_build = nullptr;               // `plugin`: the build label
   const std::string* state = nullptr;
   const std::string* build = nullptr;                      // the hello reply's build label
   const std::string* engine_hash = nullptr;                // the hello reply's manifest hash
