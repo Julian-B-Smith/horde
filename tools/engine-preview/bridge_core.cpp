@@ -211,6 +211,7 @@ Message parse_message(std::string_view json, const KeyMap& keys) {
     }
     if (doc.hasObjectMember("members") && doc["members"].isBool()) m.want.members = doc["members"].getBool();
     if (doc.hasObjectMember("cycles") && doc["cycles"].isBool()) m.want.cycles = doc["cycles"].getBool();
+    if (doc.hasObjectMember("summed") && doc["summed"].isBool()) m.want.summed = doc["summed"].getBool();
   } else if (m.type == "preset") {
     m.kind = Kind::Preset;
     double n = 0;
@@ -416,8 +417,20 @@ std::string observe_json(const FrameInputs& in, const Want& want) {
   const horde::Counters c = f ? f->counters : horde::Counters{};
   out += "},\"counters\":{\"memberSamples\":" + std::to_string(c.member_samples) + ",\"edgesCorrected\":" + std::to_string(c.edges_corrected) +
          ",\"edgesLeftOver\":" + std::to_string(c.edges_left_over) + ",\"envelopeSteps\":" + std::to_string(c.envelope_steps) +
-         ",\"voicesSounding\":" + std::to_string(sounding ? c.voices_sounding : 0u) + "}}";
-  return out;
+         ",\"voicesSounding\":" + std::to_string(sounding ? c.voices_sounding : 0u) + "}";
+  if (want.summed && in.scope) {
+    out += ",\"summed\":{\"rate\":";
+    put_num(out, in.scope_rate);
+    out += ",\"samples\":[";
+    char b[24];
+    for (int k = 0; k < in.scope_n; ++k) {
+      // Nine digits: a float reads back exactly, so a test can hold the window to the output sample for sample.
+      std::snprintf(b, sizeof b, "%s%.9g", k ? "," : "", std::isfinite(in.scope[k]) ? double(in.scope[k]) : 0.0);
+      out += b;
+    }
+    out += "]}";
+  }
+  return out + "}";
 }
 
 std::string snapshot_json(const Pieces& p) {

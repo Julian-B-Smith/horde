@@ -1,20 +1,23 @@
 // horde ENGINE PREVIEW (B624): a thin CLAP around the clean-room engine, so the human can play it in Live and we
 // can see what it costs there. Throwaway on purpose: it isn't the B398 shell and owes none of ADR-186 §5's rules.
 // Its window is GUI 3's page in a web view (preview_webview.mm, B628), or the small AppKit one (preview_gui.mm) when
-// built with HORDE_PREVIEW_WEBVIEW=OFF. No filters, effects, modulation matrix, glide or pitch bend: the engine has
-// none of them yet.
+// built with HORDE_PREVIEW_WEBVIEW=OFF. No filters, effects, modulation matrix or morph: the engine has none of them
+// yet. Pitch bend and the bank's glide are played here, a stand-in for the pitch system (RC-3) until B504 (B632).
 //
-// Four choices worth keeping in mind before changing this file:
-// - At most 64 host parameters. Live gives a plug-in with up to 64 a panel of sliders automatically; above that the
-//   panel opens empty and is filled by touching controls in the plug-in's window. So 47 rows plus Preset are host
-//   parameters: 48, since the separate Voices limit went (the human, 2026-11-05: "One control: Polyphony"). Every
-//   engine row has a shadow v besides (the page and the saved state read it); a row outside the 47 can be set from the
-//   page but isn't host-automatable.
+// Five choices worth keeping in mind before changing this file:
+// - Every non-reserved engine row is a host parameter (317, plus Preset; B632, ADR-370), under the engine's own id.
+//   Live gives a plug-in of more than 64 an empty panel that fills as controls in the plug-in's window are touched,
+//   which the page's gestures do. Polyphony is the one voice control (the human, 2026-11-05).
 // - A preset change builds a whole new engine on the main thread and hands it to the audio thread. load_state and
 //   prepare aren't real-time (RT-1), and the swap keeps the audio thread free of them. Sounding notes stop at the swap.
 // - The saved chunk is the preset's index and the rows that differ from what the preset loads, not the
 //   engine's state text. It stays small (large chunks make hosts drop state silently), and it never reads the engine
 //   from the main thread while audio runs.
+// - Pitch (B632): a stand-in for the pitch system (RC-3), MIDI pitch bend at a fixed +/-2 semitones and each preset's
+//   glide exactly as 10.3 states it for the phrases (the law below, after tests/wasm/item15b.mjs). A note's pitch is
+//   taken over only once it glides or is bent; until then the engine plays it 12-TET itself, tuning expression included.
+//   A moving pitch goes in at audio rate through IF-2's pitch stream, not as an event per sample, which would cut the
+//   engine into one-sample segments for the whole glide.
 // - GUI 3's bridge (bridge_core.h, B628) runs on the main thread. Page messages reach audio through the same lock-free
 //   edit queue as the window's edits, each message closed by an acknowledgement entry, so the audio thread publishes
 //   the last applied seq in order. Frames read the engine's RC-8 snapshot, which any thread may read.
@@ -47,7 +50,6 @@ namespace {
 
 // kPresetId (preview_gui.h) sits above the engine's id range: IF-11 keeps its ids below 0xB00000.
 using preview::kPresetId;
-constexpr int kMaxRows = 63;   // + Preset = Live's 64
 constexpr int kMaxVoices = 64;
 constexpr int kMaxRouteKeys = 8;
 constexpr int kMaxTargets = 16;
@@ -60,7 +62,8 @@ constexpr int kPolyphonyCap = 8;
 // A power of two: edits waiting for the audio thread. A page `set` can carry every engine row at once (a preset morph,
 // a load), about 330 entries, and a message goes in whole or waits, so this holds a dozen of those.
 constexpr std::uint32_t kEditQueue = 4096;
-constexpr int kNoteRing = 128;          // recent note-ons, by note id, for the page's notes (a power of two)
+constexpr int kNoteRing = 128;
+constexpr std::uint64_t kScopeRing = 8192, kScopeWindow = 2048, kScopeStep = 16;   // a power of two; 128 points a frame          // recent note-ons, by note id, for the page's notes (a power of two)
 constexpr const char* kDefaultPreset = "Trance jitter";   // one of the lighter patches in the 2026-11-05 worst-block run
 #ifndef HORDE_PREVIEW_BUILD_LABEL
 #define HORDE_PREVIEW_BUILD_LABEL "engine unknown, build 0"
@@ -68,26 +71,16 @@ constexpr const char* kDefaultPreset = "Trance jitter";   // one of the lighter 
 // Which engine commit and which build this is, so the human can tell test builds apart in Live (window, log, description).
 constexpr const char* kBuildLabel = HORDE_PREVIEW_BUILD_LABEL;
 
-// The rows on the panel. A key the engine doesn't have is skipped, and the smoke test prints how many stood.
-const char* const kExposedKeys[] = {
-    "voice.mode", "voice.gravity", "env1.attack", "env1.decay", "env1.sustain", "env1.release",
-    "mix.osc1", "mix.osc2", "mix.sub", "mix.noise", "out.level", "voice.quality", "quality",
-    "osc1.on", "osc1.unison", "osc1.detune", "osc1.coupling", "osc1.driftDepth", "osc1.width", "osc1.crossMod", "osc1.feedback",
-    "osc1.blade1.on", "osc1.blade1.mode", "osc1.blade1.wave", "osc1.blade1.cut", "osc1.blade1.position", "osc1.blade1.width",
-    "osc1.blade1.edges", "osc1.blade1.depth", "osc1.blade1.fmDepth", "osc1.blade1.modRate",
-    "osc1.blade2.on", "osc1.blade2.mode", "osc1.blade2.wave", "osc1.blade2.cut", "osc1.blade2.position", "osc1.blade2.width",
-    "osc1.blade2.edges", "osc1.blade2.depth", "osc1.blade2.fmDepth", "osc1.blade2.modRate",
-    "osc2.on", "osc2.unison", "osc2.detune", "osc2.coupling", "sub.on", "sub.drive", "noise.on",
-};
-
-// Every manifest row (the shadow, the page and the saved state), and the host rows among them. Built once on the main
-// thread at init, read-only after, so the audio thread reads it freely.
+// Every manifest row (the shadow, the page and the saved state), and the host rows among them: since B632 every
+// non-reserved row, in manifest order, under the engine's own id, so automation written today still finds its row when
+// the manifest grows (ids are append-only, IF-11). Built once on the main thread at init, read-only after, so the audio
+// thread reads it freely.
 struct Rows {
   std::vector<const horde::ParamInfo*> all;   // the manifest, in its ascending id order
   std::vector<double> default_v;              // per manifest row: the manifest's defaults as v
-  std::vector<int> host_of;                   // per manifest row: its host row, or -1
-  const horde::ParamInfo* row[kMaxRows] = {};   // the host rows
-  int at[kMaxRows] = {};                        // a host row's manifest index
+  std::vector<int> host_of;                   // per manifest row: its host row, or -1 (reserved)
+  std::vector<const horde::ParamInfo*> row;   // the host rows
+  std::vector<int> at;                        // a host row's manifest index
   int count = 0;
   std::string hash, text;                     // the manifest hash (section 3) and the text it hashes
 };
@@ -97,13 +90,11 @@ const Rows& rows() {
     Rows t;
     for (std::size_t i = 0; i < horde::manifest_size(); ++i) t.all.push_back(&horde::manifest_param(i));
     t.host_of.assign(t.all.size(), -1);
-    for (const char* key : kExposedKeys) {
-      const horde::ParamInfo* p = horde::find_param(key);
-      if (!p || p->reserved || t.count >= kMaxRows) continue;
-      const int m = int(std::find(t.all.begin(), t.all.end(), p) - t.all.begin());
-      t.at[t.count] = m;
-      t.host_of[std::size_t(m)] = t.count;
-      t.row[t.count++] = p;
+    for (std::size_t m = 0; m < t.all.size(); ++m) {
+      if (t.all[m]->reserved) continue;   // not a host parameter in 1.0 (5.1): the engine refuses a Param to it
+      t.host_of[m] = t.count++;
+      t.at.push_back(int(m));
+      t.row.push_back(t.all[m]);
     }
     auto probe = horde::make_engine();   // the manifest's defaults as v, which ParamInfo gives only in units
     for (const auto* p : t.all) t.default_v.push_back(probe->param_v(p->id));
@@ -149,6 +140,8 @@ struct Slot {
   std::uint32_t key_id[kMaxRouteKeys] = {};
   int n_keys = 0;
   double env_velocity[2] = {1, 1};
+  double glide_s = 0;          // B.1's glide and glideAlways, played by the pitch stand-in (B632)
+  bool glide_always = false;
   std::uint64_t ci = 29;
   std::uint64_t counter[kMaxVoices] = {};
   double last[kMaxVoices][kMaxRouteKeys] = {};
@@ -209,6 +202,34 @@ struct Session {
   std::string out;               // the last frame's text, alive until the next
 };
 
+// The pitch stand-in's notes and bend (B632). Audio thread only; nothing here allocates once built.
+constexpr int kPitchNotes = 64;     // notes followed, newest first: an older one past this is forgotten
+constexpr int kPitchStreams = 16;   // notes gliding at once
+constexpr int kBendChanges = 64;    // bend messages in one span
+constexpr double kBendSemitones = 2;   // fixed, until B504's per-patch bend range
+struct PitchNote {
+  std::int32_t id = -1;
+  std::int16_t key = -1, channel = -1;
+  double tuning = 0;           // semitones, the note's tuning expression (IF-2: folded in once we set the pitch)
+  double f = 0;                // its 12-TET pitch, as the engine computes it (Note::hz), so a takeover changes nothing
+  double from = 0;             // where its glide starts; 0: it doesn't glide
+  std::uint64_t at = 0;        // its note-on on the engine's sample clock
+  bool held = false, gliding = false, taken = false, live = false;
+};
+struct BendChange { std::uint32_t sample; int channel; double semitones; };
+struct Pitch {
+  PitchNote notes[kPitchNotes];
+  int next = 0, last = -1;     // the next slot to fill; the most recently started note
+  double bend[16] = {};        // semitones per MIDI channel
+  double bend_at_start[16] = {};
+  BendChange changes[kBendChanges];
+  int n_changes = 0;
+  std::uint64_t span_clock = 0;   // the engine's sample clock at the span being built
+  float stream[kPitchStreams][kEngineMaxBlock];
+  horde::AudioStream streams[kPitchStreams];
+  int n_streams = 0;
+};
+
 struct Plugin {
   clap_plugin_t plugin{};
   const clap_host_t* host = nullptr;
@@ -251,11 +272,17 @@ struct Plugin {
   std::atomic<bool> engine_silent{true};  // OU-4 as the audio thread last saw it
   // The output's peak since the last frame, tapped here: the engine's frame holds only its last processing call's
   // peaks, and with routes a call is one control interval long. The reader asks for a reset; the audio thread does it.
+  // GN-4's tap (B632): the plug-in's own output, mono, into a ring the main thread copies the newest window from. One
+  // writer; the reader takes kScopeWindow behind the write count, so the writer would need the rest of the ring
+  // (most of 0.15 s) during one copy to tear it.
+  float scope_ring[kScopeRing] = {};
+  std::atomic<std::uint64_t> scope_written{0};
   float out_peak_accum = 0;               // audio thread
   std::atomic<float> out_peak{0};
   std::atomic<bool> out_peak_reset{false};
 
   std::vector<horde::Event> events;
+  Pitch pitch;                            // audio thread
   std::int32_t next_note_id = 1 << 24;   // above any id a host's own counter reaches in a session
   std::atomic<std::uint64_t> nonfinite{0};
   std::atomic<std::uint64_t> idle_blocks{0};   // blocks skipped while the engine was silent (OU-4)
@@ -317,6 +344,8 @@ Slot* build_slot(Plugin& s, int preset, bool keep_shadow) {
   if (!slot->engine || !slot->engine->prepare(s.sample_rate, s.max_block)) return nullptr;
   if (!slot->engine->load_state(kBank[preset].state).ok) return nullptr;
   slot->ci = std::uint64_t(std::max(1L, std::lround(s.sample_rate / 1500)));   // PA-3
+  slot->glide_s = kBank[preset].glide_s;
+  slot->glide_always = kBank[preset].glide_always;
 
 #ifndef HORDE_PREVIEW_PLANT_NO_ROUTES   // the smoke test's must-fail build: without routes it must miss the reference
   for (int r = 0; r < kBank[preset].n_routes && slot->n_targets < kMaxTargets; ++r) {
@@ -472,6 +501,8 @@ std::uint64_t pack_note(const Plugin& s, std::int32_t note_id, bool gate) {
   return 0;   // a note we never saw start: no key to show
 }
 
+void pitch_forget_note(Pitch& p, std::int32_t id);
+
 void follow_voices(Plugin& s, horde::Engine& engine) {
   horde::OutEvent buffer[64];
   for (;;) {
@@ -483,9 +514,15 @@ void follow_voices(Plugin& s, horde::Engine& engine) {
       switch (e.type) {
         case horde::OutType::VoiceStarted: slot.store(pack_note(s, e.note_id, true), std::memory_order_relaxed); break;
         case horde::OutType::VoiceTaken:
+          pitch_forget_note(s.pitch, e.old_note_id);
+          slot.store(pack_note(s, e.new_note_id, true), std::memory_order_relaxed);
+          break;
         case horde::OutType::NoteChanged: slot.store(pack_note(s, e.new_note_id, true), std::memory_order_relaxed); break;
         case horde::OutType::VoiceReleased: slot.store(slot.load(std::memory_order_relaxed) & ~std::uint64_t(2), std::memory_order_relaxed); break;
-        case horde::OutType::VoiceFreed: slot.store(0, std::memory_order_relaxed); break;
+        case horde::OutType::VoiceFreed:
+          slot.store(0, std::memory_order_relaxed);
+          pitch_forget_note(s.pitch, e.note_id);
+          break;
         default: break;
       }
     }
@@ -499,6 +536,162 @@ void forget_voices(Plugin& s) {
 
 void remember_note(Plugin& s, const horde::Event& on) {
   s.recent[s.recent_next++ % kNoteRing] = {on.note_id, on.key, on.value};
+}
+
+// ---- the pitch stand-in (B632) ---------------------------------------------------------------------------------
+// 10.3's glide, as tests/wasm/item15b.mjs writes it for the renders: a note that glides moves from `from` to its own
+// pitch f along ln f(t) = ln f + (ln from - ln f) e^(-3t/T), t seconds after its note-on, T the preset's glide (95 %
+// done at t = T). Unbent: the bend multiplies the result.
+double glide_hz(const PitchNote& n, std::uint64_t clock, double rate, double glide_s) {
+  if (!n.from) return n.f;
+  const double t = double(clock - n.at) / rate;
+  return std::exp(std::log(n.f) + (std::log(n.from) - std::log(n.f)) * std::exp(-3 * t / glide_s));
+}
+double bend_factor(double semitones) { return std::pow(2.0, semitones / 12.0); }
+double twelve_tet(int key, double tuning) { return 440 * std::pow(2.0, (key - 69) / 12.0 + tuning / 12); }   // the engine's Note::hz
+
+void forget_pitch(Pitch& p) {
+  for (auto& n : p.notes) n = PitchNote{};
+  p.next = 0;
+  p.last = -1;
+}
+
+PitchNote* pitch_note(Pitch& p, std::int32_t id) {
+  if (id < 0) return nullptr;
+  for (auto& n : p.notes)
+    if (n.live && n.id == id) return &n;
+  return nullptr;
+}
+
+void push_pitch(Plugin& s, std::int32_t id, double hz) {
+  horde::Event e;
+  e.type = horde::EventType::NotePitch;
+  e.note_id = id;
+  e.value = hz;
+  if (s.events.size() < kMaxEvents) s.events.push_back(e);
+}
+
+// A note-on: whether it glides (10.3: when a note is held, or always with glideAlways; from the most recently started
+// note, a chord's earlier note included, at the pitch that note sounds at this one's first sample), and if it glides
+// or a bend stands on its channel, its pitch from its first sample (IF-2), so it never sounds 12-TET first.
+void pitch_note_on(Plugin& s, const horde::Event& on, std::uint32_t sample) {
+  Pitch& p = s.pitch;
+  const Slot* slot = s.live;
+  const std::uint64_t at = p.span_clock + sample;
+  bool any_held = false;
+  for (const auto& n : p.notes) any_held = any_held || (n.live && n.held);
+  const PitchNote* src = p.last >= 0 && p.notes[p.last].live ? &p.notes[p.last] : nullptr;
+  PitchNote& n = p.notes[p.next];
+  const int index = p.next;
+  p.next = (p.next + 1) % kPitchNotes;
+  PitchNote fresh;
+  fresh.id = on.note_id;
+  fresh.key = on.key;
+  fresh.channel = on.channel;
+  fresh.f = twelve_tet(on.key, 0);
+  fresh.at = at;
+  fresh.held = fresh.live = true;
+  if (slot && slot->glide_s > 0 && src && (any_held || slot->glide_always)) {
+    const double from = glide_hz(*src, at, s.sample_rate, slot->glide_s);
+    if (from != fresh.f) {
+      fresh.from = from;
+      fresh.gliding = fresh.taken = true;
+    }
+  }
+  n = fresh;
+  p.last = index;
+  const int ch = std::clamp<int>(on.channel, 0, 15);
+  if (n.gliding) {
+    // The glide's first pitch as an event at the note-on too, not only in the stream: the engine sets up a voice from
+    // its pitch at the start (IF-2: "a glide begins at its start pitch"), and the stream reaches it one sample later.
+    // The same float value the stream carries there, so the two never disagree.
+    push_pitch(s, n.id, double(float(glide_hz(n, at, s.sample_rate, slot->glide_s) * bend_factor(p.bend[ch]))));
+  } else if (p.bend[ch] != 0) {
+    n.taken = true;
+    push_pitch(s, n.id, n.f * bend_factor(p.bend[ch]));
+  }
+}
+
+void pitch_note_off(Pitch& p, const horde::Event& off) {
+  for (auto& n : p.notes) {
+    if (!n.live || !n.held) continue;
+    const bool match = off.note_id >= 0 ? n.id == off.note_id
+                                        : (off.channel < 0 || off.channel == n.channel) && (off.key < 0 || off.key == n.key);
+    if (match) n.held = false;
+  }
+}
+
+void pitch_bend(Plugin& s, int channel, double semitones, std::uint32_t sample) {
+  Pitch& p = s.pitch;
+  p.bend[channel] = semitones;
+  if (p.n_changes < kBendChanges) p.changes[p.n_changes++] = {sample, channel, semitones};
+  for (auto& n : p.notes) {
+    if (!n.live || n.channel != channel || n.gliding) continue;   // a gliding note's stream reads the bend sample by sample
+    n.taken = true;
+    push_pitch(s, n.id, n.f * bend_factor(semitones));
+  }
+}
+
+void pitch_tuning(Plugin& s, std::int32_t id, double semitones) {
+  PitchNote* n = pitch_note(s.pitch, id);
+  if (!n) return;
+  n->tuning = semitones;
+  n->f = twelve_tet(n->key, semitones);
+  if (n->taken && !n->gliding) push_pitch(s, n->id, n->f * bend_factor(s.pitch.bend[std::clamp<int>(n->channel, 0, 15)]));
+}
+
+// Events stay in sample order, which the engine reads them in: a glide's last pitch goes in at its own sample.
+void insert_pitch(Plugin& s, std::uint32_t sample, std::int32_t id, double hz) {
+  if (s.events.size() >= kMaxEvents) return;
+  horde::Event e;
+  e.type = horde::EventType::NotePitch;
+  e.note_id = id;
+  e.value = hz;
+  e.sample = sample;
+  auto at = std::upper_bound(s.events.begin(), s.events.end(), sample, [](std::uint32_t v, const horde::Event& x) { return v < x.sample; });
+  s.events.insert(at, e);   // within the capacity reserved at activation: no allocation
+}
+
+// Each gliding note's pitch for the span, one value per sample (IF-2's audio-rate input, float32). NaN where it gives
+// none: before the note starts, and from the sample its glide arrives, where one exact NotePitch at f takes over. It
+// arrives when its float value equals the note's own float pitch: the stream can't carry anything finer, so this is
+// item15b.mjs's end of a run (within 1e-9 of ln f) at the resolution the stream has, and it needs no threshold.
+void pitch_streams(Plugin& s, std::uint32_t span) {
+  Pitch& p = s.pitch;
+  const Slot* slot = s.live;
+  p.n_streams = 0;
+  for (auto& n : p.notes) {
+    if (!n.live || !n.gliding || !slot || p.n_streams == kPitchStreams) continue;
+    float* out = p.stream[p.n_streams];
+    const int ch = std::clamp<int>(n.channel, 0, 15);
+    double semitones = p.bend_at_start[ch];
+    int change = 0;
+    for (std::uint32_t k = 0; k < span; ++k) {
+      while (change < p.n_changes && p.changes[change].sample <= k) {
+        if (p.changes[change].channel == ch) semitones = p.changes[change].semitones;
+        ++change;
+      }
+      const std::uint64_t clock = p.span_clock + k;
+      if (!n.gliding || clock < n.at) { out[k] = NAN; continue; }
+      const double factor = bend_factor(semitones);
+      const float value = float(glide_hz(n, clock, s.sample_rate, slot->glide_s) * factor);
+      if (value == float(n.f * factor)) {
+        n.gliding = false;
+        insert_pitch(s, k, n.id, n.f * factor);
+        out[k] = NAN;
+        continue;
+      }
+      out[k] = value;
+    }
+    p.streams[p.n_streams++] = {n.id, horde::StreamTarget::VoicePitchHz, 0, out};
+  }
+  std::copy(std::begin(p.bend), std::end(p.bend), std::begin(p.bend_at_start));
+  p.n_changes = 0;
+}
+
+void pitch_forget_note(Pitch& p, std::int32_t id) {
+  for (auto& n : p.notes)
+    if (n.live && n.id == id) n.live = false;
 }
 
 // One CLAP event to engine events, at `sample` in the span being built.
@@ -518,6 +711,8 @@ void translate(Plugin& s, const clap_event_header_t* h, std::uint32_t sample) {
       e.value = h->type == CLAP_EVENT_NOTE_CHOKE ? 0 : n->velocity;
       if (h->type == CLAP_EVENT_NOTE_ON) remember_note(s, e);
       if (s.events.size() < kMaxEvents) s.events.push_back(e);
+      if (h->type == CLAP_EVENT_NOTE_ON) pitch_note_on(s, e, sample);
+      else pitch_note_off(s.pitch, e);
     } else if (h->type == CLAP_EVENT_NOTE_EXPRESSION) {
       const auto* x = reinterpret_cast<const clap_event_note_expression_t*>(h);
       horde::Event e;
@@ -536,6 +731,7 @@ void translate(Plugin& s, const clap_event_header_t* h, std::uint32_t sample) {
         default: e.expression = horde::ExpressionKind::Pressure; break;
       }
       if (s.events.size() < kMaxEvents) s.events.push_back(e);
+      if (e.expression == horde::ExpressionKind::Tuning) pitch_tuning(s, e.note_id, e.value);
     } else if (h->type == CLAP_EVENT_PARAM_VALUE) {
       const auto* p = reinterpret_cast<const clap_event_param_value_t*>(h);
       set_param(s, p->param_id, p->value);
@@ -550,26 +746,58 @@ void translate(Plugin& s, const clap_event_header_t* h, std::uint32_t sample) {
         e.key = std::int16_t(d1);
         e.value = d2 / 127.0;
         remember_note(s, e);
+        if (s.events.size() < kMaxEvents) s.events.push_back(e);
+        pitch_note_on(s, e, sample);   // its pitch, if any, after it: same sample, either order (IF-2)
+        for (std::size_t i = before; i < s.events.size(); ++i) s.events[i].sample = sample;
+        return;
       } else if (status == 0x80 || status == 0x90) {
         e.type = horde::EventType::NoteOff;
         e.key = std::int16_t(d1);
+        pitch_note_off(s.pitch, e);
       } else if (status == 0xB0 && d1 == 64) {
         e.type = horde::EventType::Pedal;
         e.value = d2;
       } else if (status == 0xB0 && d1 == 120) {
         e.type = horde::EventType::AllSoundOff;
+        for (auto& n : s.pitch.notes) n.held = false;
       } else if (status == 0xB0 && d1 == 123) {
         e.type = horde::EventType::AllNotesOff;
+        for (auto& n : s.pitch.notes) n.held = false;
       } else if (status == 0xD0) {
         e.type = horde::EventType::ChannelPressure;
         e.value = d1 / 127.0;
+      } else if (status == 0xE0) {
+#ifndef HORDE_PREVIEW_PLANT_DROP_BEND   // smoke.cpp's must-fail build: a bend that never arrives
+        // 14 bits, centre 8192, at a fixed +/-2 semitones: the top and bottom values reach exactly +2 and -2.
+        const int value = (d1 & 0x7F) | ((d2 & 0x7F) << 7);
+        pitch_bend(s, channel, kBendSemitones * (value - 8192) / (value >= 8192 ? 8191.0 : 8192.0), sample);
+#endif
+        for (std::size_t i = before; i < s.events.size(); ++i) s.events[i].sample = sample;
+        return;
       } else {
-        return;   // pitch bend included: the pitch system that would read it isn't built
+        return;
       }
       if (s.events.size() < kMaxEvents) s.events.push_back(e);
     }
   }
   for (std::size_t i = before; i < s.events.size(); ++i) s.events[i].sample = sample;
+}
+
+// GN-4: the block just sent to the host, as the scope draws it. Silence writes its zeros too, or the scope would hold
+// the last loud window.
+void tap(Plugin& s, const float* left, const float* right, std::uint32_t frames) {
+  const std::uint64_t written = s.scope_written.load(std::memory_order_relaxed);
+#if defined(HORDE_PREVIEW_PLANT_FROZEN_TAP)   // smoke.cpp's must-fail build: the tap stops after its first block
+  if (written > 0) return;
+#endif
+  for (std::uint32_t i = 0; i < frames; ++i) {
+#if defined(HORDE_PREVIEW_PLANT_SILENT_TAP)   // smoke.cpp's must-fail build: the tap hears silence while sound plays
+    s.scope_ring[(written + i) & (kScopeRing - 1)] = 0;
+#else
+    s.scope_ring[(written + i) & (kScopeRing - 1)] = 0.5f * (left[i] + right[i]);
+#endif
+  }
+  s.scope_written.store(written + frames, std::memory_order_release);
 }
 
 void render(Plugin& s, const clap_process_t* proc, float* left, float* right, std::uint32_t frames) {
@@ -585,6 +813,7 @@ void render(Plugin& s, const clap_process_t* proc, float* left, float* right, st
     const bool routed = slot.n_targets > 0;
     if (routed) span = std::min(span, std::uint32_t(slot.ci - clock % slot.ci));
     s.events.clear();
+    s.pitch.span_clock = clock;
     if (transport_due) {
       transport_due = false;
       horde::Event e;
@@ -619,7 +848,8 @@ void render(Plugin& s, const clap_process_t* proc, float* left, float* right, st
       translate(s, h, h->time - pos);
       ++next;
     }
-    engine.process(s.events.data(), s.events.size(), nullptr, 0, left + pos, right + pos, int(span));
+    pitch_streams(s, span);
+    engine.process(s.events.data(), s.events.size(), s.pitch.n_streams ? s.pitch.streams : nullptr, std::size_t(s.pitch.n_streams), left + pos, right + pos, int(span));
     pos += span;
   }
 }
@@ -633,6 +863,7 @@ clap_process_status plugin_process(const clap_plugin_t* p, const clap_process_t*
     s.live = fresh;
     s.live_tag.store(fresh->generation << 8 | std::uint64_t(fresh->preset), std::memory_order_release);
     forget_voices(s);   // a new engine starts with no voices; the old one's notes stop at the swap
+    forget_pitch(s.pitch);   // and no note to glide from: a render on a fresh engine starts the same way
     want_callback = true;
   }
   if (proc->audio_outputs_count == 0 || proc->frames_count == 0) return CLAP_PROCESS_CONTINUE;
@@ -654,6 +885,7 @@ clap_process_status plugin_process(const clap_plugin_t* p, const clap_process_t*
     std::fill_n(left, frames, 0.0f);
     std::fill_n(right, frames, 0.0f);
     s.live->engine->skip(frames);
+    tap(s, left, right, frames);
     s.engine_silent.store(true, std::memory_order_relaxed);
     if (s.out_peak_reset.exchange(false, std::memory_order_relaxed)) {   // silence reads as silence, not the last loud frame
       s.out_peak_accum = 0;
@@ -686,6 +918,7 @@ clap_process_status plugin_process(const clap_plugin_t* p, const clap_process_t*
   if (bad) s.nonfinite.fetch_add(bad, std::memory_order_relaxed);
   s.out_peak_accum = peak;
   s.out_peak.store(peak, std::memory_order_relaxed);
+  tap(s, left, right, frames);
   // After the timed span: the page's notes and its silence flag cost a few loads, and aren't the engine's cost.
   follow_voices(s, *s.live->engine);
   s.engine_silent.store(s.live->engine->silent(), std::memory_order_relaxed);
@@ -792,6 +1025,7 @@ void plugin_reset(const clap_plugin_t* p) {
   if (!s.live) return;
   s.live->engine->reset();
   forget_voices(s);
+  forget_pitch(s.pitch);
   std::fill_n(s.live->counter, kMaxVoices, std::uint64_t(0));
   for (auto& voice : s.live->last) std::fill_n(voice, kMaxRouteKeys, 0.0);
 }
@@ -827,11 +1061,10 @@ bool params_get_info(const clap_plugin_t*, std::uint32_t index, clap_param_info_
 bool params_get_value(const clap_plugin_t* p, clap_id id, double* out) {
   Plugin& s = *self(p);
   if (id == kPresetId) { *out = s.wanted_preset.load(std::memory_order_relaxed); return true; }
-  const Rows& t = rows();
-  for (int i = 0; i < t.count; ++i) {
-    if (t.row[i]->id == id) { *out = v_to_host(*t.row[i], s.shadow[t.at[i]].load(std::memory_order_relaxed)); return true; }
-  }
-  return false;
+  const int m = manifest_index(id);
+  if (m < 0 || rows().host_of[std::size_t(m)] < 0) return false;
+  *out = v_to_host(*rows().all[std::size_t(m)], s.shadow[m].load(std::memory_order_relaxed));
+  return true;
 }
 
 bool params_value_to_text(const clap_plugin_t*, clap_id id, double value, char* out, std::uint32_t size) {
@@ -839,18 +1072,12 @@ bool params_value_to_text(const clap_plugin_t*, clap_id id, double value, char* 
     std::snprintf(out, size, "%s", kBank[std::clamp(int(std::lround(value)), 0, kBankSize - 1)].name);
     return true;
   }
-  const Rows& t = rows();
-  for (int i = 0; i < t.count; ++i) {
-    if (t.row[i]->id != id) continue;
-    const horde::ParamInfo& row = *t.row[i];
-    if (stepped(row)) std::snprintf(out, size, "%d", int(std::lround(value)));
-    else {
-      // Rounded to nine places first: a law's arithmetic shouldn't read as -2e-15 on the panel.
-      std::snprintf(out, size, "%.3g", std::round(horde::value_of(row, value) * 1e9) / 1e9 + 0.0);
-    }
-    return true;
-  }
-  return false;
+  const int m = manifest_index(id);
+  if (m < 0 || rows().host_of[std::size_t(m)] < 0) return false;
+  const horde::ParamInfo& row = *rows().all[std::size_t(m)];
+  if (stepped(row)) std::snprintf(out, size, "%d", int(std::lround(value)));
+  else std::snprintf(out, size, "%.3g", std::round(horde::value_of(row, value) * 1e9) / 1e9 + 0.0);   // nine places first: no -2e-15 on a panel
+  return true;
 }
 
 bool params_text_to_value(const clap_plugin_t*, clap_id id, const char* text, double* out) {
@@ -869,7 +1096,11 @@ void params_flush(const clap_plugin_t* p, const clap_input_events_t* in, const c
   const bool edits_waiting = s.edit_tail.load(std::memory_order_relaxed) != s.edit_head.load(std::memory_order_acquire);
   drain_edits(s, out);
   const std::uint32_t n = in ? in->size(in) : 0;
+  if (s.live) s.pitch.span_clock = s.live->engine->sample_clock();
   for (std::uint32_t i = 0; i < n; ++i) translate(s, in->get(in, i), 0);
+  // A flush has no samples: any bend it carried is simply the bend from now on.
+  std::copy(std::begin(s.pitch.bend), std::end(s.pitch.bend), std::begin(s.pitch.bend_at_start));
+  s.pitch.n_changes = 0;
   if (s.live) s.live->engine->flush(s.events.data(), s.events.size());
   else s.apply_shadow = n > 0 || edits_waiting || s.apply_shadow;   // inactive: the next build must keep these values
   if (s.wanted_preset.load(std::memory_order_relaxed) != s.built_preset) s.host->request_callback(s.host);
@@ -1167,6 +1398,17 @@ const std::string& bridge_frame(Plugin& s) {
     const double v = s.shadow[manifest_index(row.id)].load(std::memory_order_relaxed);
     in.unison[o] = int(std::lround(row.lo + std::round(v * double(row.steps > 1 ? row.steps - 1 : 0))));
   }
+  float scope[kScopeWindow / kScopeStep];
+  if (ss.want.summed) {
+    // Acquire: every sample counted in `written` is in the ring. The newest window, every kScopeStep-th sample.
+    const std::uint64_t written = s.scope_written.load(std::memory_order_acquire);
+    if (written >= kScopeWindow) {
+      for (std::uint64_t k = 0; k < kScopeWindow / kScopeStep; ++k) scope[k] = s.scope_ring[(written - kScopeWindow + k * kScopeStep) & (kScopeRing - 1)];
+      in.scope = scope;
+      in.scope_n = int(kScopeWindow / kScopeStep);
+      in.scope_rate = s.sample_rate / double(kScopeStep);
+    }
+  }
   in.out_tapped = true;
   in.out_peak = s.out_peak.load(std::memory_order_relaxed);
   s.out_peak_reset.store(true, std::memory_order_relaxed);
@@ -1217,7 +1459,20 @@ double ext_engine_v(const clap_plugin_t* p, std::uint32_t id) {
   Plugin& s = *self(p);
   return s.live ? s.live->engine->param_v(id) : NAN;
 }
-const preview_bridge_ext kBridgeExt = {ext_receive, ext_frame, ext_engine_v};
+bool ext_note_pitch(const clap_plugin_t* p, std::int32_t note_id, double* played, double* sounding) {
+  Plugin& s = *self(p);
+  if (!s.live) return false;
+  static horde::VoiceView view;   // tens of KB; tests only, on one thread
+  const int n = std::min(s.live->engine->voice_count(), kMaxVoices);
+  for (int i = 0; i < n; ++i) {
+    if (!s.live->engine->observe_voice(i, view) || !view.sounding || view.note_id != note_id) continue;
+    *played = view.played_pitch;
+    *sounding = view.sounding_pitch;
+    return true;
+  }
+  return false;
+}
+const preview_bridge_ext kBridgeExt = {ext_receive, ext_frame, ext_engine_v, ext_note_pitch};
 
 const void* plugin_get_extension(const clap_plugin_t*, const char* id) {
   if (!std::strcmp(id, CLAP_EXT_PARAMS)) return &kParams;
