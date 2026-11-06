@@ -161,25 +161,35 @@ int main() {
     const std::vector<double> loaded = {0.5, 0.25, 0.7};
     SavedState s;
     s.preset = 12;
-    s.voices = 6;
     s.values = differences(ids, {0.5, 0.1 + 0.2, 0.7}, loaded);
     check(s.values.size() == 1 && s.values[0].first == 3, "only the row that differs from the preset is kept");
     const std::string text = write_state(s);
     SavedState back;
-    check(read_state(text, back) && back.preset == 12 && back.voices == 6 && back.values.size() == 1 && back.values[0].first == 3 &&
+    check(!has(text, "voices") && read_state(text, back) && back.preset == 12 && back.values.size() == 1 && back.values[0].first == 3 &&
               back.values[0].second == 0.1 + 0.2,
           "the state round-trips, its v exactly");
     SavedState defaults;
     defaults.preset = 12;
-    defaults.voices = 4;
     defaults.values = differences(ids, loaded, loaded);
     const std::string small = write_state(defaults);
     std::printf("     a defaults-only state is %zu bytes\n", small.size());
     check(defaults.values.empty() && small.size() < 64, "a state holding only the preset's own values stays small");
     SavedState old;
     check(read_state("horde-engine-preview 1\npreset 3\nvoices 2\n4097 0.5\n", old) && old.preset == 3 && old.values.size() == 1,
-          "a version-1 chunk still reads");
+          "a version-1 chunk still reads, its retired Voices line ignored");
+    check(read_state("horde-engine-preview 2\npreset 5\nvoices 6\n4097 0.25\n", old) && old.preset == 5 && old.values.size() == 1 && old.values[0].second == 0.25,
+          "a version-2 chunk carrying Voices still loads, ignoring it");
     check(!read_state("something else\npreset 3\n", old), "control: a chunk that isn't ours is refused");
+  }
+
+  // ---- the polyphony cap ----------------------------------------------------------------------------------------
+  {
+    // Shaped as the engine's voice.polyphony: a Step of the counts 1 to 64. Every bank preset asks for 16, so the
+    // bank can't show a preset left alone; this does.
+    const horde::ParamInfo poly{9, "voice.polyphony", 1, 64, 15, Law::Step, ParamClass::Device, Rate::Stepped, false, 64, false};
+    const auto v = [](int count) { return (count - 1) / 63.0; };
+    check(capped_count_v(poly, v(16), 8) == v(8), "a load asking for 16 voices gets 8");
+    check(capped_count_v(poly, v(8), 8) == v(8) && capped_count_v(poly, v(6), 8) == v(6), "control: a load asking for 8 or fewer keeps its own");
   }
 
   // ---- the engine's own manifest --------------------------------------------------------------------------------
@@ -197,10 +207,11 @@ int main() {
     check(every, "every engine row's key maps to its own id");
     const std::string ours = manifest_hash(all);
     std::printf("     engine manifest: %zu rows, %d reserved, hash %s\n", all.size(), reserved, ours.c_str());
-    // Reported, not gated: the two sides' rule for a stepped row of consecutive integers (octave, unison, ...) is an
-    // open question for the lead (B628). The engine gives its first and last numbers (horde_engine.h, ParamInfo::lo);
-    // GUI 3's generator writes 0 and n - 1. A failing check here would stop every build on a question, not a defect.
-    constexpr const char* kPageHash = "cf4afbc8ff9a5390dc460067b2b3b5f52c2675716d4b6fd9091b97b564f24e05";   // gen_gui3_controls.py --manifest-lines, 2026-11-05
+    // Reported, not gated: the page's own hash, from its shell-data.js, as last read. A stepped row of consecutive
+    // integers (octave, unison, ...) gives its first and last numbers (horde_engine.h, ParamInfo::lo), which GUI 3's
+    // generator follows since 2026-11-05. The page checks its hash against the hello reply at run time; this line
+    // only shows whether the copy here has gone stale.
+    constexpr const char* kPageHash = "ca64bf73f67efe067c87cfd739a2d4d007bfa9cd72c29d314913b5879f38fd29";   // shell-data.js, gui-plugin-mode, 2026-11-05
     std::printf("     GUI 3's page hash %s: %s\n", kPageHash, ours == kPageHash ? "the same" : "DIFFERENT from the engine's (reported, not gated)");
   }
 

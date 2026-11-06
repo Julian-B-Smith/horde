@@ -4,10 +4,11 @@ One cycle of one voice with the blades that cut it: each window as a band, the b
 
 `Horde.BladeView(el, { height, label, hint, roles, keyOf, read, circ, write, begin, end, label, value, keys })`, then `frame(cycle)` each frame. `Viz.blade(canvas, cycle)` is the painter alone.
 
-**Three views (the pills).** The lab's, one choice for every instance, remembered per machine and never with a patch.
+**Four views (the pills).** The lab's, one choice for every instance, remembered per machine and never with a patch.
 - **Sum:** every member over its own phase, summed: the swarm as if it were locked. The bands are below.
 - **Members:** one lane per member, each over its own phase, with that member's windows.
 - **At phase:** each member shifted by its offset from the mean field, so the swarm lines up as it does now. Short ticks on the top edge mark where each member's cycle starts. Pointing at a line lifts that member: 1.8 px at full ink, its windows edged, its offset named. At lock this view draws Sum's picture.
+- **Members at phase** (GUI-49): Members' lanes, each member shifted as At phase shifts it, its windows with it, and a short tick in its lane where its cycle starts. You watch each member move against the mean field on its own line.
 
 **The drag (B293, B294, B297, B299).** Relative: a grab moves nothing. It moves the blade whose window is under the pointer, or every blade that's on from empty space, and nothing when none is on. By default horizontal is Position, vertical is Cut rate, up for more, and shift and horizontal is Width. Alt is a quarter as far. A circular row crosses its range in one canvas width, so the window follows the hand; any other crosses its range in 420 px. A gesture is one undo step, and a grab with no motion writes nothing. The target is outlined in `scr-marker`, dashed on hover and solid in a drag, with a readout of what's moving.
 
