@@ -12075,6 +12075,44 @@ The GUI session recommends (c). Nothing is built until the human picks.
 6. **Captions:** under the carpet and voice map, the bridge says which is the engine's.
 
 **A2 (the human, 2026-11-05, through the lead's poll; B628): "One control: Polyphony".** The human heard 4 voices while the page showed Polyphony 16: the test plug-in's own Voices limit was capping them unseen. So Polyphony (`voice.polyphony`, a row on the Set page) is the one voice control. The page's Voices stepper and the `plugin {voices}` message are gone, and the schema refuses it. `plugin {build}` stays for the build label. In Live the bridge caps a loaded preset's Polyphony at 8, and the page shows the real number through the load's rows. Engine impact: none.
+## GUI-58 — RULED by the human: a corner mark and a modulation mark for each of the eleven FX screens; glyphs on three (GB15; GUI-23 item 3; 2026-11-06)
+
+**The human, 2026-11-06,** reviewing `docs/design/fx-screen-marks-lab.html` with the Labs facilitator session, chose for every screen and then said "Done picking". The facilitator read the choices off the page and had told the human beforehand that an untouched choice keeps the lab's suggestion. The human changed three corner marks, all to glyphs, and kept the other 19 suggestions.
+
+**Rulings: the eleven screens.** On every screen the corner mark goes above a control's track and the modulation mark below it, as the Map Mode Spec has it.
+
+| Screen | Corners | Modulation |
+|---|---|---|
+| Shriek, 80s workstation | **Bitmap glyphs** (the human's; the lab suggested Tab stops) | Dither band |
+| Sluice, Game Boy Color | Sprite pips | Hatched lane |
+| Drive, the house screen | Pips in one ink | The chassis's lane |
+| Scape, segment glass | Corner digits | Blink band |
+| Bulwark, Nixie tubes and neon bargraphs | Lamps on a scale | Second column |
+| Echo, sonar scope | Pips on the trace | Afterglow |
+| Phosphor CRT terminal (no module) | Letter ruler | Shade band |
+| Teletext page (no module) | Letters in cells | Blue band, flash cell |
+| Vector monitor (no module) | **Outline glyphs** (the human's; the lab suggested Blend fan) | Beam retrace |
+| Dot-matrix character LCD (no module) | **Custom glyphs** (the human's; the lab suggested ROM letters) | Sub-cell tip |
+| CAD blueprint (no module) | Balloons | Phantom limits |
+
+**Costs the choices carry (the lab's own, restated).**
+- **The three glyph marks** show who owns the row and where each corner sits, but not the weights, and they need the four glyphs to have been learnt. On the workstation the square and circle blur at a glance; on the vector tube, outlines under 2 units are hard to tell apart.
+- **The character LCD's budget is full.** Custom glyphs take four of the eight custom characters, and Sub-cell tip keeps four loaded, so nothing else on that glass can use a custom character.
+- **Weights show on three screens:** Drive's pips, Bulwark's lamps and Echo's pips. Question 3 below asks whether they should.
+
+**Open, asked through the Labs facilitator.** The human answered the lab's first question only.
+1. **One grammar, or one per glass?** The picks differ per glass, but the question wasn't put as such. The facilitator noticed that all three changes moved to the chassis's glyphs, so the human may want glyphs wherever a glass can draw them. That's the facilitator's reading, not a ruling, and it's asked rather than applied.
+2. **Should weights show on a glass at all?**
+3. **Bezel lamps,** the unbuilt idea: is it worth a round?
+
+**The lab.** It is ruled (GUI-58) and stays pinned for review while the three questions are open. Its marks are sample data and the owner is a stand-in.
+
+**What happens next.** Each mark goes into the master as a component, then into the bundle and the screens, after the open questions are answered, since question 1 could change the three glyph screens or others. Shriek's and Sluice's glasses are drawn in their own repos. The lead carries these choices to them in its briefs, and this session files nothing.
+
+**Engine impact.** GN-18. Every corner mark names the owner, and the engine publishes that. The modulation marks draw the range and output the shell already draws in the Map Mode lane, so they need nothing new.
+
+**FX device (ADR-254).** The same screens, so the same marks (GUI-23).
+
 ## ADR-365 — RULED by the human: the 8 Hz blocker for FM free in pitch FM; item 7.8's table remade; spec round 58 (B621, B623; 2026-11-04)
 
 **Context.** FM free in pitch FM runs an accumulator that never restarts, while each of C.16's readings starts it at 0, so the estimate cannot see its mean and BL-19 cannot hold by the law alone (Q-TA-71: engine-free, 95 of its 144 one-member cases over 0.003, up to 0.046). ADR-363 sent this to a scratch trial of C.16's existing blocker, with clips for the human. Separately, item 7.8's reference R2 places FM free's modulator half a cycle from round 56's start, and 7.8 plays before its settings settle (Q-TA-77).
