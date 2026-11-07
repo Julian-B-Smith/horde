@@ -33,3 +33,39 @@ Seven source mutations, each planted in scratch, each turned its part red. `lab_
 **Not checked.** Listening. Whether the human hears what the numbers say is the point of the lab. The dark theme by eye. A phone-width layout beyond the existing breakpoints.
 
 **Verify.** `nice -n 10 ./verify fast` in this worktree; see the report.
+
+## Round 6b — both alternative angles; auto-kick (same day)
+
+**What changed.** `docs/design/shape-lab-mod.html` only.
+- Each body gains sin and cos of two more angle references, each with its own scope rows and test tone, and an **angle about** selector to A/B them by ear:
+  - (a) the angle about the centre of mass of the other bodies;
+  - (b) the heading, the velocity's direction.
+- Every scope row prints its largest one-sample jump over the last 10 s, measured on the raw output before the 5 ms smoothing.
+- With the thermostat on, a field at or below the thermostat's 10⁻⁹ skip threshold gets KICK's kick by itself. The direction comes from the auto-kick's own seeded stream, and the readout counts the auto-kicks. KICK stays.
+- M3 is left as it was: it is the record of the SWITCH ruling.
+
+**Why.** The human, reviewing round 6 (through the lead, 2026-11-06): "Build both, then decide" and "Auto-kick a stopped field". M3 was ruled SWITCH for 1.0.
+
+**Findings.**
+- Largest one-sample jump of sin or cos over 10 s, bodies 1 to 4, given as centre / others' COM / heading:
+  - binary: 0.023 / 0.023 / 0.014
+  - sun: 0.43 / 0.54 / 1.99
+  - figure-eight: 1.73 / 1.73 / 0.006
+  - chaos: 1.75 / 1.75 / 1.99
+- **Under the COM lock, (a) is the field-centre angle exactly.** The lock holds the field's COM at the centre, so the others' COM lies on the line through the body and the centre. It differs only on sun, where the pinned body turns the lock off, and there it is worse.
+- **(b) never sees the centre, but it jumps elsewhere.** On sun, all six large jumps were wall bounces. On chaos, 26 of its 29 were away from the walls, where a body nearly stops and turns back: the worst was 1.94, at a speed of 0.066.
+- A third candidate is named on the page but not built: the angle about the nearest body.
+- **The scope's first jump figure was wrong, and is fixed.** It first read the smoothed rows, and the 5 ms one-pole made a 1.45 flip read 0.055. The figure is now taken on the raw observable, and a self-check pins this.
+
+**Oracle.** `r6SelfCheck` gains three parts, each with a control that must fire:
+- **The two references against their own definitions:** others' COM 1e-13, heading 5e-16. Controls: COM against the field centre on sun, 1.18; heading against position, 2.0.
+- **The auto-kick.** Binary at drag 1 runs down to 9e-15, then the thermostat goes on. It is kicked on the first step and settles at 0.251 against 0.25 predicted. Control: auto-kick held off stays at 9e-15. Two seeded runs end identical; with Math.random as its stream, two runs differ.
+- **The scope's jump figure** against a twin's raw sin: 1.452 = 1.452. Control: measured on the smoothed row, 0.055.
+
+Four new source mutations, planted in scratch, each turned its part red; so did a smoothed-row jump measure.
+
+**Checked in the in-app browser** (port 8147, after a full load). All six audits pass, and the console shows no errors. Real clicks:
+- FIGURE EIGHT, then HEADING (soloed tone), then body 3.
+- Drag to its maximum, with the thermostat off, until the mean |v| reached 4e-10.
+- Thermostat ON: the auto-kick fired on that click, the field settled at 0.251 (0.25 predicted), and the readout showed "Auto-kicks: 1".
+- Drag reset by double-click, then FOUR-BODY CHAOS. Body 1's jumps over 10 s read 0.84 for the centre and the COM, and 2.0 for the heading.
