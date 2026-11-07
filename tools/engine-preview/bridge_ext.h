@@ -18,4 +18,7 @@ struct preview_bridge_ext {
   // Tests only, between process calls: a sounding note's pitch input (IF-2) and sounding pitch, in Hz, from the live
   // engine's observation view (IF-10). False when no voice sounds that note.
   bool (*note_pitch)(const clap_plugin_t* plugin, std::int32_t note_id, double* played, double* sounding);
+  // Tests only (B642): a sounding block counts as an overrun once it takes `fraction` of its time (1 by default), so the
+  // session log's per-overrun lines can be checked without a block that really overruns. 0 counts every sounding block.
+  void (*overrun_at)(const clap_plugin_t* plugin, double fraction);
 };
