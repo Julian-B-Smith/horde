@@ -1290,6 +1290,7 @@ window.GUI3_DATA = {
      "num": null,
      "rule": null,
      "screen": null,
+     "side": false,
      "source": null,
      "strip": null,
      "tag": null,
@@ -1483,6 +1484,7 @@ window.GUI3_DATA = {
      "num": null,
      "rule": null,
      "screen": null,
+     "side": false,
      "source": null,
      "strip": null,
      "tag": null,
@@ -2012,6 +2014,7 @@ window.GUI3_DATA = {
      "num": null,
      "rule": null,
      "screen": null,
+     "side": false,
      "source": "osc1",
      "strip": null,
      "tag": null,
@@ -2523,6 +2526,7 @@ window.GUI3_DATA = {
      "num": null,
      "rule": null,
      "screen": null,
+     "side": false,
      "source": "osc2",
      "strip": null,
      "tag": null,
@@ -3016,6 +3020,7 @@ window.GUI3_DATA = {
      "num": null,
      "rule": null,
      "screen": null,
+     "side": false,
      "source": "sub",
      "strip": null,
      "tag": null,
@@ -3516,6 +3521,7 @@ window.GUI3_DATA = {
      "num": null,
      "rule": null,
      "screen": null,
+     "side": false,
      "source": "noise",
      "strip": null,
      "tag": null,
@@ -4540,6 +4546,7 @@ window.GUI3_DATA = {
      "num": null,
      "rule": null,
      "screen": null,
+     "side": false,
      "source": null,
      "strip": null,
      "tag": null,
@@ -4993,6 +5000,7 @@ window.GUI3_DATA = {
      "num": null,
      "rule": null,
      "screen": null,
+     "side": false,
      "source": null,
      "strip": null,
      "tag": "RC-6.5",
@@ -5079,6 +5087,24 @@ window.GUI3_DATA = {
         "is": [
          "× pitch per cycle",
          "× pitch per blade"
+        ],
+        "key": "osc1.blade1.cutIn"
+       },
+       "override": null,
+       "role": null,
+       "short": null,
+       "size": null,
+       "sub": "Cut",
+       "widget": "knob"
+      },
+      {
+       "abbr": "CHZ",
+       "advanced": false,
+       "follow": null,
+       "key": "osc1.blade1.cutHz",
+       "live": {
+        "is": [
+         "Hz"
         ],
         "key": "osc1.blade1.cutIn"
        },
@@ -5290,24 +5316,6 @@ window.GUI3_DATA = {
        "size": null,
        "sub": null,
        "widget": "pills"
-      },
-      {
-       "abbr": "CHZ",
-       "advanced": true,
-       "follow": null,
-       "key": "osc1.blade1.cutHz",
-       "live": {
-        "is": [
-         "Hz"
-        ],
-        "key": "osc1.blade1.cutIn"
-       },
-       "override": null,
-       "role": null,
-       "short": null,
-       "size": null,
-       "sub": null,
-       "widget": "knob"
       },
       {
        "abbr": "FRM",
@@ -5607,6 +5615,7 @@ window.GUI3_DATA = {
      "num": 1,
      "rule": "solid",
      "screen": null,
+     "side": false,
      "source": null,
      "strip": null,
      "tag": null,
@@ -5693,6 +5702,24 @@ window.GUI3_DATA = {
         "is": [
          "× pitch per cycle",
          "× pitch per blade"
+        ],
+        "key": "osc1.blade2.cutIn"
+       },
+       "override": null,
+       "role": null,
+       "short": null,
+       "size": null,
+       "sub": "Cut",
+       "widget": "knob"
+      },
+      {
+       "abbr": "CHZ",
+       "advanced": false,
+       "follow": null,
+       "key": "osc1.blade2.cutHz",
+       "live": {
+        "is": [
+         "Hz"
         ],
         "key": "osc1.blade2.cutIn"
        },
@@ -5876,24 +5903,6 @@ window.GUI3_DATA = {
        "size": null,
        "sub": null,
        "widget": "pills"
-      },
-      {
-       "abbr": "CHZ",
-       "advanced": true,
-       "follow": null,
-       "key": "osc1.blade2.cutHz",
-       "live": {
-        "is": [
-         "Hz"
-        ],
-        "key": "osc1.blade2.cutIn"
-       },
-       "override": null,
-       "role": null,
-       "short": null,
-       "size": null,
-       "sub": null,
-       "widget": "knob"
       },
       {
        "abbr": "FRM",
@@ -6383,6 +6392,7 @@ window.GUI3_DATA = {
      "num": 2,
      "rule": "dash",
      "screen": null,
+     "side": false,
      "source": null,
      "strip": null,
      "tag": null,
@@ -7395,6 +7405,7 @@ window.GUI3_DATA = {
      "num": null,
      "rule": null,
      "screen": null,
+     "side": false,
      "source": null,
      "strip": null,
      "tag": null,
@@ -7848,6 +7859,7 @@ window.GUI3_DATA = {
      "num": null,
      "rule": null,
      "screen": null,
+     "side": false,
      "source": null,
      "strip": null,
      "tag": "RC-6.5",
@@ -7934,6 +7946,24 @@ window.GUI3_DATA = {
         "is": [
          "× pitch per cycle",
          "× pitch per blade"
+        ],
+        "key": "osc2.blade1.cutIn"
+       },
+       "override": null,
+       "role": null,
+       "short": null,
+       "size": null,
+       "sub": "Cut",
+       "widget": "knob"
+      },
+      {
+       "abbr": "CHZ",
+       "advanced": false,
+       "follow": null,
+       "key": "osc2.blade1.cutHz",
+       "live": {
+        "is": [
+         "Hz"
         ],
         "key": "osc2.blade1.cutIn"
        },
@@ -8145,24 +8175,6 @@ window.GUI3_DATA = {
        "size": null,
        "sub": null,
        "widget": "pills"
-      },
-      {
-       "abbr": "CHZ",
-       "advanced": true,
-       "follow": null,
-       "key": "osc2.blade1.cutHz",
-       "live": {
-        "is": [
-         "Hz"
-        ],
-        "key": "osc2.blade1.cutIn"
-       },
-       "override": null,
-       "role": null,
-       "short": null,
-       "size": null,
-       "sub": null,
-       "widget": "knob"
       },
       {
        "abbr": "FRM",
@@ -8462,6 +8474,7 @@ window.GUI3_DATA = {
      "num": 1,
      "rule": "solid",
      "screen": null,
+     "side": false,
      "source": null,
      "strip": null,
      "tag": null,
@@ -8548,6 +8561,24 @@ window.GUI3_DATA = {
         "is": [
          "× pitch per cycle",
          "× pitch per blade"
+        ],
+        "key": "osc2.blade2.cutIn"
+       },
+       "override": null,
+       "role": null,
+       "short": null,
+       "size": null,
+       "sub": "Cut",
+       "widget": "knob"
+      },
+      {
+       "abbr": "CHZ",
+       "advanced": false,
+       "follow": null,
+       "key": "osc2.blade2.cutHz",
+       "live": {
+        "is": [
+         "Hz"
         ],
         "key": "osc2.blade2.cutIn"
        },
@@ -8731,24 +8762,6 @@ window.GUI3_DATA = {
        "size": null,
        "sub": null,
        "widget": "pills"
-      },
-      {
-       "abbr": "CHZ",
-       "advanced": true,
-       "follow": null,
-       "key": "osc2.blade2.cutHz",
-       "live": {
-        "is": [
-         "Hz"
-        ],
-        "key": "osc2.blade2.cutIn"
-       },
-       "override": null,
-       "role": null,
-       "short": null,
-       "size": null,
-       "sub": null,
-       "widget": "knob"
       },
       {
        "abbr": "FRM",
@@ -9238,6 +9251,7 @@ window.GUI3_DATA = {
      "num": 2,
      "rule": "dash",
      "screen": null,
+     "side": false,
      "source": null,
      "strip": null,
      "tag": null,
@@ -9352,6 +9366,7 @@ window.GUI3_DATA = {
      "num": null,
      "rule": null,
      "screen": null,
+     "side": false,
      "source": null,
      "strip": null,
      "tag": "SOURCE",
@@ -9805,6 +9820,7 @@ window.GUI3_DATA = {
      "num": null,
      "rule": null,
      "screen": null,
+     "side": false,
      "source": null,
      "strip": null,
      "tag": "RC-6.5",
@@ -9989,6 +10005,7 @@ window.GUI3_DATA = {
      "num": null,
      "rule": null,
      "screen": null,
+     "side": false,
      "source": null,
      "strip": null,
      "tag": "SN-2",
@@ -10091,6 +10108,7 @@ window.GUI3_DATA = {
      "num": null,
      "rule": null,
      "screen": null,
+     "side": false,
      "source": null,
      "strip": null,
      "tag": "SN-1",
@@ -10148,6 +10166,7 @@ window.GUI3_DATA = {
      "num": null,
      "rule": null,
      "screen": null,
+     "side": false,
      "source": null,
      "strip": null,
      "tag": "SN-7",
@@ -10255,6 +10274,7 @@ window.GUI3_DATA = {
      "num": null,
      "rule": null,
      "screen": null,
+     "side": false,
      "source": null,
      "strip": null,
      "tag": "SN-3 · SN-5 · SN-14",
@@ -10369,6 +10389,7 @@ window.GUI3_DATA = {
      "num": null,
      "rule": null,
      "screen": null,
+     "side": false,
      "source": null,
      "strip": null,
      "tag": "SOURCE",
@@ -10822,6 +10843,7 @@ window.GUI3_DATA = {
      "num": null,
      "rule": null,
      "screen": null,
+     "side": false,
      "source": null,
      "strip": null,
      "tag": "RC-6.5",
@@ -10986,6 +11008,7 @@ window.GUI3_DATA = {
      "num": null,
      "rule": null,
      "screen": null,
+     "side": false,
      "source": null,
      "strip": null,
      "tag": "SN-8 · SN-4",
@@ -11036,6 +11059,7 @@ window.GUI3_DATA = {
      "num": null,
      "rule": null,
      "screen": null,
+     "side": false,
      "source": null,
      "strip": null,
      "tag": "SN-9",
@@ -11086,6 +11110,7 @@ window.GUI3_DATA = {
      "num": null,
      "rule": null,
      "screen": null,
+     "side": false,
      "source": null,
      "strip": null,
      "tag": "SN-9",
@@ -11136,6 +11161,7 @@ window.GUI3_DATA = {
      "num": null,
      "rule": null,
      "screen": null,
+     "side": false,
      "source": null,
      "strip": null,
      "tag": "SN-9",
@@ -11227,6 +11253,7 @@ window.GUI3_DATA = {
      "num": null,
      "rule": null,
      "screen": null,
+     "side": false,
      "source": null,
      "strip": null,
      "tag": "SN-10",
@@ -11272,6 +11299,7 @@ window.GUI3_DATA = {
      "num": null,
      "rule": null,
      "screen": null,
+     "side": false,
      "source": null,
      "strip": null,
      "tag": "SN-12",
@@ -11474,6 +11502,7 @@ window.GUI3_DATA = {
      "num": null,
      "rule": null,
      "screen": null,
+     "side": false,
      "source": null,
      "strip": null,
      "tag": null,
@@ -11623,6 +11652,7 @@ window.GUI3_DATA = {
      "num": null,
      "rule": null,
      "screen": null,
+     "side": false,
      "source": null,
      "strip": null,
      "tag": null,
@@ -11772,6 +11802,7 @@ window.GUI3_DATA = {
      "num": null,
      "rule": null,
      "screen": null,
+     "side": false,
      "source": null,
      "strip": null,
      "tag": null,
@@ -11884,10 +11915,57 @@ window.GUI3_DATA = {
      "num": null,
      "rule": null,
      "screen": null,
+     "side": false,
      "source": null,
      "strip": null,
      "tag": "D.2",
      "title": "Morph",
+     "titlePower": false,
+     "viz": null
+    },
+    {
+     "controls": [
+      {
+       "abbr": "X",
+       "advanced": false,
+       "follow": null,
+       "key": "morph.x",
+       "live": null,
+       "override": null,
+       "role": null,
+       "short": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "abbr": "Y",
+       "advanced": false,
+       "follow": null,
+       "key": "morph.y",
+       "live": null,
+       "override": null,
+       "role": null,
+       "short": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      }
+     ],
+     "fold": false,
+     "follow": null,
+     "id": "morph/position",
+     "master": false,
+     "matrix": null,
+     "minimized": false,
+     "num": null,
+     "rule": null,
+     "screen": null,
+     "side": true,
+     "source": null,
+     "strip": null,
+     "tag": "IF-11",
+     "title": "Position",
      "titlePower": false,
      "viz": null
     },
@@ -11957,6 +12035,7 @@ window.GUI3_DATA = {
      "num": null,
      "rule": null,
      "screen": null,
+     "side": false,
      "source": null,
      "strip": null,
      "tag": "MO-6 · MO-7",
@@ -12106,6 +12185,7 @@ window.GUI3_DATA = {
      "num": null,
      "rule": null,
      "screen": null,
+     "side": false,
      "source": null,
      "strip": null,
      "tag": "MO-10 · RC-7.4",
@@ -12213,6 +12293,7 @@ window.GUI3_DATA = {
      "num": null,
      "rule": null,
      "screen": null,
+     "side": false,
      "source": null,
      "strip": "osc1",
      "tag": null,
@@ -12289,6 +12370,7 @@ window.GUI3_DATA = {
      "num": null,
      "rule": null,
      "screen": null,
+     "side": false,
      "source": null,
      "strip": "osc2",
      "tag": null,
@@ -12365,6 +12447,7 @@ window.GUI3_DATA = {
      "num": null,
      "rule": null,
      "screen": null,
+     "side": false,
      "source": null,
      "strip": "sub",
      "tag": null,
@@ -12441,6 +12524,7 @@ window.GUI3_DATA = {
      "num": null,
      "rule": null,
      "screen": null,
+     "side": false,
      "source": null,
      "strip": "noise",
      "tag": null,
@@ -12473,6 +12557,7 @@ window.GUI3_DATA = {
      "num": null,
      "rule": null,
      "screen": null,
+     "side": false,
      "source": null,
      "strip": "out",
      "tag": null,
@@ -12919,6 +13004,7 @@ window.GUI3_DATA = {
      "num": null,
      "rule": null,
      "screen": "Echo",
+     "side": false,
      "source": null,
      "strip": null,
      "tag": "SLOT 1",
@@ -13321,6 +13407,7 @@ window.GUI3_DATA = {
      "num": null,
      "rule": null,
      "screen": "Scape",
+     "side": false,
      "source": null,
      "strip": null,
      "tag": "SLOT 2",
@@ -14503,6 +14590,7 @@ window.GUI3_DATA = {
      "num": null,
      "rule": null,
      "screen": "Shriek",
+     "side": false,
      "source": null,
      "strip": null,
      "tag": "SLOT 3",
@@ -15155,6 +15243,7 @@ window.GUI3_DATA = {
      "num": null,
      "rule": null,
      "screen": "Bulwark",
+     "side": false,
      "source": null,
      "strip": null,
      "tag": "SLOT 4",
@@ -15278,6 +15367,7 @@ window.GUI3_DATA = {
      "num": null,
      "rule": null,
      "screen": "Bulwark",
+     "side": false,
      "source": null,
      "strip": null,
      "tag": "MASTER · B438",
@@ -15342,6 +15432,7 @@ window.GUI3_DATA = {
      "num": null,
      "rule": null,
      "screen": null,
+     "side": false,
      "source": null,
      "strip": null,
      "tag": null,
@@ -16127,6 +16218,7 @@ window.GUI3_DATA = {
      "num": null,
      "rule": null,
      "screen": null,
+     "side": false,
      "source": null,
      "strip": null,
      "tag": "MIDI MODULE",
@@ -26456,7 +26548,7 @@ window.GUI3_DATA = {
    "section": "D.2",
    "see": null,
    "source": "SPEC-ENGINE Appendix D.2",
-   "spec": "How many corner settings may sound, or blend, at once under Blend and Stepped (MO-9, MO-17).",
+   "spec": "How many corner values a Morphable key blends at once under Blend and Stepped (MO-9).",
    "target": "resolver",
    "unit": ""
   },
@@ -26749,6 +26841,64 @@ window.GUI3_DATA = {
    "spec": "MO-5.",
    "target": "resolver",
    "unit": "s"
+  },
+  {
+   "advanced": false,
+   "block": "morph",
+   "class": "D",
+   "default_text": "0",
+   "default_v": 0.0,
+   "default_x": 0.0,
+   "desc_source": "spec",
+   "hi": 1.0,
+   "host": true,
+   "key": "morph.x",
+   "label": "X",
+   "label_declared": true,
+   "law": "lin",
+   "law_declared": true,
+   "lo": 0.0,
+   "neg_inf": false,
+   "order": 13,
+   "pv": false,
+   "range_text": "0 to 1, lin",
+   "rate": "C",
+   "reserved": false,
+   "section": "D.2",
+   "see": null,
+   "source": "SPEC-ENGINE Appendix D.2",
+   "spec": "The pad position's x: 0 is the A–C side, 1 the B–D side (MO-4).",
+   "target": "resolver",
+   "unit": ""
+  },
+  {
+   "advanced": false,
+   "block": "morph",
+   "class": "D",
+   "default_text": "0",
+   "default_v": 0.0,
+   "default_x": 0.0,
+   "desc_source": "spec",
+   "hi": 1.0,
+   "host": true,
+   "key": "morph.y",
+   "label": "Y",
+   "label_declared": true,
+   "law": "lin",
+   "law_declared": true,
+   "lo": 0.0,
+   "neg_inf": false,
+   "order": 14,
+   "pv": false,
+   "range_text": "0 to 1, lin",
+   "rate": "C",
+   "reserved": false,
+   "section": "D.2",
+   "see": null,
+   "source": "SPEC-ENGINE Appendix D.2",
+   "spec": "The pad position's y: 0 is the A–B side, 1 the C–D side (MO-4).",
+   "target": "resolver",
+   "unit": ""
   },
   {
    "advanced": false,
@@ -34749,6 +34899,7 @@ window.GUI3_DATA = {
  ],
  "sections": {
   "missing": [
+   "morph/position",
    "fx/echo",
    "fx/scape",
    "fx/shriek",

@@ -26,7 +26,7 @@ The modulated value is clamp(base + sum of all contributions, 0, 1). Clamp once 
 
 Mappings on one parameter are an ordered list. The order does not affect the sound (the sum is commutative), but it sets ring order on the knob (see Visual language).
 
-Integration with the existing tiers: a mapping created in map mode is global by default. A mapping whose target is a morph or intent-bus parameter must be global, as already decided. If corner-level mods are offered here, they need an explicit scope switch in the MAP control rather than an inferred one (see Open decisions).
+Integration with the existing tiers: a mapping created in map mode is per corner (ADR-371 MQ17; GUI-51 ruling 5; the human approved this edit 2026-11-06): it keeps a depth for each corner, and the puck blends them. A mapping whose target is a morph or intent-bus parameter must be global, as already decided.
 
 New mapping defaults: polarity unipolar; depth 25% on a plain click, or whatever the Option-drag sets (ADR-340 r7).
 
@@ -153,7 +153,7 @@ These came up while testing the prototype and are not settled. Each has a recomm
 | Clicking a parameter already mapped to the current source, in map mode | Select only; remove (makes map mode a toggle) | Select only. Removing with a click is too easy to trigger during a quick run of clicks. Keep Backspace and the inspector for removal. |
 | Cycling focus with 3 or more mappings | Option-click; Option-scroll; a small popover | Option-click, plus the caption shown while Option is held. Revisit if four-mapping knobs turn out to be common. |
 | Default depth on a plain click | 25%; 0% (click only arms the mapping) | 25%, so a click gives an audible result |
-| Scope (global vs corner-level) when mapping in map mode | Always global; a scope switch next to the MAP control | Always global for 1.0, with a scope switch as a follow-up. Intent and morph targets are forced global regardless. |
+| Scope (global vs corner-level) when mapping in map mode | Always global; a scope switch next to the MAP control | Ruled per corner for 1.0 (ADR-371 MQ17, GUI-51): every mapping keeps a depth for each corner. Intent and morph targets are forced global regardless. |
 | Stray mappings during page switching | Accept; a short delay before clicks register after a page change | Accept, and rely on undo |
 
 **Reference prototype:** [HORDE Map Mode](https://claude.ai/artifact/RFbY41fivZuKm6QU58hCp4) (browser). It is a behavior reference, not a parity oracle. The time step and the random source's math are illustrative only.

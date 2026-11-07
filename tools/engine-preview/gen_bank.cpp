@@ -34,8 +34,9 @@ int main(int argc, char** argv) {
   out << "static const EmbeddedPreset kBank[] = {\n";
   for (std::size_t i = 0; i < bank.size(); ++i) {
     // A raw string with a delimiter no state document contains, since a state is JSON and may quote anything.
+    std::snprintf(number, sizeof number, "%.17g", bank[i].glide_s);
     out << "{R\"HORDEBANK(" << bank[i].name << ")HORDEBANK\", R\"HORDEBANK(" << bank[i].state << ")HORDEBANK\", kRoutes" << i << ", "
-        << bank[i].routes.size() << "},\n";
+        << bank[i].routes.size() << ", " << number << ", " << (bank[i].glide_always ? "true" : "false") << "},\n";
   }
   out << "};\n";
   std::printf("gen_bank: %zu presets levelled, median %.2f LUFS\n", bank.size(), report.median_lufs);
