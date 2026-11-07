@@ -5098,6 +5098,24 @@ window.GUI3_DATA = {
        "widget": "knob"
       },
       {
+       "abbr": "CHZ",
+       "advanced": false,
+       "follow": null,
+       "key": "osc1.blade1.cutHz",
+       "live": {
+        "is": [
+         "Hz"
+        ],
+        "key": "osc1.blade1.cutIn"
+       },
+       "override": null,
+       "role": null,
+       "short": null,
+       "size": null,
+       "sub": "Cut",
+       "widget": "knob"
+      },
+      {
        "abbr": "POS",
        "advanced": false,
        "follow": null,
@@ -5298,24 +5316,6 @@ window.GUI3_DATA = {
        "size": null,
        "sub": null,
        "widget": "pills"
-      },
-      {
-       "abbr": "CHZ",
-       "advanced": true,
-       "follow": null,
-       "key": "osc1.blade1.cutHz",
-       "live": {
-        "is": [
-         "Hz"
-        ],
-        "key": "osc1.blade1.cutIn"
-       },
-       "override": null,
-       "role": null,
-       "short": null,
-       "size": null,
-       "sub": null,
-       "widget": "knob"
       },
       {
        "abbr": "FRM",
@@ -5713,6 +5713,24 @@ window.GUI3_DATA = {
        "widget": "knob"
       },
       {
+       "abbr": "CHZ",
+       "advanced": false,
+       "follow": null,
+       "key": "osc1.blade2.cutHz",
+       "live": {
+        "is": [
+         "Hz"
+        ],
+        "key": "osc1.blade2.cutIn"
+       },
+       "override": null,
+       "role": null,
+       "short": null,
+       "size": null,
+       "sub": "Cut",
+       "widget": "knob"
+      },
+      {
        "abbr": "POS",
        "advanced": false,
        "follow": null,
@@ -5885,24 +5903,6 @@ window.GUI3_DATA = {
        "size": null,
        "sub": null,
        "widget": "pills"
-      },
-      {
-       "abbr": "CHZ",
-       "advanced": true,
-       "follow": null,
-       "key": "osc1.blade2.cutHz",
-       "live": {
-        "is": [
-         "Hz"
-        ],
-        "key": "osc1.blade2.cutIn"
-       },
-       "override": null,
-       "role": null,
-       "short": null,
-       "size": null,
-       "sub": null,
-       "widget": "knob"
       },
       {
        "abbr": "FRM",
@@ -7957,6 +7957,24 @@ window.GUI3_DATA = {
        "widget": "knob"
       },
       {
+       "abbr": "CHZ",
+       "advanced": false,
+       "follow": null,
+       "key": "osc2.blade1.cutHz",
+       "live": {
+        "is": [
+         "Hz"
+        ],
+        "key": "osc2.blade1.cutIn"
+       },
+       "override": null,
+       "role": null,
+       "short": null,
+       "size": null,
+       "sub": "Cut",
+       "widget": "knob"
+      },
+      {
        "abbr": "POS",
        "advanced": false,
        "follow": null,
@@ -8157,24 +8175,6 @@ window.GUI3_DATA = {
        "size": null,
        "sub": null,
        "widget": "pills"
-      },
-      {
-       "abbr": "CHZ",
-       "advanced": true,
-       "follow": null,
-       "key": "osc2.blade1.cutHz",
-       "live": {
-        "is": [
-         "Hz"
-        ],
-        "key": "osc2.blade1.cutIn"
-       },
-       "override": null,
-       "role": null,
-       "short": null,
-       "size": null,
-       "sub": null,
-       "widget": "knob"
       },
       {
        "abbr": "FRM",
@@ -8572,6 +8572,24 @@ window.GUI3_DATA = {
        "widget": "knob"
       },
       {
+       "abbr": "CHZ",
+       "advanced": false,
+       "follow": null,
+       "key": "osc2.blade2.cutHz",
+       "live": {
+        "is": [
+         "Hz"
+        ],
+        "key": "osc2.blade2.cutIn"
+       },
+       "override": null,
+       "role": null,
+       "short": null,
+       "size": null,
+       "sub": "Cut",
+       "widget": "knob"
+      },
+      {
        "abbr": "POS",
        "advanced": false,
        "follow": null,
@@ -8744,24 +8762,6 @@ window.GUI3_DATA = {
        "size": null,
        "sub": null,
        "widget": "pills"
-      },
-      {
-       "abbr": "CHZ",
-       "advanced": true,
-       "follow": null,
-       "key": "osc2.blade2.cutHz",
-       "live": {
-        "is": [
-         "Hz"
-        ],
-        "key": "osc2.blade2.cutIn"
-       },
-       "override": null,
-       "role": null,
-       "short": null,
-       "size": null,
-       "sub": null,
-       "widget": "knob"
       },
       {
        "abbr": "FRM",

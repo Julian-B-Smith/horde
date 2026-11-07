@@ -153,13 +153,31 @@
      block sizes, the tick sets, the clears, A1 and no-click, with plants:
      a tick on the block start, Math.random, a firing path that records.
 
+     ROUND 6 (2026-11-06): ORBITAL REOPENED, AND ROUND 62'S M3.
+     Human: "let's re-open the orbital lab" ("if we do sine/cosine of angle for
+     orbital, it might solve the diminishing scope issue"), and on M3: "Let's
+     test a mix in a lab before deciding".
+       - ORBITAL gains sin and cos of each body's angle (bipolar, smoothed),
+         accel (SPEC-ORBITAL §4, on ADR-165 A1's per-preset ceiling), ADR-375's
+         per-preset scales for speed and energy (MB-7's measurement; CLAMP
+         keeps §4's reading to compare) and the thermostat (ADR-375 A1), all
+         from the reference or the record.
+       - A scope: eight rows of SOURCES for one body, each with its range per
+         second over the last minute, any row heard on the test tone (solo).
+       - M3: two corners of different LFO kinds, MIX (blend by weight) or
+         SWITCH (MO-7's seeded pick, MO-8's latch, the morph glide).
+     r6SelfCheck (pure) covers sin/cos against the positions, accel against
+     the force from scratch, the ceilings, the shrinking and the thermostat,
+     the scope row = the destination, MIX against its rule, SWITCH's exactness,
+     boundary, determinism and glide, each with a control that must fire.
+
      L0026: all state above all wiring. No Math.random (mulberry32 only, SPEC
-     §5.7), except the must-fail plants of rounds 4 and 5 in the UI section,
+     §5.7), except the must-fail plants of rounds 4, 5 and 6 in the UI section,
      each a twin's draw in a self-check and never a source the page plays. No
      wall clock in the render path: the core counts samples. -->
 <html lang="en"><head><meta charset="utf-8">
 <meta name="lab-part" content="Modulation">
-<title>horde modulator lab: LFO + envelope + sources + S&amp;H/random + 2-D random + trigger timer, one law each (B208, B226, B237, B540, B541)</title>
+<title>horde modulator lab: LFO + envelope + sources + S&amp;H/random + 2-D random + trigger timer + ORBITAL scope + M3, one law each (B208, B226, B237, B540, B541, B126)</title>
 <style>
   /* ============================================================
      TOKENS, copied VERBATIM from src/gui/gui2.html:26-96 (:root),
@@ -378,6 +396,12 @@
 
   /* ============ ROUND 5 (B541) — the same chrome ============ */
   #ttC { height:170px; } #impC { height:110px; }
+
+  /* ============ ROUND 6 (B126 reopened, M3) — the same chrome ============ */
+  .r6 { display:grid; grid-template-columns:minmax(0,.8fr) minmax(0,1.4fr); gap:10px; align-items:start; margin-top:10px; }
+  @media (max-width:1180px) { .r6 { grid-template-columns:1fr; } }
+  #o6FieldC { height:230px; margin-bottom:6px; } #o6C { height:470px; cursor:pointer; } #m3C { height:300px; }
+  .audit.busy { opacity:.6; }
   #ttRows .cap, #impRows .cap, #arpRows .cap { margin-top:8px; }
   #ttRows input[type=number] { width:84px; }
   .steps { gap:2px; flex-wrap:nowrap; }
@@ -599,10 +623,11 @@ level. <b>EVENTS</b> sends the trigger to actions. POWER, then play the keys (th
     <div class="note" id="orbRead"></div>
     <div class="note">Bodies attract under softened gravity (velocity Verlet, the reference's <code>step()</code>). You set up
       a system and route what it does, and never draw a shape. Sources per body are <b>x, y</b> (y up), <b>speed</b> (|v| ÷ the
-      3.0 clamp), <b>near</b> (1 − the softened distance to the nearest body) and <b>angle</b> about the centre (0..1,
+      preset's own full range since round 6, ADR-375; ÷ the 3.0 clamp under SCALE = CLAMP), <b>near</b> (1 − the softened distance to the nearest body) and <b>angle</b> about the centre (0..1,
       wrapping, and <b>not smoothed</b>, because a smoother would sweep through 0.5 at every wrap). Per field there are
       <b>energy</b> and <b>spread</b>. The ticks on the bottom and left edges are each body's x and y, and a ticked body a
-      route is reading is drawn in meter colour. Steps are <b>counted in samples</b> (SPEC-ORBITAL §6.2) at the lab's
+      route is reading is drawn in meter colour. Round 6 (below) adds <b>accel</b>, <b>sin</b> and <b>cos</b> of the angle, and the
+      thermostat. Steps are <b>counted in samples</b> (SPEC-ORBITAL §6.2) at the lab's
       1/480 s. <b>ADD BODY</b> draws its position from a seeded stream, (seed, add count), so an added body is patch
       state. <b>KICK</b> and <b>RESET</b> are the spec's two trigger inputs (§7), and they are also action targets in
       EVENTS.</div>
@@ -968,6 +993,108 @@ press DRONE to hear the pump. Firing is a performance event: it never moves the 
   </div>
 </div>
 
+<!-- ======================= ROUND 6 (B126 reopened; round 62's M3) ======================= -->
+<div class="sect">
+  <div>
+    <h1>orbital, reopened</h1>
+    <div class="badges">
+      <span class="badge">LAB · B126 · ROUND 62 M3</span>
+      <span class="sub">SIN AND COS OF THE ANGLE · ACCEL · THE THERMOSTAT · A SCOPE THAT MEASURES ITS OWN RANGE · LFO KINDS BETWEEN CORNERS</span>
+    </div>
+  </div>
+</div>
+<div class="tagline">Two benches. <b>ORBITAL's scope</b> shows one body's outputs side by side: the raw <b>angle</b>, its
+<b>sin</b> and <b>cos</b>, and x, y, speed, accel and the field's energy. Beside each row, a bar per second shows how its
+range moves over the last minute. Raise <b>drag</b> to watch the bodies spiral in. The rows tied to position and speed
+shrink toward a flat line, the <b>thermostat</b> holds them up, and sin and cos keep their full ±1 while the body circles
+the centre. To hear a row, POWER, DRONE, then <b>click the row</b>: it becomes the test tone's cutoff (or pitch). <b>M3</b>
+puts two LFO kinds in corners A and B and morphs between them by <b>MIX</b> (both run, blended by weight) or <b>SWITCH</b>
+(one kind each side of a seeded quantum boundary). Press SWEEP and compare by ear.</div>
+<div class="audit" id="audit6">round-6 self-check: pending</div>
+
+<div class="r6">
+  <div class="cluster" id="o6Pane"><h2>ORBITAL · THE FIELD <span>· drag, thermostat, scales · ADR-375 A1</span></h2>
+    <div class="pills" id="o6Presets"></div>
+    <canvas id="o6FieldC"></canvas>
+    <div id="o6Rows"></div>
+    <div class="note" id="o6Read"></div>
+  </div>
+  <div class="cluster" id="o6ScopePane"><h2>THE SCOPE <span>· one body · the last 5 s · range per second, last 60 s · click a row to hear it</span></h2>
+    <canvas id="o6C"></canvas>
+    <div class="note">Each row is a row of the lab's one source table, logged by the render (the HEARD row is the value the
+      cutoff or pitch received, held equal by the self-check). The left number is the row's <b>peak-to-peak over the last
+      second</b>, the right one is the same <b>30 s ago</b>, and the bars are each second's range for the last minute,
+      oldest left. A full bar is the row's whole range (1 for 0..1 rows, 2 for ±1 rows). <b>angle</b> wraps from 1 to 0 once
+      an orbit, a jump. <b>sin</b> and <b>cos</b> are the same circle without the seam, and their range does not depend on
+      how far the body is from the centre, so they keep it while x and y shrink. Watch the field picture: the ray is the
+      angle the rows read. <b>The centre is their weak point.</b> A body passing close to it turns its angle by up to half a
+      turn in a step, and sin and cos jump there (see the self-check and finding 3).</div>
+  </div>
+</div>
+
+<div class="r6">
+  <div class="cluster" id="m3Pane"><h2>M3 · LFO KINDS BETWEEN CORNERS <span>· round 62 [OPEN M3] · LF-8, MS-27</span></h2>
+    <div class="law"><b>One clock, two kinds.</b> Corners A and B each hold an LFO kind, and both read the same rate and
+      phase, so a change of kind lands on the running cycle. <b>MIX</b> (option a): both run, and the output is
+      (1 − w)·A + w·B, where w is the morph position glided by the morph glide (MO-5). Halfway, you hear a wobble with steps
+      riding on it. <b>SWITCH</b> (option b): one kind at a time. The kind is picked by MO-7 at the unglided position, so the
+      boundary sits at a <b>seeded</b> place on the morph axis (the seed's two Gumbel draws and the temperature set it).
+      MO-8's latch holds it there (a band of 0.1 at an even split). The change of kind then glides over the morph glide: a
+      brief, timed transition, and a flip at 0 ms. <b>DRAWN</b> is the LFO card's breakpoints at the top of the page.</div>
+    <div id="m3Rows"></div>
+  </div>
+  <div class="cluster" id="m3ScopePane"><h2>M3 · THE SCOPE <span>· the last 4 s · A, B and what is heard · the morph below</span></h2>
+    <canvas id="m3C"></canvas>
+    <div class="note" id="m3Read"></div>
+  </div>
+</div>
+
+<div class="r2" style="grid-template-columns:minmax(0,1fr)">
+  <div class="cluster" id="o6QPane"><h2>ROUND 6 · FINDINGS AND OPEN QUESTIONS <span>· B126 · round 62 M3, M4</span></h2>
+    <ol class="find">
+      <li><b>"The diminishing scope issue" is not named anywhere in the record.</b> This bench builds the two shrinkings the
+        record does hold. (1) <b>Drag empties the field</b>: B126, 2026-09-15, the human asked for "some force or process
+        counteracting drag … a consistent mean magnitude". Measured on binary at drag 0.05: x's peak-to-peak is 0.19 in the
+        first 10 s, 0.01 by 30 s and 0.00 by 60 s, and speed, energy and accel go the same way. (2) <b>Small scales</b>: round 2
+        found speed and energy reading about 0.1 and 0.01 against the 3.0 clamp, which ADR-375 answered with per-preset
+        scales (built here: SCALE). If the human meant something else, this is the question to ask.</li>
+      <li><b>sin and cos fix the radius, not the energy.</b> Their range is ±1 at any distance from the centre, so a
+        spiralling body still sweeps them fully (measured: binary at drag 0.3, after 35 s, x's range ≈ 10⁻⁸ while sin's is
+        2.0). But they say nothing about how fast or how hard the body moves, and their rate can rise as an orbit tightens.
+        <b>The thermostat restores pace, not size.</b> Measured on this page: binary run down by drag 0.29, then the
+        thermostat on and a KICK: the mean speed came back to 0.366 (0.366 predicted), but the pair had merged, so x's
+        range was 0.034 against 0.24 before, and speed's was 0.002 (a circular orbit at a held pace has a constant speed).
+        sin and cos stayed at about 2.0 throughout. So for a field that has collapsed, sin and cos are the only position
+        outputs with their full range left.</li>
+      <li><b>The centre is where the angle breaks down.</b> The angle is taken about the field's centre. A body that passes
+        near the centre turns its angle by up to half a turn in one step, and sin and cos jump there (measured largest
+        one-sample steps over 10 s: sun 0.43, figure-eight 1.73, four-body chaos 1.75; binary, which circles the centre,
+        0.02). When drag has pulled a body into the centre, its angle is numerical dust and sin and cos chatter. Two
+        readings the human could pick from, neither built: the angle about the <b>centre of mass of the other bodies</b>
+        (what the body actually orbits), or sin and cos of the <b>heading</b> (the velocity's direction, which never sees
+        the centre but jumps at a wall bounce).</li>
+      <li><b>Which sin and cos?</b> ADR-165 A1 ratified "sin/cos observables" for <b>Wrap</b>: sin and cos of each
+        <b>position</b> on the torus, so a body crossing the seam does not jump (round 62's M4 (c)). Today's ask is sin
+        and cos of the <b>angle</b>. They are different sources, and this round builds only the angle's. Are both wanted?
+        With accel and the angle's pair, a body has 8 rows (34 sources with energy and spread).</li>
+      <li><b>accel's ceilings, measured</b> (MB-7's rule: the peak over 30 s from home, rounded up to two figures): see the
+        self-check line. The sun's is 23 because a planet passing the pinned sun takes a hard pull, so in ordinary orbits
+        accel reads low there. Per-body ceilings are the alternative.</li>
+      <li><b>The thermostat's offset</b> (B126's finding, still open): against drag it settles at v* ÷ √(1 + 2τ·3·drag), not
+        v*. At τ 0.5 s and drag 0.3 that is 27 % low. The readout prints both numbers.</li>
+      <li><b>The thermostat cannot restart a field at rest.</b> The reference's guard skips a field whose mean speed is
+        below 10⁻⁹ (λ multiplies, so a field at rest stays at rest). Measured on this page: after drag had run binary down
+        to a mean speed of 10⁻¹¹, switching the thermostat on changed nothing until a KICK. If the thermostat is on, should
+        it also refuse to let the field die (a floor), or is that the KICK's job?</li>
+      <li><b>M3, by ear.</b> MIX blends two control signals (not two sounds), so ADR-377's "no crossfades" does not decide
+        it. SWITCH is ADR-377's structure rule applied to a modulator. A SWITCH glide longer than a few ms is a crossfade
+        of control signals: is it wanted, or should the kind flip outright (MS-27's reading)?</li>
+      <li><b>No committed gate.</b> The self-check is in-page and runs headless (<code>r6SelfCheck</code>). A
+        <code>tools/*_check</code> that runs it is the lead's call.</li>
+    </ol>
+  </div>
+</div>
+
 <script>
 'use strict';
 /* ================= DSP ================= */
@@ -1234,9 +1361,55 @@ function makeKuro(sr, cfg, drawn) {
    SAMPLES (§6.2), the observables beyond x/y (§4), smoothing (§3.2), and KICK
    and RESET (§7). dt stays the reference's 1/480 s. The port's is 1/960 and
    its oracle is behavioural (ADR-165 amendment of 2026-09-17), so matching
-   the lab to the port would buy nothing. */
+   the lab to the port would buy nothing.
+   ROUND 6 (B126 reopened, 2026-11-06) adds, still from the record and not
+   invented: the THERMOSTAT (the reference's thermostat() :356-361, ADR-375
+   A1: switchable, v* and τ, off = the step above unchanged, because the call
+   is skipped); ACCEL (SPEC-ORBITAL §4, on ADR-165 A1's fixed per-preset
+   ceiling); SIN and COS of the angle (the human, 2026-11-06); and ADR-375's
+   per-preset full-range scales for speed and energy (MB-7's measurement:
+   the peak over the first 30 s from home at time × 1, rounded UP to two
+   significant figures). The Van der Pol band and the edge cushion stay out
+   (ADR-375 A1: the band is not kept, the cushion is after 1.0). */
 const ORB_DT = 1 / 480, ORB_MAXV = 3.0, MAXB = 8, ORB_TRL = 240;
 const ORB_EDGES = ['reflect', 'wrap', 'open'];
+/* Per body: x, y, speed, near, angle, accel, sin, cos (the SOURCES order, ORB_OBS).
+   Angle (4) is the only one never smoothed: a one-pole would sweep through 0.5
+   at every wrap. Sin and cos are smooth by construction, so they ARE smoothed. */
+const ORB_NO = 8, ORB_ANGLE = 4;
+const ORB_CEIL_SEC = 30;   // MB-7: the measuring window, from home at time × 1
+/* Round UP to two significant figures (MB-7), so the ceiling is never below
+   the measured peak and at most ~10 % above it. */
+function sig2Up(x) { if (!(x > 0)) return 1; const p = Math.pow(10, Math.floor(Math.log10(x)) - 1); return Math.ceil(x / p) * p; }
+/* The full-range scales of a field, measured from its HOME state (MB-7): S the
+   peak |v| of a free body, E the peak kinetic energy, A the peak |a| of a free
+   body, over 30 s at time × 1, drag 0, thermostat off (the preset's own law,
+   not the performance settings). Cached by the field's law and home state, so
+   the audits' many twins measure once. A pinned body is scenery: its |v| is 0
+   and its |a| is not a motion, so it reads 0 and is not in the peak. */
+const ORB_CEIL_CACHE = new Map();
+function orbCeilings(cfg) {
+  const key = JSON.stringify([cfg.G, cfg.eps, cfg.bounds, cfg.com, cfg.bodies.map(b => [b.m, b.x, b.y, b.vx, b.vy, !!b.pinned])]);
+  const hit = ORB_CEIL_CACHE.get(key); if (hit) return hit;
+  const F = new OrbitalField(48000, { G: cfg.G, eps: cfg.eps, ts: 1, damp: 0, bounds: cfg.bounds, com: cfg.com,
+    bodies: cfg.bodies, smooth: 0, seed: 0, thermoOn: false }, true);
+  let vmx = 0, kmx = 0, amx = 0;
+  for (let s = Math.round(ORB_CEIL_SEC / ORB_DT); s > 0; s--) {
+    F.step(ORB_DT);
+    let K = 0;
+    for (const b of F.nodes) {
+      K += 0.5 * b.m * (b.vx * b.vx + b.vy * b.vy);
+      if (b.pinned) continue;
+      const v = Math.hypot(b.vx, b.vy), a = Math.hypot(b.ax, b.ay);
+      if (v > vmx) vmx = v; if (a > amx) amx = a;
+    }
+    if (K > kmx) kmx = K;
+  }
+  const out = Object.freeze({ S: sig2Up(vmx), E: sig2Up(kmx), A: sig2Up(amx), peak: Object.freeze({ S: vmx, E: kmx, A: amx }) });
+  if (ORB_CEIL_CACHE.size > 256) ORB_CEIL_CACHE.clear();   // a bound, so dragging G for an hour cannot grow it
+  ORB_CEIL_CACHE.set(key, out);
+  return out;
+}
 /* The reference's four presets (:267-296) as initial-condition data. */
 function orbPreset(name) {
   const B = (m, x, y, vx, vy, pinned) => ({ m, x, y, vx: vx || 0, vy: vy || 0, pinned: !!pinned });
@@ -1254,15 +1427,26 @@ function orbPreset(name) {
   return { G: 0.025, eps: 0.06, bounds: 'reflect', com: true, bodies: [B(3, 0.38, 0.5, 0, -0.28), B(3, 0.62, 0.5, 0, 0.28)] };
 }
 class OrbitalField {
-  constructor(sr, cfg) {
+  /* `bare`: a field for orbCeilings' own measuring run, which must not measure
+     itself (it would recurse) and never observes. */
+  constructor(sr, cfg, bare) {
     this.sr = sr;
-    this.P = { G: cfg.G, eps: cfg.eps, ts: cfg.ts, damp: cfg.damp, bounds: cfg.bounds, com: cfg.com };
+    this.P = { G: cfg.G, eps: cfg.eps, ts: cfg.ts, damp: cfg.damp, bounds: cfg.bounds, com: cfg.com,
+      /* ROUND 6: the thermostat (ADR-375 A1). Its defaults are round 62's X73 proposal (v* 0.5, τ 0.5 s);
+         off by default, so a patch that predates it runs the old step exactly. */
+      thermoOn: !!cfg.thermoOn, thermoV: cfg.thermoV > 0 ? cfg.thermoV : 0.5, thermoTau: cfg.thermoTau > 0 ? cfg.thermoTau : 0.5,
+      /* 'preset' = ADR-375's per-preset full range for speed and energy (ruled); 'clamp' = SPEC-ORBITAL §4 as
+         written (|v| ÷ 3.0, energy ÷ its clamp maximum), kept to hear what the ruling changed. */
+      scale: cfg.scale === 'clamp' ? 'clamp' : 'preset' };
     this.nodes = [];
     for (const b of cfg.bodies) this.addBody(b);
     this.acc = 0; this.steps = 0;
-    this.raw = new Float64Array(MAXB * 5);   // per body: x, y, speed, near, angle
-    this.sm = new Float64Array(MAXB * 4);    // the smoothed four (angle is never smoothed)
+    this.raw = new Float64Array(MAXB * ORB_NO);   // per body, ORB_OBS order
+    this.sm = new Float64Array(MAXB * ORB_NO);    // the smoothed ones (slot ORB_ANGLE unused)
     this.fraw = new Float64Array(2); this.fsm = new Float64Array(2);   // energy, spread
+    this.ceil = { S: ORB_MAXV, E: 1, A: 1 };
+    if (bare) return;
+    this.measure();
     this.setSmooth(cfg.smooth);
     /* KICK's direction: one seeded stream, drawn once per kick, so a kick is
        reproducible from (seed, kick count). Offset from the add-body stream
@@ -1270,6 +1454,35 @@ class OrbitalField {
     this.kickRng = mulberry32(((cfg.seed | 0) ^ 0x5EED) >>> 0); this.kicks = 0;
     this.tr = new Float32Array(MAXB * 2 * ORB_TRL); this.trw = 0; this.trn = 0; this.trDec = 0;
     this.observe(); this.prime();
+  }
+  /* ROUND 6: the field's full-range scales from its HOME state and its current
+     law (G, ε, edges, COM). Called at construction and by the page after any
+     edit of those or an added body: MB-7 measures a preset when it is saved,
+     and the lab has no save, so it measures whatever field is loaded. */
+  measure() {
+    const P = this.P;
+    this.ceil = orbCeilings({ G: P.G, eps: P.eps, bounds: P.bounds, com: P.com,
+      bodies: this.nodes.map(b => ({ m: b.m, x: b.hx0, y: b.hy0, vx: b.vx0, vy: b.vy0, pinned: b.pinned })) });
+  }
+  /* Mean speed over the FREE bodies: what the thermostat regulates (the
+     reference's meanSpeed() :329-333, minus its pointer-drag exclusion). */
+  meanSpeed() {
+    let n = 0, s = 0;
+    for (const b of this.nodes) { if (b.pinned) continue; n++; s += Math.hypot(b.vx, b.vy); }
+    return n ? s / n : 0;
+  }
+  /* THE THERMOSTAT, transcribed from the reference's thermostat() :356-361 with
+     its arithmetic unchanged: Berendsen rescaling, one λ per step for every free
+     body, so orbit SHAPES survive and only the pace is regulated. τ in seconds,
+     entering only as dt/τ (ADR-009). λ is held to [0.5, 1.5] and a field at rest
+     stays at rest (λ is multiplicative). Against drag γ = 3·drag it settles at
+     v* ÷ √(1 + 2τγ), not v* (B126's measured finding; proportional control). */
+  thermostat(dt) {
+    const P = this.P, vbar = this.meanSpeed();
+    if (vbar <= 1e-9) return;
+    const r = P.thermoV / vbar;
+    const lam = Math.min(1.5, Math.sqrt(Math.max(0.25, 1 + (dt / P.thermoTau) * (r * r - 1))));
+    for (const b of this.nodes) { if (b.pinned) continue; b.vx *= lam; b.vy *= lam; }
   }
   setSmooth(s) { this.tauS = s; this.a = s > 0 ? 1 - Math.exp(-1 / (s * this.sr)) : 1; }   // seconds → per sample (ADR-009)
   setSr(sr) { this.sr = sr; this.setSmooth(this.tauS); }
@@ -1307,6 +1520,10 @@ class OrbitalField {
       b.vx += 0.5 * b.ax * dt; b.vy += 0.5 * b.ay * dt;
       if (P.damp > 0) { const k = Math.exp(-P.damp * 3 * dt); b.vx *= k; b.vy *= k; }
     }
+    /* The reference's place for it (:423): after every body's damping, before the
+       clamp. Field-level, so it needs the whole damping pass first. Off, this
+       line is the only difference from round 2's step, and it is skipped. */
+    if (P.thermoOn) this.thermostat(dt);
     for (const b of nodes) {
       if (b.pinned) continue;
       if (b.vx * b.vx + b.vy * b.vy > ORB_MAXV * ORB_MAXV) { const s = Math.hypot(b.vx, b.vy); b.vx *= ORB_MAXV / s; b.vy *= ORB_MAXV / s; }
@@ -1330,26 +1547,35 @@ class OrbitalField {
   /* The spec's observables (§4), from the state after a step. */
   observe() {
     const nodes = this.nodes, n = nodes.length, r = this.raw, e2 = this.P.eps * this.P.eps;
+    const preset = this.P.scale === 'preset', C = this.ceil, vS = preset ? C.S : ORB_MAXV;
     let M = 0, K = 0, cx = 0, cy = 0;
     for (let i = 0; i < n; i++) {
-      const b = nodes[i], o = i * 5;
+      const b = nodes[i], o = i * ORB_NO;
       r[o] = clamp01(b.x); r[o + 1] = clamp01(1 - b.y);   // y up = higher, as the reference's outY
-      r[o + 2] = Math.min(1, Math.hypot(b.vx, b.vy) / ORB_MAXV);
+      r[o + 2] = Math.min(1, Math.hypot(b.vx, b.vy) / vS);
       let dmin = Infinity;
       for (let j = 0; j < n; j++) if (j !== i) { const d = Math.hypot(nodes[j].x - b.x, nodes[j].y - b.y); if (d < dmin) dmin = d; }
       r[o + 3] = n > 1 ? 1 - Math.min(1, Math.sqrt(dmin * dmin + e2)) : 0;
-      r[o + 4] = (Math.atan2(0.5 - b.y, b.x - 0.5) / TAU + 1) % 1;   // the reference's outAngle
+      const th = Math.atan2(0.5 - b.y, b.x - 0.5);
+      r[o + 4] = (th / TAU + 1) % 1;   // the reference's outAngle, the same expression as round 2's
+      /* ROUND 6. accel: |a| from the step's second force pass (the force at the
+         new positions), over the per-preset ceiling. A pinned body reads 0, as
+         its speed does. sin, cos: of the SAME θ as the angle, so they are the
+         angle's circle with no seam, ±1 at ANY orbit radius. */
+      r[o + 5] = b.pinned ? 0 : Math.min(1, Math.hypot(b.ax, b.ay) / C.A);
+      r[o + 6] = Math.sin(th); r[o + 7] = Math.cos(th);
       M += b.m; K += 0.5 * b.m * (b.vx * b.vx + b.vy * b.vy); cx += b.m * b.x; cy += b.m * b.y;
     }
     if (!(M > 0)) { this.fraw[0] = 0; this.fraw[1] = 0; return; }
     cx /= M; cy /= M;
     let s2 = 0;
     for (let i = 0; i < n; i++) { const b = nodes[i]; s2 += b.m * ((b.x - cx) * (b.x - cx) + (b.y - cy) * (b.y - cy)); }
-    this.fraw[0] = Math.min(1, K / (0.5 * M * ORB_MAXV * ORB_MAXV));   // KE over the most the clamp allows
+    this.fraw[0] = preset ? Math.min(1, K / C.E)
+      : Math.min(1, K / (0.5 * M * ORB_MAXV * ORB_MAXV));   // CLAMP: KE over the most the clamp allows (§4 as written)
     this.fraw[1] = clamp01(Math.sqrt(s2 / M) / Math.SQRT1_2);          // RMS radius about the COM, corner = 1
   }
   prime() {   // §6.3: smoothing primed to the new values, no glide from the old
-    for (let i = 0; i < this.nodes.length; i++) for (let q = 0; q < 4; q++) this.sm[i * 4 + q] = this.raw[i * 5 + q];
+    for (let i = 0; i < this.nodes.length; i++) for (let q = 0; q < ORB_NO; q++) this.sm[i * ORB_NO + q] = this.raw[i * ORB_NO + q];
     this.fsm[0] = this.fraw[0]; this.fsm[1] = this.fraw[1];
   }
   /* One SAMPLE: the fixed step runs as many times as the counted samples
@@ -1369,10 +1595,10 @@ class OrbitalField {
     if (k >= 8) this.acc = 0;   // the reference's no-spiral rule (:611)
     if (k) this.observe();
     const a = this.a, r = this.raw, s = this.sm, n = this.nodes.length;
-    for (let i = 0; i < n; i++) for (let q = 0; q < 4; q++) s[i * 4 + q] += (r[i * 5 + q] - s[i * 4 + q]) * a;
+    for (let i = 0; i < n; i++) for (let q = 0; q < ORB_NO; q++) if (q !== ORB_ANGLE) { const j = i * ORB_NO + q; s[j] += (r[j] - s[j]) * a; }
     this.fsm[0] += (this.fraw[0] - this.fsm[0]) * a; this.fsm[1] += (this.fraw[1] - this.fsm[1]) * a;
   }
-  obs(b, q) { return b < this.nodes.length ? (q === 4 ? this.raw[b * 5 + 4] : this.sm[b * 4 + q]) : 0; }
+  obs(b, q) { return b < this.nodes.length ? (q === ORB_ANGLE ? this.raw[b * ORB_NO + q] : this.sm[b * ORB_NO + q]) : 0; }
   reset() {
     for (const b of this.nodes) { b.x = b.hx0; b.y = b.hy0; b.vx = b.vx0; b.vy = b.vy0; if (b.pinned) { b.vx = 0; b.vy = 0; } }
     this.trn = 0; this.observe(); this.prime();
@@ -1478,9 +1704,12 @@ function defSrc(id, name, fam, bip, read) { SX[id] = SOURCES.length; SOURCES.pus
 defSrc('round1.lfo', 'the LFO card', 'LFO', true, c => c.lfo);
 for (let i = 0; i < MAXK; i++) defSrc('kuro.v' + (i + 1), 'voice ' + (i + 1), 'KURO', true, c => c.kuro.lfo[i]);
 defSrc('kuro.R', 'coherence R', 'KURO', false, c => c.kuro.R);
-const ORB_OBS = ['x', 'y', 'speed', 'near', 'angle'];
-for (let b = 0; b < 4; b++) for (let q = 0; q < 5; q++)
-  defSrc('orb.b' + (b + 1) + '.' + ORB_OBS[q], 'body ' + (b + 1) + ' ' + ORB_OBS[q], 'ORBITAL', false, c => c.orb.obs(b, q));
+/* ROUND 6 appends accel, sin and cos AFTER round 2's five, so no stored id
+   moves. sin and cos are the only bipolar ORBITAL rows (±1 natively). */
+const ORB_OBS = ['x', 'y', 'speed', 'near', 'angle', 'accel', 'sin', 'cos'];
+const ORB_OBS_NAME = ['x', 'y', 'speed', 'near', 'angle', 'accel', 'sin(angle)', 'cos(angle)'];
+for (let b = 0; b < 4; b++) for (let q = 0; q < ORB_NO; q++)
+  defSrc('orb.b' + (b + 1) + '.' + ORB_OBS[q], 'body ' + (b + 1) + ' ' + ORB_OBS_NAME[q], 'ORBITAL', q >= 6, c => c.orb.obs(b, q));
 defSrc('orb.energy', 'field energy', 'ORBITAL', false, c => c.orb.fsm[0]);
 defSrc('orb.spread', 'field spread', 'ORBITAL', false, c => c.orb.fsm[1]);
 defSrc('midi.gate', 'GATE', 'MIDI', false, c => c.trk.gate());
@@ -1620,6 +1849,12 @@ class ModLabCore {
        block, at their sample offsets. The last non-empty one is kept to show. */
     this.blk0 = 0; this.ctxN = 0; this.ctxOff = new Int32Array(16); this.ctxSeq = new Int32Array(16);
     this.lastCtx = { n0: -1, N: 0, cnt: 0, off: new Int32Array(16), seq: new Int32Array(16) };
+    /* ---- ROUND 6 ---- ORBITAL's scope (eight rows of SOURCES for one body) and
+       M3's two-corner LFO. Both run every sample; each reaches the sound only
+       through its own HEAR switch, off by default, so a patch without them
+       renders as before. */
+    this.sc6 = new OrbScope(this.sr); this.o6v = 0;
+    this.m3 = new KindMorph(this.sr, S); this.m3Tap = null; this.m3TapN = 0;
     this.shipReseed();
     this.compileRoutes();
   }
@@ -1631,8 +1866,10 @@ class ModLabCore {
   compileRoutes() {
     for (let r = 0; r < 2; r++) { const x = SX[this.S.routes[r].src]; this.rtSrc[r] = x === undefined ? -1 : x; }
     const s = SX[this.S.act.shIn]; this.shSrc = s === undefined ? -1 : s;
+    if (this.sc6) this.sc6.compile(this.S);   // ROUND 6: the scope's rows follow its body
   }
-  setSr(sr) { this.sr = sr; this.kuro.sr = sr; this.orb.setSr(sr); this.trk.sr = sr; this.xy.setSr(sr); this.xy.replay(); this.timer.setSr(sr, this.sN); this.arpT.setSr(sr, this.sN); }
+  setSr(sr) { this.sr = sr; this.kuro.sr = sr; this.orb.setSr(sr); this.trk.sr = sr; this.xy.setSr(sr); this.xy.replay(); this.timer.setSr(sr, this.sN); this.arpT.setSr(sr, this.sN);
+    this.sc6.sr = sr; this.sc6.clearRange(); this.m3.sr = sr; }
   /* Shipped plug_activate: the phase knob is read HERE, which is the whole
      finding for free-running LFOs. The lab calls this at load and on
      RE-ACTIVATE. */
@@ -1812,6 +2049,22 @@ class ModLabCore {
         else if (R.dest === 1) bend *= Math.pow(2, R.depth * v * 0.5);
         else lvl *= 1 - R.depth * 0.5 * (1 - v);
       }
+      /* ROUND 6: the scope's HEARD row and M3's output, each on the routes'
+         cutoff or pitch law. The scope logs AFTER the value is applied, from
+         the same source on the same sample, so the row is what was heard. */
+      { const O6 = S.o6;   // (absent in a patch from before round 6: then both are simply off)
+        if (O6 && O6.on) {
+          const si = this.sc6.src[O6.listen | 0], v = si < 0 ? 0 : SOURCES[si].read(this);
+          this.o6v = v;
+          if (O6.dest === 0) cutR += O6.depth * v * 0.5; else bend *= Math.pow(2, O6.depth * v * 0.5);
+          const T6 = this.sc6.tap; if (T6 && this.sc6.tapN < T6.length) T6[this.sc6.tapN++] = v;
+        }
+        this.sc6.log(this);
+        const M3 = S.m3, mv = M3 ? this.m3.sample(M3.sweep ? m3Sweep(this.m3.n, sr) : M3.morph) : 0;
+        if (M3 && M3.on) {
+          if (M3.dest === 0) cutR += M3.depth * mv * 0.5; else bend *= Math.pow(2, M3.depth * mv * 0.5);
+          if (this.m3Tap && this.m3TapN < this.m3Tap.length) this.m3Tap[this.m3TapN++] = mv;
+        } }
       let mix = 0, newest = null;
       for (let k = 0; k < MAXV; k++) {
         const v = this.voices[k];
@@ -2589,6 +2842,312 @@ function ttSelfCheck(S0, plant) {
 ModLabCore.TriggerTimer = TriggerTimer; ModLabCore.ttGrid = ttGrid; ModLabCore.ttFires = ttFires; ModLabCore.ttStep = ttStep;
 ModLabCore.ttSelfCheck = ttSelfCheck; ModLabCore.History = History; ModLabCore.TT_DIVS = TT_DIVS; ModLabCore.impMap = impMap;
 
+/* ================= ROUND 6 (2026-11-06): ORBITAL reopened; round 62's M3 =================
+   Two benches, lab only (no engine, no spec, no reference edit).
+
+   A. ORBITAL'S SCOPE. The human: "if we do sine/cosine of angle for orbital,
+   it might solve the diminishing scope issue". No record names "the
+   diminishing scope issue". What the record does hold, and this bench shows:
+     - B126 (2026-09-15, the human): "some force or process counteracting
+       drag … a consistent mean magnitude over a certain time scale". Under
+       drag every body spirals into the centre, so x, y, speed, accel and
+       energy all shrink toward a flat line (measured: binary, drag 0.05,
+       x's peak-to-peak 0.19 in the first 10 s, 0.01 by 30 s, 0.00 by 60 s).
+       That shrinking is what the thermostat (ADR-375 A1) answers.
+     - Round 2's finding 6: speed and energy normalised by the 3.0 clamp read
+       about 0.1 and 0.01 on the presets. ADR-375 ruled per-preset scales.
+     - The angle never shrinks (it is an angle, whatever the radius), but it
+       WRAPS: a jump from 1 to 0 once an orbit. sin and cos of it keep the
+       full ±1 range at any radius and never jump, which is the human's fix.
+   The scope logs eight rows of the ONE source table (SOURCES), for one body,
+   every SC_DEC samples, and keeps each row's peak-to-peak per second for the
+   last minute, so a range that shrinks is a number and a falling bar, not
+   an impression. Any row can be heard on the test tone (HEAR): the value the
+   destination receives is the value the row logged (the self-check holds
+   the two equal, with a control 100 ms off).
+
+   B. M3, LFO CORNERS OF DIFFERENT KINDS (round 62, LF-8, MS-27): two corners
+   A and B, each an LFO of a kind (SINE, S&H, RANDOM LINEAR, DRAWN = the LFO
+   card's breakpoints), on one shared clock, and a morph position m (A = 0,
+   B = 1). MIX (option a): both run, out = (1 − w)·A + w·B with w the morph
+   glided by MO-5 (a). SWITCH (option b): the kind is picked by MO-7 at the
+   UNGLIDED m, scores ln(w)/T + g with g a Gumbel draw of the pick's seeded
+   stream, held by MO-8's latch (band ln(0.55/0.45)/T); the change of kind is
+   then glided by the morph glide, a brief timed transition (ADR-377's
+   allowance), and at glide 0 it is a flip. MO-7's cohesion is left out: with
+   one key there is nothing to cohere with. */
+const SC_OBS = Object.freeze([   // [ORBITAL observable (or '=' + a field source id), label, bipolar]
+  ['angle', 'angle (raw)', false], ['sin', 'sin(angle)', true], ['cos', 'cos(angle)', true],
+  ['x', 'x', false], ['y', 'y', false], ['speed', 'speed', false], ['accel', 'accel', false],
+  ['=orb.energy', 'field energy', false],
+]);
+const SC_TR = SC_OBS.length, SC_N = 2048, SC_DEC = 128;   // 2048 points every 128 samples ≈ 5.5 s at 48 kHz
+const SC_RN = 60;                                        // range history: one peak-to-peak per second, the last minute
+const scSrcId = (t, body) => { const o = SC_OBS[t][0]; return o[0] === '=' ? o.slice(1) : 'orb.b' + (body + 1) + '.' + o; };
+/* The scope's history: written by the render, read by the painter and the
+   self-check. Preallocated; a row reads through SOURCES like any route. */
+class OrbScope {
+  constructor(sr) {
+    this.sr = sr; this.src = new Int32Array(SC_TR).fill(-1);
+    this.a = new Float64Array(SC_TR * SC_N); this.w = 0; this.n = 0; this.dec = 0;
+    this.lo = new Float64Array(SC_TR).fill(Infinity); this.hi = new Float64Array(SC_TR).fill(-Infinity);
+    this.pp = new Float64Array(SC_TR * SC_RN); this.pw = 0; this.pn = 0; this.sec = 0;
+    this.tap = null; this.tapN = 0;   // the self-check's probe: the HEARD row's value, every sample
+  }
+  compile(S) { for (let t = 0; t < SC_TR; t++) { const x = SX[scSrcId(t, S.o6 ? S.o6.body | 0 : 0)]; this.src[t] = x === undefined ? -1 : x; } }
+  clearRange() { this.lo.fill(Infinity); this.hi.fill(-Infinity); this.pn = 0; this.pw = 0; this.sec = 0; }
+  log(c) {
+    if (++this.dec >= SC_DEC) {
+      this.dec = 0; const w = this.w;
+      for (let t = 0; t < SC_TR; t++) {
+        const v = this.src[t] < 0 ? 0 : SOURCES[this.src[t]].read(c);
+        this.a[t * SC_N + w] = v; if (v < this.lo[t]) this.lo[t] = v; if (v > this.hi[t]) this.hi[t] = v;
+      }
+      this.w = (w + 1) % SC_N; if (this.n < SC_N) this.n++;
+    }
+    if (++this.sec >= this.sr) {   // one second of SAMPLES (never wall time): bank each row's peak-to-peak
+      this.sec = 0;
+      for (let t = 0; t < SC_TR; t++) { this.pp[t * SC_RN + this.pw] = this.hi[t] >= this.lo[t] ? this.hi[t] - this.lo[t] : 0; }
+      this.lo.fill(Infinity); this.hi.fill(-Infinity);
+      this.pw = (this.pw + 1) % SC_RN; if (this.pn < SC_RN) this.pn++;
+    }
+  }
+  /* Row t's peak-to-peak `ago` whole seconds back (0 = the last full second); NaN before it exists. */
+  ppAgo(t, ago) { return ago < this.pn ? this.pp[t * SC_RN + (this.pw - 1 - ago + SC_RN) % SC_RN] : NaN; }
+}
+
+const M3_KINDS = ['SINE', 'S&H', 'RANDOM LIN', 'DRAWN'];
+const M3_MODES = ['MIX', 'SWITCH'];
+/* Three streams of S.m3.seed, apart from every other stream in the lab (SHA-256's
+   IV words 5-7; the XY salts are words 1-3, the timer's is π): corner A's
+   draws, corner B's, and the pick's two Gumbel draws. */
+const M3_SALT = Object.freeze([0x9B05688C, 0x1F83D9AB, 0x5BE0CD19]);
+const M3_N = 2048, M3_DEC = 96;    // history: 2048 points every 96 samples ≈ 4.1 s at 48 kHz
+const M3_SWEEP_SEC = 12;           // SWEEP: A → B → A as a triangle of this period, counted in samples
+const M3_LATCH = Math.log(0.55 / 0.45);   // MO-8's margin, times T
+const m3Seed = (seed, i) => ((seed | 0) ^ M3_SALT[i]) | 0;
+const m3Sweep = (n, sr) => { const p = (n / sr / M3_SWEEP_SEC) % 1; return p < 0.5 ? 2 * p : 2 - 2 * p; };
+/* One corner's LFO at cycle k, position x in the cycle. Every kind reads the
+   same clock, so a change of kind lands on the running phase. */
+function m3KindAt(kind, seed, k, x, pts) {
+  if (kind === 0) return Math.sin(TAU * x);
+  if (kind === 1) return drawV(seed, k);              // S&H: round 3's draw k
+  if (kind === 2) return randAt(seed, k, x, 1);       // RANDOM, LINEAR: round 3's law
+  return shapeAt(pts, x);                             // DRAWN: the LFO card's points
+}
+const m3Gumbel = u => -Math.log(-Math.log(Math.min(1 - 1e-12, Math.max(1e-12, u))));
+const m3Lam = (w, T) => w > 1e-9 ? Math.log(w) / T : -1e12;   // MO-7's λ
+/* SWITCH's boundary, closed form for two corners: B outscores A where
+   ln(m/(1−m)) > T(gA − gB), so the even split sits at m* = logistic(T(gA − gB)),
+   and MO-8's latch moves the flip to logistic(z ± ln(0.55/0.45)) going up and
+   down. `draw` is m32at; the self-check's plant swaps it. */
+function m3Bound(P, draw) {
+  const T = Math.max(0.02, P.temp), sd = m3Seed(P.seed, 2);
+  const gA = m3Gumbel(draw(sd, 0)), gB = m3Gumbel(draw(sd, 1)), z = T * (gA - gB), L = q => 1 / (1 + Math.exp(-q));
+  return { T, gA, gB, mid: L(z), up: L(z + M3_LATCH), down: L(z - M3_LATCH), margin: M3_LATCH / T };
+}
+class KindMorph {
+  constructor(sr, S) { this.sr = sr; this.S = S; this.draw = m32at; this.H = new Float64Array(5 * M3_N); this.reset(); }
+  reset() {
+    this.acc = 0; this.k = 0; this.n = 0; this.wg = NaN; this.sig = NaN; this.held = -1; this.flips = 0;
+    this.fA = 0; this.fB = 0; this.out = 0; this.m = 0; this.pos = 0;
+    this.H.fill(0); this.w = 0; this.hn = 0; this.dec = 0;
+  }
+  /* One sample at morph position m (0 = corner A, 1 = corner B). */
+  sample(m) {
+    const P = this.S.m3, sr = this.sr;
+    this.acc += P.hz / sr; if (this.acc >= 1) { const w = Math.floor(this.acc); this.acc -= w; this.k += w; }
+    const pts = this.S.lfo.pts;
+    const fA = m3KindAt(P.kindA | 0, m3Seed(P.seed, 0), this.k, this.acc, pts);
+    const fB = m3KindAt(P.kindB | 0, m3Seed(P.seed, 1), this.k, this.acc, pts);
+    const a = P.glide > 0 ? 1 - Math.exp(-1 / (sr * P.glide)) : 1;   // MO-5's coefficient per sample; bypassed at 0
+    let out, pos;
+    if ((P.mode | 0) === 0) {   // MIX: the weights glided (MO-5 (a)), the two outputs blended by them
+      if (!(this.wg === this.wg)) this.wg = m;   // NaN: the first sample primes, no glide from nothing
+      this.wg += (m - this.wg) * a; if (Math.abs(m - this.wg) < 1e-6) this.wg = m;
+      out = (1 - this.wg) * fA + this.wg * fB; pos = this.wg;
+    } else {                    // SWITCH: one kind, MO-7's pick at the UNGLIDED m, held by MO-8
+      const B = m3Bound(P, this.draw), d = m3Lam(m, B.T) - m3Lam(1 - m, B.T) + B.gB - B.gA;
+      if (this.held < 0) this.held = d > 0 ? 1 : 0;   // first resolution takes the pick; a tie is the lower corner
+      else if (this.held === 0 && d > B.margin) { this.held = 1; this.flips++; }
+      else if (this.held === 1 && -d > B.margin) { this.held = 0; this.flips++; }
+      const tg = this.held;
+      if (!(this.sig === this.sig)) this.sig = tg;
+      this.sig += (tg - this.sig) * a; if (Math.abs(tg - this.sig) < 1e-6) this.sig = tg;
+      /* At rest sig is exactly 0 or 1, so out IS one corner's value (0·x + y = y). */
+      out = (1 - this.sig) * fA + this.sig * fB; pos = this.sig;
+    }
+    this.fA = fA; this.fB = fB; this.out = out; this.m = m; this.pos = pos;
+    if (++this.dec >= M3_DEC) {
+      this.dec = 0; const H = this.H, w = this.w;
+      H[w] = fA; H[M3_N + w] = fB; H[2 * M3_N + w] = out; H[3 * M3_N + w] = pos; H[4 * M3_N + w] = m;
+      this.w = (w + 1) % M3_N; if (this.hn < M3_N) this.hn++;
+    }
+    this.n++;
+    return out;
+  }
+}
+
+/* THE ROUND-6 SELF-CHECK. Pure (no DOM), so it runs headless. Every check has a
+   control that must fire. Fixed configurations, not the page's settings, so the
+   verdict does not move with a slider; only DRAWN reads the LFO card's points.
+   `plant` is the must-fail draw (the page passes Math.random), used in a twin only. */
+function r6SelfCheck(S0, plant) {
+  const sr = 4800, R = {};
+  const cfgOf = (name, over) => Object.assign(orbPreset(name), { preset: name, ts: 1, damp: 0, smooth: 0, kick: 0.3, kickBody: 0,
+    seed: 1024, adds: 0, thermoOn: false, thermoV: 0.5, thermoTau: 0.5, scale: 'preset' }, over || {});
+  const row = (b, o) => SOURCES[SX['orb.b' + (b + 1) + '.' + o]];
+  /* A. sin and cos from the bodies' OWN positions in a twin field run in lockstep
+     (independent of the atan2 the source uses): sin = (½ − y)/r, cos = (x − ½)/r.
+     Control: the raw angle, rescaled to ±1, against the same reference must differ.
+     NO SEAM: on binary (both bodies circle the centre at r ≈ 0.12) the largest
+     one-sample step of sin/cos is small, while the same detector on the raw angle
+     must see its wrap (the control). The centre is the one place sin/cos are NOT
+     continuous: a body passing near it turns its angle by up to π in one step. That
+     is measured on the other presets and shown, not gated (finding, round 6). */
+  { let dSC = 0, cSC = 0, stSC = 0, stAng = 0; const near = [];
+    for (const name of ['binary', 'sun', 'figure8', 'chaos']) {
+      const F = new OrbitalField(sr, cfgOf(name)), T = new OrbitalField(sr, cfgOf(name)), c = { orb: F }, nb = Math.min(4, F.nodes.length);
+      const prev = new Float64Array(12).fill(NaN); let worst = 0, wr = 0;
+      for (let i = 0; i < 10 * sr; i++) {
+        F.advance(); T.advance();
+        for (let b = 0; b < nb; b++) {
+          const s = row(b, 'sin').read(c), co = row(b, 'cos').read(c), an = row(b, 'angle').read(c), q = T.nodes[b];
+          const dx = q.x - 0.5, dy = 0.5 - q.y, r = Math.hypot(dx, dy);
+          if (r > 1e-9) { dSC = Math.max(dSC, Math.abs(s - dy / r), Math.abs(co - dx / r)); cSC = Math.max(cSC, Math.abs(2 * an - 1 - dy / r)); }
+          if (prev[b * 3] === prev[b * 3]) {
+            const st = Math.max(Math.abs(s - prev[b * 3]), Math.abs(co - prev[b * 3 + 1]));
+            if (name === 'binary') { stSC = Math.max(stSC, st); stAng = Math.max(stAng, Math.abs(an - prev[b * 3 + 2])); }
+            else if (st > worst) { worst = st; wr = r; }
+          }
+          prev[b * 3] = s; prev[b * 3 + 1] = co; prev[b * 3 + 2] = an;
+        }
+      }
+      if (name !== 'binary') near.push({ name, step: worst, r: wr });
+    }
+    R.sc = { d: dSC, ctl: cSC, step: stSC, stepAng: stAng, near, ok: dSC < 1e-12 && cSC > 0.5 && stSC < 0.05 && stAng > 0.5 };
+  }
+  /* B. accel = |a| ÷ the ceiling, against the force summed from scratch on the
+     twin's positions (G, ε, minimum image). Control: the same sum at G × 1.1.
+     Presets with no wall bounce (a bounce moves a body after the force pass).
+     CEILINGS: each of S, E, A is at or above its measured peak and within 10 %
+     of it (rounded UP to two figures). Control: rounded DOWN, some must fall below. */
+  { let dA = 0, cA = 0;
+    const force = (T, i, G) => { const a = T.nodes[i], e2 = T.P.eps * T.P.eps; let ax = 0, ay = 0;
+      for (let j = 0; j < T.nodes.length; j++) { if (j === i) continue; const b = T.nodes[j]; const dx = b.x - a.x, dy = b.y - a.y, r2 = dx * dx + dy * dy + e2, inv = G / (r2 * Math.sqrt(r2)); ax += dx * inv * b.m; ay += dy * inv * b.m; }
+      return Math.hypot(ax, ay); };
+    for (const name of ['binary', 'figure8']) {
+      const F = new OrbitalField(sr, cfgOf(name)), T = new OrbitalField(sr, cfgOf(name)), c = { orb: F }, nb = Math.min(4, F.nodes.length);
+      for (let i = 0; i < 10 * sr; i++) {
+        const k0 = F.steps; F.advance(); T.advance();
+        if (F.steps === k0) continue;   // between steps the source holds the last step's value
+        for (let b = 0; b < nb; b++) {
+          const v = row(b, 'accel').read(c);
+          dA = Math.max(dA, Math.abs(v - Math.min(1, force(T, b, T.P.G) / F.ceil.A)));
+          cA = Math.max(cA, Math.abs(v - Math.min(1, force(T, b, T.P.G * 1.1) / F.ceil.A)));
+        }
+      }
+    }
+    let ceilOk = true, ceilCtl = false; const ceil = [];
+    for (const name of ['binary', 'sun', 'figure8', 'chaos']) {
+      const C = new OrbitalField(sr, cfgOf(name)).ceil;
+      for (const k of ['S', 'E', 'A']) {
+        const pk = C.peak[k], c = C[k];
+        if (!(c >= pk * (1 - 1e-12) && c <= pk * 1.1 + 1e-15)) ceilOk = false;
+        const p = Math.pow(10, Math.floor(Math.log10(pk)) - 1);
+        if (Math.floor(pk / p) * p < pk) ceilCtl = true;
+      }
+      ceil.push(name + ' ' + C.S.toPrecision(2) + ' / ' + C.E.toPrecision(2) + ' / ' + C.A.toPrecision(2));
+    }
+    R.acc = { d: dA, ctl: cA, ceilOk, ceilCtl, ceil, ok: dA < 1e-9 && cA > 1e-3 && ceilOk && ceilCtl };
+  }
+  /* C. THE SHRINKING, AND THE THERMOSTAT. Binary at drag 0.3 for 40 s. Off, the
+     mean speed of the last 5 s falls under 5 % of the first second's (the
+     detector must fire: this IS the shrinking). On (v* 0.5, τ 0.5 s), it holds at
+     B126's closed form v* ÷ √(1 + 2τ·3·drag) within 3 %, and x keeps its range. */
+  { const run = on => {
+      const F = new OrbitalField(sr, cfgOf('binary', { damp: 0.3, thermoOn: on })), c = { orb: F }, n = 40 * sr;
+      let v0 = 0, n0 = 0, v1 = 0, n1 = 0, lo = Infinity, hi = -Infinity, slo = Infinity, shi = -Infinity;
+      for (let i = 0; i < n; i++) {
+        F.advance(); const ms = F.meanSpeed();
+        if (i < sr) { v0 += ms; n0++; }
+        if (i >= n - 5 * sr) { v1 += ms; n1++; const x = row(0, 'x').read(c), s = row(0, 'sin').read(c);
+          if (x < lo) lo = x; if (x > hi) hi = x; if (s < slo) slo = s; if (s > shi) shi = s; }
+      }
+      return { first: v0 / n0, last: v1 / n1, xpp: hi - lo, spp: shi - slo };
+    };
+    const off = run(false), on = run(true), want = 0.5 / Math.sqrt(1 + 2 * 0.5 * 3 * 0.3);
+    R.th = { off, on, want, ok: off.last < 0.05 * off.first && Math.abs(on.last / want - 1) < 0.03 && on.xpp > 0.02 && off.spp > 1.9 };
+  }
+  /* D. THE SCOPE IS THE SOUND. A full core with HEAR on (body 1 sin → cutoff),
+     every other route and trigger off: the row the scope logged vs the value the
+     destination received at that sample. Control: 100 ms off. */
+  { const St = quietTriggers(JSON.parse(JSON.stringify(S0)));
+    St.act.on = St.act.on.map(() => 0); St.routes[0].src = 'off'; St.routes[1].src = 'off'; St.lfo.depth = 0;
+    St.orb = cfgOf('binary', { smooth: 0.005 }); St.o6 = { on: 1, body: 0, listen: 1, dest: 0, depth: 0.5 }; St.m3.on = 0;
+    const n = 220 * SC_DEC, c = new ModLabCore(sr, St); c.sc6.tap = new Float64Array(n);
+    const Lb = new Float32Array(256), Rb = new Float32Array(256);
+    for (let i = 0; i < n; i += 256) c.render(Lb, Rb, Math.min(256, n - i));
+    let d = 0, ctl = 0; const off = Math.round(0.1 * sr), A = c.sc6.a;
+    for (let k = 0; k < Math.min(SC_N, Math.floor(n / SC_DEC)); k++) {
+      const i = k * SC_DEC + SC_DEC - 1;
+      d = Math.max(d, Math.abs(A[1 * SC_N + k] - c.sc6.tap[i]));
+      ctl = Math.max(ctl, Math.abs(A[1 * SC_N + k] - c.sc6.tap[Math.min(n - 1, i + off)]));
+    }
+    R.lane = { d, ctl, n: c.sc6.tapN, ok: d === 0 && ctl > 1e-3 && c.sc6.tapN === n };
+  }
+  /* E. M3, MIX: every ordered pair of kinds at m = 0.3 and 0.75, glide 0, against
+     the rule restated on its own clock: (1 − m)·A + m·B. Control: the weights
+     swapped must differ. */
+  const m3S = over => { const St = JSON.parse(JSON.stringify(S0));
+    St.m3 = Object.assign({ on: 1, kindA: 0, kindB: 1, mode: 0, morph: 0.5, sweep: 0, hz: 2.5, glide: 0, temp: 1, seed: 1024, dest: 0, depth: 0.5 }, over); return St; };
+  { let d = 0, ctl = 0;
+    for (let ka = 0; ka < 4; ka++) for (let kb = 0; kb < 4; kb++) { if (ka === kb) continue;
+      for (const m of [0.3, 0.75]) {
+        const St = m3S({ kindA: ka, kindB: kb }), K = new KindMorph(sr, St), P = St.m3;
+        let acc = 0, k = 0;
+        for (let i = 0; i < 2 * sr; i++) {
+          const v = K.sample(m);
+          acc += P.hz / sr; if (acc >= 1) { const w = Math.floor(acc); acc -= w; k += w; }
+          const a = m3KindAt(ka, m3Seed(P.seed, 0), k, acc, St.lfo.pts), b = m3KindAt(kb, m3Seed(P.seed, 1), k, acc, St.lfo.pts);
+          d = Math.max(d, Math.abs(v - ((1 - m) * a + m * b))); ctl = Math.max(ctl, Math.abs(v - (m * a + (1 - m) * b)));
+        }
+      } }
+    R.mix = { d, ctl, ok: d < 1e-12 && ctl > 1e-3 };
+  }
+  /* F. M3, SWITCH: m swept 0 → 1 → 0 at glide 0. At every sample the output IS
+     corner A's or corner B's value, exactly (control: MIX through the same
+     detector must find samples that are neither). It flips twice, at the closed
+     form's up and down positions to within one sample's step of m. Seeded, two
+     runs flip at the same m; with the plant as the pick's draw, they must not.
+     GLIDE: at 50 ms the change of kind is a timed transition, reaching 99 % in
+     ln 100 × 50 ms (a one-pole). */
+  { const sweep = (over, draw) => {
+      const St = m3S(Object.assign({ mode: 1, kindA: 3, kindB: 1 }, over)), K = new KindMorph(sr, St); if (draw) K.draw = draw;
+      const N = 4 * sr, flipsAt = []; let neither = 0, h = -1, t99 = -1, tf = -1;
+      for (let i = 0; i < 2 * N; i++) {
+        const m = i < N ? i / N : 2 - i / N, v = K.sample(m);
+        if (v !== K.fA && v !== K.fB) neither++;
+        if (h >= 0 && K.held !== h) { flipsAt.push(m); tf = i; t99 = -1; }
+        if (tf >= 0 && t99 < 0 && Math.abs(K.pos - K.held) < 0.01) t99 = i - tf;
+        h = K.held;
+      }
+      return { flipsAt, neither, t99, B: m3Bound(St.m3, K.draw) };
+    };
+    const a = sweep({}), b = sweep({}), mixed = sweep({ mode: 0 }), dm = 1 / (4 * sr) + 1e-9;
+    const pa = plant ? sweep({}, () => plant()) : null, pb = plant ? sweep({}, () => plant()) : null;
+    const g = sweep({ glide: 0.05 }), want99 = Math.log(100) * 0.05 * sr;
+    const at = (x, y) => Math.abs(x - y) <= dm;
+    const placed = a.flipsAt.length === 2 && at(a.flipsAt[0], a.B.up) && at(a.flipsAt[1], a.B.down);
+    R.sw = { flips: a.flipsAt, B: a.B, neither: a.neither, ctlNeither: mixed.neither, placed,
+      same: a.flipsAt.join() === b.flipsAt.join(), plant: pa && pb ? pa.flipsAt.join() !== pb.flipsAt.join() : null,
+      t99: g.t99, want99, ok: a.neither === 0 && mixed.neither > 0 && placed && a.flipsAt.join() === b.flipsAt.join()
+        && !!(pa && pb && pa.flipsAt.join() !== pb.flipsAt.join()) && Math.abs(g.t99 / want99 - 1) < 0.05 };
+  }
+  R.ok = R.sc.ok && R.acc.ok && R.th.ok && R.lane.ok && R.mix.ok && R.sw.ok;
+  return R;
+}
+
 /* ================= UI ================= */
 /* ---- STATE: the whole patch, one plain object, above all wiring (L0026) --- */
 const LAWS = ['PROPOSED', 'SHIPPED'];
@@ -2607,7 +3166,10 @@ const S = {
   /* ORBITAL's patch state: field params + the bodies' INITIAL CONDITIONS. An
      added body is appended here, so a reset, a reload or the audit's twin
      rebuilds it. `adds` counts the seeded add-body draws. */
-  orb: Object.assign(orbPreset('binary'), { preset: 'binary', ts: 1, damp: 0, smooth: 0.005, kick: 0.3, kickBody: 0, seed: 1024, adds: 0 }),
+  orb: Object.assign(orbPreset('binary'), { preset: 'binary', ts: 1, damp: 0, smooth: 0.005, kick: 0.3, kickBody: 0, seed: 1024, adds: 0,
+    /* ROUND 6: the thermostat (ADR-375 A1; off, v* and τ as round 62's X73 proposes) and the scales
+       (ADR-375: per preset, ruled; 'clamp' is SPEC-ORBITAL §4 as written, kept to compare). */
+    thermoOn: false, thermoV: 0.5, thermoTau: 0.5, scale: 'preset' }),
   midi: { mode: 0, orderN: 4, sinceT: 2, vel: 0.8, rel: 0.5 },
   /* Defaults chosen to be heard: SPEC-ORBITAL §4's suggested body 1 x → cutoff,
      and a seeded S&H of each note-on on pitch (the event → level path). */
@@ -2630,6 +3192,13 @@ const S = {
   /* The mock arp row (a placeholder for Arp, B539): 16 steps of 1/16 on the
      transport. '.' rest, 'o' a step, 'x' a step flagged as a TRIGGER. */
   arp: { on: 0, origin: 0, rate: 0, bars: 0, beats: 0.25, hz: 8, off: 0, swing: 0.5, gate: 1, n: 1, pat: 'x.o.o.x.o.o.x.o.', prob: 1, seed: 0 },
+  /* ---- ROUND 6. The scope: which body, which row is HEARD (1 = sin), on the routes'
+     cutoff (0) or pitch (1) law. M3: corner kinds (M3_KINDS), MIX (0) or SWITCH (1),
+     the morph position, the shared rate, the morph glide (MO-5, its 8 ms default),
+     MO-7's temperature (its default 1) and the pick's seed. Both HEAR off, so the lab
+     sounds as before until asked. ---- */
+  o6: { on: 0, body: 0, listen: 1, dest: 0, depth: 0.5 },
+  m3: { on: 0, kindA: 0, kindB: 1, mode: 0, morph: 0.5, sweep: 0, hz: 2, glide: 0.008, temp: 1, seed: 1024, dest: 0, depth: 0.5 },
 };
 /* The hosted module is NOT the core's: it lives on the main thread, as a
    module's patch does. Six generic parameters, a lock each, its own seed.
@@ -3256,10 +3825,15 @@ function serialize() {
     kuro: Object.assign({}, S.kuro),
     orbital: { preset: S.orb.preset, G: r(S.orb.G), eps: r(S.orb.eps), timeScale: r(S.orb.ts), drag: r(S.orb.damp), edges: S.orb.bounds,
                com: S.orb.com, smooth: r(S.orb.smooth), seed: S.orb.seed, adds: S.orb.adds,
+               /* round 6: the thermostat and the scale law are patch state; the measured scales are not (they follow from the field) */
+               thermostat: { on: !!S.orb.thermoOn, vStar: r(S.orb.thermoV), tau: r(S.orb.thermoTau) }, scale: S.orb.scale,
                bodies: S.orb.bodies.map(b => [r(b.m), r(b.x), r(b.y), r(b.vx), r(b.vy), b.pinned ? 1 : 0]) },
     midi: { trigger: ['every', 'first'][S.midi.mode], orderN: S.midi.orderN, sinceT: r(S.midi.sinceT) },
     routes: S.routes.map(R => ({ src: R.src, dest: DESTS[R.dest], depth: r(R.depth) })),
-    trigger: { actions: ACTIONS.filter((_, i) => S.act.on[i]), shIn: S.act.shIn, shSeed: S.act.seed } };
+    trigger: { actions: ACTIONS.filter((_, i) => S.act.on[i]), shIn: S.act.shIn, shSeed: S.act.seed },
+    /* round 6, M3: the two corners' kinds and the law between them */
+    m3: { kinds: [M3_KINDS[S.m3.kindA | 0], M3_KINDS[S.m3.kindB | 0]], mode: M3_MODES[S.m3.mode | 0], rateHz: r(S.m3.hz), glideS: r(S.m3.glide),
+          temperature: r(S.m3.temp), pickSeed: S.m3.seed } };
   e.textContent = JSON.stringify(o).replace(/\],\[/g, '],\n    [').replace(/"(lfo|env|rate|phase|retrig|sustain|kuro|orbital|bodies|midi|routes|trigger)":/g, '\n  "$1":');
 }
 
@@ -3275,7 +3849,7 @@ function onEdit() {
   for (const f of REPAINT) f();
   for (const f of GHOSTS) f();
   core.kuro.drawn = S.lfo.pts;   // B226: DRAWN reads the card's CURRENT points (a preset replaces the array)
-  paintSus(); paintDivRead(); paintLaw(); serialize(); auditOneLaw(); scheduleAudit2(); scheduleAudit3(); scheduleAudit4(); scheduleAudit5();
+  paintSus(); paintDivRead(); paintLaw(); serialize(); auditOneLaw(); scheduleAudit2(); scheduleAudit3(); scheduleAudit4(); scheduleAudit5(); scheduleAudit6();
   const w = $('envWarn');
   if (w) { const on = S.env.custom; w.style.display = on ? 'block' : 'none';
     w.textContent = 'Breakpoints edited: the A/D/S/R sliders no longer describe this shape (moving one rewrites it). HEAR = SHIPPED still plays the sliders as τ, because the shipped envelope has no breakpoints.'; }
@@ -3356,8 +3930,10 @@ function paintKuro() {
 /* ---- ORBITAL card ---- */
 function loadOrb(name) {
   const k = S.orb;
-  S.orb = Object.assign(orbPreset(name), { preset: name, ts: k.ts, damp: k.damp, smooth: k.smooth, kick: k.kick, kickBody: 0, seed: k.seed, adds: 0 });
+  S.orb = Object.assign(orbPreset(name), { preset: name, ts: k.ts, damp: k.damp, smooth: k.smooth, kick: k.kick, kickBody: 0, seed: k.seed, adds: 0,
+    thermoOn: k.thermoOn, thermoV: k.thermoV, thermoTau: k.thermoTau, scale: k.scale });   // round 6: performance settings carry over
   core.orb = new OrbitalField(core.sr, S.orb);
+  core.sc6.clearRange();   // a new field: the range history starts again
 }
 /* ADD BODY, seeded: position = draw #adds of (seed, add count), the STEPS idiom,
    so an added body is reproducible patch state and never Math.random. */
@@ -3365,7 +3941,7 @@ function addOrbBody() {
   if (S.orb.bodies.length >= MAXB) return;
   const r = mulberry32((S.orb.seed + Math.imul(0x9E3779B9, ++S.orb.adds)) >>> 0);
   const b = { m: 0.8, x: 0.2 + r() * 0.6, y: 0.2 + r() * 0.6, vx: 0, vy: 0, pinned: false };
-  S.orb.bodies.push(b); core.orb.addBody(b); core.orb.observe(); core.orb.prime();
+  S.orb.bodies.push(b); core.orb.addBody(b); core.orb.measure(); core.orb.observe(); core.orb.prime();   // round 6: a new field, new scales
 }
 function buildOrb() {
   const pre = $('orbPresets');
@@ -3378,21 +3954,27 @@ function buildOrb() {
   }
   const host = $('orbRows'); if (!host) return;
   const O = () => S.orb, live = (k, x) => { S.orb[k] = x; core.orb.P[k] = x; };
-  slider(host, { label: 'gravity G', min: 0.001, max: 1, log: true, get: () => O().G, set: x => live('G', x), fmt: x => x.toFixed(4) });
-  slider(host, { label: 'soften ε', min: 0.005, max: 0.5, log: true, get: () => O().eps, set: x => live('eps', x), fmt: x => x.toFixed(3) });
+  /* Round 6: G, ε, the edges and the COM lock change the field's law, so its
+     per-preset scales are measured again (cached, so a drag back costs nothing). */
+  const law = (k, x) => { live(k, x); core.orb.measure(); };
+  slider(host, { label: 'gravity G', min: 0.001, max: 1, log: true, get: () => O().G, set: x => law('G', x), fmt: x => x.toFixed(4) });
+  slider(host, { label: 'soften ε', min: 0.005, max: 0.5, log: true, get: () => O().eps, set: x => law('eps', x), fmt: x => x.toFixed(3) });
   slider(host, { label: 'time ×', min: 0, max: 4, step: 0.01, get: () => O().ts, set: x => live('ts', x), fmt: x => x.toFixed(2) + '×' });
   slider(host, { label: 'drag', min: 0, max: 1, step: 0.01, get: () => O().damp, set: x => live('damp', x), fmt: f2 });
-  pillRow(host, 'edges', ['BOUNCE', 'WRAP', 'OPEN'], () => ORB_EDGES.indexOf(O().bounds), i => live('bounds', ORB_EDGES[i]));
-  pillRow(host, 'COM lock', ['OFF', 'ON'], () => O().com ? 1 : 0, i => live('com', !!i));
+  pillRow(host, 'edges', ['BOUNCE', 'WRAP', 'OPEN'], () => ORB_EDGES.indexOf(O().bounds), i => law('bounds', ORB_EDGES[i]));
+  pillRow(host, 'COM lock', ['OFF', 'ON'], () => O().com ? 1 : 0, i => law('com', !!i));
   slider(host, { label: 'smooth', min: 0, max: 0.05, step: 0.0005, get: () => O().smooth, set: x => { S.orb.smooth = x; core.orb.setSmooth(x); }, fmt: x => (x * 1000).toFixed(1) + ' ms' });
   slider(host, { label: 'kick', min: 0, max: 1, step: 0.01, get: () => O().kick, set: x => { S.orb.kick = x; }, fmt: x => x.toFixed(2) + ' u/s' });
   selectRow(host, 'kick body', ['1', '2', '3', '4', '5', '6', '7', '8'], () => O().kickBody | 0, i => { S.orb.kickBody = i; });
 }
-function paintOrb() {
-  const cv = $('orbC'), G = ground(cv); if (!G) return;
+/* Round 6: `fieldOnly` paints the field alone, centred (round 6's card), with
+   the scope body's ANGLE drawn as a ray from the centre: the rows read it. */
+function paintOrb(id, fieldOnly) {
+  const cv = $(id || 'orbC'), G = ground(cv); if (!G) return;
   const { g, w, h, v } = G, O = core.orb, nb = O.nodes.length;
   g.font = FONT(v); g.lineWidth = v;
-  const side = Math.min(h - 20 * v, w * 0.56), fx = 12 * v, fy = (h - side) / 2 - 4 * v;
+  const side = fieldOnly ? Math.min(h - 20 * v, w - 24 * v) : Math.min(h - 20 * v, w * 0.56);
+  const fx = fieldOnly ? (w - side) / 2 : 12 * v, fy = (h - side) / 2 - 4 * v;
   const X = u => fx + u * side, Y = u => fy + u * side;   // sim y grows DOWN, as the reference's
   g.strokeStyle = TOKA('--scr-grid', 0.16);
   for (let k = 0; k <= 8; k++) { const q = k / 8; g.beginPath(); g.moveTo(X(q), Y(0)); g.lineTo(X(q), Y(1)); g.moveTo(X(0), Y(q)); g.lineTo(X(1), Y(q)); g.stroke(); }
@@ -3421,7 +4003,22 @@ function paintOrb() {
     g.fillRect(X(O.obs(i, 0)) - v, Y(1) + 2 * v, 2 * v, 7 * v);
     g.fillRect(X(0) - 9 * v, Y(1 - O.obs(i, 1)) - v, 7 * v, 2 * v);
   }
+  if (fieldOnly) {   // the angle the scope reads: centre → body, and the unit circle its sin and cos run on
+    const bi = S.o6.body | 0, b = O.nodes[bi];
+    if (b) {
+      g.strokeStyle = TOK('--scr-meter'); g.lineWidth = 1.5 * v; g.setLineDash([4 * v, 3 * v]);
+      g.beginPath(); g.moveTo(X(0.5), Y(0.5)); g.lineTo(X(b.x), Y(b.y)); g.stroke(); g.setLineDash([]);
+      const rr = 16 * v, an = O.obs(bi, ORB_ANGLE) * TAU;
+      g.strokeStyle = TOKA('--scr-meter', 0.5); g.beginPath(); g.arc(X(0.5), Y(0.5), rr, 0, TAU); g.stroke();
+      g.fillStyle = TOK('--scr-meter'); g.beginPath(); g.arc(X(0.5) + rr * Math.cos(an), Y(0.5) - rr * Math.sin(an), 3 * v, 0, TAU); g.fill();
+    }
+  }
   g.restore();
+  if (fieldOnly) {
+    g.fillStyle = TOKA('--scr-grid', 0.9);
+    g.fillText('t ' + (O.steps * ORB_DT).toFixed(1) + ' s  mean |v| ' + O.meanSpeed().toFixed(3) + (O.P.thermoOn ? '  v* ' + O.P.thermoV.toFixed(2) : ''), fx, h - 4 * v);
+    return;
+  }
   // lanes: x solid / y dashed for bodies 1-4, from the render's log
   const x0 = fx + side + 12 * v, x1 = w - 6 * v, nL = Math.max(1, Math.min(4, nb)), bh = (h - 16 * v) / nL;
   if (!ac) bandLabel(g, 'POWER: lanes are the render\'s log', x0, 4 * v, v);
@@ -4306,6 +4903,222 @@ function auditRound5() {
 let audit5T = 0;
 function scheduleAudit5() { if (audit5T) clearTimeout(audit5T); audit5T = setTimeout(() => { audit5T = 0; auditRound5(); }, 400); }
 
+/* ====================== ROUND 6 (B126 reopened; M3) — UI ====================== */
+/* HEAR solos its bench: the LFO card's depth to 0 and both routes off (round 4's
+   AUDITION move), and the other bench's HEAR off, so what you clicked is the only
+   thing moving the tone; then POWER and the drone. Like AUDITION, it edits the patch. */
+function soloHear(which) {
+  S.lfo.depth = 0; S.routes[0].src = 'off'; S.routes[1].src = 'off';
+  S.o6.on = which === 'o6' ? 1 : 0; S.m3.on = which === 'm3' ? 1 : 0;
+  core.compileRoutes(); power(); if (!droning) toggleDrone();
+}
+function listenRow(host, pid, did) {   // each bench carries its own POWER and DRONE, as rounds 3 to 5 do
+  const row = el('div', 'row wide'), bx = el('div', 'pills'), p = el('button', 'pill', 'POWER'), d = el('button', 'pill', 'DRONE');
+  p.id = pid; p.addEventListener('click', power); d.id = did; d.addEventListener('click', toggleDrone);
+  bx.appendChild(p); bx.appendChild(d); row.appendChild(el('label', null, 'listen')); row.appendChild(bx); host.appendChild(row);
+}
+const setText = (id, html) => { const e = $(id); if (e && e.innerHTML !== html) e.innerHTML = html; };   // no DOM write per frame unless it changed
+
+/* ---- ORBITAL's scope ---- */
+function buildO6() {
+  const pre = $('o6Presets');
+  if (pre) {
+    const bs = [['BINARY', 'binary'], ['SUN + PLANETS', 'sun'], ['FIGURE EIGHT', 'figure8'], ['FOUR-BODY CHAOS', 'chaos']].map(([lab, k]) => {
+      const b = el('button', 'pill', lab); b.addEventListener('click', () => { loadOrb(k); onEdit(); }); pre.appendChild(b); return [b, k]; });
+    REPAINT.push(() => bs.forEach(([b, k]) => b.classList.toggle('on', S.orb.preset === k)));
+    [['RESET', () => { core.orb.reset(); core.sc6.clearRange(); }], ['KICK', () => core.orb.kick(S.orb.kickBody | 0, S.orb.kick)]].forEach(([lab, f]) => {
+      const b = el('button', 'pill', lab); b.addEventListener('click', () => { f(); onEdit(); }); pre.appendChild(b); });
+  }
+  const host = $('o6Rows'); if (!host) return;
+  const live = (k, x) => { S.orb[k] = x; core.orb.P[k] = x; };
+  /* The same fields as round 2's ORBITAL card (S is the one patch), here so the
+     scope can be driven without scrolling. */
+  slider(host, { label: 'drag', min: 0, max: 1, step: 0.01, get: () => S.orb.damp, set: x => live('damp', x), fmt: f2 });
+  slider(host, { label: 'time ×', min: 0, max: 4, step: 0.01, get: () => S.orb.ts, set: x => live('ts', x), fmt: x => x.toFixed(2) + '×' });
+  pillRow(host, 'thermostat', ['OFF', 'ON'], () => S.orb.thermoOn ? 1 : 0, i => live('thermoOn', !!i));
+  slider(host, { label: 'target v*', min: 0.01, max: 2, step: 0.01, get: () => S.orb.thermoV, set: x => live('thermoV', x), fmt: x => x.toFixed(2) + ' u/s' });
+  slider(host, { label: 'settle τ', min: 0.05, max: 5, log: true, get: () => S.orb.thermoTau, set: x => live('thermoTau', x), fmt: x => x.toFixed(2) + ' s' });
+  pillRow(host, 'scale', ['PER PRESET', 'CLAMP (§4)'], () => S.orb.scale === 'clamp' ? 1 : 0,
+    i => { live('scale', i ? 'clamp' : 'preset'); core.orb.observe(); core.orb.prime(); });
+  pillRow(host, 'body', ['1', '2', '3', '4'], () => S.o6.body | 0, i => { S.o6.body = i; core.compileRoutes(); core.sc6.clearRange(); });
+  selectRow(host, 'hear row', SC_OBS.map(o => o[1]), () => S.o6.listen | 0, i => { S.o6.listen = i; });
+  pillRow(host, 'hear', ['OFF', 'ON (solo)'], () => S.o6.on ? 1 : 0, i => { if (i) soloHear('o6'); else S.o6.on = 0; });
+  pillRow(host, 'dest', ['CUTOFF', 'PITCH'], () => S.o6.dest | 0, i => { S.o6.dest = i; });
+  slider(host, { label: 'depth', min: 0, max: 1, step: 0.01, get: () => S.o6.depth, set: x => { S.o6.depth = x; }, fmt: f2 });
+  listenRow(host, 'pwr6', 'droneBtn6');
+  const cv = $('o6C');
+  /* A row is a source: clicking it HEARS that row, soloed. The rows are equal
+     bands of the canvas height, the painter's own geometry. */
+  if (cv && cv.addEventListener) cv.addEventListener('pointerdown', e => {
+    const r = cv.getBoundingClientRect(), t = Math.min(SC_TR - 1, Math.max(0, Math.floor((e.clientY - r.top) / Math.max(1, r.height) * SC_TR)));
+    S.o6.listen = t; soloHear('o6'); onEdit();
+  });
+}
+function paintO6() {
+  paintOrb('o6FieldC', true);
+  const cv = $('o6C'), G = ground(cv); if (!G) return;
+  const { g, w, h, v } = G, C = core.sc6, bh = h / SC_TR, SW = Math.min(150 * v, w * 0.26);
+  const x0 = 4 * v, x1 = w - SW - 14 * v, sx0 = w - SW - 4 * v, sx1 = w - 4 * v, n = C.n;
+  g.font = FONT(v); g.textAlign = 'left';
+  for (let t = 0; t < SC_TR; t++) {
+    const top = t * bh + 12 * v, bot = (t + 1) * bh - 4 * v, bip = SC_OBS[t][2], heard = !!S.o6.on && (S.o6.listen | 0) === t;
+    const col = heard ? TOK('--scr-meter') : t < 3 ? TOK('--scr-value') : TOK('--scr-physics');
+    const Y = q => bip ? (top + bot) / 2 - q * (bot - top) / 2 : bot - q * (bot - top);
+    g.strokeStyle = TOKA('--scr-grid', 0.3); g.lineWidth = v;
+    g.beginPath(); g.moveTo(0, (t + 1) * bh); g.lineTo(w, (t + 1) * bh); g.stroke();
+    g.strokeStyle = TOKA('--scr-grid', 0.18);
+    g.beginPath(); g.moveTo(x0, Y(bip ? 0 : 0)); g.lineTo(x1, Y(bip ? 0 : 0)); g.moveTo(x0, Y(1)); g.lineTo(x1, Y(1)); g.stroke();
+    if (n > 1) {   // the last SC_N log points, newest at the right edge, filling from the right
+      g.strokeStyle = col; g.lineWidth = (heard ? 2 : 1.3) * v; g.beginPath();
+      const base = t * SC_N;
+      for (let k = 0; k < n; k += 2) {
+        const j = (C.w - n + k + SC_N) % SC_N, x = x0 + (SC_N - n + k) / (SC_N - 1) * (x1 - x0), y = Y(C.a[base + j]);
+        k ? g.lineTo(x, y) : g.moveTo(x, y);
+      }
+      g.stroke();
+    }
+    // the range history: one bar per second of samples, the last minute, a full bar = the row's whole range
+    const full = bip ? 2 : 1, bw = (sx1 - sx0) / SC_RN;
+    g.fillStyle = TOKA('--scr-grid', 0.12); g.fillRect(sx0, top, sx1 - sx0, bot - top);
+    g.fillStyle = col;
+    for (let j = 0; j < SC_RN; j++) {
+      const p = C.ppAgo(t, SC_RN - 1 - j); if (!(p === p)) continue;
+      const hh = Math.min(1, p / full) * (bot - top); g.fillRect(sx0 + j * bw, bot - hh, Math.max(v, bw - v), Math.max(v * 0.6, hh));
+    }
+    const now = C.ppAgo(t, 0), ago = C.ppAgo(t, 30), f = x => x === x ? x.toFixed(x < 0.001 && x > 0 ? 6 : 3) : '—';
+    g.fillStyle = heard ? TOK('--scr-meter') : TOKA('--scr-grid', 0.95);
+    g.fillText((heard ? '▶ ' : '') + SC_OBS[t][1] + (bip ? '  ±1' : '  0..1'), x0 + 2 * v, t * bh + 10 * v);
+    g.textAlign = 'right';
+    g.fillText('range ' + f(now) + '  ·  30 s ago ' + f(ago), x1, t * bh + 10 * v);
+    g.textAlign = 'left';
+  }
+  if (!ac) { g.fillStyle = TOK('--scr-marker'); g.fillText('POWER (or click a row): the scope is the render\'s own log', x0 + 2 * v, h / 2); }
+  const O = core.orb, P = O.P, Cl = O.ceil, d = P.damp, want = P.thermoV / Math.sqrt(1 + 2 * P.thermoTau * 3 * d);
+  setText('o6Read', 'Scales: ' + (P.scale === 'preset'
+      ? '<b>per preset</b> (ADR-375; measured over 30 s from home, rounded up): speed ÷ ' + Cl.S.toPrecision(2) + ', energy ÷ ' + Cl.E.toPrecision(2)
+      : '<b>clamp</b> (SPEC-ORBITAL §4 as written): speed ÷ 3.0, energy ÷ its clamp maximum')
+    + ', accel ÷ ' + Cl.A.toPrecision(2) + ' (ADR-165 A1, per preset, either way). '
+    + (P.thermoOn ? 'Thermostat <b>on</b>: v* ' + P.thermoV.toFixed(2) + ', τ ' + P.thermoTau.toFixed(2) + ' s; against drag ' + d.toFixed(2)
+        + ' it settles near <b>' + want.toFixed(3) + '</b> (v* ÷ √(1 + 2τ·3·drag), B126). '
+        + (O.meanSpeed() <= 1e-9 ? '<b>The field is at rest, and the thermostat cannot start it: KICK or RESET.</b> ' : '')
+      : 'Thermostat <b>off</b>: with drag above 0, the field runs down. ')
+    + (S.o6.on ? 'Hearing body ' + ((S.o6.body | 0) + 1) + ' <b>' + SC_OBS[S.o6.listen | 0][1] + '</b> → ' + ['CUTOFF', 'PITCH'][S.o6.dest | 0] + ' × ' + S.o6.depth.toFixed(2) + ' (solo).'
+      : 'Not heard: click a row on the scope.'));
+}
+
+/* ---- M3: LFO kinds between corners ---- */
+function buildM3() {
+  const host = $('m3Rows'); if (!host) return;
+  const M = S.m3;
+  pillRow(host, 'corner A', M3_KINDS, () => M.kindA | 0, i => { M.kindA = i; });
+  pillRow(host, 'corner B', M3_KINDS, () => M.kindB | 0, i => { M.kindB = i; });
+  pillRow(host, 'mode', ['MIX (a)', 'SWITCH (b)'], () => M.mode | 0, i => { M.mode = i; });
+  slider(host, { label: 'morph', min: 0, max: 1, step: 0.005, get: () => M.morph, set: x => { M.morph = x; M.sweep = 0; },
+    fmt: x => 'A ' + Math.round((1 - x) * 100) + ' · B ' + Math.round(x * 100) });
+  pillRow(host, 'sweep', ['OFF', 'A → B → A · 12 s'], () => M.sweep | 0, i => { M.sweep = i; });
+  slider(host, { label: 'rate', min: 0.1, max: 20, log: true, get: () => M.hz, set: x => { M.hz = x; }, fmt: x => x.toFixed(x < 1 ? 3 : 2) + ' Hz' });
+  slider(host, { label: 'glide', min: 0, max: 0.5, step: 0.001, get: () => M.glide, set: x => { M.glide = x; }, fmt: x => (x * 1000).toFixed(0) + ' ms' });
+  slider(host, { label: 'temperature', min: 0.02, max: 4, log: true, get: () => M.temp, set: x => { M.temp = x; }, fmt: x => x.toFixed(2) });
+  { const row = el('div', 'row wide'), bx = el('div', 'pills'), out = el('button', 'pill', '');
+    out.disabled = true;
+    const show = () => { out.textContent = 'seed ' + M.seed; };
+    [['−1', -1], ['+1', 1]].forEach(([lab, dd]) => { const b = el('button', 'pill', lab);
+      b.addEventListener('click', () => { M.seed = ((M.seed - 1 + dd + 9999) % 9999) + 1; onEdit(); }); bx.appendChild(b); });
+    bx.insertBefore(out, bx.firstChild);
+    row.appendChild(el('label', null, 'pick seed')); row.appendChild(bx); host.appendChild(row); REPAINT.push(show); show(); }
+  pillRow(host, 'hear', ['OFF', 'ON (solo)'], () => M.on ? 1 : 0, i => { if (i) soloHear('m3'); else M.on = 0; });
+  pillRow(host, 'dest', ['CUTOFF', 'PITCH'], () => M.dest | 0, i => { M.dest = i; });
+  slider(host, { label: 'depth', min: 0, max: 1, step: 0.01, get: () => M.depth, set: x => { M.depth = x; }, fmt: f2 });
+  listenRow(host, 'pwr7', 'droneBtn7');
+  { const row = el('div', 'row wide'), bx = el('div', 'pills'), b = el('button', 'pill', 'RESTART');
+    b.title = 'the clock to cycle 0, draw 0, and the pick unresolved';
+    b.addEventListener('click', () => { core.m3.reset(); onEdit(); }); bx.appendChild(b);
+    row.appendChild(el('label', null, 'clock')); row.appendChild(bx); host.appendChild(row); }
+}
+function paintM3() {
+  const cv = $('m3C'), G = ground(cv); if (!G) return;
+  const { g, w, h, v } = G, K = core.m3, H = K.hn, M = S.m3, x0 = 4 * v, x1 = w - 4 * v;
+  const lanes = [[0, 0.25, '--cAtx', 'A · ' + M3_KINDS[M.kindA | 0]], [0.25, 0.5, '--cBtx', 'B · ' + M3_KINDS[M.kindB | 0]],
+                 [0.5, 0.8, '--scr-meter', 'HEARD · ' + M3_MODES[M.mode | 0]]];
+  g.font = FONT(v); g.textAlign = 'left';
+  const path = (row, Y, col, lw, dash) => {
+    if (H < 2) return;
+    g.strokeStyle = col; g.lineWidth = lw * v; g.setLineDash(dash || []); g.beginPath();
+    for (let k = 0; k < H; k++) { const j = (K.w - H + k + M3_N) % M3_N, x = x0 + (M3_N - H + k) / (M3_N - 1) * (x1 - x0), y = Y(K.H[row * M3_N + j]); k ? g.lineTo(x, y) : g.moveTo(x, y); }
+    g.stroke(); g.setLineDash([]);
+  };
+  lanes.forEach(([a, b, tok, lab], row) => {
+    const top = a * h + 12 * v, bot = b * h - 4 * v, Y = q => (top + bot) / 2 - q * (bot - top) / 2;
+    g.strokeStyle = TOKA('--scr-grid', 0.25); g.lineWidth = v;
+    g.beginPath(); g.moveTo(x0, Y(0)); g.lineTo(x1, Y(0)); g.moveTo(0, b * h); g.lineTo(w, b * h); g.stroke();
+    path(row, Y, TOK(tok), row === 2 ? 2 : 1.3);
+    g.fillStyle = TOK(tok); g.fillText(lab, x0 + 2 * v, a * h + 10 * v);
+  });
+  // the morph: m as asked (dashed), and what weighs the output (MIX: the glided weight; SWITCH: the glided pick)
+  const top = 0.8 * h + 12 * v, bot = h - 4 * v, Y = q => bot - q * (bot - top);
+  if ((M.mode | 0) === 1) {
+    const B = m3Bound(M, K.draw);
+    g.fillStyle = TOKA('--scr-marker', 0.18); g.fillRect(x0, Y(B.up), x1 - x0, Y(B.down) - Y(B.up));
+    g.strokeStyle = TOK('--scr-marker'); g.lineWidth = v; g.beginPath(); g.moveTo(x0, Y(B.mid)); g.lineTo(x1, Y(B.mid)); g.stroke();
+  }
+  path(4, Y, TOKA('--scr-grid', 0.9), 1.2, [3 * v, 3 * v]);
+  path(3, Y, TOK('--scr-meter'), 1.6);
+  g.fillStyle = TOKA('--scr-grid', 0.95); g.fillText('MORPH · A at the bottom, B at the top · dashed = position, solid = what weighs the output', x0 + 2 * v, 0.8 * h + 10 * v);
+  if (!ac) { g.fillStyle = TOK('--scr-marker'); g.fillText('POWER (or HEAR): the scope is the render\'s own log', x0 + 2 * v, 0.5 * h); }
+  const B = m3Bound(M, K.draw);
+  setText('m3Read', ((M.mode | 0) === 0
+      ? '<b>MIX</b>: out = (1 − w)·A + w·B, w = ' + K.pos.toFixed(3) + ' (the morph ' + K.m.toFixed(3) + ', glided ' + (M.glide * 1000).toFixed(0) + ' ms). Both kinds sound at once in between.'
+      : '<b>SWITCH</b>: the boundary for seed ' + M.seed + ' and temperature ' + M.temp.toFixed(2) + ' sits at <b>' + B.mid.toFixed(3) + '</b>; the latch flips to B above '
+        + B.up.toFixed(3) + ' and back to A below ' + B.down.toFixed(3) + ' (the shaded band). Now: <b>' + (K.held < 0 ? '—' : K.held ? 'B' : 'A') + '</b>, '
+        + K.flips + ' flip' + (K.flips === 1 ? '' : 's') + ' so far; each change of kind glides over ' + (M.glide * 1000).toFixed(0) + ' ms.')
+    + (M.on ? ' Heard on ' + ['CUTOFF', 'PITCH'][M.dest | 0] + ' × ' + M.depth.toFixed(2) + ' (solo).' : ' Not heard: HEAR → ON.'));
+}
+
+/* ---- THE ROUND-6 SELF-CHECK on the page: r6SelfCheck (DSP section) does the
+   work. THE PLANT: Math.random as the SWITCH pick's draw, in a twin only. Its
+   fields are fixed, so it re-runs only when the LFO card's points (DRAWN) move. */
+let audit6Key = '';
+function auditRound6() {
+  const box = $('audit6'); if (!box) return;
+  try {
+    const R = r6SelfCheck(S, () => Math.random());
+    const yes = b => b ? 'yes' : '<b>NO</b>', e = x => x === 0 ? '0' : x.toExponential(1), c3 = x => x.toFixed(3), fire = b => b ? '(fires)' : '<b>DID NOT FIRE</b>';
+    box.classList.toggle('bad', !R.ok);
+    box.innerHTML = 'round-6 self-check (offline, 4800 Hz, fixed fields). <b>sin, cos</b> against the bodies\' own positions in a twin, max|Δ| <b>' + e(R.sc.d) + '</b>'
+      + ' (control, the raw angle as ±1: ' + c3(R.sc.ctl) + ' ' + fire(R.sc.ctl > 0.5) + '); no seam on binary, largest one-sample step <b>' + c3(R.sc.step) + '</b>'
+      + ' against the raw angle\'s ' + c3(R.sc.stepAng) + ' ' + fire(R.sc.stepAng > 0.5) + '. Near the centre, measured and not gated: '
+      + R.sc.near.map(q => q.name + ' ' + c3(q.step) + ' at r ' + q.r.toExponential(1)).join(', ') + '. '
+      + '<b>accel</b> against the force summed from scratch, max|Δ| <b>' + e(R.acc.d) + '</b> (control G × 1.1: ' + c3(R.acc.ctl) + ' ' + fire(R.acc.ctl > 1e-3) + '); '
+      + 'ceilings speed / energy / accel ' + R.acc.ceil.join(', ') + ', each at or above its 30 s peak and within 10 % ' + yes(R.acc.ceilOk)
+      + ' (control, rounded down, some fall below: ' + fire(R.acc.ceilCtl) + '). '
+      + '<b>The shrinking</b>, binary at drag 0.3 for 40 s: mean |v| ' + c3(R.th.off.first) + ' → ' + e(R.th.off.last) + ' with the thermostat off '
+      + fire(R.th.off.last < 0.05 * R.th.off.first) + ', ' + c3(R.th.on.last) + ' with it on against ' + c3(R.th.want) + ' predicted; x\'s range over the last 5 s '
+      + e(R.th.off.xpp) + ' off, ' + c3(R.th.on.xpp) + ' on; sin\'s ' + c3(R.th.off.spp) + ' off. '
+      + '<b>The scope is the sound</b>: the HEARD row against the destination <b>' + e(R.lane.d) + '</b> over ' + R.lane.n + ' samples (control, 100 ms off: '
+      + c3(R.lane.ctl) + ' ' + fire(R.lane.ctl > 1e-3) + '). '
+      + '<b>M3 MIX</b>, 12 kind pairs at two positions, against (1 − m)·A + m·B: <b>' + e(R.mix.d) + '</b> (control, weights swapped: ' + c3(R.mix.ctl) + ' '
+      + fire(R.mix.ctl > 1e-3) + '). <b>M3 SWITCH</b>, swept 0 → 1 → 0: samples that are neither corner <b>' + R.sw.neither + '</b> (control, MIX: '
+      + R.sw.ctlNeither + ' ' + fire(R.sw.ctlNeither > 0) + '); flips at ' + R.sw.flips.map(c3).join(' and ') + ', the closed form '
+      + c3(R.sw.B.up) + ' up and ' + c3(R.sw.B.down) + ' down ' + yes(R.sw.placed) + '; seeded twice, the same ' + yes(R.sw.same)
+      + '; Math.random as the pick\'s draw, two runs ' + (R.sw.plant === null ? '<b>not run</b>' : R.sw.plant ? 'differ (fires)' : '<b>agree: DID NOT FIRE</b>')
+      + '; a 50 ms glide reaches 99 % in ' + R.sw.t99 + ' samples (ln 100 × 50 ms = ' + R.sw.want99.toFixed(0) + ')'
+      + (R.ok ? ' · <b>all pass</b>' : ' · <b>FAILED</b>');
+  } catch (err) { box.classList.add('bad'); box.textContent = 'round-6 self-check threw: ' + String((err && err.message) || err); }
+  box.classList.remove('busy');
+}
+let audit6T = 0;
+function scheduleAudit6() {
+  const key = JSON.stringify(S.lfo.pts);
+  if (key === audit6Key) return;   // nothing it reads has moved
+  audit6Key = key;
+  if (audit6T) clearTimeout(audit6T);
+  audit6T = setTimeout(() => {
+    audit6T = 0; const b = $('audit6');
+    if (b) { b.classList.add('busy'); b.textContent = 'round-6 self-check: running (about half a second; the page holds still meanwhile) …'; }
+    setTimeout(auditRound6, 40);   // one frame for the BUSY line to paint before the work blocks
+  }, 500);
+}
+
 /* ---- audio (the page's job; the core is graph-free) ---- */
 let ac = null, spn = null, blocks = 0;
 function power() {
@@ -4317,7 +5130,7 @@ function power() {
     spn.onaudioprocess = ev => { const L = ev.outputBuffer.getChannelData(0), R = ev.outputBuffer.getChannelData(1);
       core.render(L, R, L.length); blocks++; };
     spn.connect(ac.destination);
-    for (const id of ['pwr', 'pwr3', 'pwr4', 'pwr5']) { const b = $(id); if (b && b.classList) b.classList.add('on'); }   // B237/B540: three POWER pills
+    for (const id of ['pwr', 'pwr3', 'pwr4', 'pwr5', 'pwr6', 'pwr7']) { const b = $(id); if (b && b.classList) b.classList.add('on'); }   // B237/B540: three POWER pills
   } catch (e) { const st = $('audioStat'); if (st) st.textContent = 'AUDIO: ' + String((e && e.message) || e); }
 }
 
@@ -4347,7 +5160,7 @@ function buildKbd() {
 function toggleDrone() {
   power(); droning = !droning;
   if (droning) { press(48); press(55); } else { release(48); release(55); }
-  for (const id of ['droneBtn', 'droneBtn3', 'droneBtn4', 'droneBtn5']) { const b = $(id); if (b && b.classList) b.classList.toggle('on', droning); }   // B237/B540: three DRONE pills, one state
+  for (const id of ['droneBtn', 'droneBtn3', 'droneBtn4', 'droneBtn5', 'droneBtn6', 'droneBtn7']) { const b = $(id); if (b && b.classList) b.classList.toggle('on', droning); }   // B237/B540: three DRONE pills, one state
 }
 
 /* ---- theme: `?theme=dark` opens dark, so a screenshot of it is a LOAD ---- */
@@ -4370,13 +5183,13 @@ function audioStat() {
 }
 function frame() {
   paintEditor('lfo'); paintEditor('env'); paintHeard(); paintBeat(); audioStat();
-  drainHost(); paintKuro(); paintOrb(); paintMidi(); midiNow(); paintRoutes(); paintEv(); paintSm(); paintXY(); paintTT(); paintImp();
+  drainHost(); paintKuro(); paintOrb('orbC'); paintMidi(); midiNow(); paintRoutes(); paintEv(); paintSm(); paintXY(); paintTT(); paintImp(); paintO6(); paintM3();
   if (window.requestAnimationFrame) window.requestAnimationFrame(frame);
 }
 
 /* ============ SETUP: everything above is declared (L0026) ============ */
 buildLfo(); buildEnv(); buildDivs(); buildKbd();
-buildKuro(); buildOrb(); buildMidi(); buildRoutes(); buildActs(); buildHost(); buildRand(); buildXY(); buildTT();
+buildKuro(); buildOrb(); buildMidi(); buildRoutes(); buildActs(); buildHost(); buildRand(); buildXY(); buildTT(); buildO6(); buildM3();
 (() => {
   const lp = $('lawPills');
   if (lp) { const btns = LAWS.map((nm, i) => { const b = el('button', 'pill', nm);
@@ -4392,7 +5205,7 @@ buildKuro(); buildOrb(); buildMidi(); buildRoutes(); buildActs(); buildHost(); b
   const on = (id, f) => { const b = $(id); if (b && b.addEventListener) b.addEventListener('click', f); };
   on('pwr', power);
   on('panic', () => { core.panic(); for (const n in held) release(+n); droning = false;
-    for (const id of ['droneBtn', 'droneBtn3', 'droneBtn4', 'droneBtn5']) { const d = $(id); if (d && d.classList) d.classList.remove('on'); } });
+    for (const id of ['droneBtn', 'droneBtn3', 'droneBtn4', 'droneBtn5', 'droneBtn6', 'droneBtn7']) { const d = $(id); if (d && d.classList) d.classList.remove('on'); } });
   on('themeBtn', () => { dark = !dark; applyTheme(); });
   on('droneBtn', toggleDrone);
   on('reactBtn', () => { core.activate(); });

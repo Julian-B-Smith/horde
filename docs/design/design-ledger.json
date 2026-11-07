@@ -220,8 +220,9 @@
    "note": "Archived in the design index (its lab-archive tag): legacy-era bench; its law is ruled or lives in the composed engine. History, never a source."
   },
   "corner-mapping-lab.html": {
-   "status": "exploring",
-   "note": "The lead's lab for B396 and B270, the human's request of 2026-11-02: per-corner mappings, with the 1.0 question left open against ADR-261 and ADR-266. Five questions for a poll after listening. Nothing here reaches the master until a ruling does."
+   "status": "ruled",
+   "adr": "GUI-53",
+   "note": "B396, ruled GUI-53 (the human, 2026-11-06, through the Labs facilitator): blend fades with the corner, stops at zero, a per-patch loop setting defaulting to allow one step late, a warning when a load drops a mapping, the pad follows the loop setting."
   },
   "detune-lab.html": {
    "status": "retired",
@@ -494,6 +495,10 @@
    "status": "ruled",
    "adr": "GUI-50",
    "note": "GB25, ruled GUI-50 (the human, 2026-11-05): lane B with preset menus, saving on the Morph page, asterisks on edited presets, dimmed with a switch, back to the previous tab."
+  },
+  "morph-questions-lab.html": {
+   "status": "exploring",
+   "note": "GB29. The morph’s eight open questions on the pad, ending in one poll; the answers go to the lead for the spec round (ADR-370, B631)."
   }
  },
  "not_labs": {
@@ -6535,6 +6540,36 @@
    "lab": null
   },
   {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": null,
+   "id": "gui48-cut-on-face",
+   "adr": "GUI-48",
+   "clause": "a blade's cut rate is always on its face: cutHz beside cut, and blade 2's 'as blade 1' read through blade 1 (PA-8)",
+   "note": "A fix against PA-8. FX device: none.",
+   "shell": "docs/design/gui3.html: const FOLLOWS_BLADE1"
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": null,
+   "id": "gui48-dashboard-cycle",
+   "adr": "GUI-48",
+   "clause": "the dashboard's oscillator cards draw the SCALPEL cycle from the blades' settings, not the bare base wave",
+   "note": "SAMPLE until GN-41. FX device: none.",
+   "shell": "docs/design/gui3.html: function bladeCycle("
+  },
+  {
    "id": "gui46-inert-on-bridge",
    "adr": "GUI-46",
    "clause": "on the plug-in's bridge, a control this engine can't act on is dimmed with the master's disabled opacity and stays visible",
@@ -6938,6 +6973,66 @@
    "clause": "an Osc page: the envelope picture to drag, values read out under it, knobs behind +Adv",
    "note": "FX device: none.",
    "component": "Envelope"
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": "docs/design/corner-mapping-lab.html",
+   "id": "gui53-loop-setting",
+   "adr": "GUI-53",
+   "clause": "a per-patch loop-mode setting: refuse any, refuse inside a corner, or allow one step late (default)",
+   "note": "FX device: the same."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": "docs/design/corner-mapping-lab.html",
+   "id": "gui53-drop-warning",
+   "adr": "GUI-53",
+   "clause": "a corner preset load that would close a loop loads without that mapping and names it in a warning",
+   "note": "FX device: the same."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": null,
+   "id": "gui54-splash",
+   "adr": "GUI-54",
+   "clause": "the Mindlathe logo covers the window on its first opening per Live session, fading on the first click or after 2.5 s",
+   "note": "FX device: the same."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": null,
+   "id": "gui53-mapmode-spec",
+   "adr": "GUI-53",
+   "clause": "the Map Mode spec reads per corner for 1.0 (the human approved the edit, 2026-11-06)",
+   "note": "The edit carries ADR-371 MQ17 and GUI-51 r5 (PR #1426). FX device: the same."
   }
  ],
  "not_design": [
@@ -7974,6 +8069,10 @@
    "reason": "The morph's law for structure, as behaviour; the Morph page shows the same pad, and no screen changes."
   },
   {
+   "adr": "ADR-378",
+   "reason": "Random LFOs' behaviour, ruled from the modulator lab; the LFO card's design is the GUI session's."
+  },
+  {
    "adr": "GUI-44",
    "reason": "A gate: GUI 3's browser check wired into ./verify fast, a hole where there's no browser. No design element."
   }
@@ -8146,6 +8245,14 @@
    "GN-27",
    "GN-39",
    "GN-49"
+  ],
+  "GUI-48": "none: the drawing and the conditions are the shell’s",
+  "GUI-53": [
+   "GN-27",
+   "GN-53"
+  ],
+  "GUI-54": [
+   "GN-54"
   ]
  },
  "audit_notes": [

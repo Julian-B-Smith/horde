@@ -11958,6 +11958,35 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 
 **FX device (ADR-254).** The same patching, with its own inputs in place of the sources.
 
+
+## GUI-53 — RULED by the human: per-corner mappings' five questions; a per-patch loop setting and a warning when a load drops a mapping (B396; ADR-371; 2026-11-06)
+
+**The human, 2026-11-06,** on the lead's `docs/design/corner-mapping-lab.html`, through the Labs facilitator:
+1. A mapping's blend "Fades with the corner".
+2. Past zero it "Stops at zero".
+3. Loops between corners: "Let's make this a setting". The setting offers three modes: refuse any possible loop, refuse only inside a corner, or allow, one step late. It defaults to "Allow, one step late" and is saved per patch. Where its control lives is not ruled.
+4. A corner preset load that would close a loop under a refusing mode: "Load it minus the mapping but with a warning". The page names what was dropped.
+5. The pad in loops "Follows the loop setting": it counts under the refusing modes, and is read a step late under Allow.
+
+**What this session draws.** The loop setting as a three-way control. Its place is the human's to rule; the GUI session will propose one. The warning is a line in the window naming each dropped mapping (source → target and the corner) when a load drops any.
+
+**The Map Mode spec now reads per corner.** `docs/design-system/HORDE-Map-Mode-Spec.md`'s scope rule and its decisions-table row said "global for 1.0". The human approved the edit in this session ("Yes, edit that rule"), carrying ADR-371 MQ17 and GUI-51 r5. Only that rule changed; morph and intent targets stay forced global.
+
+**Engine impact.** GN-27 (mappings per corner) and GN-53 (the loop mode as a per-patch setting, and a load's report of what it dropped). The lead records the engine side.
+
+**FX device (ADR-254).** It has a morph and mappings, so all five apply.
+
+## GUI-54 — DIRECTED by the human: the Mindlathe logo over the window when it first opens, fading on the first click or after 2.5 s (2026-11-06)
+
+**The human, 2026-11-06:** "I want my Mindlathe logo to overlay the gui when you first open it and fade on first click or after a few seconds". By poll: once per Live session, and 2.5 seconds.
+
+**What changes.** The first time the window opens after the plug-in loads, the Mindlathe logo covers the window. It fades out on the first click (the click does nothing else) or after 2.5 s, whichever comes first, and later openings go straight to the GUI. Under reduced motion it goes without a fade. It goes into the design master first, as a component with the artwork as an asset (ADR-316).
+
+**Waiting on the artwork.** The human showed the logo, a cyan-to-magenta wordmark, but no file reached the repo, and an overlay needs it with a transparent background (PNG or SVG). The master component is built once the file arrives.
+
+**Engine impact.** GN-54: "once per Live session" outlives the page, which dies with the window, so the plug-in tells the page at `hello` whether this is the first opening since it loaded.
+
+**FX device (ADR-254).** The same, as a Mindlathe plug-in.
 ## GUI-42 — DIRECTED by the human: the Morph page fits beside its pad; pictures keep moving; the waveform's name (amends GUI-40 and GUI-33; 2026-11-05)
 
 **The human, 2026-11-05:** "The morph grid still gets cut off at the bottom of the scroll by the morph box. I feel like we need to reformat a little to fit everything on the page more sensibly." And: "Also the osc visualizers are all freezing".
@@ -12114,6 +12143,21 @@ The GUI session recommends (c). Nothing is built until the human picks.
 **Engine impact.** None: a gate on the GUI shell.
 
 **FX device (ADR-254).** Its pages can use the same harness when they exist.
+
+## GUI-48 — DIRECTED by the human: a cut rate always on a blade's face; the dashboard's oscillator cards draw the SCALPEL cycle (GB27; 2026-11-05)
+
+**The human, 2026-11-05:** "For some reason, cut rate isn't visible in the osc sections on the test plugin. Also, can we update the waveform visuals in the osc dashboard so they show the accurate scalpel instead of the placeholder saw?"
+
+**What was wrong (the shell's, against the spec).** A blade's cut rate is two rows, chosen by `cutIn`: `cut` (× pitch) on the face, and `cutHz` behind +Adv. So a preset in Hz showed no cut rate on the face. Blade 2's `cutIn` defaults to "as blade 1", which neither condition listed, so blade 2's cut rate was never shown: the shell's conditions didn't apply PA-8's "blade 2's 'as blade 1' options read blade 1's value".
+
+**What changes.**
+1. **PA-8's rule is applied in the shell's conditions.** A blade 2 row that follows blade 1 is judged on blade 1's.
+2. **`cutHz` sits on the face beside `cut`,** in the Cut group. Exactly one of the two is live, so a cut rate is always in view.
+3. **The dashboard's Osc 1 and Osc 2 cards** draw the oscillator's SCALPEL cycle: its base wave cut by each blade that is on, from the same builder as the Osc page's waveform (`bladeCycle`), never the bare base wave. It is still a SAMPLE drawing of the settings, not the engine's output (GN-41).
+
+**Engine impact.** None: the drawing and the conditions are the shell's.
+
+**FX device (ADR-254).** It has no oscillators.
 ## GUI-46 — RULED by the human: on the plug-in's bridge, a control this engine can't act on is dimmed and still visible (B628, GB26; 2026-11-05)
 
 **The human, 2026-11-05,** through the lead's poll on `docs/proposals/gui-on-engine.md`: "Dimmed, still visible", and "build it now, I want it for sound testing". The lead's choice where the plan left it open: dimmed with the idle styling, plus a small "not in this engine yet" note.
@@ -12445,3 +12489,28 @@ The critic's review also asked for these drafting choices to be recorded. They a
 - Clamp on by default;
 - the source's level reading the stepped position under Stepped;
 - the oscillator's volume key counted among its keys.
+
+## ADR-378 — RULED by the human: random LFOs' travel stage, strikes and shapes (B237; B633)
+
+**Context.** MQ4 (ADR-371) put smoothed random in 1.0 as an LFO kind, so round 3 of the modulator lab (B237, S&H and smoothed random) gates 1.0. The labs facilitator put its sound calls to the human, 2026-11-06, along with the lead's proposal for SLEW.
+
+**Rulings.**
+1. **What a strike does to a random stream is a choice per LFO.** All three are offered: the next unused draw (a new step each note), keep the held value (as shipped), or rewind to draw 0 (a repeatable random riff).
+2. **The look-ahead stays on the beat** (as built). LINEAR, COSINE and CUBIC keep their knots on cycle starts.
+3. **CUBIC clips its peaks** (as built): Catmull-Rom clamped to ±1.
+4. **One travel stage follows every random shape** ("Yes, every shape"). The choices are None, Time, Rate and Spring, the same family as the 2-D random and the pitch glide. It defaults to None on LINEAR, COSINE and CUBIC, and S&H keeps its shipped SLEW law as its default. The human's earlier "Maybe it gets all the glide options (including spring)" is now a firm yes in this form.
+
+The lead's proposals for the round's fine questions stand as proposals for the spec round:
+- one S&H shape, clocked by its own cycle in 1.0;
+- a draw at every cycle start, the first included;
+- STEPS and S&H both stay;
+- a check for each modulator when it is ported.
+
+**FX device (ADR-254).** The same modulators run in the FX device, with no change.
+
+**ADR-377 A2 (the human, 2026-11-06, by poll, after a second critic pass on round 61): landing, Save below the floor, and the noise's erosion exception.**
+1. **A landing skips the engine's smoothing** ("Skip it"). When a source comes back on, under any law, its keys jump to the on-corner's values with neither the morph glide nor PA-1's. The source was silent, so the jump is inaudible.
+2. **Save below the floor stores the source off** ("The source off"), matching what is heard.
+3. **The noise is the one exception to the off-source rule.** The human: "noise settings influence erosion even if the noise osc is off; I say erosion is colored by any corner where noise is influencing the erosion of its respective sub, or if the erosion control is connected to a modulator, regardless of whether that noise osc is active. That said, this means any active noise oscs will have to blend the sound of those as well, and the audible noise will need to influence the erosion (each patch only has one noise osc as a source for either the erosion or the audible noise). This is the exception to the off-oscillator blend rule." The lead's restatement, confirmed by poll ("Yes, that's it"): the noise's one set of settings blends over the corners where the noise is on **or** erosion is active (the sub's erode above 0, or erode modulated). Corners with neither are ignored. The noise's volume still fades only by the corners where it is on.
+
+The lead's mechanism, from the critic's review: the resolver holds the switch-off until a mirror of PA-1's heard level reaches the floor, and holds the source's values meanwhile. So no off corner's values sound while it fades out, and the engine keeps PA-5's "at once".

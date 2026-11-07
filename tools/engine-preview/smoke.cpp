@@ -4,7 +4,7 @@
 // own offline render (horde_offline_render, written by the builder), bit for bit. The offline render shares none of
 // the plug-in's code, so a pass says the shell plays the bank as the renders do: the levelled state, the routes and
 // the note order all arrive intact. DT-2 is why bit-exact is the right bar: output doesn't depend on block splits.
-//   smoke <horde-engine-preview.clap> [<plant.clap> [<plant-map.clap>]]
+//   smoke <horde-engine-preview.clap> [<plant.clap> [<plant-map.clap> [<plant-morph.clap>]]]
 // Controls that must fail: a different preset's render must differ, and the plant build (no routes, and the retired
 // Voices limit of 4 put back) must miss on a routed preset and sound 4 voices of a 12-note chord. The second plant
 // shifts the bridge's key map by one row, and the full-row mapping audit must read it red. Without them, an
@@ -15,6 +15,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -126,8 +127,8 @@ constexpr std::int16_t kChord[4] = {60, 64, 67, 71};
 constexpr double kVelocity = 0.85;
 constexpr std::uint32_t kFrames = 44100 * 2, kOff = 44100 * 3 / 2;   // 2 s, released at 1.5 s
 
-// Chooses the preset, lets the "main thread" build it, and plays the chord from the fresh engine's first sample.
-std::vector<float> play(Loaded& p, int preset, const std::vector<std::uint32_t>& blocks) {
+// Chooses the preset and lets the "main thread" build it, so the next block is a fresh engine's first.
+void fresh(Loaded& p, int preset) {
   // Through another preset first: only a change builds an engine, and the offline render starts at a fresh engine's
   // clock 0, so replaying on the engine already loaded would differ for the wrong reason (its clock has moved on).
   float silent[2][64];
@@ -143,6 +144,11 @@ std::vector<float> play(Loaded& p, int preset, const std::vector<std::uint32_t>&
       if (callback_requested) { callback_requested = false; p.plugin->on_main_thread(p.plugin); }
     }
   }
+}
+
+// Plays the chord from the fresh engine's first sample.
+std::vector<float> play(Loaded& p, int preset, const std::vector<std::uint32_t>& blocks) {
+  fresh(p, preset);
   std::vector<float> l(kFrames), r(kFrames);
   std::uint32_t pos = 0;
   std::size_t b = 0;
@@ -509,6 +515,162 @@ long scope_miss(const clap_plugin_t* plugin, const preview_bridge_ext* bridge, l
     if (k >= got.size() || float(got[k]) != want) return long(k);
   }
   return -1;
+}
+
+// ---- the morph (B636) ---------------------------------------------------------------------------------------------
+// One message with the next seq, applied at the next block (the edit queue's drain). No wait: the caller runs blocks.
+void post(const clap_plugin_t* plugin, const preview_bridge_ext* bridge, long long& seq, const std::string& body) {
+  bridge->receive(plugin, ("{\"seq\":" + std::to_string(++seq) + "," + body + "}").c_str());
+}
+void blocks_of(const clap_plugin_t* plugin, int n, std::uint32_t frames = 512) {
+  for (int b = 0; b < n; ++b) {
+    float l[512], r[512];
+    Events none;
+    process(plugin, none, l, r, frames);
+  }
+}
+// The morph back to D.2's defaults, applied by the next block (fresh() runs blocks before it builds its engine).
+void morph_reset(const clap_plugin_t* plugin, const preview_bridge_ext* bridge, long long& seq) {
+  post(plugin, bridge, seq, "\"type\":\"morph\",\"settings\":{\"morph.on\":0,\"morph.audible\":0,\"morph.law\":0.5,\"morph.glide\":0.04}");
+  post(plugin, bridge, seq, "\"type\":\"position\",\"x\":0,\"y\":0");
+  post(plugin, bridge, seq, "\"type\":\"modes\",\"modes\":{},\"counts\":{}");
+}
+std::string num17(double v) {
+  char b[40];
+  std::snprintf(b, sizeof b, "%.17g", v);
+  return b;
+}
+// The test's corners: osc1.detune (Morphable, lin), out.level (Morphable, dB) and osc1.baseWave (Structural, in
+// osc 1's kernel group) apart in every corner, everything else the preset's.
+struct Corners { double detune[4], level[4], wave[4]; };
+Corners test_corners() {
+  const horde::ParamInfo* wave = horde::find_param("osc1.baseWave");
+  const double n = wave && wave->steps > 1 ? double(wave->steps - 1) : 1;
+  Corners c{};
+  for (int k = 0; k < 4; ++k) {
+    // Dyadic values and (below) dyadic positions: every product and sum of MO-9's blend is exact in any order, so the
+    // engine's value is held to it with ==, no tolerance.
+    c.detune[k] = 0.125 + 0.25 * k;
+    c.level[k] = 0.5 + 0.0625 * ((k + 1) % 4);
+    c.wave[k] = std::fmod(double(k + 1), n + 1) / n;
+  }
+  return c;
+}
+std::string corner_values(const Corners& c, int k) {
+  return "{\"osc1.detune\":" + num17(c.detune[k]) + ",\"out.level\":" + num17(c.level[k]) + ",\"osc1.baseWave\":" + num17(c.wave[k]) + "}";
+}
+void post_corners(const clap_plugin_t* plugin, const preview_bridge_ext* bridge, long long& seq, const Corners& c) {
+  for (int k = 0; k < 4; ++k) post(plugin, bridge, seq, "\"type\":\"corner\",\"index\":" + std::to_string(k) + ",\"values\":" + corner_values(c, k));
+}
+// After the morph's messages (or a reference's sets) at a fresh engine's first block: silent blocks while it settles,
+// then the chord, 0.5 s, released at 0.3 s. Both sides of a comparison run exactly this, so their clocks agree.
+std::vector<float> settle_and_play(const clap_plugin_t* plugin) {
+  blocks_of(plugin, 4);
+  constexpr std::uint32_t n = 22050, off = 13230;
+  std::vector<float> out(2 * n);
+  std::vector<float> l(n), r(n);
+  for (std::uint32_t pos = 0; pos < n; pos += 128) {
+    Events e;
+    if (pos == 0) for (int k = 0; k < 4; ++k) e.note(true, 0, 9000 + k, kChord[k], kVelocity);
+    if (off >= pos && off < pos + 128) for (int k = 0; k < 4; ++k) e.note(false, off - pos, 9000 + k, kChord[k], 0);
+    process(plugin, e, l.data() + pos, r.data() + pos, std::min<std::uint32_t>(128, n - pos));
+  }
+  for (std::uint32_t i = 0; i < n; ++i) out[2 * i] = l[i], out[2 * i + 1] = r[i];
+  blocks_of(plugin, 200);   // the tail ends, so the next comparison starts from silence
+  return out;
+}
+// The corner `k` as the plug-in plays it with the morph off: the preset, then plain sets of that corner's values.
+std::vector<float> corner_reference(Loaded& p, const preview_bridge_ext* bridge, long long& seq, int preset, const Corners& c, int k) {
+  morph_reset(p.plugin, bridge, seq);
+  fresh(p, preset);
+  post(p.plugin, bridge, seq, "\"type\":\"set\",\"values\":" + corner_values(c, k));
+  return settle_and_play(p.plugin);
+}
+// The morph on, at corner `k` exactly, under the law given as its v (0 Blend, 0.5 Quantum), with no glide.
+std::vector<float> corner_morphed(Loaded& p, const preview_bridge_ext* bridge, long long& seq, int preset, const Corners& c, int k, double law) {
+  morph_reset(p.plugin, bridge, seq);
+  fresh(p, preset);
+  post_corners(p.plugin, bridge, seq, c);
+  post(p.plugin, bridge, seq, "\"type\":\"morph\",\"settings\":{\"morph.glide\":0,\"morph.law\":" + num17(law) + ",\"morph.on\":1}");
+  post(p.plugin, bridge, seq, "\"type\":\"position\",\"x\":" + std::to_string(k & 1) + ",\"y\":" + std::to_string(k >> 1));
+  return settle_and_play(p.plugin);
+}
+// MO-9 at count 4 for a lin key: the blend of its four corner values at MO-4's bilinear weights.
+double mo9(const double v[4], double x, double y) {
+  const double w[4] = {(1 - x) * (1 - y), x * (1 - y), (1 - x) * y, x * y};
+  return w[0] * v[0] + w[1] * v[1] + w[2] * v[2] + w[3] * v[3];
+}
+// Sets up the test corners under Blend, no glide, and moves the pad to (x, y); returns the engine's osc1.detune.
+double blend_at(Loaded& p, const preview_bridge_ext* bridge, long long& seq, int preset, double x, double y) {
+  morph_reset(p.plugin, bridge, seq);
+  fresh(p, preset);
+  post_corners(p.plugin, bridge, seq, test_corners());
+  post(p.plugin, bridge, seq, "\"type\":\"morph\",\"settings\":{\"morph.glide\":0,\"morph.law\":0,\"morph.on\":1}");
+  post(p.plugin, bridge, seq, "\"type\":\"position\",\"x\":" + num17(x) + ",\"y\":" + num17(y));
+  blocks_of(p.plugin, 1, 256);
+  return bridge->engine_v(p.plugin, horde::find_param("osc1.detune")->id);
+}
+// The `morph` member of a snapshot, from its key on (it is the snapshot's last member).
+std::string morph_of(const std::string& frame) {
+  const std::size_t at = frame.find(",\"morph\":{");
+  return at == std::string::npos ? "" : frame.substr(at);
+}
+// A number after `"key":` in `text` from `from` on, or NaN.
+double number_after(const std::string& text, const std::string& key, std::size_t from = 0) {
+  const std::size_t at = text.find("\"" + key + "\":", from);
+  return at == std::string::npos ? NAN : std::strtod(text.c_str() + at + key.size() + 3, nullptr);
+}
+// Corner `k`'s object in a morph member's `corners`, or "".
+std::string corner_in(const std::string& morph, int k) {
+  std::size_t at = morph.find("\"corners\":[");
+  if (at == std::string::npos) return "";
+  at += 11;   // past `"corners":[`
+  for (int i = 0; i <= k; ++i) {
+    const std::size_t open = morph.find('{', at), close = morph.find('}', open);
+    if (open == std::string::npos || close == std::string::npos) return "";
+    if (i == k) return morph.substr(open, close - open + 1);
+    at = close + 1;
+  }
+  return "";
+}
+// Saves the plug-in's state into `text`; loads `text` back and lets the main thread build what it loaded.
+bool save_to(Loaded& p, std::string& text) {
+  struct Buffer { std::string* text; } b{&text};
+  text.clear();
+  clap_ostream_t os{&b, [](const clap_ostream_t* s, const void* data, std::uint64_t size) -> std::int64_t {
+    static_cast<Buffer*>(s->ctx)->text->append(static_cast<const char*>(data), size);
+    return std::int64_t(size);
+  }};
+  return p.state->save(p.plugin, &os);
+}
+bool load_from(Loaded& p, const std::string& text) {
+  struct Buffer { const std::string* text; std::size_t read = 0; } b{&text};
+  clap_istream_t is{&b, [](const clap_istream_t* s, void* data, std::uint64_t size) -> std::int64_t {
+    auto* buf = static_cast<Buffer*>(s->ctx);
+    const std::size_t n = std::min<std::size_t>(size, buf->text->size() - buf->read);
+    std::memcpy(data, buf->text->data() + buf->read, n);
+    buf->read += n;
+    return std::int64_t(n);
+  }};
+  if (!p.state->load(p.plugin, &is)) return false;
+  blocks_of(p.plugin, 1, 64);
+  if (callback_requested) { callback_requested = false; p.plugin->on_main_thread(p.plugin); }
+  blocks_of(p.plugin, 2, 256);   // takes the loaded state's engine, and its resolver resolves
+  return true;
+}
+// A four-corner patch through the state: set up at (0.25, 0.75) under Blend, saved, another preset played, loaded back.
+// Returns the engine's osc1.detune after the load (the corners, the settings and the position all decide it); `before`
+// is what it read before the save, `chunk` the saved text.
+double through_state(Loaded& p, const preview_bridge_ext* bridge, long long& seq, int preset, int other, double* before, std::string* chunk) {
+  *before = blend_at(p, bridge, seq, preset, 0.25, 0.75);
+  post(p.plugin, bridge, seq, "\"type\":\"modes\",\"modes\":{\"osc1.baseWave\":\"quantum\"},\"counts\":{\"out.level\":2}");
+  blocks_of(p.plugin, 1, 256);
+  if (!save_to(p, *chunk)) return NAN;
+  morph_reset(p.plugin, bridge, seq);
+  fresh(p, other);
+  blocks_of(p.plugin, 1, 256);
+  if (!load_from(p, *chunk)) return NAN;
+  return bridge->engine_v(p.plugin, horde::find_param("osc1.detune")->id);
 }
 
 int find_preset(const char* name) {
@@ -936,6 +1098,195 @@ int main(int argc, char** argv) {
     }
     check(has(bridge->frame(p.plugin), "\"sounding\":false"), "and once its tail has ended, no sound again");
   }
+  // ---- The morph (B636): GUI 3's Morph page drives the clean room's own resolver, whose events reach the engine ----
+  if (horde::find_param("osc1.detune") && horde::find_param("osc1.baseWave") && horde::find_param("out.level")) {
+    long long mseq = 30000;
+    const Corners corners = test_corners();
+    const int preset = presets[0];
+
+    // Morph off is the plug-in as it was: corners B to D and the position are silent and frozen (D.2, ADR-319).
+    {
+      morph_reset(p.plugin, bridge, mseq);
+      fresh(p, preset);
+      post_corners(p.plugin, bridge, mseq, corners);   // corner A is the sound while off: its edit is an edit of the sound
+      post(p.plugin, bridge, mseq, "\"type\":\"position\",\"x\":1,\"y\":1");
+      post(p.plugin, bridge, mseq, "\"type\":\"morph\",\"settings\":{\"morph.law\":0,\"morph.glide\":0}");
+      // So the reference is corner A's test values set as plain edits.
+      const auto off = settle_and_play(p.plugin);
+      const auto plain = corner_reference(p, bridge, mseq, preset, corners, 0);
+      check(first_difference(off, plain) == off.size() && peak(off) > 0,
+            "morph off: with B to D edited and the pad at D, the sound is corner A's as plain edits, bit for bit");
+      const auto on = corner_morphed(p, bridge, mseq, preset, corners, 3, 0.5);
+      check(first_difference(on, plain) != on.size(), "control: the morph on at D reads as different");
+    }
+
+    // At each exact corner, the morphed output is that corner played with the morph off (SB-10), under Quantum and Blend.
+    for (const double law : {0.5, 0.0}) {
+      const char* name = law == 0 ? "Blend" : "Quantum";
+      std::vector<float> reference[4];
+      for (int k = 0; k < 4; ++k) reference[k] = corner_reference(p, bridge, mseq, preset, corners, k);
+      bool exact = true;
+      std::string misses;
+      for (int k = 0; k < 4; ++k) {
+        const auto morphed = corner_morphed(p, bridge, mseq, preset, corners, k, law);
+        const std::size_t at = first_difference(morphed, reference[k]);
+        if (at != morphed.size() || peak(morphed) == 0) { exact = false; misses += " " + std::string(1, char('A' + k)) + "@" + std::to_string(at); }
+        if (k == 0) check(first_difference(morphed, reference[1]) != morphed.size(), std::string("control: under ") + name + ", corner A's render differs from corner B's");
+      }
+      check(exact, std::string("under ") + name + ", each exact corner sounds as that corner with the morph off, bit for bit" + misses);
+    }
+
+    // MO-9: under Blend the engine's value of a Morphable key is the blend of its corners at the pad's weights.
+    {
+      const double got = blend_at(p, bridge, mseq, preset, 0.25, 0.75), want = mo9(corners.detune, 0.25, 0.75);
+      std::printf("     osc1.detune at (0.25, 0.75): engine %.17g, MO-9 %.17g\n", got, want);
+      check(got == want, "moving the pad sets a Morphable key to MO-9's blend of its corners (osc1.detune at (0.25, 0.75))");
+      check(got != mo9(corners.detune, 0.75, 0.25), "control: the blend at the transposed position reads as different");
+      post(p.plugin, bridge, mseq, "\"type\":\"position\",\"x\":0.5,\"y\":0.25");
+      blocks_of(p.plugin, 1, 256);
+      const double moved = bridge->engine_v(p.plugin, horde::find_param("osc1.detune")->id);
+      check(moved == mo9(corners.detune, 0.5, 0.25) && moved != got, "and moving it again follows the pad (0.5, 0.25)");
+    }
+
+    // IF-10's heard sets reach the frame: mid-pad under Blend, osc 1's kernel (its base wave apart in every corner)
+    // sounds as a set of several settings; at an exact corner, as one. This resolver still emits setting sets under
+    // Blend (round 61 / ADR-377 will retire them); the bridge forwards whatever it emits, and reports what is heard.
+    {
+      const auto kernel_settings = [&](double x, double y) {
+        (void)blend_at(p, bridge, mseq, preset, x, y);
+        post(p.plugin, bridge, mseq, "\"type\":\"want\",\"osc\":[],\"members\":false,\"morph\":true");
+        float l[256], r[256];
+        Events on;
+        on.note(true, 0, 9100, 60, 0.8);
+        process(p.plugin, on, l, r, 256);
+        blocks_of(p.plugin, 4, 256);
+        const std::string m = morph_of(bridge->frame(p.plugin));
+        const std::size_t at = m.find("{\"group\":\"osc1/kernel\"");
+        int n = 0;
+        if (at != std::string::npos)
+          for (std::size_t i = m.find("{\"id\":", at); i != std::string::npos && i < m.find("]}", at); i = m.find("{\"id\":", i + 1)) ++n;
+        Events off;
+        off.note(false, 0, 9100, 60, 0);
+        process(p.plugin, off, l, r, 256);
+        blocks_of(p.plugin, 200);
+        post(p.plugin, bridge, mseq, "\"type\":\"want\",\"osc\":[1,2],\"members\":false");
+        return n;
+      };
+      const int mid = kernel_settings(0.5, 0.5), corner = kernel_settings(1, 0);
+      std::printf("     osc1/kernel's heard set: %d settings mid-pad under Blend, %d at corner B\n", mid, corner);
+      check(mid >= 2, "mid-pad under Blend, the frame's heard sets show osc 1's kernel sounding several settings (IF-10)");
+      check(corner == 1, "control: at an exact corner it sounds one");
+    }
+
+    // Reported, never gating: what the morph costs here. While it is on, spans are cut at every control interval (as
+    // for a routed preset), so this is the price of that cut plus the resolver, on this machine under its load now.
+    {
+      const auto cost = [&](bool on) {
+        morph_reset(p.plugin, bridge, mseq);
+        fresh(p, preset);
+        if (on) {
+          post_corners(p.plugin, bridge, mseq, corners);
+          post(p.plugin, bridge, mseq, "\"type\":\"morph\",\"settings\":{\"morph.law\":0.5,\"morph.on\":1}");
+          post(p.plugin, bridge, mseq, "\"type\":\"position\",\"x\":0.4,\"y\":0.4");
+        }
+        blocks_of(p.plugin, 4);
+        const auto t0 = std::chrono::steady_clock::now();
+        (void)settle_and_play(p.plugin);
+        return std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+      };
+      const double off = cost(false), on = cost(true);
+      std::printf("     cost of the chord and its tail, morph off %.3f s, on and still (Quantum) %.3f s: %+.0f %%\n", off, on, 100 * (on / off - 1));
+    }
+
+    // The page's morph messages reach the morph system, are acknowledged, and come back in the frame's `morph`.
+    {
+      (void)blend_at(p, bridge, mseq, preset, 0.25, 0.75);
+      post(p.plugin, bridge, mseq, "\"type\":\"want\",\"osc\":[],\"members\":false,\"morph\":true");
+      std::string frame = send_until_acked(p.plugin, bridge, mseq, "\"type\":\"hello\"");   // a LOAD: everything again
+      std::string m = morph_of(frame);
+      check(number_after(m, "x") == 0.25 && number_after(m, "y") == 0.75 && number_after(m, "morph.on") == 1 && number_after(m, "morph.law") == 0,
+            "with want.morph the frame carries the position and D.2's settings as the morph system holds them");
+      check(number_after(corner_in(m, 2), "osc1.detune") == corners.detune[2] && number_after(m, "osc1.detune", m.find("\"heard\":")) == bridge->engine_v(p.plugin, horde::find_param("osc1.detune")->id),
+            "and the corners, and what the engine holds now (`heard`)");
+      check(!has(morph_of(bridge->frame(p.plugin)), "\"settings\":{"), "the settings ride only when they changed");
+
+      const long long modes_seq = mseq + 1;
+      post(p.plugin, bridge, mseq, "\"type\":\"modes\",\"modes\":{\"osc1.baseWave\":\"quantum\"},\"counts\":{\"out.level\":2}");
+      check(ack_of(bridge->frame(p.plugin)) < modes_seq, "control: before a block runs, the modes message isn't acknowledged");
+      blocks_of(p.plugin, 1, 256);
+      frame = bridge->frame(p.plugin);
+      m = morph_of(frame);
+      check(ack_of(frame) >= modes_seq && has(m, "\"modes\":{\"osc1.baseWave\":\"quantum\"}") && has(m, "\"counts\":{\"out.level\":2}"),
+            "modes: acknowledged, and the frame carries each key's mode and count");
+
+      const double before = bridge->engine_v(p.plugin, horde::find_param("osc1.detune")->id);
+      post(p.plugin, bridge, mseq, "\"type\":\"corner\",\"index\":3,\"values\":{\"osc1.detune\":0.0625}");
+      blocks_of(p.plugin, 1, 256);
+      double edited[4] = {corners.detune[0], corners.detune[1], corners.detune[2], 0.0625};
+      const double after = bridge->engine_v(p.plugin, horde::find_param("osc1.detune")->id);
+      check(after != before && after == mo9(edited, 0.25, 0.75) && number_after(corner_in(morph_of(bridge->frame(p.plugin)), 3), "osc1.detune") == 0.0625,
+            "corner: an edit of corner D reaches the resolver (the blend moves) and the frame");
+
+      const std::uint64_t dropped_before = std::uint64_t(number_after(morph_of(bridge->frame(p.plugin)), "dropped"));
+      post(p.plugin, bridge, mseq, "\"type\":\"set\",\"values\":{\"osc1.detune\":0.99}");
+      blocks_of(p.plugin, 1, 256);
+      check(bridge->engine_v(p.plugin, horde::find_param("osc1.detune")->id) == after &&
+                std::uint64_t(number_after(morph_of(bridge->frame(p.plugin)), "dropped")) == dropped_before + 1,
+            "while the morph is on, an edit of a key it resolves is refused and counted: the resolver is its only source (IF-12)");
+      const horde::ParamInfo* poly = horde::find_param("voice.polyphony");
+      post(p.plugin, bridge, mseq, "\"type\":\"set\",\"values\":{\"voice.polyphony\":" + num17(v_of_count(*poly, 6)) + "}");
+      blocks_of(p.plugin, 1, 256);
+      check(bridge->engine_v(p.plugin, poly->id) == v_of_count(*poly, 6), "control: a Device key (voice.polyphony) still takes the edit");
+
+      post(p.plugin, bridge, mseq, "\"type\":\"save\",\"index\":1");
+      check(!has(corner_in(morph_of(bridge->frame(p.plugin)), 1), "osc1.detune"), "control: before a block runs, corner B hasn't changed");
+      blocks_of(p.plugin, 1, 256);
+      check(number_after(corner_in(morph_of(bridge->frame(p.plugin)), 1), "osc1.detune") == after,
+            "save: Save current sound writes what the engine holds into corner B (MO-25)");
+
+      post(p.plugin, bridge, mseq, "\"type\":\"morph\",\"settings\":{\"morph.on\":0}");
+      blocks_of(p.plugin, 1, 256);
+      frame = bridge->frame(p.plugin);
+      check(bridge->engine_v(p.plugin, horde::find_param("osc1.detune")->id) == corners.detune[0], "morph off hands over to the audible corner A (MO-20)");
+      post(p.plugin, bridge, mseq, "\"type\":\"morph\",\"settings\":{\"morph.audible\":0.6666666666666666}");
+      blocks_of(p.plugin, 1, 256);
+      frame = bridge->frame(p.plugin);
+      check(bridge->engine_v(p.plugin, horde::find_param("osc1.detune")->id) == corners.detune[2] && param_in(frame, "osc1.detune") == corners.detune[2],
+            "and choosing corner C to hear while off plays C's, which the page hears as the sound's value");
+      post(p.plugin, bridge, mseq, "\"type\":\"want\",\"osc\":[1,2],\"members\":false");
+      blocks_of(p.plugin, 1, 256);
+      check(!has(bridge->frame(p.plugin), ",\"morph\":"), "control: without want.morph the frame carries no morph member");
+    }
+
+    // State: the corners, the position, the settings and the modes save with the plug-in and load back.
+    {
+      double before = NAN;
+      std::string chunk;
+      const double after = through_state(p, bridge, mseq, preset, presets[1], &before, &chunk);
+      std::printf("     a four-corner state chunk (3 keys apart per corner, the morph on, 2 modes): %zu bytes\n", chunk.size());
+      check(has(chunk, "horde-engine-preview 3\n") && has(chunk, "morph position 0.25 0.75\n"), "the chunk carries the morph (version 3)");
+      check(before == mo9(corners.detune, 0.25, 0.75), "control: before the save the engine holds the blend");
+      check(after == before, "after another preset and a load, the engine holds the same blend: corners, settings and position came back");
+      // A frame carries only what changed since the page last heard it; a hello is a LOAD and resends everything.
+      post(p.plugin, bridge, mseq, "\"type\":\"want\",\"osc\":[],\"members\":false,\"morph\":true");
+      const std::string m = morph_of(send_until_acked(p.plugin, bridge, mseq, "\"type\":\"hello\""));
+      check(number_after(m, "x") == 0.25 && number_after(m, "y") == 0.75 && has(m, "\"modes\":{\"osc1.baseWave\":\"quantum\"}") &&
+                number_after(corner_in(m, 2), "osc1.detune") == corners.detune[2],
+            "and the frame shows the loaded corners, position and modes");
+      check(chunk.size() < 8192, "the four-corner chunk stays small");
+      std::string untouched;
+      morph_reset(p.plugin, bridge, mseq);
+      fresh(p, preset);
+      blocks_of(p.plugin, 1, 256);
+      check(save_to(p, untouched) && has(untouched, "horde-engine-preview 2\n") && !has(untouched, "morph"), "a patch that never touched the morph saves the version-2 chunk");
+      post(p.plugin, bridge, mseq, "\"type\":\"want\",\"osc\":[1,2],\"members\":false");
+      morph_reset(p.plugin, bridge, mseq);
+      blocks_of(p.plugin, 1, 256);
+    }
+  } else {
+    check(false, "the engine lacks osc1.detune, osc1.baseWave or out.level: the morph's checks did not run");
+  }
+
   // The log the human's Live sessions leave for the lead.
   p.plugin->on_main_thread(p.plugin);
   p.plugin->stop_processing(p.plugin);
@@ -972,6 +1323,11 @@ int main(int argc, char** argv) {
       bool loud = false;
       int points = 0;
       check(scope_miss(plant.plugin, plant_bridge, plant_seq, &loud, &points) >= 0 && loud, "control: a frozen tap misses the output while a chord sounds");
+      double before = NAN;
+      std::string chunk;
+      const double after = through_state(plant, plant_bridge, plant_seq, presets[0], presets[1], &before, &chunk);
+      check(before == mo9(test_corners().detune, 0.25, 0.75) && after != before,
+            "control: a chunk that forgets the morph loads without it (the plant's morph worked before the save)");
     }
     plant.plugin->stop_processing(plant.plugin);
     plant.plugin->deactivate(plant.plugin);
@@ -999,6 +1355,22 @@ int main(int argc, char** argv) {
     shifted.plugin->destroy(shifted.plugin);
   } else {
     check(false, "the shifted-key-map plant was not given, so the audit's control did not run");
+  }
+  if (argc > 4) {
+    Loaded still;
+    check(still.open(argv[4]), "the dropped-position plant loads");
+    const auto* still_bridge = static_cast<const preview_bridge_ext*>(still.plugin->get_extension(still.plugin, kPreviewBridgeExt));
+    if (still_bridge) {
+      long long still_seq = 0;
+      const double got = blend_at(still, still_bridge, still_seq, presets[0], 0.25, 0.75);
+      check(got == test_corners().detune[0] && got != mo9(test_corners().detune, 0.25, 0.75),
+            "control: with position messages dropped, the pad moves nothing and the key stays at corner A's value");
+    }
+    still.plugin->stop_processing(still.plugin);
+    still.plugin->deactivate(still.plugin);
+    still.plugin->destroy(still.plugin);
+  } else {
+    check(false, "the dropped-position plant was not given, so the pad's control did not run");
   }
 
   std::printf("%s (%d failed)\n", failures ? "engine-preview smoke: RED" : "engine-preview smoke: GREEN", failures);
