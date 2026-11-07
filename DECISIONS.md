@@ -12631,3 +12631,22 @@ The lead's mechanism, from the critic's review: the resolver holds the switch-of
 **Engine change (for the clean room).** Round 62 reverses RC-4 for per-note LFOs, which now run in the engine. It adds a Control input to PA-2, publishes VO-10's note counter, and widens PA-4's audio-rate destinations. Five manifest rows' rate changes from C to A, plus the blades' position and width; the manifest's hash is unchanged. PF-2 must be measured again.
 
 **ADR-379 A3 (the human, through the labs facilitator, 2026-11-06, ORBITAL round 6b).** The angle each body's sine and cosine are taken from is measured **about the field centre**, as first built. The other bodies' centre of mass and the direction of travel were heard and not chosen. The nearest-body option is not wanted for now. Nothing is left open before the modulation system's stage. The thermostat's auto-kick stands as ruled in A2.
+
+## ADR-380 — PROPOSED: the CPU evaluation framework (B638)
+
+**Context.** The human wrote a concept brief, "HORDE CPU Evaluation Framework — Agent Brief" (2026-11-06): a measurement layer, a deterministic oracle with three tiers, an alternatives bench for sound-altering wins, and nested loops in which optimizer agents cut the new engine's CPU unattended. The lead reviewed it against what exists, and the human answered "yes, write the proposal" (2026-11-07). The proposal is `docs/proposals/cpu-eval-framework.md`.
+
+**What it proposes.**
+- **Reuse first.** The headless engine and its render entry, the test author's CPU tool (PF-1 to PF-10, with its load guard and worst block), the bank compared bit for bit at each builder commit (tier 0), seeded mulberry32 streams, must-fail controls, RealtimeSanitizer through Homebrew LLVM, B517's sealed holdout and B523's differential tool.
+- **Roles under ADR-247.** The test author writes the oracle and proves it engine-free; the lead runs it; no engine figure reaches the test author (B519). Optimizers are builders, under every builder rule.
+- **New work.** A two-build A/B timing runner with a confidence interval, the missing scenario cells, a cost tree mapped to `engine2/structure/engine-structure.json`, the tier-1 classifier, a tamper check over the delivered tests, a perf holdout, the alternatives bench inside Blind-Spot Armor's capped listening batch, and the ledger.
+- **No gate moves.** Timed runs stay outside every gate (PF-3). Only deterministic, engine-free checks join `./verify fast`, under ADR-180 §1.
+- **Order.** Phases 0 to 2 change no engine code and run beside the morph and modulation builds. The supervised loop (phase 3) waits for the morph to land (ADR-370).
+
+**Two premises corrected from the record.** PF-1 reads 61.89 % of a core after batch 3, not 98 % (REPORT.md on `866bfd3`); Crunch horde's worst block reads 166.0 %; the target is 10.7 % (ADR-354). The "29 %" is the composed engine at os 1, normalised from a busy machine (B488), not PF-3, so it anchors nothing until re-measured.
+
+**A finding.** A fixed-threshold tier 1 already runs: the lead's batch briefs let the builder continue past differences under −120 dBFS against the previous build, with the suite green. It has no ADR. Decision 2 asks the human to rule it or stop it.
+
+**Awaiting the human's ratification** of the proposal and of its thirteen decisions (section 5): a container runtime for callgrind, tier-1 auto-accept, quiet windows, the Serum 2 reference, the thresholds, the listening set, the aliasing ceiling, model routing, user-facing modes, scoped timers against DT-5, the contract's freeze point, the eval role split, and the agent rung. Nothing is adopted until then.
+
+**FX device (ADR-254).** None while the device hosts no engine. If an alternative is ever promoted to a user-facing quality or character mode (decision 9), that mode's ADR states its consequence for the device.
