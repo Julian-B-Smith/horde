@@ -12707,3 +12707,23 @@ The lead's mechanism, from the critic's review: the resolver holds the switch-of
 5. **The Serum 2 reference** is being set up. A headless Audio Unit bench measures a heavy Serum 2 patch the human exports under PF-1 and PF-3's exact conditions, on this Mac, in % of one core. The target follows that measurement.
 
 Still open: the brief's other thresholds, the listening set, the aliasing ceiling, model routing, promotion of alternatives to user-facing modes, scoped timers against DT-5, the parameter-contract freeze point, the eval role split, and the agent rung (decisions 5 to 13 in the proposal).
+
+## ADR-382 — DIRECTED by the human: three preset tiers, and global presets richer than one oscillator before 1.0 (B641)
+
+**Context.** The human, 2026-11-07: "It occurs to me: right now, all existing presets could be oscillator presets (a category we haven't even considered) or at least corner presets as well as global. Before 1.0, I'll want to make sure all global presets are more complicated than just a single morph less oscillator with no FX nor modulation."
+
+**The record.** The oscillator tier was considered once already. The legacy plug-in shipped an oscillator preset tier on 2026-08-06 (B20's bottom tier, `src/osc_preset.h`). One oscillator's settings saved slot-agnostic, and globals (the FX rack, the master image) never travel with it. Corner presets are ADR-373's (GN-52): the patch's own corners first, then a user library shared by every patch.
+
+**Direction (the human's).**
+1. **Three preset tiers in horde 2:** oscillator presets, corner presets and global (whole-patch) presets.
+2. **The existing factory bank** (83 presets, each a single oscillator with no morph, no FX and no modulation) can seed the oscillator and corner tiers.
+3. **Before 1.0, every global preset is richer than that:** more than a single morph-less oscillator with no FX and no modulation.
+
+**What follows (B641).** The legacy tier's two pinned properties carry forward as the starting rule for horde 2's oscillator tier, until the human rules otherwise: slot-agnostic on disk, and globals never travel. Still open, for a lab or a poll when the factory patch session comes:
+- how the three tiers are browsed;
+- whether one preset file can serve two tiers;
+- what an oscillator preset carries (its blades? its envelope selection? its share of the morph?).
+
+The global bank is rebuilt in that session, which comes after the synth is built (memory: factory patch session later).
+
+**FX device (ADR-254).** The FX device has neither oscillator presets nor oscillators. Its corner and global tiers follow ADR-254's FX-device preset rules.
