@@ -495,6 +495,10 @@
    "status": "ruled",
    "adr": "GUI-50",
    "note": "GB25, ruled GUI-50 (the human, 2026-11-05): lane B with preset menus, saving on the Morph page, asterisks on edited presets, dimmed with a switch, back to the previous tab."
+  },
+  "morph-questions-lab.html": {
+   "status": "exploring",
+   "note": "GB29. The morph’s eight open questions on the pad, ending in one poll; the answers go to the lead for the spec round (ADR-370, B631)."
   }
  },
  "not_labs": {

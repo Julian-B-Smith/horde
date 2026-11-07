@@ -1,0 +1,251 @@
+<!doctype html>
+<!-- morph-questions-lab: the morph's open questions, each shown on the pad with its options side by side, ending in one poll. horde, 2026-11-06,
+     row GB29. Origin: the lead (ADR-370, B631), from the human's "yes to all, build the morph lab and start everything": the morph goes to the
+     builder after its CPU measurement, and its spec round waits on these answers.
+
+     WHAT'S ASKED. Eight questions from B616's morph list and ENGINE-NEEDS: waypoint limits and what pins do across a mode change (GN-7, GN-29),
+     what a region lock keeps (GN-6), whether X and Y are host parameters (GN-51), whether mappings are per corner (GN-27), the RAMPS kind (GN-25),
+     where corner presets live (GN-52) and what Save current sound stores (GN-35). LEFT OUT, because none is the human's choice: GN-8 (the corner
+     import list is ruled by ADR-192 item 4; building it is design work), GN-18 (the resolver publishing owners is plumbing), GN-26 (the shell
+     already treats a numeric stepped row as a value) and GN-14 (the wheels aren't the morph's; they come with the test plug-in's pitch bend).
+
+     WHAT IS REAL. The corner shapes and colours are the design system's (arp-face). Everything on the pads is drawn here to show a choice: no
+     resolver, no engine, nothing heard. The labs have no audio, so "by ear" waits for the test plug-in; each card says what you'd hear.
+
+     HOUSE RULES. No Math.random (mulberry32 only) and no clock: motion counts frames. No wheel listener (B301). -->
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="lab-part" content="Morph and state">
+<meta name="lab-review" content="GB29 · 2026-11-06">
+<title>Morph questions lab — eight choices for the morph's spec round</title>
+<link rel="stylesheet" href="arp-face/tokens.css">
+<link rel="stylesheet" href="arp-face/bundle.css">
+<style>
+  html, body { background: var(--bg); }
+  body { margin: 0; padding: 20px 16px 60px; color: var(--ink); font: 13px/1.5 var(--font-sans); }
+  .col { max-width: 1040px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+  h1 { font: 800 19px/1.2 var(--font-sans); margin: 0 0 6px; }
+  h2 { font: 800 14px/1.25 var(--font-sans); margin: 0 0 4px; }
+  p { margin: 0 0 6px; max-width: 86ch; }
+  .tagline { color: var(--hint); font-size: 12px; margin-bottom: 8px; }
+  .note { color: var(--hint); font-size: 12px; }
+  .card { border: 1.5px solid var(--ink); border-radius: var(--radius); padding: 12px; background: var(--panel); }
+  .gn { font: 600 11px/1 var(--font-mono, monospace); color: var(--hint); margin-left: 6px; }
+  .opts { display: grid; gap: 10px; margin: 8px 0; grid-template-columns: repeat(var(--n, 2), minmax(0, 1fr)); }
+  @media (max-width: 720px) { .opts { grid-template-columns: 1fr; } }
+  .opt { border: 1px solid var(--div); border-radius: 6px; padding: 8px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .opt.rec { border: 2px solid var(--ink); padding: 7px; }
+  .opt b { font: 800 12px/1.25 var(--font-sans); }
+  .opt .what { font-size: 12px; color: var(--t2); min-height: 3.6em; }
+  .pad { width: 100%; aspect-ratio: 1 / 1; max-width: 230px; align-self: center; border-radius: 6px; touch-action: none; }
+  .wide { width: 100%; height: 120px; border-radius: 6px; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .read { font: 600 11px/1.4 var(--font-mono, monospace); color: var(--t2); min-height: 2.8em; }
+  .tag { font: 700 10px/1 var(--font-sans); letter-spacing: .04em; padding: 2px 6px; border-radius: 3px; background: var(--ink); color: var(--panel); align-self: flex-start; }
+  .foot { font-size: 12px; color: var(--t2); border-top: 1px dashed var(--div); padding-top: 6px; }
+  table.poll { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+  table.poll td, table.poll th { border-top: 1px solid var(--div); padding: 6px 8px; text-align: left; vertical-align: top; }
+  .checks { font: 11.5px/1.5 var(--font-mono, monospace); color: var(--t2); white-space: pre-wrap; }
+  .checks .bad { color: var(--bad, #f55); }
+</style>
+</head>
+<body>
+<div class="col">
+  <div>
+    <h1>Morph questions lab — eight choices for the morph's spec round</h1>
+    <div class="tagline">GB29: the morph's open questions on the pad, options side by side. Press the buttons to see each option behave, then answer the poll at the foot in chat.</div>
+    <p>The morph goes to the builder after its CPU measurement, and its spec round needs these answers first. Each card shows one question on small pads: the four corners are A to D in their colours, the dot is the puck. The outlined option is my recommendation. Nothing here is heard: each card says what you'd hear.</p>
+    <p class="note">Left out, because none needs your choice: the corner import list (ruled by ADR-192, GN-8), the resolver publishing owners (plumbing, GN-18), the numeric stepped flag (the shell already handles it, GN-26) and the wheels (not the morph's, GN-14).</p>
+  </div>
+  <div id="cards"></div>
+  <div class="card">
+    <h2>The poll</h2>
+    <p class="note">Answer in chat; the session asks these as a poll and sends your answers to the lead for the spec round.</p>
+    <table class="poll" id="poll"><tr><th>#</th><th>Question</th><th>Options (recommended first)</th></tr></table>
+  </div>
+  <div class="card"><h2>Self-check</h2><div class="checks" id="checks">Running…</div></div>
+  <p class="hd-msg" id="status" role="status">Loading.</p>
+</div>
+<script src="arp-face/bundle.js"></script>
+<script>
+(function main() {
+'use strict';
+const H = window.Horde, $ = id => document.getElementById(id);
+if (!H || !H.CORNERS) { const n = document.createElement('p'); n.className = 'hd-note bad'; n.setAttribute('role', 'alert'); n.textContent = 'The design system did not load (arp-face/bundle.js). Open this lab from docs/design/.'; document.body.prepend(n); return; }
+function h(tag, a, ...kids) {
+  const e = document.createElement(tag);
+  for (const k in (a || {})) { const v = a[k]; if (k === 'class') e.className = v; else if (k === 'text') e.textContent = v; else if (v === true) e.setAttribute(k, ''); else if (v !== false && v != null) e.setAttribute(k, v); }
+  for (const c of kids.flat()) if (c != null) e.append(c);
+  return e;
+}
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim() || '#888';
+const CID = ['A', 'B', 'C', 'D'], CXY = [[0, 0], [1, 0], [0, 1], [1, 1]];
+const weights = (x, y) => [(1 - x) * (1 - y), x * (1 - y), (1 - x) * y, x * y];
+const btn = (text, on, title) => { const b = h('button', { class: 'hd-btn hd-sm hd-focus', type: 'button', text, title: title || text }); b.addEventListener('click', on); return b; };
+const views = [];   // per-frame painters
+
+/* ===== the pad painter: corners, an optional region field (owners), pins, the puck ===== */
+function drawPad(cv, o) {
+  const r = cv.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1), W = Math.max(1, Math.round(r.width * dpr)), Hh = Math.max(1, Math.round(r.height * dpr));
+  if (cv.width !== W || cv.height !== Hh) { cv.width = W; cv.height = Hh; }
+  const g = cv.getContext('2d'), m = 14 * dpr, S = Math.min(W, Hh) - 2 * m, X = x => m + x * S, Y = y => m + y * S;
+  g.fillStyle = css('--well') || css('--bg'); g.fillRect(0, 0, W, Hh);
+  if (o.owner) {   // the region field: each cell coloured by its owning corner, brightness by that corner's value for the setting
+    const N = 28;
+    for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) { const x = (i + .5) / N, y = (j + .5) / N, k = o.owner(x, y), v = o.value ? o.value(k) : .6;
+      g.globalAlpha = .18 + .55 * v; g.fillStyle = css('--c' + CID[k]); g.fillRect(X(i / N), Y(j / N), S / N + 1, S / N + 1); }
+    g.globalAlpha = 1;
+  }
+  g.strokeStyle = css('--ink'); g.lineWidth = 1.5 * dpr; g.strokeRect(X(0), Y(0), S, S);
+  CXY.forEach(([x, y], k) => { g.beginPath(); g.arc(X(x), Y(y), 7 * dpr, 0, 2 * Math.PI); g.fillStyle = css('--c' + CID[k]); g.fill(); g.strokeStyle = css('--ink'); g.lineWidth = dpr; g.stroke();
+    g.fillStyle = css('--ink'); g.font = (700 * 1) + ' ' + (9 * dpr) + 'px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(CID[k], X(x), Y(y)); });
+  (o.pins || []).forEach(p => { g.beginPath(); g.arc(X(p.x), Y(p.y), 4.5 * dpr, 0, 2 * Math.PI);
+    if (o.dormant) { g.setLineDash([2 * dpr, 2 * dpr]); g.strokeStyle = css('--hint'); g.lineWidth = 1.2 * dpr; g.stroke(); g.setLineDash([]); }
+    else { g.fillStyle = css('--ink'); g.fill(); } });
+  if (o.puck) { g.beginPath(); g.arc(X(o.puck.x), Y(o.puck.y), 8 * dpr, 0, 2 * Math.PI); g.fillStyle = css('--panel'); g.fill(); g.strokeStyle = css('--ink'); g.lineWidth = 2.5 * dpr; g.stroke(); }
+  if (o.label) { g.fillStyle = css('--ink'); g.font = '600 ' + (10 * dpr) + 'px monospace'; g.textAlign = 'left'; g.textBaseline = 'bottom'; g.fillText(o.label, m, Hh - 2 * dpr); }
+  cv.__drawn = (cv.__drawn || 0) + 1;
+  return { X, Y, S, m, dpr };
+}
+const padAt = (cv, e) => { const r = cv.getBoundingClientRect(), m = 14, S = Math.min(r.width, r.height) - 2 * m; return { x: Math.min(1, Math.max(0, (e.clientX - r.left - m) / S)), y: Math.min(1, Math.max(0, (e.clientY - r.top - m) / S)) }; };
+// a setting's owner: the corner with the largest weight plus its seeded offset (the device stand-in's rule, simplified)
+const ownerOf = off => (x, y) => { const w = weights(x, y); let b = 0, bv = -1; for (let k = 0; k < 4; k++) if (w[k] + off[k] > bv) { bv = w[k] + off[k]; b = k; } return b; };
+
+/* ===== the questions ===== */
+const Q = [];
+function card(q) {
+  Q.push(q);
+  const c = h('div', { class: 'card', id: 'q' + Q.length }, h('h2', {}, (Q.length) + '. ' + q.title, h('span', { class: 'gn', text: q.gn })), h('p', { text: q.ask }));
+  const grid = h('div', { class: 'opts' }); grid.style.setProperty('--n', q.options.length);
+  q.options.forEach((o, i) => { const el = h('div', { class: 'opt' + (i === 0 ? ' rec' : '') }, i === 0 ? h('span', { class: 'tag', text: 'RECOMMENDED' }) : null, h('b', { text: o.name }), h('div', { class: 'what', text: o.what })); o.build(el); grid.append(el); });
+  c.append(grid, h('div', { class: 'foot' }, h('b', { text: 'You’d hear: ' }), q.hear, h('br'), h('b', { text: 'Engine: ' }), q.engine));
+  $('cards').append(c);
+}
+
+// 1. Waypoint limits (GN-7)
+const pinSeed = mulberry32(71), seedPins = n => Array.from({ length: n }, () => ({ x: .1 + .8 * pinSeed(), y: .1 + .8 * pinSeed() }));
+const capsOpt = (row, patch, used) => ({ name: row + ' per setting · ' + patch + ' per patch', what: 'Click the pad to pin this setting’s value there. The ' + (row + 1) + 'th pin on one setting is refused.' + (row === 8 ? ' The lab’s proposal: pins stored in order, which breaks the triangulation’s ties.' : ''),
+  build(el) { const cv = h('canvas', { class: 'pad', role: 'img', 'aria-label': 'Waypoints, ' + row + ' per setting' }), rd = h('div', { class: 'read' }), st = { pins: seedPins(3), refused: false };
+    el.append(cv, rd, btn('Clear', () => { st.pins = []; st.refused = false; })); el.__state = st; el.__cap = row;
+    cv.addEventListener('pointerdown', e => { if (e.button) return; if (st.pins.length >= row) { st.refused = true; return; } st.pins.push(padAt(cv, e)); st.refused = false; });
+    views.push(() => { drawPad(cv, { pins: st.pins, puck: { x: .5, y: .5 } }); rd.textContent = st.pins.length + ' of ' + row + ' on this setting · ' + (used + st.pins.length) + ' of ' + patch + ' in the patch' + (st.refused ? '\nRefused: this setting has ' + row + ' pins' : ''); }); } });
+card({ title: 'Waypoint limits', gn: 'GN-7', ask: 'A waypoint pins a setting’s value at a point on the pad, so the morph passes through it. How many pins may one setting have, and how many may a patch hold in all?',
+  options: [capsOpt(8, 64, 20), capsOpt(4, 32, 20), capsOpt(16, 128, 20)],
+  hear: 'more pins let a setting bend through more places as the puck moves; fewer keep the patch cheaper to solve.',
+  engine: 'the caps are stored in the plug-in’s state and bound the solve (TPS or TIN) per setting; the spec round writes them.' });
+
+// 2. Waypoints across a mode change (GN-7, GN-29)
+const modeOpt = (keep) => ({ name: keep ? 'Dormant: kept, unused, back when you return' : 'Cleared when the mode leaves Blend', what: keep ? 'Switch to Quantum: the pins stay, dashed and unused. Back to Blend: they work again. (As the shell does now.)' : 'Switch to Quantum: the pins are deleted. Back to Blend: the setting has none.',
+  build(el) { const cv = h('canvas', { class: 'pad', role: 'img', 'aria-label': 'Pins across a mode change, ' + (keep ? 'dormant' : 'cleared') }), rd = h('div', { class: 'read' }), st = { mode: 'Blend', pins: seedPins(4) };
+    el.append(cv, h('div', { class: 'row' }, ...['Blend', 'Quantum', 'Stepped'].map(m => btn(m, () => { if (!keep && m !== 'Blend') st.pins = []; st.mode = m; }))), rd); el.__state = st; el.__keep = keep;
+    const off = [.02, -.03, .05, 0];
+    views.push(() => { drawPad(cv, { owner: st.mode === 'Blend' ? null : ownerOf(off), pins: st.pins, dormant: st.mode !== 'Blend', puck: { x: .4, y: .35 } }); rd.textContent = 'Mode: ' + st.mode + ' · ' + st.pins.length + ' pin(s)' + (st.mode !== 'Blend' && st.pins.length ? ', dormant' : ''); }); } });
+card({ title: 'Waypoints across a mode change', gn: 'GN-7 · GN-29', ask: 'Pins only mean something under Blend. When a setting switches to Quantum or Stepped, do its pins stay dormant, or are they cleared?',
+  options: [modeOpt(true), modeOpt(false)],
+  hear: 'nothing changes while the setting flips; the difference is whether switching back to Blend brings your bends back.',
+  engine: 'dormant pins ride in the saved state and cost nothing until Blend; cleared ones are one undo step.' });
+
+// 3. What a region lock keeps (GN-6)
+const lockOpt = (values) => ({ name: values ? 'The shape and its four corner values' : 'Only the region shape', what: values ? 'Lock, then edit corner B: the regions stay and so do their values. The locked setting ignores corner edits until unlocked.' : 'Lock, then edit corner B: the regions stay where they are, but B’s region takes the new value.',
+  build(el) { const cv = h('canvas', { class: 'pad', role: 'img', 'aria-label': 'A region lock keeping ' + (values ? 'the shape and values' : 'the shape') }), rd = h('div', { class: 'read' }), st = { vals: [.3, .5, .7, .9], locked: true, kept: [.3, .5, .7, .9] };
+    el.append(cv, h('div', { class: 'row' }, btn('Edit corner B', () => { st.vals[1] = st.vals[1] > .6 ? .15 : .95; }), btn('Reset', () => { st.vals = [.3, .5, .7, .9]; })), rd); el.__state = st; el.__values = values;
+    const own = ownerOf([.04, -.06, .03, .08]);
+    views.push(() => { const v = values ? st.kept : st.vals; drawPad(cv, { owner: own, value: k => v[k], puck: { x: .62, y: .3 } }); rd.textContent = 'Corner B is ' + st.vals[1].toFixed(2) + ' · the locked setting plays B as ' + v[1].toFixed(2); }); } });
+card({ title: 'What a region lock keeps', gn: 'GN-6', ask: 'A lock freezes how a setting divides the pad among the corners. Should it also freeze the four values it plays in those regions?',
+  options: [lockOpt(false), lockOpt(true)],
+  hear: 'with the shape only, editing a corner still changes this setting there; with the values too, the locked setting sounds the same whatever you do to the corners.',
+  engine: 'the shape is four offsets per setting; the values add four numbers each. Both are saved with the patch.' });
+
+// 4. X and Y as host parameters (GN-51)
+const hostOpt = (auto) => ({ name: auto ? 'Automatable in Live' : 'Not host parameters', what: auto ? 'Press Play: a Live automation lane moves X, and the puck follows it.' : 'Press Play: the lane has nothing to drive. The puck moves only by hand, by a modulator, or by a preset.',
+  build(el) { const cv = h('canvas', { class: 'pad', role: 'img', 'aria-label': 'X and Y ' + (auto ? 'automated' : 'not automatable') }), lane = h('canvas', { class: 'wide', style: 'height:40px', role: 'img', 'aria-label': 'An automation lane' }), rd = h('div', { class: 'read' }), st = { play: false, f: 0 };
+    el.append(cv, lane, h('div', { class: 'row' }, btn('Play', () => { st.play = !st.play; })), rd); el.__state = st; el.__auto = auto;
+    const lx = t => .5 + .4 * Math.sin(t * 2 * Math.PI);
+    views.push(() => { if (st.play) st.f++; const t = (st.f % 240) / 240, x = auto ? lx(t) : .3;
+      drawPad(cv, { puck: { x, y: .5 } });
+      const r = lane.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1); lane.width = Math.round(r.width * dpr); lane.height = Math.round(r.height * dpr); const g = lane.getContext('2d'), W = lane.width, Hh = lane.height;
+      g.fillStyle = css('--well') || css('--bg'); g.fillRect(0, 0, W, Hh); g.strokeStyle = auto ? css('--cB') : css('--hint'); g.lineWidth = 2 * dpr; g.beginPath();
+      for (let i = 0; i <= 100; i++) { const u = i / 100, y = Hh - 4 * dpr - lx(u) * (Hh - 8 * dpr); i ? g.lineTo(u * W, y) : g.moveTo(u * W, y); } g.stroke();
+      if (st.play) { g.strokeStyle = css('--ink'); g.lineWidth = dpr; g.beginPath(); g.moveTo(t * W, 0); g.lineTo(t * W, Hh); g.stroke(); }
+      rd.textContent = auto ? 'X ' + x.toFixed(2) + ' from the lane' : 'X ' + x.toFixed(2) + ' · the lane drives nothing'; }); } });
+card({ title: 'X and Y as host parameters', gn: 'GN-51', ask: 'Should the pad’s X and Y be parameters Live can automate (and the two knobs under the Morph pad, GUI-45, draw from)?',
+  options: [hostOpt(true), hostOpt(false)],
+  hear: 'with automation, a song can sweep the morph exactly the same way every time.',
+  engine: 'two rows in Appendix D.2 (range 0 to 1, linear); IF-11 already names them host parameters. Without them the knobs under the pad can’t be drawn.' });
+
+// 5. Mappings while morph is on (GN-27)
+const mapOpt = (perCorner) => ({ name: perCorner ? 'Per corner: each corner keeps its own depth' : 'Global: one set of mappings for the patch', what: perCorner ? 'Drag the puck: LFO 1 → Cutoff’s depth blends between the corners’ depths (A 10 %, B 60 %, C 30 %, D 80 %).' : 'Drag the puck: LFO 1 → Cutoff stays at 40 % wherever it is. (The Map Mode spec’s rule for 1.0, and the shell’s now.)',
+  build(el) { const cv = h('canvas', { class: 'pad', role: 'img', 'aria-label': 'Mappings ' + (perCorner ? 'per corner' : 'global') }), rd = h('div', { class: 'read' }), st = { x: .3, y: .6 }, D = [.1, .6, .3, .8];
+    el.append(cv, rd); el.__state = st; el.__per = perCorner; el.__depth = () => perCorner ? weights(st.x, st.y).reduce((a, w, k) => a + w * D[k], 0) : .4;
+    const move = e => { const p = padAt(cv, e); st.x = p.x; st.y = p.y; };
+    cv.addEventListener('pointerdown', e => { if (e.button) return; cv.setPointerCapture(e.pointerId); move(e); }); cv.addEventListener('pointermove', e => { if (cv.hasPointerCapture(e.pointerId)) move(e); });
+    views.push(() => { drawPad(cv, { puck: st, label: 'depth ' + Math.round(el.__depth() * 100) + ' %' }); rd.textContent = 'LFO 1 → Cutoff at ' + Math.round(el.__depth() * 100) + ' %'; }); } });
+card({ title: 'Mappings while morph is on', gn: 'GN-27', ask: 'A modulation mapping (a route, its depth): is it one for the whole patch, or does each corner keep its own, so the depth morphs with the puck? (Which corner an EDIT goes to is already settled: the pinned corner, else the setting’s owner.)',
+  options: [mapOpt(false), mapOpt(true)],
+  hear: 'per corner, a corner can wobble hard and another not at all, and the puck blends between them; global, the modulation is the same everywhere.',
+  engine: 'global is what the shell does now and the Map Mode spec keeps for 1.0; per corner is SPEC-INTENT-BUS’s binding and adds four depths per route to the state.' });
+
+// 6. The RAMPS kind (GN-25)
+const rampOpt = (keep) => ({ name: keep ? 'Keep RAMPS as a planned third kind' : 'Two kinds: Morphable and Structural', what: keep ? 'The Find pane and legend keep a RAMPS pill that counts 0 until the spec gives the kind members.' : 'The master drops RAMPS; the legend shows the two kinds the spec has.',
+  build(el) { const box = h('div', { class: 'row' }, ...(keep ? ['MORPHABLE 200', 'STRUCTURAL 107', 'RAMPS 0'] : ['MORPHABLE 200', 'STRUCTURAL 107']).map(t => h('span', { class: 'hd-pill', text: t }))); el.append(box); el.__keep = keep; } });
+card({ title: 'The RAMPS kind of setting', gn: 'GN-25', ask: 'The design system has a third kind of setting, RAMPS (a value that glides between corners instead of blending or flipping), but the engine’s spec has only Morphable and Structural. Keep it as a plan, or drop it?',
+  options: [rampOpt(false), rampOpt(true)],
+  hear: 'nothing yet: RAMPS has no members either way. Keeping it means a spec round would have to define it.',
+  engine: 'dropping it is a design-system change only; keeping it is a request to the spec.' });
+
+// 7. Where corner presets live (GN-52)
+const libOpt = (where) => ({ name: { patch: 'Inside each patch', user: 'A user library, shared by every patch', both: 'Both: the patch’s own, plus a user library' }[where], what: { patch: 'A corner menu lists the corners saved in this patch. A new patch starts with none of its own.', user: 'A corner menu lists your saved corners across every patch, like a sample library.', both: 'The menu lists this patch’s corners first, then your library. Saving asks which.' }[where],
+  build(el) { const list = { patch: ['This patch: Glass horde pad', 'This patch: Crushed bells'], user: ['Library: Glass horde pad', 'Library: Crushed bells', 'Library: Undertone cathedral', 'Library: Smear and strike'], both: ['This patch: Glass horde pad', 'This patch: Crushed bells', '—', 'Library: Undertone cathedral', 'Library: Smear and strike'] }[where];
+    el.append(h('div', { class: 'read' }, list.join('\n'))); el.__where = where; } });
+card({ title: 'Where corner presets live', gn: 'GN-52', ask: 'GUI-50 makes each corner’s name a menu of saved corner presets. Where are they kept?',
+  options: [libOpt('both'), libOpt('patch'), libOpt('user')],
+  hear: 'a library lets a corner you love travel to other patches; inside the patch keeps a patch self-contained when shared.',
+  engine: 'a user library is files beside the plug-in (GN-52, with GN-9’s preset seam); patch-only rides in the state document (GN-37).' });
+
+// 8. What Save current sound stores (GN-35)
+const saveOpt = (heard) => ({ name: heard ? 'What you hear now, every setting' : 'Only the settings this corner owns', what: heard ? 'Save to corner B: every setting takes the blended value at the puck, with offsets baked in. B becomes exactly the sound you hear.' : 'Save to corner B: only the settings B owns at the puck change; the rest keep B’s own values. (SPEC-INTENT-BUS’s commit.)',
+  build(el) { const rd = h('div', { class: 'read' }), st = { saved: false }, P = { x: .55, y: .35 }, cv = h('canvas', { class: 'pad', role: 'img', 'aria-label': 'Save current sound, ' + (heard ? 'everything heard' : 'owned settings only') });
+    const SET = [[.2, .9, .4, .6], [.8, .1, .5, .3], [.5, .5, .9, .2], [.1, .7, .2, .9]], own = [ownerOf([0, .05, 0, 0]), ownerOf([.2, 0, 0, 0]), ownerOf([0, .12, 0, 0]), ownerOf([0, 0, .3, 0])];
+    el.append(cv, h('div', { class: 'row' }, btn('Save current sound to B', () => { st.saved = true; }), btn('Undo', () => { st.saved = false; })), rd); el.__state = st; el.__heard = heard;
+    el.__after = () => SET.map((c, i) => { const w = weights(P.x, P.y), blend = c.reduce((a, v, k) => a + w[k] * v, 0); return !st.saved ? c[1] : heard ? blend : own[i](P.x, P.y) === 1 ? blend : c[1]; });
+    views.push(() => { drawPad(cv, { puck: P, owner: own[0], value: k => .55 }); rd.textContent = ['Tone', 'Bite', 'Width', 'Grit'].map((n, i) => n + ' ' + el.__after()[i].toFixed(2)).join(' · ') + (st.saved ? '  (B after saving)' : '  (B before)'); }); } });
+card({ title: 'What Save current sound stores', gn: 'GN-35', ask: 'On the Morph page, "Save current sound" writes into a corner. Does it store everything you hear at the puck, or only the settings that corner owns there?',
+  options: [saveOpt(true), saveOpt(false)],
+  hear: 'storing everything makes the corner sound exactly as you heard it, alone; owned-only keeps the corner’s character and changes just its part.',
+  engine: 'the resolver’s commit rule in the spec round (GN-35); macro and XY offsets are baked in either way.' });
+
+/* ===== the poll table, from the cards ===== */
+Q.forEach((q, i) => $('poll').append(h('tr', {}, h('td', { text: String(i + 1) }), h('td', {}, h('b', { text: q.title }), h('span', { class: 'gn', text: q.gn })), h('td', { text: q.options.map(o => o.name).join('  |  ') }))));
+
+/* ===== the frame loop: frame-counted, no clock ===== */
+let raf = 0; const frame = () => { views.forEach(f => f()); raf = requestAnimationFrame(frame); }; frame();
+
+/* ===== self-check: each card's behaviour, then the page back as it opened ===== */
+const out = [], line = (ok, t) => out.push((ok ? 'OK  ' : 'FAILED  ') + t), opts = i => [...$('q' + i).querySelectorAll('.opt')];
+try {
+  line(Q.length === 8 && Q.every((q, i) => opts(i + 1).length === q.options.length) && $('poll').rows.length === 9, 'Eight cards, each with its options side by side, and a poll row for each');
+  const c1 = opts(1)[0], st1 = c1.__state, n0 = st1.pins.length; while (st1.pins.length < c1.__cap) st1.pins.push({ x: .5, y: .5 });
+  c1.querySelector('canvas').dispatchEvent(new PointerEvent('pointerdown', { clientX: 50, clientY: 50, button: 0, bubbles: true }));
+  line(st1.pins.length === 8 && st1.refused, 'Q1: the 9th pin on one setting is refused at 8 per setting (control: the first ' + n0 + ' went in)'); st1.pins.length = n0; st1.refused = false;
+  const [dk, cl] = opts(2), q2 = (el, m) => [...el.querySelectorAll('button')].find(b => b.textContent === m).click();
+  q2(dk, 'Quantum'); q2(dk, 'Blend'); q2(cl, 'Quantum'); q2(cl, 'Blend');
+  line(dk.__state.pins.length === 4 && cl.__state.pins.length === 0, 'Q2: dormant keeps its 4 pins across Quantum and back; cleared has none (the control)');
+  dk.__state.pins = seedPins(4); cl.__state.pins = seedPins(4);
+  const [sh, sv] = opts(3); [sh, sv].forEach(el => el.querySelector('button').click());
+  line(sh.__state.vals[1] !== .5 && sv.__state.kept[1] === .5, 'Q3: editing B moves the shape-only lock’s value and not the shape-and-values one');
+  [sh, sv].forEach(el => [...el.querySelectorAll('button')].find(b => b.textContent === 'Reset').click());
+  const [gl, pc] = opts(5); pc.__state.x = 1; pc.__state.y = 1; gl.__state.x = 1; gl.__state.y = 1;
+  line(Math.abs(pc.__depth() - .8) < 1e-9 && gl.__depth() === .4, 'Q5: at corner D the per-corner depth is D’s 80 %, the global one stays 40 % (control)'); pc.__state.x = gl.__state.x = .3; pc.__state.y = gl.__state.y = .6;
+  const [hd, ow] = opts(8); [hd, ow].forEach(el => el.querySelector('button').click()); const a = hd.__after(), b = ow.__after();
+  line(a.join() !== b.join() && b.some((v, i) => v === [.9, .1, .5, .7][i]), 'Q8: saving everything and saving owned settings give different corners; owned-only keeps some of B’s own values');
+  [hd, ow].forEach(el => [...el.querySelectorAll('button')].find(x => x.textContent === 'Undo').click());
+} catch (e) { line(false, 'threw: ' + e.message); }
+$('checks').replaceChildren(...out.map(t => h('div', { class: t.startsWith('OK') ? '' : 'bad', text: t })));
+$('status').textContent = 'Ready. Try each card, then answer the poll in chat.';
+})();
+</script>
+</body>
+</html>
