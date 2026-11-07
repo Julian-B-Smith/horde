@@ -101,7 +101,8 @@ async function run(chrome, url, plant) {
    three notes taking turns and a preset bank. Asserted: every message carries a seq; the first `want` asks Main's two
    oscillators with members and Osc 1's asks [1], and every want asks the morph; a rack row is dimmed and an engine row isn't;
    the morph switch is live (the plug-in plays the morph, GUI-59): a click sends morph.on, the Morph page shows what a
-   frame's morph member reports, and the frame's position holds (the pad follows host automation); the bank's
+   frame's morph member reports, the frame's position holds (the pad follows host automation), and the Morph mode control reads
+   the law a frame reports, Blend and back to Quantum; the bank's
    names reach the preset bar and its next button sends `preset`; and the feed's gates change as frames
    play. The control: the same load with the replay frozen must show ONE set of gates, or the detector can't see frames advance. */
 /* The plug-in build's two steps (B628): gui3_inline.py, then embed_file.py's policy. Python, as the build is; a failure is red. */
@@ -138,8 +139,13 @@ const PROBE = `(async () => {
   const morphSent = sent().slice(n0).some(m => m.type === 'morph' && m.settings && m.settings['morph.on'] === 1);
   B.transport.push({ ack: sent().slice(-1)[0].seq, morph: { x: .3, y: .6, dropped: 1, unknown: 0, levels: [1, .25, 0, null], counters: { refusedWaypoints: 0, refusedLocks: 0, droppedInputs: 0, droppedEvents: 0 } } });
   B.selectPage('morph'); await wait(300); const mline = (document.getElementById('morphBridge') || {}).textContent || '', hostPos = [B.dev.morph().x, B.dev.morph().y].join();
+  // The lead's guard (2026-11-07, a report the human could not recreate): the Morph mode control reads the law the plug-in reports, both ways
+  const lawNow = () => { const e = [...document.querySelectorAll('[data-key="morph.law"] [role="radio"][aria-checked="true"]')].find(x => x.offsetParent); return e ? e.title : null; };
+  const lawFrame = v => B.transport.push({ ack: sent().slice(-1)[0].seq, morph: { x: .3, y: .6, dropped: 1, unknown: 0, settings: { 'morph.law': v } } });
+  const law0 = lawNow(); lawFrame(0); await wait(250); const lawBlend = lawNow(); lawFrame(.5); await wait(250); const lawQuantum = lawNow();
   sw.click(); await wait(80);
   return { seqs: sent().every(m => typeof m.seq === 'number'), want0, want1, gates: [...gates], barName, pre, morphSent, mline, hostPos, wantsMorph: wants().every(m => m.morph === true),
+    law0, lawBlend, lawQuantum,
     morphOff: document.getElementById('morphOn').disabled, rackInert: !!rackEl && rackEl.classList.contains('inert') && +getComputedStyle(rackEl).opacity < 1,
     engLive: !!engEl && !engEl.classList.contains('inert'), ringA, ringB, notes: document.querySelectorAll('.inert-note').length };
 })()`;
@@ -216,6 +222,7 @@ function replayVerdict(r, rc, frames, red) {
   if (p.morphOff || !p.rackInert || !p.engLive || !p.notes) red.push(`replay: inert state wrong (morph switch disabled ${p.morphOff}, a rack row dimmed ${p.rackInert}, osc1.detune live ${p.engLive}, notes ${p.notes})`);
   if (!p.morphSent || !p.wantsMorph) red.push(`replay: the plug-in's morph isn't driven (a click on the switch sent morph.on ${p.morphSent}, every want asks the morph ${p.wantsMorph})`);
   if (p.hostPos !== '0.3,0.6') red.push('replay: a frame\u2019s position (host automation) didn\u2019t hold: the morph reads ' + p.hostPos + ', so the pad pushed its own back');
+  if (p.law0 !== 'Quantum' || p.lawBlend !== 'Blend' || p.lawQuantum !== 'Quantum') red.push(`replay: the Morph mode control doesn\u2019t read the plug-in\u2019s law: ${p.law0} at the start (D.2's Quantum), ${p.lawBlend} after a frame reporting Blend, ${p.lawQuantum} after one reporting Quantum`);
   if (!/Osc 2 25 %/.test(p.mline) || !/Refused edits 1\b/.test(p.mline)) red.push('replay: the Morph page doesn\u2019t show the frame\u2019s morph report: "' + p.mline + '"');
   if (names.length && (!p.barName.startsWith(names[at]) || !p.pre || p.pre.index !== (at + 1) % names.length)) red.push(`replay: the preset bar reads "${p.barName}", not "${names[at]}" (index ${at}), or next sent ${JSON.stringify(p.pre)}`);
   const recordedPhases = new Set(frames.flatMap(f => (((f.observe || {}).voices || [])[0] || { osc: [] }).osc.filter(Boolean).map(c => (c.phases || []).map(x => +(+x).toFixed(5)).join())));
