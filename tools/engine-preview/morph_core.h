@@ -8,9 +8,9 @@
 //   lockfile; none is committed, so nothing here is a host parameter and the rows below are transcribed from
 //   SPEC-ENGINE D.2 (ranges, tapers, steps, defaults). They reach the resolver only through the page's `morph` message.
 //   When that lockfile lands, these rows come from it and the ones it marks become host parameters.
-// - The position is not a D.2 row here. Round 61 (#1431) makes `morph.x` and `morph.y` D.2 rows and host parameters;
-//   until it merges the position comes from the page's `position` message. Every position goes through one function
-//   in preview_plugin.cpp (set_position), the seam where the host parameters will feed it.
+// - The position is not in the table below. Round 61 makes `morph.x` and `morph.y` D.2 rows and host parameters
+//   (IF-11); the plug-in exposes them as its own two host parameters (preview_plugin.cpp, kMorphXId and kMorphYId), and
+//   every position, the host's or the page's `position` message, goes through one function there (set_position).
 // - Generic on purpose. Nothing here or in the plug-in knows which events the resolver emits (Param, Ratios, SettingSet
 //   today; round 61's levels later): the plug-in forwards whatever comes out, so the 1.0 resolver is a rebuild.
 #include <cstdint>
@@ -60,7 +60,9 @@ int count_number(horde::KeyCount c);                         // 0 (As the morph)
 //   the plug-in's current sound (D.2: it is the corner that sounds), whose rows the chunk already holds, so that one
 //   corner is not written: a load rebuilds it from the rows;
 // - each corner's ratios text that differs from the preset's;
-// - each key's mode and count that isn't Follow and As the morph.
+// - each key's mode and count that isn't Follow and As the morph;
+// - each key's waypoints (MO-21, in stored order), the waypoint law and its clamp when not TPS with Clamp on, and each
+//   key's region lock (MO-24), B639.
 struct State {
   double x = 0, y = 0;
   std::vector<std::pair<int, double>> settings;   // D.2 index, v
@@ -70,7 +72,16 @@ struct State {
   std::vector<CornerText> texts;
   struct Mode { std::uint32_t id; KeyChoice choice; };   // id: a manifest id or horde::kRatiosKeyId
   std::vector<Mode> modes;
-  bool empty() const { return x == 0 && y == 0 && settings.empty() && corners.empty() && texts.empty() && modes.empty(); }
+  struct Pins { std::uint32_t id; std::vector<horde::Waypoint> points; };   // MO-21: one key's list, in stored order
+  std::vector<Pins> waypoints;
+  horde::WaypointLaw law = horde::WaypointLaw::Tps;   // MO-21's defaults: TPS·Δ with Clamp to set values on
+  bool clamp = true;
+  struct Lock { std::uint32_t id; double offsets[3]; };   // MO-24: δ[B], δ[C], δ[D]
+  std::vector<Lock> locks;
+  bool empty() const {
+    return x == 0 && y == 0 && settings.empty() && corners.empty() && texts.empty() && modes.empty() && waypoints.empty() &&
+           law == horde::WaypointLaw::Tps && clamp && locks.empty();
+  }
 };
 // Appends the morph's lines (each starting "morph ") to a chunk's text; reads one line back. `line` is one line without
 // its newline; false when it isn't a morph line (the caller reads it as its own).

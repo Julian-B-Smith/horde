@@ -10,6 +10,7 @@
 // - The engine's manifest has no target column: every row in it is the engine's. So "the engine's rows" here are the
 //   manifest's non-reserved rows, and anything the page owns elsewhere (rack, midi, resolver) is a key the manifest
 //   lacks, which is exactly how rule 2 keeps those off the engine.
+#include <array>
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -66,6 +67,9 @@ enum class Kind {
   Modes,     // MO-11's mode and count of every key, whole: `modes` (a key it doesn't name is Follow, As the morph)
   Corner,    // values written into one corner (the bridge's seam for a corner edit): `index`, `values`
   Save,      // MO-25's Save current sound into corner `index`
+  Waypoints, // MO-21: one key's whole list of waypoints, `key` and `points` (B639)
+  WaypointLaw,   // MO-21: the patch's waypoint law and its clamp, `law` and `clamp`
+  Lock,      // MO-24: one key's region lock, `key` and `offsets`, or none (`has_offsets` false)
   Held,      // rack, midi, clear, or a type nobody knows: acknowledged and dropped
   Invalid,   // unreadable, or no numeric seq: nothing to acknowledge
 };
@@ -95,6 +99,13 @@ struct Message {
   double x = 0, y = 0;
   struct KeyMode { int key; morph::KeyChoice choice; };   // Modes: key (a KeyMap index or kRatiosKey)
   std::vector<KeyMode> modes;
+  int key = -1;                        // Waypoints, Lock: a KeyMap index or kRatiosKey; -1 for none
+  std::vector<horde::Waypoint> points; // Waypoints: as sent, in order (the resolver clamps and judges them, MO-21)
+  bool readable = true;                // Waypoints, WaypointLaw, Lock: false when its payload didn't read; nothing acts
+  horde::WaypointLaw law = horde::WaypointLaw::Tps;
+  bool clamp = true;
+  bool has_offsets = false;            // Lock: false is "no lock" (the page's null)
+  double offsets[3] = {};
 };
 
 // Parses one message. Never throws; an unreadable one comes back Invalid with `error` set.
@@ -112,9 +123,11 @@ Mismatch check_hello(const Message& hello, const std::string& engine_hash, const
 // The existing magic-line text, version 2: the preset and every engine row whose v differs from what that preset
 // loads, by id. Version 1 (every exposed row, absolute) reads the same way: each line is a value to apply. A `voices`
 // line, which both versions wrote until the human ruled "One control: Polyphony" (2026-11-05), is read and ignored.
-// Version 3 (B636) adds the morph system's lines (morph_core.h, State) after the rows. It is written only when the
-// morph holds something a load wouldn't rebuild by itself; otherwise the chunk is version 2, byte for byte as before,
-// so an untouched patch saves exactly what it did. Versions 1 and 2 load with the morph at its defaults.
+// Version 3 (B636) adds the morph system's lines (morph_core.h, State) after the rows; version 4 (B639) adds MO-21's
+// waypoints and law and MO-24's locks to them. A morph line is written only where the morph holds something a load
+// wouldn't rebuild by itself, and the chunk says version 4 only when it holds a morph line; otherwise it is version 2,
+// byte for byte as before, so an untouched patch saves exactly what it did. Versions 1 and 2 load with the morph at its
+// defaults, version 3 with no waypoints or locks.
 struct SavedState {
   int preset = 0;
   std::vector<std::pair<std::uint32_t, double>> values;   // id, v
@@ -123,6 +136,7 @@ struct SavedState {
 extern const char* const kStateMagic1;
 extern const char* const kStateMagic2;
 extern const char* const kStateMagic3;
+extern const char* const kStateMagic4;
 std::string write_state(const SavedState& s);
 bool read_state(std::string_view text, SavedState& out);   // false: not ours, and nothing is applied
 // The rows of `current` that differ from `loaded` (both indexed like `ids`), as (id, v).
@@ -175,7 +189,11 @@ std::string observe_json(const FrameInputs& in, const Want& want);
 //                                        setting's (IF-4)
 //    texts: [osc1, osc2],                the ratios texts the engine heard last, only when changed
 //    sets: [{group, voice, settings: [{id, target, heard}]}]   IF-10's heard setting set of every group that holds one,
-//                                        for the lowest sounding voice; every frame while one does
+//                                        for the lowest sounding voice; every frame while one does (a 1.0 resolver
+//                                        sends no sets, ADR-377, so in 1.0 it stays empty)
+//    levels: [osc1, osc2, sub, noise],   IF-10's heard morph level of each source (MO-26), every frame (B639)
+//    counters: {refusedWaypoints, refusedLocks, droppedInputs, droppedEvents},   the resolver's, every frame
+//    waypoints: {key: [[x, y, v], ...]}, waypointLaw: {law, clamp}, locks: {key: [dB, dC, dD]}   only when changed
 //   }
 struct HeardGroup {
   const char* group = nullptr;
@@ -194,6 +212,12 @@ struct MorphFrame {
   const std::vector<std::pair<std::string, double>>* heard = nullptr;
   const std::string* texts = nullptr;                                 // two heard texts, or null
   const std::vector<HeardGroup>* sets = nullptr;
+  const double* levels = nullptr;                                     // four, or null
+  const horde::ResolverCounters* counters = nullptr;
+  const std::vector<std::pair<std::string, std::vector<horde::Waypoint>>>* waypoints = nullptr;   // keys holding any
+  const horde::WaypointLaw* law = nullptr;                            // with `clamp`, or null: unchanged
+  bool clamp = true;
+  const std::vector<std::pair<std::string, std::array<double, 3>>>* locks = nullptr;
 };
 std::string morph_json(const MorphFrame& m);
 

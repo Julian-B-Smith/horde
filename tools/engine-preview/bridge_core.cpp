@@ -304,6 +304,41 @@ Message parse_message(std::string_view json, const KeyMap& keys) {
     m.kind = Kind::Save;   // MO-25: what is heard now, into corner `index`
     double n = -1;
     if (doc.hasObjectMember("index") && number_of(doc["index"], n) && n == std::floor(n) && n >= 0 && n <= 3) m.index = int(n);
+  } else if (m.type == "waypoints" || m.type == "lock") {
+    // One key's MO-21 list, or its MO-24 lock. The key as `modes` names it; the resolver judges the values (MO-21's
+    // limits, MO-24's finite offsets) and counts what it refuses, so nothing is judged twice here.
+    m.kind = m.type == "lock" ? Kind::Lock : Kind::Waypoints;
+    if (doc.hasObjectMember("key") && doc["key"].isString()) {
+      const std::string_view key = doc["key"].getString();
+      const int row = key == "osc1.ratios" ? kRatiosKey[0] : key == "osc2.ratios" ? kRatiosKey[1] : keys.find(key);
+      if (row == -1) m.unknown.emplace_back(key);
+      else if (row >= 0 && keys.row(row).reserved) m.reserved.emplace_back(key);
+      else m.key = row;
+    }
+    if (m.kind == Kind::Waypoints) {
+      m.readable = doc.hasObjectMember("points") && doc["points"].isArray();
+      const auto points = m.readable ? doc["points"] : choc::value::ValueView();
+      for (std::uint32_t i = 0; m.readable && i < points.size(); ++i) {
+        const auto p = points[i];
+        horde::Waypoint w;
+        m.readable = p.isObject() && p.hasObjectMember("x") && p.hasObjectMember("y") && p.hasObjectMember("v") && number_of(p["x"], w.x) &&
+                     number_of(p["y"], w.y) && number_of(p["v"], w.v);
+        m.points.push_back(w);
+      }
+    } else if (doc.hasObjectMember("offsets") && doc["offsets"].isArray() && doc["offsets"].size() == 3) {
+      m.has_offsets = true;
+      for (std::uint32_t i = 0; i < 3; ++i) m.readable = m.readable && number_of(doc["offsets"][i], m.offsets[i]);
+    } else {
+      m.readable = !doc.hasObjectMember("offsets") || doc["offsets"].isVoid();   // null, or absent: no lock
+    }
+  } else if (m.type == "waypointLaw") {
+    m.kind = Kind::WaypointLaw;
+    const std::string law = doc.hasObjectMember("law") && doc["law"].isString() ? std::string(doc["law"].getString()) : "";
+    m.readable = (law == "tps" || law == "tin") && doc.hasObjectMember("clamp") && doc["clamp"].isBool();
+    if (m.readable) {
+      m.law = law == "tin" ? horde::WaypointLaw::Tin : horde::WaypointLaw::Tps;
+      m.clamp = doc["clamp"].getBool();
+    }
   } else if (m.type == "preset") {
     m.kind = Kind::Preset;
     double n = 0;
@@ -370,10 +405,11 @@ Mismatch check_hello(const Message& hello, const std::string& engine_hash, const
 const char* const kStateMagic1 = "horde-engine-preview 1";
 const char* const kStateMagic2 = "horde-engine-preview 2";
 const char* const kStateMagic3 = "horde-engine-preview 3";
+const char* const kStateMagic4 = "horde-engine-preview 4";
 
 std::string write_state(const SavedState& s) {
   // Version 2 whenever the morph holds nothing a load wouldn't rebuild: an untouched patch's chunk is unchanged.
-  std::string text = std::string(s.morph.empty() ? kStateMagic2 : kStateMagic3) + "\n";
+  std::string text = std::string(s.morph.empty() ? kStateMagic2 : kStateMagic4) + "\n";
   text += "preset " + std::to_string(s.preset) + "\n";
   for (const auto& [id, v] : s.values) {
     text += std::to_string(id) + ' ';
@@ -388,7 +424,7 @@ bool read_state(std::string_view text, SavedState& out) {
   const std::size_t first = text.find('\n');
   const std::string_view magic = text.substr(0, first);
   // No promise across builds: an unknown chunk leaves the default.
-  if (magic != kStateMagic1 && magic != kStateMagic2 && magic != kStateMagic3) return false;
+  if (magic != kStateMagic1 && magic != kStateMagic2 && magic != kStateMagic3 && magic != kStateMagic4) return false;
   SavedState s;
   std::size_t at = first;
   while (at != std::string_view::npos && at + 1 < text.size()) {
@@ -581,6 +617,50 @@ std::string morph_json(const MorphFrame& m) {
     pairs(*m.heard);
   }
   if (m.texts) out += ",\"texts\":[" + quoted(m.texts[0]) + ',' + quoted(m.texts[1]) + ']';
+  if (m.levels) {
+    out += ",\"levels\":[";
+    for (int s = 0; s < 4; ++s) {
+      if (s) out += ',';
+      put_num(out, m.levels[s]);   // NaN reads as null: an engine without the morph level (horde_engine.h)
+    }
+    out += ']';
+  }
+  if (m.counters) {
+    out += ",\"counters\":{\"refusedWaypoints\":" + std::to_string(m.counters->refused_waypoints) + ",\"refusedLocks\":" +
+           std::to_string(m.counters->refused_locks) + ",\"droppedInputs\":" + std::to_string(m.counters->dropped_inputs) +
+           ",\"droppedEvents\":" + std::to_string(m.counters->dropped_events) + '}';
+  }
+  if (m.waypoints) {
+    out += ",\"waypoints\":{";
+    for (std::size_t k = 0; k < m.waypoints->size(); ++k) {
+      out += std::string(k ? "," : "") + quoted((*m.waypoints)[k].first) + ":[";
+      const auto& pts = (*m.waypoints)[k].second;
+      for (std::size_t i = 0; i < pts.size(); ++i) {
+        out += i ? ",[" : "[";
+        put_num(out, pts[i].x);
+        out += ',';
+        put_num(out, pts[i].y);
+        out += ',';
+        put_num(out, pts[i].v);
+        out += ']';
+      }
+      out += ']';
+    }
+    out += '}';
+  }
+  if (m.law) out += std::string(",\"waypointLaw\":{\"law\":\"") + (*m.law == horde::WaypointLaw::Tin ? "tin" : "tps") + "\",\"clamp\":" + (m.clamp ? "true" : "false") + '}';
+  if (m.locks) {
+    out += ",\"locks\":{";
+    for (std::size_t k = 0; k < m.locks->size(); ++k) {
+      out += std::string(k ? "," : "") + quoted((*m.locks)[k].first) + ":[";
+      for (int i = 0; i < 3; ++i) {
+        if (i) out += ',';
+        put_num(out, (*m.locks)[k].second[std::size_t(i)]);
+      }
+      out += ']';
+    }
+    out += '}';
+  }
   if (m.sets) {
     out += ",\"sets\":[";
     for (std::size_t g = 0; g < m.sets->size(); ++g) {
