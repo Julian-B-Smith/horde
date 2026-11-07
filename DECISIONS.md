@@ -12650,3 +12650,16 @@ The lead's mechanism, from the critic's review: the resolver holds the switch-of
 **Awaiting the human's ratification** of the proposal and of its thirteen decisions (section 5): a container runtime for callgrind, tier-1 auto-accept, quiet windows, the Serum 2 reference, the thresholds, the listening set, the aliasing ceiling, model routing, user-facing modes, scoped timers against DT-5, the contract's freeze point, the eval role split, and the agent rung. Nothing is adopted until then.
 
 **FX device (ADR-254).** None while the device hosts no engine. If an alternative is ever promoted to a user-facing quality or character mode (decision 9), that mode's ADR states its consequence for the device.
+
+**ADR-380 A1 (the human, 2026-11-07): the CPU framework's first decisions.**
+1. **The deterministic proxy is the Mac's own instruction count** (the human: "For now I think we can use the Mac's count. If this causes problems, I can move development over to my PC for a while and try that out"). No container runtime is installed. If the count proves unrepeatable or misleading, the fallback is the human's PC.
+2. **Tier 1 is the −120 dBFS practice, for now** (the human: "-120 dB rule seems fine to me for now"). A change whose difference from the previous build stays below −120 dBFS on every render, with the suite green, may proceed without the human. Anything louder comes to the human. This rules the practice the lead's CPU batch briefs already used; it is not the brief's self-calibrated chaos envelope, which still needs its own ruling.
+3. **The quiet window is 2 to 6 am** ("Overnight, 2–6 am"). Timed confirmations queue during the day and run in one batch overnight. Every session holds heavy work in the window, and Live and OneDrive should be closed.
+4. **The token caps:**
+   - **2 M tokens a day** ("2 M tokens a day"): the loop stops and reports when the day's total reaches it;
+   - **300 k tokens per attempt** ("300 k tokens"): an attempt that reaches it is abandoned and logged.
+
+   Both are counted deterministically from the agents' reported usage and written to the ledger. The loop never estimates them.
+5. **The Serum 2 reference** is being set up. A headless Audio Unit bench measures a heavy Serum 2 patch the human exports under PF-1 and PF-3's exact conditions, on this Mac, in % of one core. The target follows that measurement.
+
+Still open: the brief's other thresholds, the listening set, the aliasing ceiling, model routing, promotion of alternatives to user-facing modes, scoped timers against DT-5, the parameter-contract freeze point, the eval role split, and the agent rung (decisions 5 to 13 in the proposal).
