@@ -413,7 +413,7 @@ def is_live(rows, entries, V, key):
 
 # ---------------------------------------------------------------- Appendix B.1: a bank preset as a base
 
-B1_SHA = "874c523aa9d0"          # sha256[:12] of B.1's text; see the module docstring
+B1_SHA = "f297fdde30c8"          # sha256[:12] of B.1's text; see the module docstring
 DECAY_SCALE = math.log(1e4) / 4  # B.1 [X22]: the bank's e^(-4t/T) as C.12's curve, ln(10^4)/4
 
 
@@ -489,7 +489,12 @@ def translate(params, base_values, rows):
         return ENUM[name][int(n)]
 
     o, b1, b2 = "osc1", "osc1.blade1", "osc1.blade2"
-    put(f"{o}.unison", str(int(P["N"])))
+    # B.1 (round 63, ADR-381): N "as is, clamped to" unison's range, the clamp reported. The top is read from
+    # the row, never written here; no bank preset exceeds it today, so this only guards a future bank.
+    n_top = int(max(option_number(x) for x in rows[f"{o}.unison"]["options"]))
+    if int(P["N"]) > n_top:
+        notes.append(f"N {int(P['N'])} clamped to {n_top}, unison's maximum (B.1)")
+    put(f"{o}.unison", str(min(int(P["N"]), n_top)))
     put(f"{o}.detune", P["detune"] / 100.0)
     put(f"{o}.detuneLaw", "cents")
     put(f"{o}.detuneRange", "×1")
