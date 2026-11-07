@@ -12788,3 +12788,21 @@ The global bank is rebuilt in that session, which comes after the synth is built
 - Re-recording the GUI fixtures (both are from 1ad270a) is the human's gate, when the engine changes.
 
 **FX device (ADR-254).** None: the FX device has no oscillators.
+
+## ADR-383 — RULED by the human: the sources' on switches share one pick (round 64, B643)
+
+**Context.** The human heard drop-outs on held notes in build 9. A debug agent (B642) found no bug in the engine or the bridge. Under Quantum, the default law, each source's on switch picked its corner independently (MO-26 (3), MO-7, cohesion 0.3). So stretches of the pad left every source off, and a held chord went silent for 350 to 560 ms. With corners A = osc 1 only and B = osc 2 only, about 73 % of the A–B edge was silent at the defaults.
+
+**Ruling (the human, by poll, 2026-11-07): "Switches pick together".**
+- The four on switches (`osc1.on`, `osc2.on`, `sub.on`, `noise.on`) share one pick: MO-7's pick scored with the shared draw only (h = 1, whatever the cohesion), held by one MO-8 latch.
+- So the on/off pattern is always one real corner's, and it is silent only where that corner has every source off.
+
+Spec round 64 writes it, with item 34.19's checks. Its must-fail control is the old per-switch rule, found silent at seed 1024.
+
+**The lead's readings, tagged in the round:**
+- **[X91]:** every switch that resolves by its pick joins the shared pick. An Exempt switch holds corner A, and a Follow switch under Blend or Stepped fades instead.
+- **[X92]:** a region lock on a switch is refused.
+
+**The CPU finding,** recorded here for B638: a moving morph under Blend costs about 1.6 times morph off, and its worst block reached about 100 % of a 512-sample buffer with 8 notes. That is a budget matter, not a bug.
+
+**FX device (ADR-254).** None: the FX device has no source switches.
