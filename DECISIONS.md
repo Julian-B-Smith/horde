@@ -11937,6 +11937,26 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 
 **FX device (ADR-254).** It has envelopes among its modulators, so the same drag applies to their pictures.
 
+## GUI-56 — RULED by the human: per-parameter distribution is share bars in 1.0; the morph rail moves after 1.0 and grows to every XY pad (GB17; B133, B28; 2026-11-06)
+
+**The human, 2026-11-06,** reviewing `docs/design/morph-rail-lab.html` live with the Labs facilitator session, answered all four questions.
+
+**Rulings.**
+1. **A rail is drawn in three modes, all offered.** "I want an option for all three": points it passes through, Bézier handles, and drawing by hand. The GUI session's pick was points plus drawing.
+2. **The puck scrubs along the rail while it's on.** "Yes, puck scrubs the rail", as the lab builds it.
+3. **Per-parameter distribution is share bars, in 1.0.** "D2: Share bars", the GUI session's pick. A row gets bars, one per corner, and dragging a divider gives a corner more of the pad. The bars write the same offsets a boundary drag writes, so a row still stores only its own four offsets and a bar can't disagree with a boundary. That is GN-6's state, and nothing new. For each share the bars find the offsets deterministically, with a fixed iteration count.
+4. **The rail is after 1.0, on every XY pad.** "Let's plan it for after 1.0; I actually want to place rails on all the XY pads, which means additional rounds of functionality testing and design." The Morph page doesn't show a rail in 1.0. Rulings 1 and 2 stand as the starting point for those rounds.
+
+**What it settles elsewhere.**
+- The lab marks B28's design question closed by D2. B28 is the lead's row, so closing it is the lead's.
+- B133's rail moves after 1.0, also the lead's.
+
+**The lab.** It is ruled (GUI-56). The human keeps it as the rail's bench for the rounds after 1.0 (2026-11-06, through the Labs facilitator: "Keep as the rail's bench"), and its review pin is off.
+
+**Engine impact.** GN-31, whose need narrows to "nothing new for distribution; the rail after 1.0".
+
+**FX device (ADR-254).** It has XY pads, and ruling 4 covers every XY pad, so the rail reaches it after 1.0 as well. Share bars apply to its morph rows as they do here.
+
 ## GUI-40 — RULED by the human: the Weather on the Noise page; square pads with the Morph pad in a sticky column; the puck over the corners; bend handles; the logo on every page (GB9, GB23; amends GUI-19, GUI-26, GUI-33; 2026-11-05)
 
 **The human, 2026-11-05.**
@@ -12539,3 +12559,35 @@ The lead's proposals for the round's fine questions stand as proposals for the s
 3. **The noise is the one exception to the off-source rule.** The human: "noise settings influence erosion even if the noise osc is off; I say erosion is colored by any corner where noise is influencing the erosion of its respective sub, or if the erosion control is connected to a modulator, regardless of whether that noise osc is active. That said, this means any active noise oscs will have to blend the sound of those as well, and the audible noise will need to influence the erosion (each patch only has one noise osc as a source for either the erosion or the audible noise). This is the exception to the off-oscillator blend rule." The lead's restatement, confirmed by poll ("Yes, that's it"): the noise's one set of settings blends over the corners where the noise is on **or** erosion is active (the sub's erode above 0, or erode modulated). Corners with neither are ignored. The noise's volume still fades only by the corners where it is on.
 
 The lead's mechanism, from the critic's review: the resolver holds the switch-off until a mirror of PA-1's heard level reaches the floor, and holds the source's values meanwhile. So no off corner's values sound while it fades out, and the engine keeps PA-5's "at once".
+
+## ADR-379 — RULED by the human: the modulation system's open questions, after a critic's review of round 62 (B637)
+
+**Context.** Round 62 (branch `b637-round-62`) turned the ruled modulation draft into Appendix E. A critic's first review found six open design questions (M1 to M6) and seven blocking defects. The lead put the human's share to them by poll on 2026-11-06. The labs facilitator put the rest through the reopened modulator lab.
+
+**Rulings.**
+1. **Routes respect a source's on corners** ("Only on-corners' routes"). For an oscillator, the sub or the noise, routes in a corner where it is off never touch it, just as its settings don't (ADR-376, ADR-377 A1).
+2. **M1: where a route is evaluated is decided per mapping, automatically.** The human asked "Can this be set on a case-by-case basis depending on which parameters are mapped?" and then chose "Automatic". A route from a per-note source (ENV 1 to 4, velocity, a per-note LFO) into an audio-rate destination runs inside the engine, sample-exact. Every other route runs outside the engine, one control interval late. There is no switch.
+3. **M5: only global LFOs and the 2-D random may move the morph position** ("Only LFOs and 2-D random"). ORBITAL, the Kuramoto LFO, the mod wheel and macros may not.
+4. **M6: modulator settings get the morph modes only in 1.0** ("Modes only for 1.0"). Follow, Quantum and Exempt apply. Waypoints and region locks on them come after 1.0.
+5. **M4: ORBITAL's per-body outputs are the lab's five plus acceleration** ("Lab's five plus accel").
+6. **M3 goes to a lab first** ("Let's test a mix in a lab before deciding"); see A2.
+
+**The lead's calls, from the critic's review:**
+- **M2:** a Control route holds exactly through a morph jump. The engine takes one per-key input (1 − W).
+- **Save under a position route:** stores the unrouted target, consistent with ADR-373 r6 (modulation is not frozen).
+
+**FX device (ADR-254).** The FX device hosts the same matrix. It has no engine voices, so its per-note LFOs and every route run in its own modulation system.
+
+**ADR-379 A1 (the human, by poll, 2026-11-06).**
+1. **Audio-rate destinations.** The four source levels and the noise filter's cutoff ("Source levels", "Noise filter cutoff"). The blades' position and width join the existing cut rate and FM depth ("Position and width"). The voice filters' cutoff and resonance join when the filters are built ("Cutoff and resonance").
+2. **A per-note source routed to a shared destination reads the newest note.** The human: "The newest note, but there should probably be a UI warning about it".
+3. **A device-level setting disallows such routes.** The human: "Maybe there's a global settings option to disallow mapping per-note mod sources to universal parameters". The lead's readings are in round 62: off by default; saved outside the patch; when on, a preset's existing such routes are muted and named, not deleted.
+
+**ADR-379 A2 (the human, through the labs facilitator, 2026-11-06, the reopened ORBITAL lab).**
+1. **M3 switches.** The human: "What I really want is a system that allows whatever intermediate shape to be stored as its own pattern, but that will probably need to go after 1.0. For now, it will just have to flip along a quantum boundary." Capturing an in-between shape as its own pattern comes after 1.0.
+2. **The sine and cosine of each body's angle join ORBITAL's outputs** ("Yes, add them"), for 34 sources in all. The point the angle is measured from (the field centre, the other bodies' centre of mass, or the direction of travel) stays open until the human hears both alternatives ("Build both, then decide").
+3. **The thermostat auto-kicks a stopped field** ("Auto-kick a stopped field").
+
+**Engine change (for the clean room).** Round 62 reverses RC-4 for per-note LFOs, which now run in the engine. It adds a Control input to PA-2, publishes VO-10's note counter, and widens PA-4's audio-rate destinations. Five manifest rows' rate changes from C to A, plus the blades' position and width; the manifest's hash is unchanged. PF-2 must be measured again.
+
+**ADR-379 A3 (the human, through the labs facilitator, 2026-11-06, ORBITAL round 6b).** The angle each body's sine and cosine are taken from is measured **about the field centre**, as first built. The other bodies' centre of mass and the direction of travel were heard and not chosen. The nearest-body option is not wanted for now. Nothing is left open before the modulation system's stage. The thermostat's auto-kick stands as ruled in A2.

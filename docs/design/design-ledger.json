@@ -370,8 +370,9 @@
    "note": "BlendMaps, CrossSection, FindPane and Cohesion READMEs cite it (ADR-266 ruling 9); its rounds (B268, B269) are not all ratified (port-tab morph-editor)."
   },
   "morph-rail-lab.html": {
-   "status": "exploring",
-   "note": "GB17. How a rail is drawn, whether the puck scrubs it, and what per-parameter distribution means now that a row can own its regions (B133, B28, GN-31). Waiting on the human."
+   "status": "ruled",
+   "adr": "GUI-56",
+   "note": "GB17. The human answered all four (2026-11-06, through the Labs facilitator): rails drawn three ways, the puck scrubs the rail, distribution is D2's share bars in 1.0, and the rail is after 1.0 on every XY pad. Kept as the rail's bench for the rounds after 1.0 (the human, 2026-11-06, through the Labs facilitator); its review pin is off."
   },
   "morph-law-bench.html": {
    "status": "retired",
@@ -6646,6 +6647,36 @@
    "note": "The one-control reading is the GUI session's, open to the human. FX device: none."
   },
   {
+   "lab": "docs/design/morph-rail-lab.html",
+   "via": null,
+   "superseded_by": null,
+   "master_version": null,
+   "bundle": null,
+   "shell": null,
+   "port_tab": null,
+   "adr": "GUI-56",
+   "id": "gui56-share-bars",
+   "clause": "ruling 3: per-parameter distribution is share bars, writing a row's own offsets (D2), in 1.0",
+   "component": "MorphInspector",
+   "state": "ruled",
+   "note": "To build in the master's selected-row inspector, beside the scale and the lock. FX device: same, its own rows."
+  },
+  {
+   "lab": "docs/design/morph-rail-lab.html",
+   "via": null,
+   "superseded_by": null,
+   "master_version": null,
+   "bundle": null,
+   "shell": null,
+   "port_tab": null,
+   "adr": "GUI-56",
+   "id": "gui56-rail-after-1-0",
+   "clause": "rulings 1, 2 and 4: the rail is after 1.0 on every XY pad, drawn three ways, and the puck scrubs it",
+   "component": null,
+   "state": "ruled",
+   "note": "After 1.0: nothing in 1.0's GUI. Rulings 1 and 2 are where the rail's design rounds start. FX device: its XY pads too."
+  },
+  {
    "port_tab": null,
    "component": null,
    "bundle": null,
@@ -8134,6 +8165,10 @@
    "reason": "Random LFOs' behaviour, ruled from the modulator lab; the LFO card's design is the GUI session's."
   },
   {
+   "adr": "ADR-379",
+   "reason": "The modulation system's behaviour, ruled by poll and lab; the page warning and device setting it implies are the GUI session's to record as GUI-n."
+  },
+  {
    "adr": "GUI-44",
    "reason": "A gate: GUI 3's browser check wired into ./verify fast, a hole where there's no browser. No design element."
   }
@@ -8314,6 +8349,9 @@
   ],
   "GUI-54": [
    "GN-54"
+  ],
+  "GUI-56": [
+   "GN-31"
   ],
   "GUI-57": [
    "GN-16"
