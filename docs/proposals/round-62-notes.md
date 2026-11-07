@@ -1,140 +1,225 @@
 # Spec round 62: the modulation system — notes for the lead (B637)
 
-> **Origin.** horde lead session, 2026-11-06. The human, by poll: "Write the mod spec round". Drafted by an agent the lead dispatched, from the ruled draft `docs/proposals/modulation-spec-draft.md` (#1424) and ADR-371 (and A1), ADR-372, ADR-375 (and A1), ADR-377, ADR-378 (the travel stage, recorded by the lead next), with ADR-266, ADR-330, ADR-342, ADR-349 and ADR-374 where they bear. ROADMAP B633, B637.
+> **Origin.** horde lead session, 2026-11-06. The human, by poll: "Write the mod spec round". Drafted by an agent the lead dispatched, from the ruled draft `docs/proposals/modulation-spec-draft.md` (#1424) and ADR-371 (and A1), ADR-372, ADR-375 (and A1), ADR-377 and ADR-378 (the travel stage), with ADR-266, ADR-330, ADR-342, ADR-349 and ADR-374 where they bear. **Revised the same day** after a critic's review of `d8693366` ("rework") and the human's answers to the open questions (to be recorded as ADR-379), on top of round 61 (`origin/b631-round-61` at `7acea9c6`, merged into this branch). ROADMAP B633, B637.
 
-**Status: DRAFT for the lead.** The round adds **Appendix E** to `specs/SPEC-ENGINE.md` and touches the body where modulation crosses the engine. Nothing here is ruled by this file. Every **[OPEN Mn]** is the lead's to rule before the modulation system's stage (BD-8, stage 9). Every **[Xn]** is built as written until ruled.
+**Status: DRAFT for the lead.** The round adds **Appendix E** to `specs/SPEC-ENGINE.md` and touches the body where modulation crosses the engine and the resolver. Two items stay **[OPEN]**, each decided by a lab that is testing it. Every **[Xn]** is built as written until ruled.
 
 ## 1. What the round adds
 
-**Placement.** A new **Appendix E, "The modulation system (normative)"**, after Appendix D. Like the resolver, it is a part the clean room builds beside the engine, with its own calls. Its rows:
+**Placement.** A new **Appendix E, "The modulation system (normative)"**, after round 61's Appendix D (D.8). Like the resolver, it is a part the clean room builds beside the engine, with its own calls (IF-13).
 
 | rows | what |
 |---|---|
-| MS-1 to MS-7 (E.0) | who computes what; the clock; reading the engine's sources; control rate only; determinism; real-time safety; reset and load |
-| MS-8 to MS-11 (E.1) | the source table (ids, polyphony, value, starting polarity); the keyboard's sources; macros, X and Y; aftertouch's default route |
-| MS-12 to MS-23 (E.2) | destinations; the route record; curves; contributions and Control; one route per pair; depth wires; the cap; where routes live; the summing order and the wall; rates; pitch quantize; undo |
-| MS-24 to MS-29 (E.3) | per-corner routes fade with the corner; route weights; why that is not a sound crossfade (ADR-377); modulator settings morph; Exempt still modulated; the morph position as a target |
-| MS-30 to MS-35 (E.4) | the loop setting; the graph; refusing; a preset into a corner; one step late; the bound |
-| LF-1 to LF-14 (E.5) | four LFOs: global or per note, retrigger, rate and sync, start phase, the drawn shape and its morph, S&H, Random, the travel stage, the stream and strikes, envelope mode, performance state |
-| MK-1 to MK-5 (E.6) | the Kuramoto LFO, as the lab built it |
-| MB-1 to MB-10 (E.7) | ORBITAL: step, thermostat, time, mass, safety, observables, full-range scales, reset, sources, destinations |
-| MR-1 to MR-10 (E.8) | the 2-D random: rows, tick, streams, the map, Walk, triggers, targets, travel, replay |
-| MS-36 to MS-40 (E.9) | state; no hidden user state; the FX device; the CPU; the modulators' host-parameter block; and a short after-1.0 note |
+| MS-1 to MS-7 (E.0) | three parts and who computes what; clock and cadence ("held from the boundary"); reading sources on the outside path one interval late; the outside path is control rate; determinism; real-time safety; reset and load |
+| MS-8 to MS-11 (E.1) | the source table (26 ORBITAL sources with acceleration; ψ relative to the frame); keyboard sources read from the shell; macros, X and Y; aftertouch's default route |
+| MS-12 to MS-23, MS-41, MS-42 (E.2) | destinations; the route record; curves; contributions and Control; one route per pair; depth wires; the cap; where routes live; summing with the Control input; rates; quantize by per-key offsets (IF-2 for voice pitch only); undo. **MS-41, the two paths by rule. MS-42, a new voice modulated from its note-on sample.** |
+| MS-24 to MS-29 (E.3) | per-corner routes fade with the corner; route weights (the resolver owns every pick; a source's keys use its on corners; own one-pole); parametric, not a sound crossfade; modulator settings are keys of the morph; Exempt uses corner A's routes; the morph position (global LFOs and the 2-D random only) and Save under a position route |
+| MS-30 to MS-35, MS-44 (E.4) | the loop setting; the graph, with loops through the engine; refusing, muting the cycle's lightest route, and corner edits that add a pad edge; a preset into a corner; one step late, held from the boundary; the bound, buzzing up to the control rate's Nyquist; **MS-44, the erosion flag the resolver reads** |
+| LF-1 to LF-14 (E.5) | four LFOs (one law, run by the modulation system when global and by the engine when per note); retrigger; rate and sync; start phase; the drawn shape and its morph; S&H; Random; the travel stage; streams keyed by VO-10's note counter; envelope mode; performance state |
+| MK-1 to MK-5 (E.6) | the Kuramoto LFO, as the lab built it; a modulator of its own, not an LFO kind |
+| MB-1 to MB-11 (E.7) | ORBITAL: step (Bounce by MR-4's fold, clamp counted), thermostat, time, mass, safety, observables with acceleration, full-range scales, reset, 26 sources, destinations, **MB-11: the two periodic presets' data** |
+| MR-1 to MR-10 (E.8) | the 2-D random, with `xy.triplet` and `xy.dotted` |
+| MS-36 to MS-40, MS-43, MS-45 (E.9) | state (`mod` in the shell's document); no hidden state; the FX device; CPU; the host block; **MS-43, what the engine receives for a per-note LFO; MS-45, the observation view** |
 
-**Body edits.** The header (Appendix E named; the [OPEN Mn] tag); §1 (the modulation system is in scope, the modulators leave the out-of-scope list); §3 (a deliverable row and a `mod/` folder in the proposed layout); §4.3 (the row split: modulation system, intent bus); IF-3 (per-note bend and lift published, [X45]; sources readable at each boundary); IF-11 (the modulators' block after the morph's); IF-12 (the position offset, the weights and picks read, [OPEN M6]); **IF-13, new** (the modulation system's calls); RC-4 (the deferral ends: "Specified (round 62)"); RC-7 (its new consumers; RC-7.3 says the instrument's sound now depends on the transport through them, the draft's §10 item 7); RC-11.1 (the modulation state); **PF-11, new** (the reported CPU cell, T10); BD-8 (stage 9); **items 36 to 39, new** in 10.1; §11.0 (six OPEN rows) and §11.1 (X41 to X75).
+**Body edits.**
+- The header names Appendix E and the [OPEN Mn] tag.
+- §1: the modulation system is in scope, and so are the engine's per-note LFOs and engine path.
+- §3 gains a deliverable and a `mod/` folder.
+- §4.3: the rows are split three ways (modulation system, engine, intent bus).
+- 5.2 and 5.6: `mix.osc1`, `mix.osc2`, `mix.sub`, `mix.noise` and the noise's `cutoff` go to rate A [X78].
+- PA-2: a Control input, and the engine path's terms.
+- PA-3: the note-on either-order exception now covers the modulation system's events.
+- PA-4: the levels and the noise cutoff join [X78].
+- VO-10: publishes the note counter at the fresh start.
+- IF-3: values are readable at each boundary; velocity and the expressions are read from the shell. X45 is dropped.
+- IF-11: the modulators' block.
+- IF-12: the position offset; the modulation manifest's keys (MO-11's menu only); the erosion flag; the pick reads.
+- **IF-13 (new):** the modulation system's calls.
+- RC-4: specified, and "must not require" is amended.
+- RC-7 and RC-7.3: the new transport consumers.
+- RC-11.1: the modulation state.
+- **PF-11 (new):** the modulation CPU.
+- BD-8: stage 9, with its engine and resolver impact stated.
+- MO-26 (7): "until routes exist" is replaced by the erosion flag.
+- **Items 36 to 39 (new).**
+- §11.0: M3 and M4. §11.1: X41 to X81, without X45 and X46.
 
-**Engine impact.** None while a patch has no routes: item 36.1 holds it bit for bit, so stage 9 reopens no accepted stage. The engine's half stays PA-2's offsets and IF-3's sources, plus IF-3's two new published values (per-note bend, lift).
+**Engine impact (corrected; the first draft understated it).** With no route and no per-note LFO, every accepted item stays bit-identical (item 36.1). But the round adds to:
+- **stage 1's API:** IF-13's events, PA-2's Control input, VO-10's note counter, PA-4's longer list;
+- **stage 2's voice:** the per-note LFOs, run by Appendix E's LFO law, and the engine path's per-sample closed form;
+- **stage 7's resolver:** the modulation manifest's keys, the erosion flag, the pick reads.
 
-## 2. Open items for the lead: [OPEN M1] to [OPEN M6]
+BD-8 stage 9 reopens those stages for those additions only.
 
-Each option is described by what it does to the sound or the playing.
+## 2. The human's answers (ADR-379) and the lead's calls, and where each is written
 
-**[OPEN M1] Where per-voice routes are evaluated** (MS-1, MS-3, RC-4, IF-13; the draft's T3, T7). The record decides that the LFOs and the matrix are outside the engine (RC-4's "must not require the engine to compute an LFO"). It does not decide what that costs a route from an engine source.
-- **(a) Everything in the modulation system (as written).** Envelope, velocity, R and expression routes read the engine's value from the end of the previous control interval: 0.66 ms late at 44.1 kHz. You would hear it only on a very fast pitch envelope into the sub's pitch (PA-4 wanted that "smooth"), where the envelope's first 0.66 ms arrives late and is then followed as a 1,500 Hz piecewise-linear ramp: a fast "zap" loses a little of its very top. The engine is untouched, and the shell runs the engine and the modulation system in turn per control interval.
-- **(b) The engine evaluates the routes whose source it publishes, and the per-note LFOs, inside each voice.** An envelope into pitch is sample-exact and on time; a pitch zap is as sharp as the envelope's curve. Costs: RC-4's "must not require" is reversed; the engine gains a route evaluator and LFOs (a bigger engine and clean-room scope), and the matrix is split across two parts that must agree on curves, polarities and depth wires.
-- **(c) A middle way:** (a), plus the engine publishing each envelope's per-sample trajectory for the interval, so a route into PA-4's keys can be applied per sample one interval late. Sharper than (a) on pitch, still late.
+| ruling | where |
+|---|---|
+| 1. Routes respect a source's on corners | MS-25 (a source's keys: MO-26 (2) weights, (7) for the noise, the restricted pick, held while waiting, no glide at a landing); item 36.7 |
+| 2. M1 hybrid, chosen automatically | MS-41 (the rule: per-note engine-local source into a PA-4 key, not Control, not quantized; the triples; the closed form in the engine), MS-3, MS-4, MS-43, LF-1, LF-2, PA-2, PA-4, RC-4; item 36.11 |
+| 3. M5: global LFOs and the 2-D random only | MS-12 (d), MS-29 (the Kuramoto LFO is its own modulator, not an LFO kind, so it may not; ORBITAL, the wheel and macros may not); E.6's intro; item 36.9 |
+| 4. M6 (a): the resolver resolves modulator keys; menu only; every pick a purpose-keyed read | MS-27, MS-25, LF-8, IF-12; item 36.17 |
+| 5. M4 (b): acceleration joins; sine and cosine stay [OPEN] | MB-6, MB-7, MB-9, MS-8; [OPEN M4] |
+| 6. M3 stays [OPEN], in a lab | LF-8; [OPEN M3] |
+| Lead: M2 (b), minimal | PA-2's Control input q = 1 − W ramped by PA-3; MS-20; item 36.4 with "a morph jump under Control moves the value" |
+| Lead: B4 | MS-29, [X79] |
 
-**[OPEN M2] A Control route against the engine's smoothing** (MS-20, PA-2; T4). Under Control the knob is ignored, but the engine still smooths the knob's resolved value by PA-1 (about 12.8 ms).
-- **(a) As written:** the offset is computed against the unsmoothed value. Whenever the base moves under a Control route (a morph move, automation), the controlled parameter wobbles away from where Control holds it for up to 12.8 ms, then returns: a small swell or dip on every fast morph gesture.
-- **(b) The engine takes a per-voice Control input** that replaces the base. Control holds exactly; a small engine change (PA-2 gains one input per voice per key).
+## 3. The critic's findings, and where each is fixed
 
-**[OPEN M3] LFO corners that differ in kind** (LF-8, MS-27). One corner's LFO is a drawn shape, another's S&H.
-- **(a) Mix their outputs by the corner weights** (ADR-349's recommendation). Moving between those corners, the drawn wobble fades into the stepping random one: halfway, a wobble with steps riding on it. It is a blend of two control signals, not of two sounds.
-- **(b) The kind follows its quantum boundaries** (ADR-377's principle for structure). The LFO switches from drawn to S&H at one place on the pad; on either side you hear one kind, never a mix.
+| finding | fix |
+|---|---|
+| B1: route weights glided from MO-5 (a) | MS-25: each k[c] has its own one-pole [X76]; "MO-5 (a)" and "glided corner weights" are gone from MS-25 and IF-12 |
+| B3: MO-26 (7)'s route test | MS-44 and IF-12: a per-corner erosion flag (depth above 0, not refused or muted, Control included); round 61's "until routes exist" is replaced |
+| B4: Save under a position route | MS-29, [X79] |
+| B5: a new voice's first sample | MS-42, PA-3, LF-2 (phase 0 at the note-on's sample); item 36.13 |
+| B6: the loop gate's oracle; ORBITAL's energy | 39.1 (a), an engine-free recurrence; 38.2, relative energy drift with the clamp count asserted 0; both cite Blind-Spot Armor risk row 6 |
+| S2: quantize | MS-22: per-key offsets, IF-2 for voice pitch only [X81] |
+| S3: loops through the engine | MS-31's swarm nodes; `osc1.R` → `osc1.coupling` in 39.1 (b) and 39.2 |
+| S4: corner edits that add a pad edge | MS-32: mute the lightest route and name it |
+| S5: which route "Refuse inside a corner" mutes | MS-32: the cycle's lightest route |
+| S6: X45 and the engine-impact claims | X45 dropped (velocity and expressions read from the shell, MS-9, IF-3); BD-8 and §1 above |
+| S7: tolerances | items 36 to 39 now use 10⁻⁶, 10⁻⁵ or 10⁻⁴ with stated durations |
+| S8: ORBITAL's trajectories | 38.2 uses only MB-11's two periodic presets, with their data in the spec |
+| S9: the walk across rates | 38.3 compares 44.1 kHz with 96 kHz at σ 0.05 |
+| S10: missing acceptance items | 36.14 (MS-16, MS-18), 36.15 (MS-21), 36.16 (MS-7, MS-36, MS-40), 36.17 (MS-27), 36.18 (MS-11), 38.1 (MK-2), 38.2 (MB-8), 36.20 and MS-45 (the observation view on IF-13) |
+| S11: the per-note stream's key | LF-12 and VO-10: the note counter's four bytes, least significant first, between the purpose and the seed (MS-5's order) |
+| S12: "held from the boundary" | MS-2, MS-3, MS-34 |
+| S13: where `mod` lives | MS-36: the shell's document, not IF-4 [X80], because the engine does not own it and most of it is per corner, like the corners |
+| S14: one owner for picks | MS-25 and IF-12: the resolver |
+| S15: Exempt's routes | MS-28: corner A's |
+| S16: `xy.division` | `xy.triplet`, `xy.dotted` |
+| S17: Bounce | MB-1: MR-4's fold |
+| ψ | `oscN.psi` is relative to the frame (C.13's d); item 36.10 |
+| MS-35 | says outright that a loop can buzz up to f/(2Δ): 760 Hz at 44.1 kHz |
+| setting-set text | "of the mixture while its swarm blends, SB-4" is gone from MS-8's `oscN.R` (round 61's IF-3 had already dropped it) |
 
-**[OPEN M4] ORBITAL's observables** (MB-6, MB-7, MB-9). ADR-375 A1 counts "4 bodies × 5 observables"; the lab's five are x, y, speed, near and angle. SPEC-ORBITAL §4 also lists acceleration, and ADR-165 A1 ratified a fixed per-preset ceiling for it and sine and cosine observables in Wrap.
-- **(a) The lab's five** (as written): 22 sources. No acceleration: the sharpest slingshot accents come from speed, a little softer.
-- **(b) Six, with acceleration** on a per-preset ceiling ([X46]): 26 sources. Acceleration spikes before speed peaks, so accents land earlier and sharper on close approaches.
-- **(c) (a) or (b) plus sine and cosine of each position in Wrap,** so a body crossing the seam moves the sound smoothly instead of jumping.
+**The ten nits.** The brief named only ψ, and the review itself did not reach this agent. Fixed besides:
+- the FX device's per-note LFOs (they run in its own modulation system, since it has no engine);
+- MS-40: the block reaches the resolver too;
+- ORBITAL's speed clamp is stated in field units;
+- MS-41's triples are one per corner that holds the route, not one per route;
+- MS-15: one Control route per destination **in a corner**.
 
-**[OPEN M5] May the 2-D random move the morph position?** (MS-12, MS-29). ADR-371 MQ8: "Only an LFO set to global can move the morph position."
-- **(a) No** (as written): the 2-D random drives other pads (the Specimen XY, FX pads) and any knob, but the morph pad moves only from a global LFO. A random walk across the morph corners needs an LFO drawn as one.
-- **(b) Yes:** it is global by construction, and the human's limit was aimed at per-note sources. Then "a random walk through the four corners" is one gesture, which is the use B540 was ruled for ("automating the traversal of XY pads").
+**Please send the review's nit list if any of the ten is not among these.**
 
-**[OPEN M6] How a modulator's per-corner settings are resolved** (MS-27, IF-12, IF-13). MQ15 says they "morph like any knob", so something must blend an LFO's rate between corners.
-- **(a) The resolver takes the modulation manifest as keys** beside the engine's: one law, one draw scheme, one glide; the LFO rate glides, picks and steps exactly as a knob would. The resolver's IF-12 grows a second output stream.
-- **(b) The modulation system blends them itself** from the resolver's weights and picks. The resolver is unchanged, but two parts implement the morph law, and they can disagree by a hair (a rate that flips a moment apart from the knob beside it).
+**Not this round's:** round 61's MO-22 row has unescaped `|` inside its formula (a table-column count of 11 against 3). It is round 61's text and is left as it is.
 
-## 3. Proposed defaults, built as written until ruled: [X41] to [X75]
+## 4. Open items, by sound
 
-**The lead's (from the brief):**
+**[OPEN M3] LFO corners that differ in kind** (LF-8, MS-27), being tested in a lab (mix against switch, ADR-379 r6).
+- **(a) Mix:** between a drawn corner and an S&H corner, the wobble fades into the steps, and halfway you hear a wobble with steps riding on it.
+- **(b) Switch:** the kind changes at one place on the pad, and either side you hear one kind.
 
-| tag | the default | what you would hear otherwise |
+**[OPEN M4] The sine and cosine of each ORBITAL body's angle as sources** (MB-9), being tested in the reopened ORBITAL lab (ADR-379 r5).
+- **(a) Not sources:** 26 sources. Under Wrap, a body crossing the seam makes its `x` or `y` route jump.
+- **(b) Sources:** 34 sources. A circular orbit drives two smooth, quarter-turn-apart wobbles, and crossing the seam moves nothing abruptly.
+
+## 5. Proposed defaults: [X41] to [X81]
+
+**The lead's (the first brief):**
+
+| tag | the default | otherwise, by ear |
 |---|---|---|
-| X41 | keytrack k = (n − 60)/48 per voice, clamped to ±1 (C4 is the centre, four octaves full scale) | a wider span makes keytracking gentler per key; a narrower one saturates at the keyboard's ends |
-| X42 | velocity and keytrack per voice | global would make every held note follow the newest key or velocity |
-| X43 | release velocity a source only as MPE lift | a non-MPE release velocity would let a fast key-up brighten a release tail |
-| X44 | bend and MPE per-note bend start bipolar; every other keyboard source unipolar | a unipolar bend route would offset the sound with the wheel at rest |
-| X45 | IF-3 publishes per-note bend and lift | without it, per-note bend and lift cannot be routed |
-| X46 | acceleration's ceiling per preset, like speed and energy (if [OPEN M4] admits it) | a running maximum makes the first slingshot after a reset loudest |
-| X47 | the Walk's smoothing is its own time in seconds (default 0.225 s, the lab's) | tied to τ, slowing the walk would also round it more |
-| X48 | the spring is tension (Hz) and damping ζ; overshoot is a readout | an overshoot knob instead would hide the tension/damping pair |
-| X49 | one bias amount beside the bias choice; 0 is uniform | — |
-| X50 | the 2-D random's own seed; each mode its own stream | a shared stream would make switching mode replay the same numbers |
-| X51 | a spread past the pad reflects | shrinking it to fit would make edge-homed spreads smaller |
-| X52 | the 16-sample tick, no pitch special case | an interpolated path would smooth a pitch destination at extreme depth |
-| X53 | one source, two rows (`xy.x`, `xy.y`) | — |
-| X54 | travel includes None (jump straight) | (ruled in substance by ADR-375) |
-| X55 | S&H draws at every cycle start, the first included | the shipped law holds 0 for the first cycle: a struck note starts flat |
-| X56 | S&H clocked by its own cycle; sample-on-trigger after 1.0 (and, with it, ADR-266 r6's S&H mode on ORBITAL's mappings) | — |
-| X57 | STEPS (a drawn preset) and S&H both stay | — |
+| X41 | keytrack (n − 60)/48 per voice, clamped to ±1 | a wider span keytracks more gently |
+| X42 | velocity and keytrack per voice | global: every held note follows the newest key |
+| X43 | release velocity only as MPE lift | a fast key-up would brighten a non-MPE tail |
+| X44 | bend and per-note bend start bipolar; other keyboard sources unipolar | a unipolar bend offsets the sound at rest |
+| X47 | Walk smoothing is its own time (0.225 s) | tied to τ, slowing the walk would also round it |
+| X48 | spring = tension (Hz) and ζ; overshoot a readout | — |
+| X49 | one bias amount; 0 uniform | — |
+| X50 | the 2-D random's own seed; a stream per mode | a shared stream replays across modes |
+| X51 | spread reflects at the edge | shrinking makes edge-homed spreads smaller |
+| X52 | the 16-sample tick | — |
+| X53 | one source, two rows | — |
+| X54 | travel includes None | — |
+| X55 | S&H draws at the first cycle | the shipped law starts a struck note flat |
+| X56 | S&H on its own cycle; sample-on-trigger (and ADR-266 r6's S&H on ORBITAL's mappings) after 1.0 | — |
+| X57 | STEPS and S&H both stay | — |
 
-**This round's own readings (the agent's, listed so they can be overruled):**
+(X45 is dropped: velocity and the expressions are read from the shell. X46 is settled by ADR-379 r5 and ADR-165 A1.)
 
-| tag | the default | the alternative, by ear |
+**This round's readings:**
+
+| tag | the default | otherwise, by ear |
 |---|---|---|
-| X58 | an envelope source is its level before its velocity factor | after it: a route's depth would also follow how hard the key was struck |
-| X59 | ψ as frac(ψ/2π), circular; the onset burst clamped to [0, 1]; gravity as 0.5 + cents/70 | other scalings change how far those sources move a knob |
-| X60 | all offsets at the control rate in 1.0, PA-4's keys included | per-sample evaluation: about three times the modulation CPU slice for no audible gain below 40 Hz |
-| X61 | curves: exp s², log 1 − (1 − s)², bipolar on the magnitude | a geometric "log" is undefined at 0; curves on 2s − 1 would move a bipolar source's rest |
-| X62 | the 64 routes count distinct pairs over all corners | 64 per corner: up to 256 live routes, four times the CPU |
-| X63 | route weights follow `morph.law`, not the destination key's own mode | a Quantum-mode key's routes would flip while its neighbours' fade |
-| X64 | routes into the morph position are patch-wide; Save current sound ignores them | per-corner position routes depend on the position they move |
-| X65 | the corner-mapping lab's loop graph, admission order, and one step late under every mode | same-interval reads under the refusing modes would make loop-free chains a step quicker (inaudible) but evaluation-order dependent |
-| X66 | LFOs default Global; start phase also for free LFOs; synced with retrigger runs from the strike; per-note unstruck waves agree in phase; phases never saved | random start phases per note would detune a chord's wobbles from each other |
-| X67 | a per-note random stream: Next and Keep start each note at draw 0 of its own stream; Rewind plays one riff | — |
-| X68 | travel Time along C.12's curve at the SLEW shape; Rate in full scales per second; Spring clamped to ±1; S&H's default Time 0.08 s | a linear Time glide is more mechanical; an unclamped spring overshoots past the LFO's range |
-| X69 | envelope mode: the source falls to 0 along osc 1's governing envelope's release; a global one releases when no note is held | falling to the centre (y = 0) would leave a unipolar route half on after release |
-| X70 | one seed per LFO | a patch seed would tie the four LFOs' randomness together |
-| X71 | Kuramoto Drawn reads a chosen LFO (default LFO 1); global; retrigger after silence; exact 2π | the lab truncates 2π to 6.283185307, a 10⁻¹⁰ difference |
-| X72 | the new modulators' continuous settings are host parameters | patch state only: no automation of ORBITAL's gravity or the walk's speed |
-| X73 | ORBITAL: one global field; reset Free, Transport or Note-on; Kick only from its card; thermostat v* 0.5, τ 0.5 s; full-range scales measured per factory preset over 30 s | per-voice fields would give each note its own orbit, at 16× the CPU |
-| X74 | the 2-D random: Spring the default travel (the lab's); Lag kept beside ADR-378's four LFO travels; mapping to a pad is two Control routes; its rows start unipolar | dropping Lag aligns it with the LFO's four; bipolar rows would centre on 0.5, not on home |
-| X75 | the MPE member channels' bend range 48 semitones until B504 rules it | 2 or 12 semitones would make a small finger slide a large pitch move into a route |
+| X58 | an envelope source before its velocity factor | after it, depth would follow key velocity too |
+| X59 | ψ relative to the frame; the burst clamped; gravity 0.5 + cents/70 | other scalings move knobs further or less |
+| X60 | the outside path at the control rate | per-sample global modulators would cost about three times the slice |
+| X61 | curves exp s², log 1 − (1 − s)², bipolar on the magnitude | curves on 2s − 1 would move a bipolar rest |
+| X62 | the 64 routes count distinct pairs over the corners | per corner would allow 256 live routes |
+| X63 | route weights follow `morph.law` | a Quantum-mode key's routes would flip while its neighbours fade |
+| X64 | position routes patch-wide | per-corner position routes depend on what they move |
+| X65 | the lab's loop graph, admission order, one step late everywhere | — |
+| X66 | LFO defaults (Global; start phase for free LFOs; sync with retrigger runs from the strike; per-note unstruck in phase) | random start phases would detune a chord's wobbles |
+| X67 | per-note streams: Next and Keep from draw 0 of the note's stream; Rewind one shared riff | — |
+| X68 | travel laws; S&H's default Time 0.08 s on the SLEW curve | a linear Time is more mechanical |
+| X69 | envelope mode falls to s = 0 along osc 1's governing release | falling to y = 0 would leave unipolar routes half on |
+| X70 | one seed per LFO | a patch seed ties the LFOs' randomness |
+| X71 | Kuramoto details (Drawn from a chosen LFO, global, retrigger after silence, exact 2π) | — |
+| X72 | the new modulators' M settings are host parameters | no automation of gravity or the walk |
+| X73 | ORBITAL details (one global field; resets; Kick on the card; v* 0.5, τ 0.5 s; scales measured per preset, a user field at the maxima) | per-voice fields: an orbit per note, at 16× the CPU |
+| X74 | the 2-D random's details (Spring default, Lag kept, a pad is two Control routes, rows unipolar) | dropping Lag aligns it with the LFOs' travel set |
+| X75 | MPE bend range 48 st until B504 | 2 or 12 st makes a small slide a large move |
+| X76 | each route weight its own one-pole at `morph.glide`, none at a landing | glided weights would smear routes on a source's landing |
+| X77 | a Control route always takes the outside path | Control on the engine path would need ends and W per sample |
+| X78 | the four source levels and the noise cutoff join PA-4 (rate A) | without them, an envelope into a level would be a 1,500 Hz staircase on fast attacks |
+| X79 | Save under a position route stores the unglided target at the unmodulated position | storing the heard value would bake an LFO's sweep into the corner |
+| X80 | `mod` lives in the shell's document | inside IF-4, the engine's state would change version for data it never reads |
+| X81 | a quantized route always takes the outside path | snapping is control-rate by nature (hysteresis, minimum step time) |
 
-## 4. Where the draft is contradicted by a later ruling
+## 6. Where the draft was overtaken by later rulings
 
-1. **MD-33, MD-48, MD-49 (B396's five questions, open in the draft)** are ruled by ADR-372: fade with the corner, stop at zero, a per-patch loop setting defaulting to Allow, a preset into a corner loads minus the mapping with a warning, the pad follows the loop setting. Written as MS-24, MS-17, MS-30 to MS-35.
-2. **MD-44 (start phase, open)** is ruled by ADR-371 A1: a synced LFO has a start phase, 0 to 360°. LF-5.
-3. **MD-60's details and MD-29's starting curve (T11)** are ruled by ADR-371 A1: envelope mode holds its last point and falls along osc 1's release; a global LFO may use it; a new route starts linear. LF-13, MS-13.
-4. **MD-41's S&H "one seeded value drawn each cycle and held"** is extended by ADR-378: a travel stage follows every random shape, and S&H's default is its SLEW law. The lab's five smoothing modes (NONE, LINEAR, COSINE, CUBIC, SLEW) become three interpolations plus a travel stage. LF-9 to LF-11.
-5. **MD-40 (corners of different kinds mix by output, ADR-349's recommendation)** sits against **ADR-377** ("anything that can't blend naturally follows its quantum boundaries"). ADR-377 is about sounds, and this is a control signal, so the record does not settle it: [OPEN M3].
-6. **MD-14 / ADR-375's "8 bodies × 5 observables"** against **SPEC-ORBITAL §4 and ADR-165 A1**, which name acceleration (with a per-preset ceiling) and Wrap's sine and cosine observables, which the lab never built: [OPEN M4]. ADR-375 A1 then narrows the sources to bodies 1 to 4.
-7. **MD-19 ("modulator settings and the morph position wait on B396")** no longer waits: ADR-372 ruled the loop rules.
-8. **MD-2 (per-sample offsets on PA-4's keys)** is set aside by [X60]: in 1.0 no modulator runs above 40 Hz, so PA-3's ramp is the interpolation.
-9. **The draft's §7 FX table ("ENV 1 also an envelope follower")** sits beside X27, which reserves no space for an envelope follower. MS-38 leaves it out.
-10. **ADR-266 r6 (S&H also a mode on ORBITAL's mappings, with its own rate and sync)** is placed by no later ruling. This round puts it after 1.0 with sample-on-trigger ([X56]); the lead should confirm.
-11. **ADR-266 r4 and ADR-261 r3 (mappings global for 1.0)** are reversed by ADR-371 MQ17; the Map Mode spec was edited to match (GUI-51, ADR-371 A1).
-12. **SPEC-ORBITAL §5's "cap 32 steps per block"** would break DT-2 (block-size independence). MB-3 counts steps per sample, at most 8 per sample, as the lab does; at dt = 1/960 s and time ×4 that is under one step per sample at any certified rate.
-13. **SPEC-ORBITAL §12.6:** whichever energy regulator is kept, the other is deleted. ADR-375 A1 keeps the thermostat, so MB-2 states that the Van der Pol band is not built.
+1. MD-33, MD-48, MD-49: ADR-372.
+2. MD-44: ADR-371 A1 (start phase).
+3. MD-60 and MD-29: ADR-371 A1.
+4. MD-41: ADR-378 (the travel stage; SLEW becomes S&H's default travel).
+5. MD-40 against ADR-377: [OPEN M3], in a lab.
+6. MD-14's "×5 observables" against SPEC-ORBITAL §4: ADR-379 r5 (acceleration joins).
+7. MD-19: no longer waits.
+8. MD-1 and MD-3 (everything outside the engine): ADR-379 r2. The per-note LFOs and the engine path are now in the engine.
+9. MD-61 ("only a global LFO"): ADR-379 r3 adds the 2-D random.
+10. The draft's FX table ("ENV 1 also an envelope follower") against X27: left out.
+11. ADR-266 r6 (S&H on ORBITAL's mappings): after 1.0 under X56. Please confirm.
+12. SPEC-ORBITAL §5's "cap 32 steps per block" would break DT-2: MB-3 counts per sample.
+13. SPEC-ORBITAL §12.6: the Van der Pol band is not built.
 
-## 5. Round 61's Appendix D
+## 7. For the lead to record
 
-The round was written against Appendix D as `origin/b631-round-61` (`e9f28d97`) leaves it, with ADR-377's redraft (structure follows quantum) read from DECISIONS. It cites only MO rows that round 61 keeps (MO-4 to MO-12, MO-20, MO-25) and states nothing about setting sets. MS-28 restates MO-12's round-61 sentence (Exempt still modulated). MS-26 says why a route's depth blending is parametric under ADR-377. When round 61 merges, the conflict is the spec's blob line in `engine2/structure/engine-structure.json` and possibly the header lines both rounds touch; Appendix E sits after Appendix D's last section either way.
+- **ADR-379**, the human's six answers above. The text this round cites as ADR-379 r1 to r6 assumes that numbering.
+- **ADR-378**, the travel stage (cited, not yet in DECISIONS).
+- **The lead's calls:**
+  - M2 (b), minimal: PA-2's Control input;
+  - B4 [X79];
+  - the critic's should-fix 2 to 17 accepted as written in §3.
+- **A DECISIONS line for the engine change:** the engine gains the per-note LFOs, the engine path's closed form, PA-2's Control input, PA-4's longer list (rates C → A on five rows) and VO-10's note counter. This reverses RC-4's "must not require the engine to compute an LFO" for per-note LFOs (ADR-379 r2).
+- **An ENGINE-NEEDS check:** whether GUI rows assume per-note LFOs live outside the engine.
+- **Clean-room delivery** (memory: clean-room spec sync): after M3 and M4 are decided, deliver to both repos the same turn.
+- **Round 61's MO-22** unescaped `|` (§3 above).
+- **The structure file:** proposed blocks (§8).
 
-## 6. The structure file
+## 8. The structure file
 
 `engine2/structure/engine-structure.json`'s `spec.blob` is updated. It already has a `modulation` item with edges to `morph_resolver`, `parameters` and `voice`. Proposed, not added:
-- child items under `modulation`: `modulation.sources`, `modulation.matrix`, `modulation.lfo`, `modulation.kuramoto`, `modulation.orbital`, `modulation.xy_random`, `modulation.loops`, each citing its rows (MS, LF, MK, MB, MR);
-- edges: `transport->modulation` (RC-7: LF-4, MR-6, MB-8), `host->modulation` (IF-13: notes, CC 1, bend, pressure; MS-40's host block), `voice->modulation` (IF-3's published sources and VO-10's lifecycle), `modulation->pitch_system` (MS-22), `modulation->fx_rack` (MS-12 (c));
-- cites on the existing `modulation` item: IF-13, RC-4, Appendix E's family tags.
+- child items: `modulation.sources`, `modulation.matrix`, `modulation.lfo`, `modulation.kuramoto`, `modulation.orbital`, `modulation.xy_random` and `modulation.loops`, plus, in the engine, `voice.lfo` (the per-note LFOs) and `voice.route_terms` (the engine path);
+- edges:
+  - `transport->modulation`;
+  - `host->modulation`;
+  - `voice->modulation` (published sources, lifecycle with the note counter);
+  - `modulation->voice.route_terms`;
+  - `modulation->voice.lfo`;
+  - `modulation->pitch_system` (voice pitch's quantized contribution);
+  - `modulation->fx_rack`;
+  - `modulation->morph_resolver` (position offset, erosion flags);
+  - `morph_resolver->modulation` (resolved modulator keys, picks);
+- cites: IF-13, RC-4, MS-41, MS-43.
 
-## 7. Process notes (not spec rows)
+## 9. Process notes (not spec rows)
 
-- **Checks.** Each modulator, when ported, gets a `tools/*_check` with parity to its lab and seeded replay (the lead's process note). Two divergences the checks must allow, both deliberate: MS-5's purpose-keyed streams replace the lab's XOR words (`lfoSeed`, the 2-D random's salts), so parity is on the law with the draws injected; and MK-3 uses an exact 2π where the lab truncates it.
-- **Clean-room delivery.** The round reaches the clean room only after the [OPEN M] items are ruled (memory: clean-room spec sync — both repos the same turn).
-- **The lab's facilitator.** The [Xn] rows marked as the lead's can go to the human as one capped listening batch (Blind-Spot Armor), the 2-D random's travel and the S&H travel first.
+- **Checks.** Each modulator, when ported, gets a `tools/*_check` with parity to its lab and seeded replay. Two deliberate divergences:
+  - MS-5's purpose-keyed streams replace the lab's XOR words, so parity is on the law with the draws injected;
+  - MK-3 uses an exact 2π where the lab truncates it.
+- **Listening.** The [Xn] rows can go to the human as one capped listening batch (Blind-Spot Armor), the travel laws first.
 
-## 8. After 1.0 (named, not built)
+## 10. After 1.0 (named, not built)
 
-Note-on randoms; the trigger timer, its impulses and every trigger source; the MIDI gate and trigger; S&H's sample-on-trigger and the S&H mode on ORBITAL's mappings; ORBITAL's edge cushion; rails; the silent spring; a stepped destination kind; envelopes beyond ENV 1 to ENV 4; ORBITAL per-voice fields, grab and throw, persistence, distance scale and pair distances.
+Note-on randoms; the trigger timer, its impulses and every trigger source; the MIDI gate and trigger; S&H's sample-on-trigger and the S&H mode on ORBITAL's mappings; ORBITAL's edge cushion; rails; the silent spring; a stepped destination kind; envelopes beyond ENV 1 to ENV 4; waypoints and region locks on a modulator's keys; ORBITAL per-voice fields, grab and throw, persistence, distance scale and pair distances.
