@@ -8169,6 +8169,10 @@
    "reason": "The modulation system's behaviour, ruled by poll and lab; the page warning and device setting it implies are the GUI session's to record as GUI-n."
   },
   {
+   "adr": "ADR-380",
+   "reason": "A proposed CPU evaluation framework: measurement, oracle and process for the engine. No screen; a user-facing mode from it would be its own ruling."
+  },
+  {
    "adr": "GUI-44",
    "reason": "A gate: GUI 3's browser check wired into ./verify fast, a hole where there's no browser. No design element."
   }
