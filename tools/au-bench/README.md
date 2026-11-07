@@ -7,7 +7,7 @@ duration × 100. It exists to give the human a reference reading for a heavy
 **Xfer Serum 2** patch on this Mac (ADR-380, decision 4), the number that sets
 horde's CPU target.
 
-It measures and never judges. It is not a `./verify` gate (UNWIRED): it needs
+It measures and never judges. It is not a `./verify` gate: it needs
 real installed AUs and a quiet machine, so it runs by hand.
 
 | file | what it is |

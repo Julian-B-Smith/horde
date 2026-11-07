@@ -5,7 +5,7 @@
  * duration × 100. HYPERSAW, 2026-11-07, ROADMAP B638 (ADR-380 decision 4: the human's
  * reference reading of a heavy third-party patch on this same Mac).
  *
- * UNWIRED: it needs real installed Audio Units and a quiet machine, and it measures, never judges (PF-3: CPU is reported, never a gate), so it runs by hand.
+ * Not a ./verify gate: it needs real installed Audio Units and a quiet machine, and it measures, never judges (PF-3: CPU is reported, never a gate), so it runs by hand.
  *
  * WHERE THE CONDITIONS COME FROM. The test author's CPU tool,
  * cleanroom-tests:engine2/tests/cpu/main.cpp and pf3_chord.h beside it. Copied here, not
