@@ -156,6 +156,10 @@
   {
    "version": "1793941176-071d",
    "evidence": "docs/design/arp-face/README.md: Members at phase, its pills on one row, GUI-49, 2026-11-05"
+  },
+  {
+   "version": "1794029674-ea43",
+   "evidence": "docs/design/arp-face/README.md: what a random patch may be at low chaos, GUI-55, 2026-11-07"
   }
  ],
  "vendoring": {
@@ -6593,14 +6597,14 @@
    "clause": "what a random patch may be at low chaos: source switches, off sources untouched, rare simple blades, ENV 4's tight decay; A1: a source's envelope selector moves only at high chaos",
    "lab": null,
    "component": "RandomPanel",
-   "master_version": null,
+   "master_version": "1794029674-ea43",
    "bundle": "RandomPanel",
    "via": null,
-   "shell": null,
-   "state": "ruled",
+   "shell": "docs/design/gui3.html: const got = H.RandomPanel.sources(cur,",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "random-page",
-   "note": "Ruled; built after the lead's CPU hold. 'Often maps it to pitch' waits on route draws. FX device: none."
+   "note": "Built 2026-11-07: master 1794029674-ea43 (RandomPanel's draw hints, sources() and prior) and the shell's randomPlan, with self-check 4c8b. 'Often maps it to pitch' waits on route draws. FX device: none."
   },
   {
    "lab": "docs/design/osc-layout-lab.html",
