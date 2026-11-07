@@ -1440,7 +1440,7 @@
       "id": "member",
       "kind": "block",
       "label": "a member",
-      "multiplicity": "U, the oscillator's unison (1 to 16)",
+      "multiplicity": "U, the oscillator's unison (1 to 9)",
       "parent": "osc",
       "scope": "engine"
     },
@@ -2531,7 +2531,7 @@
     }
   ],
   "spec": {
-    "blob": "a9640eb3dca11d7eb936e5976e9c64d45df57e86",
+    "blob": "403ce4e279d35cd516be104e28867ac0856925d7",
     "path": "specs/SPEC-ENGINE.md"
   }
 }

@@ -79,7 +79,7 @@ PA-8's preamble, verbatim: a parameter not listed is live whenever its source is
 | `oscN.pan` | — | −1..+1 | lin | 0 | Shifts the whole oscillator's image left or right; members' seats shift with it and stop at the edges (C.8). | — | built |
 | `oscN.mute` | — | `off`, `on` | step | off | Silences the oscillator; it keeps running (IF-6). | — | built |
 | `oscN.solo` | — | `off`, `on` | step | off | While any source is soloed, only soloed sources sound (IF-6). | — | built |
-| `oscN.unison` | voices | 1..16 | step | 7 | How many members the swarm has. | — | built |
+| `oscN.unison` | voices | 1..9 | step | 7 | How many members the swarm has, at most 9 (round 63, ADR-381: more clicked and overloaded). A host's v always lands in 1..9 (IF-11); a count above 9 from the bank format or a version-0 state is clamped to 9 and reported (B.1). | — | built |
 | `oscN.distribution` | — | `even`, `JP-8000`, `Gaussian`, `Cauchy`, `golden` | step | JP-8000 | How the members are placed around the pitch: evenly, on the classic supersaw curve, or shaped by a seeded draw (C.2). | U > 1 and `detuneLaw` is not harmonic | built |
 | `oscN.seed` | — | 0..999 999 | step | osc 1: 1234 · osc 2: 1235 | Fixes every random choice of this oscillator (placement, drift, start phases, spreads), so a patch is the same swarm every time. Shown under an advanced menu. | — | built |
 | `oscN.detuneLaw` | — | `cents`, `Hz`, `ERB`, `harmonic` | step | cents | What detune means: equal cents (beats faster up the keyboard), equal Hz (the same beat everywhere), equal roughness (ERB), or members on harmonics of the pitch. [Q31] | — | built |
