@@ -20,6 +20,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -720,6 +722,83 @@ double pinned(Loaded& p, const preview_bridge_ext* bridge, long long& seq, int p
   post(p.plugin, bridge, seq, "\"type\":\"position\",\"x\":0.5,\"y\":0.5");
   blocks_of(p.plugin, 1, 256);
   return bridge->engine_v(p.plugin, horde::find_param("osc1.detune")->id);
+}
+
+// ---- each overrun on its own line in the session log (B642) -----------------------------------------------------------
+// With every sounding block counted as an overrun (the extension's overrun_at, 0), a chord held while the pad moves and
+// then rests must leave one line per overrun the totals count, in time order, each with its block size, the morph's
+// state (moving while the pad moves, still once it rests) and both unison counts as the engine holds them. The plant
+// that counts overruns but never records them must read as missing lines. Each run gets its own HOME, so its log is
+// the only one there.
+struct OverrunLines { int lines = 0, summary = -1, moving = 0, still = 0; bool frames_ok = true, unison_ok = true, ordered = true; };
+int count_of(const char* key, double v) {
+  const horde::ParamInfo* row = horde::find_param(key);
+  return row ? int(std::lround(row->lo + std::round(v * double(row->steps > 1 ? row->steps - 1 : 0)))) : -1;
+}
+OverrunLines overrun_lines(const char* clap, int preset) {
+  OverrunLines out;
+  const std::string before = std::getenv("HOME") ? std::getenv("HOME") : "";
+  char home[] = "/tmp/engine-preview-overruns-XXXXXX";
+  if (!mkdtemp(home)) return out;
+  setenv("HOME", home, 1);
+  mkdir((std::string(home) + "/Library").c_str(), 0755);
+  Loaded q;
+  const preview_bridge_ext* bridge = nullptr;
+  int unison[2] = {-1, -1};
+  if (q.open(clap) && (bridge = static_cast<const preview_bridge_ext*>(q.plugin->get_extension(q.plugin, kPreviewBridgeExt)))) {
+    bridge->overrun_at(q.plugin, 0);
+    long long seq = 0;
+    morph_reset(q.plugin, bridge, seq);
+    fresh(q, preset);
+    post_corners(q.plugin, bridge, seq, test_corners());
+    post(q.plugin, bridge, seq, "\"type\":\"morph\",\"settings\":{\"morph.glide\":0,\"morph.law\":0,\"morph.on\":1}");
+    blocks_of(q.plugin, 4);   // silent, so skipped and never counted
+    float l[512], r[512];
+    for (int b = 0; b < 40; ++b) {
+      if (b > 0 && b < 20) post(q.plugin, bridge, seq, "\"type\":\"position\",\"x\":" + num17(b / 20.0) + ",\"y\":0.5");
+      Events e;
+      if (b == 0) for (int k = 0; k < 4; ++k) e.note(true, 0, 9300 + k, kChord[k], kVelocity);
+      process(q.plugin, e, l, r, 512);
+      if (callback_requested) { callback_requested = false; q.plugin->on_main_thread(q.plugin); }
+    }
+    for (int k = 0; k < 2; ++k) {
+      const char* key = k == 0 ? "osc1.unison" : "osc2.unison";
+      unison[k] = count_of(key, bridge->engine_v(q.plugin, horde::find_param(key)->id));
+    }
+    q.plugin->stop_processing(q.plugin);
+    q.plugin->deactivate(q.plugin);   // writes the session log
+    q.plugin->destroy(q.plugin);
+    const std::string list = "ls " + std::string(home) + "/Library/Logs/horde-engine-preview/session-*.tsv 2>/dev/null";
+    std::string path;
+    if (FILE* ls = popen(list.c_str(), "r")) {
+      char line[1024];
+      if (std::fgets(line, sizeof line, ls)) path = line;
+      pclose(ls);
+    }
+    while (!path.empty() && (path.back() == '\n' || path.back() == '\r')) path.pop_back();
+    std::ifstream f(path);
+    std::string line;
+    bool in_lines = false;
+    double last = -1;
+    while (std::getline(f, line)) {
+      std::vector<std::string> col;
+      std::stringstream cells(line);
+      for (std::string c; std::getline(cells, c, '\t');) col.push_back(c);
+      if (!in_lines && col.size() == 5 && col[0] == kBank[preset].name) out.summary = std::atoi(col[4].c_str());
+      if (line.rfind("at_s\t", 0) == 0) { in_lines = true; continue; }
+      if (!in_lines || col.size() != 7) continue;
+      ++out.lines;
+      const double at = std::atof(col[0].c_str());
+      out.ordered = out.ordered && at > last;
+      last = at;
+      out.frames_ok = out.frames_ok && col[1] == kBank[preset].name && col[2] == "512";
+      out.moving += col[4] == "moving";
+      out.still += col[4] == "still";
+      out.unison_ok = out.unison_ok && std::atoi(col[5].c_str()) == unison[0] && std::atoi(col[6].c_str()) == unison[1];
+    }
+  }
+  setenv("HOME", before.c_str(), 1);
+  return out;
 }
 
 // ---- MO-26's fade, through the plug-in and, independently, offline (B639) -------------------------------------------
@@ -1502,7 +1581,19 @@ int main(int argc, char** argv) {
   (void)std::system(show.c_str());
   p.plugin->destroy(p.plugin);
 
+  // B642: each overrun on its own line, with the per-preset totals kept as they were.
+  {
+    const OverrunLines o = overrun_lines(argv[1], presets[0]);
+    check(o.summary > 0 && o.lines == o.summary,
+          "every overrun the totals count has its own line in the session log (" + std::to_string(o.lines) + " of " + std::to_string(o.summary) + ")");
+    check(o.ordered && o.frames_ok && o.unison_ok && o.moving > 0 && o.still > 0,
+          "each line holds its time (in order), the preset, the block size, the morph's state (" + std::to_string(o.moving) + " moving, " +
+              std::to_string(o.still) + " still) and both unison counts as the engine holds them");
+  }
+
   if (argc > 2) {
+    const OverrunLines dropped = overrun_lines(argv[2], presets[0]);
+    check(dropped.summary > 0 && dropped.lines != dropped.summary, "control: a build that counts overruns but never records them reads as missing lines");
     Loaded plant;
     check(plant.open(argv[2]), "the plant build loads");
     const auto heard = play(plant, routed, {128});

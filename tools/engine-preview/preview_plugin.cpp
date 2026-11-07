@@ -190,6 +190,27 @@ struct Stats {
   std::atomic<double> seconds{0}, audio_seconds{0}, worst{0};
 };
 
+// One block that took its whole time or more (B642), so the session log can say when each overrun fell and what the
+// morph and the unison counts were doing then; the per-preset totals above can't. `at_s`: seconds of audio this
+// instance had processed when the block began. `morph`: 0 off, 1 on and still, 2 moving (the resolver sent the engine
+// something during the block). `unison`: osc 1's and osc 2's counts as the engine held them after the block.
+struct OverrunRecord {
+  double at_s = 0, share = 0;
+  int preset = 0, morph = 0;
+  std::uint32_t frames = 0;
+  int unison[2] = {0, 0};
+};
+// The audio thread writes each record into this ring, preallocated in the plug-in, and the main thread drains it at
+// every write_stats (about every 2 s of audio, and at deactivate) into the log's list: nothing allocates on the audio
+// thread. One writer, one reader. 1024 slots hold every block of about 3 s at 128 frames, so a full ring means the
+// main thread stalled; what it can't hold is counted (`lost`), never dropped silently.
+constexpr std::uint64_t kOverrunRing = 1024;
+constexpr std::size_t kOverrunLines = 4096;   // records one session log keeps; later ones are counted, not written
+struct OverrunRing {
+  OverrunRecord slot[kOverrunRing];
+  std::atomic<std::uint64_t> head{0}, tail{0}, lost{0};
+};
+
 // One entry of the edit queue. Value: a parameter change, in the host's form for a host parameter (a stepped row's
 // option index) and in v for any other engine row; the host hears of it only when it is a host parameter, inside its
 // own gesture when `bracket` is set (a window edit, or a page set with no page gesture open). Begin and End: a page
@@ -408,11 +429,34 @@ struct Plugin {
   std::uint64_t frames_since_callback = 0;
   Stats stats[kBankSize];
   std::string log_path;
+  // B642: each overrun, for the session log. The ring is the audio thread's to write; the list and the count of
+  // records past kOverrunLines are the main thread's.
+  OverrunRing overrun_ring;
+  std::vector<OverrunRecord> overrun_log;
+  std::uint64_t overrun_not_kept = 0;
+  std::uint64_t frames_total = 0;     // audio thread: frames processed since activation, the records' clock
+  bool block_moving = false;          // audio thread: the resolver sent the engine something during this block
+  int unison_row[2] = {-1, -1};       // manifest indices of osc1.unison and osc2.unison, set at init
+  // Tests only (the bridge extension's overrun_at): a block counts as an overrun once it takes this share of its time.
+  std::atomic<double> overrun_at{1.0};
 };
 
 Plugin* self(const clap_plugin_t* p) { return static_cast<Plugin*>(p->plugin_data); }
 
+// Main thread: moves the audio thread's overrun records into the log's list (B642).
+void drain_overruns(Plugin& s) {
+  OverrunRing& r = s.overrun_ring;
+  std::uint64_t t = r.tail.load(std::memory_order_relaxed);
+  const std::uint64_t h = r.head.load(std::memory_order_acquire);
+  for (; t != h; ++t) {
+    if (s.overrun_log.size() < kOverrunLines) s.overrun_log.push_back(r.slot[t % kOverrunRing]);
+    else ++s.overrun_not_kept;
+  }
+  r.tail.store(t, std::memory_order_release);
+}
+
 void write_stats(Plugin& s) {
+  drain_overruns(s);
   if (s.log_path.empty()) {
     const char* home = std::getenv("HOME");
     if (!home) return;
@@ -440,6 +484,14 @@ void write_stats(Plugin& s) {
     std::fprintf(f, "%s\t%llu\t%.2f\t%.2f\t%llu\n", kBank[i].name, (unsigned long long)blocks, audio > 0 ? 100 * st.seconds.load(std::memory_order_relaxed) / audio : 0.0,
                  100 * st.worst.load(std::memory_order_relaxed), (unsigned long long)st.overruns.load(std::memory_order_relaxed));
   }
+  // B642: every overrun on its own line, in order, after the totals (whose format stays as it was).
+  std::fprintf(f, "# overruns, one line each in order: %zu written, %llu more not kept (at most %zu), %llu lost to a full ring\n", s.overrun_log.size(),
+               (unsigned long long)s.overrun_not_kept, kOverrunLines, (unsigned long long)s.overrun_ring.lost.load(std::memory_order_relaxed));
+  std::fprintf(f, "at_s\tpreset\tframes\tpct_of_block\tmorph\tosc1_unison\tosc2_unison\n");
+  static const char* const kMorph[3] = {"off", "still", "moving"};
+  for (const OverrunRecord& o : s.overrun_log)
+    std::fprintf(f, "%.3f\t%s\t%u\t%.2f\t%s\t%d\t%d\n", o.at_s, kBank[o.preset].name, o.frames, 100 * o.share, kMorph[std::clamp(o.morph, 0, 2)], o.unison[0],
+                 o.unison[1]);
   std::fclose(f);
   std::rename(temp.c_str(), s.log_path.c_str());
 }
@@ -1306,7 +1358,9 @@ void render(Plugin& s, const clap_process_t* proc, float* left, float* right, st
     if (resolver && s.events.size() && s.events.front().type == horde::EventType::Transport && pos == 0)
       resolver->transport(s.events.front().transport, resolver->clock());   // RC-7 for Stepped's sync (MO-10)
     // While the morph moves, one span per control interval, as for routes: each span then holds one boundary's events.
+#ifndef HORDE_PREVIEW_PROBE_WHOLE_SPANS   // B642's measurement build: the morph's events ride in whole spans instead
     if (resolver && (slot.settings.on || slot.busy)) span = std::min(span, std::uint32_t(slot.ci - clock % slot.ci));
+#endif
     // The span's first sample: its events, then the routes (PA-3's order, as the render harness plays them).
     while (next < n_in) {
       const clap_event_header_t* h = in->get(in, next);
@@ -1324,6 +1378,7 @@ void render(Plugin& s, const clap_process_t* proc, float* left, float* right, st
     pitch_streams(s, span);
     const std::size_t n_morph = resolver ? resolver->process(span, slot.morph_out.data(), slot.morph_out.size()) : 0;
     slot.busy = n_morph > 0;
+    s.block_moving = s.block_moving || n_morph > 0;
     if (n_morph == 0) {   // the morph said nothing: the path every span took before it existed
       engine.process(s.events.data(), s.events.size(), s.pitch.n_streams ? s.pitch.streams : nullptr, std::size_t(s.pitch.n_streams), left + pos, right + pos, int(span));
     } else {
@@ -1385,6 +1440,33 @@ void publish_heard_texts(Plugin& s, const Slot& slot) {
   s.heard_texts.write(t);
 }
 
+// Audio thread: one overrun into the ring (B642). A copy into a preallocated slot; a full ring is counted.
+void note_overrun(Plugin& s, int preset, std::uint32_t frames, double share) {
+  OverrunRing& r = s.overrun_ring;
+  const std::uint64_t h = r.head.load(std::memory_order_relaxed);
+  if (h - r.tail.load(std::memory_order_acquire) >= kOverrunRing) {
+    r.lost.fetch_add(1, std::memory_order_relaxed);
+    return;
+  }
+#ifndef HORDE_PREVIEW_PLANT_NO_OVERRUN_LINES   // smoke.cpp's must-fail build: overruns are counted but never recorded
+  OverrunRecord& o = r.slot[h % kOverrunRing];
+  o.at_s = double(s.frames_total) / s.sample_rate;
+  o.share = share;
+  o.preset = preset;
+  o.frames = frames;
+  const Slot& slot = *s.live;
+  o.morph = !slot.resolver || !slot.settings.on ? 0 : s.block_moving ? 2 : 1;
+  for (int k = 0; k < 2; ++k) {
+    const int m = s.unison_row[k];
+    if (m < 0) { o.unison[k] = 0; continue; }
+    const horde::ParamInfo& row = *rows().all[std::size_t(m)];
+    const double v = s.heard[std::size_t(m)].load(std::memory_order_relaxed);
+    o.unison[k] = int(std::lround(row.lo + std::round(v * double(row.steps > 1 ? row.steps - 1 : 0))));
+  }
+  r.head.store(h + 1, std::memory_order_release);
+#endif
+}
+
 clap_process_status plugin_process(const clap_plugin_t* p, const clap_process_t* proc) {
   Plugin& s = *self(p);
   bool want_callback = false;
@@ -1427,6 +1509,7 @@ clap_process_status plugin_process(const clap_plugin_t* p, const clap_process_t*
       s.out_peak.store(0, std::memory_order_relaxed);
     }
     s.idle_blocks.fetch_add(1, std::memory_order_relaxed);
+    s.frames_total += frames;
     s.frames_since_callback += frames;
     if (want_callback || s.frames_since_callback >= std::uint64_t(2 * s.sample_rate)) {
       s.frames_since_callback = 0;
@@ -1436,6 +1519,7 @@ clap_process_status plugin_process(const clap_plugin_t* p, const clap_process_t*
   }
   const int preset = s.live->preset;
   const bool was_silent = s.live->engine->silent();
+  s.block_moving = false;
   const auto t0 = std::chrono::steady_clock::now();
   horde2::underFlushToZero([&] { render(s, proc, left, right, frames); });
   const auto t1 = std::chrono::steady_clock::now();
@@ -1471,8 +1555,12 @@ clap_process_status plugin_process(const clap_plugin_t* p, const clap_process_t*
     st.seconds.store(st.seconds.load(std::memory_order_relaxed) + took, std::memory_order_relaxed);
     st.audio_seconds.store(st.audio_seconds.load(std::memory_order_relaxed) + audio, std::memory_order_relaxed);
     if (took / audio > st.worst.load(std::memory_order_relaxed)) st.worst.store(took / audio, std::memory_order_relaxed);
-    if (took >= audio) st.overruns.store(st.overruns.load(std::memory_order_relaxed) + 1, std::memory_order_relaxed);
+    if (took >= audio * s.overrun_at.load(std::memory_order_relaxed)) {
+      st.overruns.store(st.overruns.load(std::memory_order_relaxed) + 1, std::memory_order_relaxed);
+      note_overrun(s, preset, frames, took / audio);
+    }
   }
+  s.frames_total += frames;
   s.last_frames.store(frames, std::memory_order_relaxed);
 
   s.frames_since_callback += frames;
@@ -1512,6 +1600,7 @@ void plugin_on_main_thread(const clap_plugin_t* p) {
 bool plugin_activate(const clap_plugin_t* p, double sample_rate, std::uint32_t, std::uint32_t max_frames) {
   Plugin& s = *self(p);
   s.sample_rate = sample_rate;
+  s.frames_total = 0;   // the overrun records' clock starts at each activation (B642)
   s.max_block = max_frames ? int(std::min<std::uint32_t>(max_frames, kEngineMaxBlock)) : kEngineMaxBlock;
   s.events.reserve(kMaxEvents + 1);
   s.morph_events.reserve(kMorphEvents);
@@ -1567,6 +1656,8 @@ bool plugin_init(const clap_plugin_t* p) {
   s.session.sent.assign(t.all.size(), NAN);
   s.session.gesture_open.assign(t.all.size(), false);
   s.wanted_preset.store(default_preset(), std::memory_order_relaxed);
+  for (int k = 0; k < 2; ++k)
+    if (const horde::ParamInfo* row = horde::find_param(k == 0 ? "osc1.unison" : "osc2.unison")) s.unison_row[k] = manifest_index(row->id);
   return true;
 }
 
@@ -2369,7 +2460,9 @@ bool ext_note_pitch(const clap_plugin_t* p, std::int32_t note_id, double* played
   }
   return false;
 }
-const preview_bridge_ext kBridgeExt = {ext_receive, ext_frame, ext_engine_v, ext_note_pitch};
+void ext_overrun_at(const clap_plugin_t* p, double fraction) { self(p)->overrun_at.store(fraction, std::memory_order_relaxed); }
+
+const preview_bridge_ext kBridgeExt = {ext_receive, ext_frame, ext_engine_v, ext_note_pitch, ext_overrun_at};
 
 const void* plugin_get_extension(const clap_plugin_t*, const char* id) {
   if (!std::strcmp(id, CLAP_EXT_PARAMS)) return &kParams;

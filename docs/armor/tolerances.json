@@ -604,6 +604,24 @@
       "value": "<1e-6 | >0.01 | >0.01 | >0.01 | <1e-6 | >0.01 | <1e-3 | >0.01"
     },
     {
+      "approved": "the human, 2026-11-07, by poll: Register them (the morph probe's switch-reading thresholds)",
+      "file": "tools/engine-preview/morph_hole.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/engine-preview/morph_hole.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": ">0.5 | >1e-3"
+    },
+    {
+      "approved": "the human, 2026-11-07, by poll: Register them (the morph probe's switch-reading thresholds)",
+      "file": "tools/engine-preview/morph_probe.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/engine-preview/morph_probe.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": ">0.5 | >=0.5"
+    },
+    {
       "approved": "baseline 2026-10-08",
       "file": "tools/filter_check.cpp",
       "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
