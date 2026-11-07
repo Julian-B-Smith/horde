@@ -839,6 +839,31 @@ function morphBench() {
 // A draw is one undo step of real writes to the stub's corners; only the FX routing level's chains stay outside undo, with FxChains (GN-3). What a profile holds is a stand-in until the role set is authored. The corners and snapshots stay on the Morph page, so there's one corner-and-snapshot UI (ADR-322 r2). The Random lab stays the research bench (ADR-316).
 const RAND_EXEMPT = ['octave', 'semitone', 'pitch', 'fine'], RAND_NEVER = ['mute', 'solo', 'level', 'pan', 'seed'];
 const RAND_PROFILES = [['Mono bass', .25, ['fxroute']], ['Pad', .4, []], ['Pluck', .35, []], ['Lead', .4, []], ['Arp', .35, []], ['Common', .3, []], ['Anything', .85, []]].map(p => ({ name: p[0], chaos: p[1], amount: 1, locks: p[2] }));
+// GUI-55: what a random patch may be. The sources go by the master's role names. A source's or blade's switch is its id plus '.on', built here so no key is written out.
+const RAND_SOURCES = [['osc1', 'main'], ['osc2', 'second'], ['sub', 'sub'], ['noise', 'noise']], randOn = id => [id, 'on'].join('.'), ENV4_DECAY = ['env4', 'decay'].join('.');
+const randBlade = key => { const s = key.split('.'); return s.length > 2 && /^blade\d$/.test(s[1]) ? s[0] + '.' + s[1] : null; };
+// One corner's writes for a draw, worked out before anything is written, so the self-check can count the rules' breaches over many draws.
+// The order is the point. The sources' switches come first (r2, whole-patch buttons only), then each level's blade switches (r4), then the rest.
+// Whatever is left off is skipped, so an off source's or blade's settings are never drawn (r3), and a level press never draws its own source's switch (r1).
+// A source's envelope selector is drawn on its own, by A1's rising chance.
+function randomPlan(ls, kind, p, c) {
+  const D = H.RandomPanel.draw, P = H.RandomPanel.prior, seed = p.seed + c * 7919, out = {}, off = [];
+  const at = k => k in out ? out[k] : dev.corner(k, c), isOn = k => !ROW[k] || optLabel(ROW[k], at(k)) === 'on', as = (k, on) => { const o = ROW[k].options; return o.indexOf(on ? 'on' : 'off') / (o.length - 1); };
+  if (p.patch && kind !== 'params') { const cur = {}; RAND_SOURCES.forEach(([id, role]) => { cur[role] = isOn(randOn(id)) ? 1 : 0; });
+    const got = H.RandomPanel.sources(cur, p.chaos, p.amount, seed, p.click); RAND_SOURCES.forEach(([id, role]) => { if (got[role] !== cur[role]) out[randOn(id)] = as(randOn(id), got[role] === 1); }); }
+  ls.forEach(l => { if (l.custom || !l.rows) return;
+    if (l.source && !isOn(randOn(l.source))) { off.push(l.name); return; }
+    ['arch', 'params'].forEach(kd => { if (kind !== 'both' && kind !== kd) return;
+      const mine = l.rows.filter(r => (kd === 'arch' ? r.class === 'S' : r.class === 'M') && !(l.source && r.key === randOn(l.source)));
+      const sw = mine.filter(r => randBlade(r.key) && r.key === randOn(randBlade(r.key))), before = Object.keys(out).length;
+      Object.entries(D(sw.map(r => ({ key: r.key, n: 2, home: at(r.key), p: P.blade(p.chaos) })), 'blades', p.chaos, p.amount, seed, p.click, l.id)).forEach(([k, v]) => { out[k] = as(k, v === 1); });
+      const env = l.source && mine.find(r => r.key === [l.source, 'env'].join('.'));   // A1: the source's envelope selector moves only near the top of the range, and then only by chance (Amount carries that chance)
+      if (env) Object.assign(out, D([{ key: env.key, n: env.options.length, home: at(env.key) }], 'env', p.chaos, P.env(p.chaos) * p.amount, seed, p.click, l.id));
+      const rows = mine.filter(r => !sw.includes(r) && r !== env && !(randBlade(r.key) && !isOn(randOn(randBlade(r.key))))).map(r => { const q = { key: r.key, n: r.options ? r.options.length : 0, home: at(r.key) }; if (randBlade(r.key)) q.lean = true; if (r.key === ENV4_DECAY) q.centre = P.tight; return q; });
+      let got = D(rows, kd, p.chaos, p.amount, seed, p.click, l.id); if (kd === 'arch' && rows.length && Object.keys(out).length === before && !Object.keys(got).length) got = D(rows.slice(0, 1), kd, p.chaos, 1, seed, p.click, l.id);   // ARCH must change (report finding 1)
+      Object.assign(out, got); }); });
+  return { out, off };
+}
 function randomizeCorner() { const c = selectedCorner(); if (c !== null) return c; const w = dev.morph().weights; return w.indexOf(Math.max(...w)); }
 let randPanel = null, randLevels = [];
 function randomizePanel() {
@@ -847,19 +872,19 @@ function randomizePanel() {
   const block = pre => DATA.params.filter(r => pre.some(p => r.key.startsWith(p + '.'))).map(r => r.key);
   const monitor = id => host => { [['S', 'solo', 'Solo'], ['M', 'mute', 'Mute']].forEach(([t, row, nm]) => { const k = id + '.' + row, b = h('button', { type: 'button', class: 'hd-focus', text: t, title: nm + ' ' + PG[id].label + ': monitoring, never drawn or stored (ADR-318)' }); b.addEventListener('click', () => { dev.set(k, isOnKey(k) ? 0 : 1); }); views.push({ page: 'random', update() { b.setAttribute('aria-pressed', String(isOnKey(k))); } }); host.append(b); }); };
   const fxScreens = []; PG.fx.groups.forEach(g => { if (g.screen && !fxScreens.some(f => f.screen === g.screen)) fxScreens.push({ screen: g.screen, keys: [] }); const f = fxScreens.find(q => q.screen === g.screen); if (f) f.keys.push(...g.controls.map(c => c.key)); });
-  randLevels = ['osc1', 'osc2', 'sub', 'noise'].map(id => level(id, PG[id].label, block([id]), { monitor: monitor(id) })).concat(
+  randLevels = ['osc1', 'osc2', 'sub', 'noise'].map(id => level(id, PG[id].label, block([id]), { monitor: monitor(id), source: id })).concat(
     [level('voice', 'Voice', block(['voice'])), level('env', 'Envelopes', block(['env1', 'env2', 'env3', 'env4'])), level('arp', 'Arp', PG.arp.groups.flatMap(g => g.controls.map(c => c.key))),
      { id: 'filters', name: 'Filters', mock: 'Waits on Weir\u2019s rows.' }, { id: 'lfos', name: 'LFOs', mock: 'Waits on the LFOs\u2019 rows (RC-4).' },
      { id: 'fxroute', name: 'FX routing', rows: [], arch: 1, params: 0, custom: true }], fxScreens.map(f => level('fx-' + f.screen, f.screen, f.keys)));
   const host = h('div', { style: 'flex: 1 1 100%; min-width: 0' });
   randPanel = H.RandomPanel(host, { levels: randLevels, profiles: RAND_PROFILES, keys: () => S.keys, selected: randomizeCorner, say: t => S.say(t), undo: () => { if (dev.undo()) S.say('The draw is undone'); },
     exemptNames: ['Scale', 'Root', 'Octave', 'Semitone', 'Coarse', 'Fine', 'Master tune'],
-    draw: (ls, kind, p) => { const on = dev.morph().on, all = p.all && on, cs = all ? [0, 1, 2, 3] : [randomizeCorner()]; let n = 0; dev.begin('Randomize');
-      cs.forEach(c => ls.forEach(l => { ['arch', 'params'].forEach(kd => { if (kind !== 'both' && kind !== kd) return; if (l.custom) { if (kd === 'arch' && fxPatch) { fxPatch.graph.draw(c, H.Synth.rng((p.seed * 131 + p.click * 977 + c) | 0), p.chaos); fxPatch.redraw(); n++; } return; }
-        const rows = l.rows.filter(r => kd === 'arch' ? r.class === 'S' : r.class === 'M').map(r => ({ key: r.key, n: r.options ? r.options.length : 0, home: dev.corner(r.key, c) }));
-        let got = H.RandomPanel.draw(rows, kd, p.chaos, p.amount, p.seed + c * 7919, p.click, l.id); if (kd === 'arch' && rows.length && !Object.keys(got).length) got = H.RandomPanel.draw(rows.slice(0, 1), kd, p.chaos, 1, p.seed + c * 7919, p.click, l.id);   // ARCH must change (report finding 1)
-        Object.entries(got).forEach(([k, v]) => { if (dev.set(k, v, { corner: c }) !== null) n++; }); }); })); dev.end();
-      S.say('Drew ' + n + ' values into ' + (all ? 'all four corners' : 'corner ' + 'ABCD'[cs[0]]) + (p.all && !on ? ' (morph is off, so only the corner you hear)' : '') + ', seed ' + p.seed + ', draw ' + p.click); },
+    draw: (ls, kind, p) => { const on = dev.morph().on, all = p.all && on, cs = all ? [0, 1, 2, 3] : [randomizeCorner()]; let n = 0, off = []; dev.begin('Randomize');
+      cs.forEach(c => { if (fxPatch && kind !== 'params' && ls.some(l => l.custom)) { fxPatch.graph.draw(c, H.Synth.rng((p.seed * 131 + p.click * 977 + c) | 0), p.chaos); fxPatch.redraw(); n++; }
+        const plan = randomPlan(ls, kind, p, c); off = plan.off; Object.entries(plan.out).forEach(([k, v]) => { if (dev.set(k, v, { corner: c }) !== null) n++; }); }); dev.end();
+      const offNote = off.length ? off.join(' and ') + (off.length > 1 ? ' are' : ' is') + ' off, so the draw left ' + (off.length > 1 ? 'them' : 'it') + ' alone' : '';   // GUI-55 r3
+      if (!n && offNote) { S.say(offNote); return; }
+      S.say('Drew ' + n + ' values into ' + (all ? 'all four corners' : 'corner ' + 'ABCD'[cs[0]]) + (p.all && !on ? ' (morph is off, so only the corner you hear)' : '') + ', seed ' + p.seed + ', draw ' + p.click + (offNote ? '; ' + offNote : '')); },
     copy: (l, kind, from, to) => { if (from === to) { S.say('Those are the same corner'); return; } dev.begin('Copy ' + l.name); let n = 0; if (l.custom && fxPatch) { fxPatch.graph.corners[to] = Object.assign({}, fxPatch.graph.corners[from]); fxPatch.redraw(); n = 1; } (l.rows || []).filter(r => kind === 'both' || (kind === 'arch' ? r.class === 'S' : r.class === 'M')).forEach(r => { if (dev.set(r.key, dev.corner(r.key, from), { corner: to }) !== null) n++; }); dev.end(); S.say('Copied ' + n + ' of ' + l.name + ' from ' + 'ABCD'[from] + ' to ' + 'ABCD'[to] + (dev.morph().on ? '' : ' (morph is off: only the corner you hear takes writes)')); } });
   views.push({ page: 'random', update() { randPanel.repaint(); } });
   const el = card('Randomize', 'MOCK', [host, h('span', { class: 'hd-hint', text: 'A mock-up of the ruled 1.0 panel. Draws write the stub\u2019s corners, and undo takes them back. A profile only sets Chaos, Amount and locks until the role set is authored. Mod rules aren\u2019t drawn yet.' })]);
@@ -2401,6 +2426,29 @@ CLOCK.checking = true;
     const h0 = dev.history().past.length; gesture(X(T * .5), 2, 40, 0); const nothing = dev.history().past.length === h0 && dev.shown(K.a) === a0 && dev.shown(K.ac) === ac0; sec.setPointerCapture = cap;
     const curvesOn = ['osc1', 'osc2', 'sub', 'noise', 'dashboard'].every(id => DATA.pages.find(p => p.id === id).groups.filter(g => g.follow).every(g => g.controls.some(c => /attackCurve$/.test(c.key)) && g.controls.some(c => /decayCurve$/.test(c.key)) && g.controls.some(c => /releaseCurve$/.test(c.key)))); selectPage(pg0);
     line(sMoved && oneStep && undone && curveWrote && nothing && curvesOn, 'Envelope drag (GUI-39): a node moves its row in one undo step, a stage writes its curve, empty glass does nothing (control), and every section and card carries the three curves.'); }
+  // 4c8b. GUI-55, over seeded draws at Chaos .1 and .85 into corner A, nothing written. Each of these must hold:
+  //   a level press never draws its own switch;
+  //   a patch keeps osc 1 on or the sub alone, and never osc 2 alone;
+  //   an off source's or blade's settings are never drawn;
+  //   blades are rarer at low Chaos and lean low;
+  //   ENV 4's decay is drawn tight.
+  //   a source's envelope selector never moves at Chaos .1, and does sometimes at .85 (A1).
+  // The control is GUI-38's rule, which drew every switch. It must breach rule 2 on the same draws, or this check is blind to the breach it counts.
+  { const P = H.RandomPanel.prior, D = H.RandomPanel.draw, c0 = 0, N = 120, on = (pl, k) => optLabel(ROW[k], k in pl.out ? pl.out[k] : dev.corner(k, c0)) === 'on';
+    const srcLv = randLevels.filter(l => l.source), envLv = randLevels.find(l => l.id === 'env'), all = randLevels.filter(l => !l.mock && !l.custom), mean = a => a.reduce((x, y) => x + y, 0) / Math.max(1, a.length);
+    let r1 = 0, r2 = 0, r3 = 0, ctl = 0, offSeen = 0; const envMoved = { 0.1: 0, 0.85: 0 }; const bl = { 0.1: [], 0.85: [] }, decay = [];
+    [.1, .85].forEach(ch => { for (let i = 1; i <= N; i++) { const p = { chaos: ch, amount: 1, seed: 7, click: i, patch: true }, lv = Object.assign({}, p, { patch: false });
+      srcLv.forEach(l => { const pl = randomPlan([l], 'both', lv, c0); if (randOn(l.source) in pl.out) r1++; if (!on({ out: {} }, randOn(l.source))) { offSeen++; if (Object.keys(pl.out).length) r3++; } });
+      const pl = randomPlan(all, 'both', p, c0), s = RAND_SOURCES.map(([id]) => on(pl, randOn(id))); RAND_SOURCES.forEach(([id]) => { if ([id, 'env'].join('.') in pl.out) envMoved[ch]++; });
+      if (!(s[0] || (s[2] && !s[1] && !s[3])) || (s[1] && !s[0] && !s[2] && !s[3])) r2++;
+      Object.keys(pl.out).forEach(k => { const src = k.split('.')[0], b = randBlade(k); if (RAND_SOURCES.some(([id]) => id === src) && k !== randOn(src) && !on(pl, randOn(src))) r3++; if (b && k !== randOn(b) && !on(pl, randOn(b))) r3++; });
+      RAND_SOURCES.slice(0, 2).forEach(([id]) => { if (on(pl, randOn(id))) ['blade1', 'blade2'].forEach(b => bl[ch].push(on(pl, randOn([id, b].join('.'))) ? 1 : 0)); });
+      const old = D(RAND_SOURCES.map(([id]) => ({ key: randOn(id), n: 2, home: dev.corner(randOn(id), c0) })), 'arch', ch, 1, 7, i, 'gui38'), o = RAND_SOURCES.map(([id]) => optLabel(ROW[randOn(id)], randOn(id) in old ? old[randOn(id)] : dev.corner(randOn(id), c0)) === 'on');
+      if (!(o[0] || (o[2] && !o[1] && !o[3])) || (o[1] && !o[0] && !o[2] && !o[3])) ctl++;
+      if (ch === .1) { const d = randomPlan([envLv], 'params', lv, c0).out[ENV4_DECAY]; if (d !== undefined) decay.push(Math.abs(d - P.tight)); } } });
+    const lean = q => mean(Array.from({ length: 60 }, (_, i) => D([q], 'params', .1, 1, 3, i + 1, 'x').x)), leanLow = lean({ key: 'x', n: 0, home: .6, lean: true }), leanCtl = lean({ key: 'x', n: 0, home: .6 });
+    const rare = mean(bl[0.1]) <= .1 && mean(bl[0.1]) < mean(bl[0.85]), tight = decay.length > 20 && mean(decay) < .08;
+    line(!r1 && !r2 && !r3 && ctl > 0 && rare && tight && leanLow < .3 && leanCtl > .45 && !envMoved[0.1] && envMoved[0.85] > 0, 'Random patches (GUI-55), ' + 2 * N + ' draws each: a level press flipped its own switch ' + r1 + ' times; a patch broke the source rule ' + r2 + ' times (GUI-38’s rule, control: ' + ctl + '); an off source’s or blade’s settings were drawn ' + r3 + ' times (' + offSeen + ' level presses on an off source); blades on ' + (100 * mean(bl[0.1])).toFixed(0) + ' % at Chaos .1 and ' + (100 * mean(bl[0.85])).toFixed(0) + ' % at .85; a leaning row drew around ' + leanLow.toFixed(2) + ' from home .6 (control ' + leanCtl.toFixed(2) + '); ENV 4’s decay drew ' + mean(decay).toFixed(3) + ' from its tight centre; a source’s envelope selector moved ' + envMoved[0.1] + ' times at Chaos .1 and ' + envMoved[0.85] + ' at .85 (A1).'); }
   // 4c9. GUI-35: the Dial is across the Sub page and on Main's Sub tab and the Dashboard's card. Drive and Erode show on it, and the card's own picture follows a setting.
   { const pg0 = page, Y = H.Synth, base = { wave: 'sine', width: .5, softness: 0, harmA: 2, ampA: 0, phaseA: 0, harmB: 3, ampB: 0, phaseB: 0, octave: -1, drive: 0, crunch: 0, character: 'Tube', tone: 18000, order: 'tone, env → drive', erode: 0 }, hot = o => { const y = Y.subCycle(o, 256); let n = 0; y.forEach(q => { if (Math.abs(q) > .9) n++; }); return n / 256; };
     const clean = hot(base), full = hot(Object.assign({}, base, { drive: 1 })), n = new Float32Array(256).map((_, i) => Math.sin(i * 3.1)), sameCycle = (a, b) => a.every((q, i) => q === b[i]), e0 = sameCycle(Y.subCycle(base, 256), Y.subCycle(base, 256, n)), e8 = !sameCycle(Y.subCycle(base, 256), Y.subCycle(Object.assign({}, base, { erode: .8 }), 256, n));
