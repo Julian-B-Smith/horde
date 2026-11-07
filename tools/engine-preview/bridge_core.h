@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "horde_engine.h"
+#include "morph_core.h"
 
 namespace preview::bridge {
 
@@ -50,6 +51,7 @@ struct Want {
   bool members = false;         // members' phases and levels
   bool cycles = false;          // GN-41's member cycles: the engine has none yet, so this slice never sends them
   bool summed = false;          // GN-4's summed output, the plug-in's own tap (B632): observe.summed
+  bool morph = false;           // the morph system's state and what it resolved (B636): the snapshot's `morph`
 };
 
 enum class Kind {
@@ -59,9 +61,16 @@ enum class Kind {
   Preset,    // the bank preset to load
   Plugin,    // the test plug-in's own Voices setting
   Hello,     // the page has loaded: its manifest hash, for the mismatch banner
-  Held,      // morph, position, modes, rack, midi, clear, or a type nobody knows: acknowledged and dropped
+  Morph,     // D.2's settings, by key (B636): `settings`
+  Position,  // the pad's position: `x`, `y`
+  Modes,     // MO-11's mode and count of every key, whole: `modes` (a key it doesn't name is Follow, As the morph)
+  Corner,    // values written into one corner (the bridge's seam for a corner edit): `index`, `values`
+  Save,      // MO-25's Save current sound into corner `index`
+  Held,      // rack, midi, clear, or a type nobody knows: acknowledged and dropped
   Invalid,   // unreadable, or no numeric seq: nothing to acknowledge
 };
+// A `modes` entry's key: a KeyMap index, or one of these for the two `oscN.ratios` texts (MO-14 item 3).
+constexpr int kRatiosKey[2] = {-2, -3};
 
 struct Message {
   Kind kind = Kind::Invalid;
@@ -77,10 +86,15 @@ struct Message {
   bool gesture_begin = false;
   std::string gesture_key;
   Want want;                           // Want
-  int index = -1;                      // Preset
+  int index = -1;                      // Preset; Corner and Save: the corner, 0 to 3 (A to D), else -1
   int voices = -1;                     // Plugin: an old page's Voices, which the plug-in holds and drops
   bool has_hash = false;               // Hello
   std::string page_hash, page_manifest;   // Hello: the page's hash, and its manifest text if it sent one
+  std::vector<std::pair<int, double>> settings;   // Morph: D.2 index (morph_core.h), v clamped to [0, 1]
+  bool has_position = false;           // Position: both finite numbers, clamped to [0, 1]
+  double x = 0, y = 0;
+  struct KeyMode { int key; morph::KeyChoice choice; };   // Modes: key (a KeyMap index or kRatiosKey)
+  std::vector<KeyMode> modes;
 };
 
 // Parses one message. Never throws; an unreadable one comes back Invalid with `error` set.
@@ -98,12 +112,17 @@ Mismatch check_hello(const Message& hello, const std::string& engine_hash, const
 // The existing magic-line text, version 2: the preset and every engine row whose v differs from what that preset
 // loads, by id. Version 1 (every exposed row, absolute) reads the same way: each line is a value to apply. A `voices`
 // line, which both versions wrote until the human ruled "One control: Polyphony" (2026-11-05), is read and ignored.
+// Version 3 (B636) adds the morph system's lines (morph_core.h, State) after the rows. It is written only when the
+// morph holds something a load wouldn't rebuild by itself; otherwise the chunk is version 2, byte for byte as before,
+// so an untouched patch saves exactly what it did. Versions 1 and 2 load with the morph at its defaults.
 struct SavedState {
   int preset = 0;
   std::vector<std::pair<std::uint32_t, double>> values;   // id, v
+  morph::State morph;
 };
 extern const char* const kStateMagic1;
 extern const char* const kStateMagic2;
+extern const char* const kStateMagic3;
 std::string write_state(const SavedState& s);
 bool read_state(std::string_view text, SavedState& out);   // false: not ours, and nothing is applied
 // The rows of `current` that differ from `loaded` (both indexed like `ids`), as (id, v).
@@ -143,10 +162,46 @@ struct FrameInputs {
 };
 std::string observe_json(const FrameInputs& in, const Want& want);
 
+// The snapshot's `morph` member (B636), only when `want.morph` asks; section 3 has no shape for it, so this is the
+// simplest that carries RC-11.1's state and what the resolver resolved, in the frame-and-want pattern of the rest:
+//   {x, y, dropped, unknown,             every frame: the position, the edits of morphing keys refused while on, and
+//                                        resolver events of a kind this build doesn't forward (never silent)
+//    settings: {key: v},                 D.2's thirteen, only when they changed
+//    modes: {key: "quantum"|"exempt"},   whole, only when changed; counts: {key: 2|4}, likewise
+//    corners: [{key: v}, x4],            each corner's rows that changed since last sent (all of them after a load)
+//    ratios: [[osc1, osc2], x4],         the corners' texts, only when changed
+//    heard: {key: v},                    the engine's stored value of each row that changed since last sent: what the
+//                                        morph (or an edit) left there; a blending group's keys hold its heaviest
+//                                        setting's (IF-4)
+//    texts: [osc1, osc2],                the ratios texts the engine heard last, only when changed
+//    sets: [{group, voice, settings: [{id, target, heard}]}]   IF-10's heard setting set of every group that holds one,
+//                                        for the lowest sounding voice; every frame while one does
+//   }
+struct HeardGroup {
+  const char* group = nullptr;
+  int voice = -1;
+  int n = 0;
+  int id[horde::kMaxHeardSettings] = {};
+  double target[horde::kMaxHeardSettings] = {}, heard[horde::kMaxHeardSettings] = {};
+};
+struct MorphFrame {
+  double x = 0, y = 0;
+  std::uint64_t dropped = 0, unknown = 0;
+  const double* settings = nullptr;                                   // morph::kSettings values, or null: unchanged
+  const std::vector<std::pair<std::string, morph::KeyChoice>>* modes = nullptr;   // non-default keys, or null
+  const std::vector<std::pair<std::string, double>>* corners[4] = {};   // per corner: changed rows, or null
+  const std::string (*ratios)[2] = nullptr;                           // four corners' texts, or null
+  const std::vector<std::pair<std::string, double>>* heard = nullptr;
+  const std::string* texts = nullptr;                                 // two heard texts, or null
+  const std::vector<HeardGroup>* sets = nullptr;
+};
+std::string morph_json(const MorphFrame& m);
+
 // One snapshot's pieces. `ack` and `observe` ride every frame; the rest only when set (section 3).
 struct Pieces {
   std::int64_t ack = 0;
   std::string observe;                                     // observe_json's output
+  std::string morph;                                       // morph_json's output, or empty: no `morph` member
   const std::vector<std::pair<std::string, double>>* params = nullptr;   // key, v
   std::string events;                                      // a JSON array, or empty
   const std::vector<std::string>* preset_names = nullptr;

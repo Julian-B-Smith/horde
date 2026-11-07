@@ -1,0 +1,23 @@
+# b636-morph-bridge — the test plug-in hosts the morph system and plays the clean room's resolver
+
+- **Queue item:** B636 (the human, by poll: "Wire morph into the plug-in"; ADR-370, ADR-373, ADR-376, ADR-377).
+- **Why:** so the human can morph between four corners in Live on the GUI-on-engine build (`tools/engine-preview/`), with GUI 3's Morph page driving a real resolver whose events reach the clean-room engine.
+- **What changed:**
+  - **The morph system in the plug-in (RC-11.1):** four corners (every manifest row as v, both `ratios` texts), the position, D.2's thirteen settings and each key's mode and count. Each engine slot gets its own resolver from `make_morph_resolver()`, prepared on the main thread beside its engine and fed the whole system at sample 0, so the two clocks run in lockstep (MO-3). Allocation-free on the audio thread: every buffer is sized at build or activation.
+  - **Generic forwarding (IF-12):** whatever the resolver emits goes on in the same span: `Param` as engine events, `Ratios` through `set_ratios` with the span cut at the text's sample, `SettingSet` as engine events, `fx/` sets dropped (no rack), and a kind this build doesn't know counted in the frame (`morph.unknown`). Resolver events merge after the span's own events at a shared sample, as the clean room's render harness injects them. While the morph moves, spans are cut at each control interval (as for routed presets); a still morph lets a silent engine be skipped.
+  - **The page's messages:** `morph {settings}` (D.2 by key, in v), `position {x, y}`, `modes {modes, counts}` (the whole menu), plus two the bridge adds as seams: `corner {index, values}` and `save {index}` (MO-25 from the engine's stored values, which IF-4 makes the heard ones, and the texts the engine holds). `want.morph` adds the snapshot's `morph` member.
+  - **Morph off is the plug-in as it was;** an edit lands in the engine and the audible corner. **Morph on:** an edit of a key the morph resolves is refused and counted (IF-12: the resolver is its only source), since ADR-109's split across corners isn't in the spec. Turning off, or a new audible corner while off, hands over (MO-20); the host is asked to rescan its values.
+  - **State:** version 3 of the chunk adds the morph's lines, each only where it differs from what a load rebuilds; an untouched patch still writes version 2 byte for byte; versions 1 and 2 load with the morph at its defaults.
+  - **Position seam:** `set_position()` in `preview_plugin.cpp`, where `morph.x`/`morph.y` host events will call it once round 61 merges.
+- **Evidence consulted:**
+  - **Spec:** round 61 on `origin/b631-round-61` (e9f28d97): IF-4, IF-10, IF-11, IF-12, RC-11.1, Appendix D (MO-1 to MO-25, SB-10). That branch does not yet state ADR-377 (setting sets still blend under Blend there); the bridge is written against IF-12's interface either way.
+  - **Engine 4f4afd4** (the builder's local repo, read only): `tests/harness/horde_engine.h` (MorphResolver, MorphEvent, SettingSet, HeardSet), `core/morph/resolver.{h,cpp}` (inputs queue to the next boundary in arrival order; nothing emitted while off but a hand-over; `set_corner` reads `v[id]` over `manifest_id_span()`).
+  - **cleanroom-tests** (read only): item 35's `shell_of` and `tests/harness/render.h`'s injection order.
+  - **The page:** `docs/design/gui3/device.js`, `engine-stub.js`, `gui3.html`, `shell-data.js` (D.2 rows and their v defaults), `docs/proposals/gui-on-engine.md` section 3.
+- **Alternatives rejected:**
+  - Routing edits made while the morph is on into corners by ADR-109's weighted split: not in the spec, and the page sends its resolved values as `set` after every pad move, which that routing would write back into the corners.
+  - Adding D.2 rows as host parameters: no morph lockfile is committed (IF-11); the brief forbids host parameters beyond it.
+  - Tolerances on the MO-9 check: dyadic corner values and positions make the blend exact in any order, so the check is `==` (tolerance_registry_check flagged the first draft's inline tolerances; the fix was the code, not the registry).
+  - A morph member in every frame: it would change the recorded frames; it rides only when `want.morph` asks.
+- **Verify:** see the report: `build.sh 4f4afd4` (stand-in page and GUI 3's page from origin/main), `frames:` compared with a dump from main's own build on the same engine, and `./verify fast`.
+- **Open questions:** the report's lists: page changes the GUI session must make, and every place the spec or seam didn't decide.
