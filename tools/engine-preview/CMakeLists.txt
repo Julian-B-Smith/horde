@@ -126,7 +126,8 @@ endforeach()
 # HORDE_PREVIEW_WEBVIEW says, so every build compiles the fallback and it can't rot unseen.
 #   preview-plant        the routes removed, the retired Voices limit of 4 put back, pitch bends dropped, the output tap
 #                        frozen after its first block, a state chunk that forgets the morph (B636), and the
-#                        resolver's morph levels dropped, so no source fades (B639)
+#                        resolver's morph levels dropped, so no source fades (B639), and overruns counted but never
+#                        recorded as lines in the session log (B642)
 #   preview-plant-map    the bridge's key map shifted one row, and the output tap hearing silence
 #   preview-plant-morph  the pad's position dropped, from the host or the page (B636, B639), alone: every other plant here changes something
 #                        the morph's checks also read, which would let its control fail for the wrong reason
@@ -140,7 +141,7 @@ foreach(plant preview-plant preview-plant-map preview-plant-morph)
 endforeach()
 target_compile_definitions(preview-plant PRIVATE HORDE_PREVIEW_PLANT_NO_ROUTES HORDE_PREVIEW_PLANT_VOICE_CAP
                            HORDE_PREVIEW_PLANT_DROP_BEND HORDE_PREVIEW_PLANT_FROZEN_TAP HORDE_PREVIEW_PLANT_STATE_NO_MORPH
-                           HORDE_PREVIEW_PLANT_DROP_LEVEL)
+                           HORDE_PREVIEW_PLANT_DROP_LEVEL HORDE_PREVIEW_PLANT_NO_OVERRUN_LINES)
 target_compile_definitions(preview-plant-map PRIVATE HORDE_PREVIEW_PLANT_KEYMAP_SHIFT HORDE_PREVIEW_PLANT_SILENT_TAP)
 target_compile_definitions(preview-plant-morph PRIVATE HORDE_PREVIEW_PLANT_DROP_POSITION)
 
@@ -164,3 +165,19 @@ add_executable(preview-frames-dump frames_dump.cpp)
 add_dependencies(preview-frames-dump bank_embedded)
 target_include_directories(preview-frames-dump PRIVATE ${CMAKE_BINARY_DIR}/generated ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(preview-frames-dump PRIVATE clap horde_engine2_bank)
+
+# B642's drop-out probe: holds a chord while the pad moves over four corners, times every block and looks for gaps.
+# preview-morph-wholespan is its measurement build: the morph's events ride in the host's whole span (not cut at every
+# control interval), so the probe's --pair can time the two side by side and hold their outputs bit for bit (DT-2).
+add_executable(preview-morph-probe morph_probe.cpp)
+add_library(preview-morph-wholespan MODULE preview_plugin.cpp bridge_core.cpp morph_core.cpp preview_gui.mm preview_entry.cpp)
+add_dependencies(preview-morph-wholespan bank_embedded)
+target_compile_definitions(preview-morph-wholespan PRIVATE "HORDE_PREVIEW_BUILD_LABEL=\"${HORDE_PREVIEW_BUILD_LABEL}\"" HORDE_PREVIEW_PROBE_WHOLE_SPANS)
+target_include_directories(preview-morph-wholespan PRIVATE ${CMAKE_BINARY_DIR}/generated ${CMAKE_CURRENT_SOURCE_DIR} ${HORDE_REPO_ROOT}/h2 ${PREVIEW_CHOC_DIR})
+target_link_libraries(preview-morph-wholespan PRIVATE clap horde_engine2 "-framework AppKit")
+set_target_properties(preview-morph-wholespan PROPERTIES PREFIX "" SUFFIX ".clap")
+target_include_directories(preview-morph-probe PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(preview-morph-probe PRIVATE clap horde_engine2)
+# B642's minimal reproduction of the silent class: Quantum's per-switch picks leave no source on (the resolver alone).
+add_executable(preview-morph-hole morph_hole.cpp)
+target_link_libraries(preview-morph-hole PRIVATE horde_engine2)
