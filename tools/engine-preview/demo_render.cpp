@@ -102,6 +102,25 @@ Render render(const preview::demo::Demo& d, const std::vector<int>& keys, double
     const std::uint32_t id = m.key == "osc1.ratios" ? horde::kRatiosKeyId[0] : m.key == "osc2.ratios" ? horde::kRatiosKeyId[1] : horde::find_param(m.key)->id;
     res->set_key(id, mode, m.count == 2 ? horde::KeyCount::Two : m.count == 4 ? horde::KeyCount::Four : horde::KeyCount::AsMorph, 0);
   }
+  // B.1's routes, as the plug-in plays them (preview_plugin.cpp, play_routes): at each control-interval boundary, per
+  // sounding voice, an offset in v of octaves x one octave in v x the voice's ENV k level x its velocity factor, summed per
+  // key, sent only when it changed (a fresh start clears it). The envelopes' velocity rows are read once from corner A, as
+  // the plug-in reads them when it builds the preset's engine.
+  struct Target { int env; std::uint32_t id; double scale; };
+  std::vector<Target> targets;
+  for (const auto& route : d.routes) {
+    const horde::ParamInfo* p = horde::find_param(route.key);
+    const double octave = p->law == horde::Law::LogOffZone ? 0.99 / std::log2(p->hi / 0.004) : 1.0 / std::log2(p->hi / p->lo);
+    targets.push_back({route.env, p->id, route.octaves * octave});
+  }
+  double env_velocity[2] = {0, 0};
+  for (int k = 0; k < 2; ++k) {
+    const horde::ParamInfo* p = horde::find_param(k == 0 ? "env2.velocity" : "env3.velocity");
+    env_velocity[k] = horde::value_of(*p, e->param_v(p->id));
+  }
+  std::vector<std::uint64_t> counter(64, 0);
+  std::vector<std::vector<std::pair<std::uint32_t, double>>> sent(64);
+
   Point at = fixed_corner >= 0 ? kCorner[fixed_corner] : path(0);
   res->set_position(at.x, at.y, 0);
 
@@ -157,6 +176,34 @@ Render render(const preview::demo::Demo& d, const std::vector<int>& keys, double
           }
         }
         std::stable_sort(events.begin(), events.end(), [](const horde::Event& a, const horde::Event& b) { return a.sample < b.sample; });
+        if (!targets.empty() && clock % ci == 0) {
+          horde::VoiceView view;
+          for (int i = 0; i < std::min(e->voice_count(), 64); ++i) {
+            if (!e->observe_voice(i, view) || !view.sounding) continue;
+            if (counter[std::size_t(i)] != view.note_counter) counter[std::size_t(i)] = view.note_counter, sent[std::size_t(i)].clear();
+            std::vector<std::pair<std::uint32_t, double>> sum;
+            for (const Target& t : targets) {
+              const double row = env_velocity[t.env - 2];
+              const double add = t.scale * view.env_levels[t.env - 1] * (1 - row + row * view.velocity);
+              auto it = std::find_if(sum.begin(), sum.end(), [&](const auto& x) { return x.first == t.id; });
+              if (it == sum.end()) sum.emplace_back(t.id, add);
+              else it->second += add;
+            }
+            for (const auto& [id, value] : sum) {
+              auto& last = sent[std::size_t(i)];
+              auto it = std::find_if(last.begin(), last.end(), [&](const auto& x) { return x.first == id; });
+              if (it != last.end() && it->second == value) continue;
+              if (it == last.end()) last.emplace_back(id, value);
+              else it->second = value;
+              horde::Event ev;
+              ev.type = horde::EventType::VoiceOffset;
+              ev.sample = 0;
+              ev.note_id = view.note_id, ev.param_id = id, ev.value = value;
+              events.push_back(ev);
+            }
+          }
+          std::stable_sort(events.begin(), events.end(), [](const horde::Event& a, const horde::Event& b) { return a.sample < b.sample; });
+        }
         e->process(events.data(), events.size(), nullptr, 0, l + pos, r + pos, int(span));
         pos += span;
         clock += span;
@@ -291,9 +338,14 @@ void fft(std::vector<std::complex<double>>& a) {
   }
 }
 
+// The spectrum's frame length, and a bin's frequency. (Pass 1 divided by twice the length, so its centroids, brightness
+// and bands read an octave low; its corner comparisons held, being all scaled alike.)
+constexpr std::size_t kFft = 4096;
+double bin_hz(std::size_t k) { return double(k) * kRate / double(kFft); }
+
 // The mean power spectrum of the mid over [from, to): 4096-point Hann frames hopping 2048.
 std::vector<double> spectrum(const Render& x, double from, double to) {
-  constexpr std::size_t N = 4096;
+  constexpr std::size_t N = kFft;
   std::vector<double> p(N / 2, 0.0);
   int frames = 0;
   for (std::size_t s = std::size_t(from * kRate); s + N <= std::min(x.l.size(), std::size_t(to * kRate)); s += N / 2, ++frames) {
@@ -307,12 +359,12 @@ std::vector<double> spectrum(const Render& x, double from, double to) {
 }
 double centroid(const std::vector<double>& p) {
   double num = 0, den = 0;
-  for (std::size_t k = 1; k < p.size(); ++k) num += double(k) * kRate / 8192 * p[k], den += p[k];
+  for (std::size_t k = 1; k < p.size(); ++k) num += bin_hz(k) * p[k], den += p[k];
   return den > 0 ? num / den : 0;
 }
 double brightness(const std::vector<double>& p) {   // the share of power above 2 kHz
   double hi = 0, all = 0;
-  for (std::size_t k = 1; k < p.size(); ++k) (double(k) * kRate / 8192 >= 2000 ? hi : all) += p[k];
+  for (std::size_t k = 1; k < p.size(); ++k) (bin_hz(k) >= 2000 ? hi : all) += p[k];
   return hi + all > 0 ? hi / (hi + all) : 0;
 }
 // Third-octave band levels (dB, 50 Hz to 16 kHz), each normalised by the total, for comparing two corners' colour.
@@ -323,7 +375,7 @@ std::vector<double> bands(const std::vector<double>& p) {
   for (double f = 50; f < 16000; f *= std::pow(2.0, 1.0 / 3)) {
     double sum = 0;
     for (std::size_t k = 1; k < p.size(); ++k) {
-      const double hz = double(k) * kRate / 8192;
+      const double hz = bin_hz(k);
       if (hz >= f && hz < f * std::pow(2.0, 1.0 / 3)) sum += p[k];
     }
     out.push_back(10 * std::log10(std::max(sum / std::max(total, 1e-30), 1e-9)));
@@ -367,7 +419,20 @@ std::string slug(const std::string& name) {
   return s;
 }
 
-struct Measured { double peak_db, lufs, dc, quiet, strike, centroid, bright, cpu_worst, cpu_p99, cpu_mean; std::size_t bad; std::vector<double> bands; };
+// The low band (B645, the human's "crunchy in the low end"): the mid's power below 150 Hz over the held part, in dB, and
+// its share of the whole. After levelling, low_db compares corners and presets directly.
+double low_db(const std::vector<double>& p) {
+  double low = 0;
+  for (std::size_t k = 1; k < p.size() && bin_hz(k) < 150; ++k) low += p[k];
+  return 10 * std::log10(std::max(low, 1e-30));
+}
+double low_share(const std::vector<double>& p) {
+  double low = 0, all = 0;
+  for (std::size_t k = 1; k < p.size(); ++k) (bin_hz(k) < 150 ? low : all) += p[k];
+  return low + all > 0 ? low / (low + all) : 0;
+}
+
+struct Measured { double peak_db, lufs, dc, quiet, strike, centroid, bright, cpu_worst, cpu_p99, cpu_mean, low, low_frac; std::size_t bad; std::vector<double> bands; };
 Measured measure(const Render& x, double retrigger) {
   Measured m{};
   m.peak_db = db(peak_of(x));
@@ -382,6 +447,8 @@ Measured measure(const Render& x, double retrigger) {
   m.centroid = centroid(p);
   m.bright = brightness(p);
   m.bands = bands(p);
+  m.low = low_db(p);
+  m.low_frac = low_share(p);
   std::vector<double> s = x.block_share;
   std::sort(s.begin(), s.end());
   m.cpu_worst = s.empty() ? 0 : s.back();
@@ -396,7 +463,7 @@ std::string json_of(const std::string& file, const Measured& m) {
   auto f = [](double x) { return std::isfinite(x) ? num(x) : std::string("null"); };
   return "{\"file\":\"" + file + "\",\"peak_db\":" + f(m.peak_db) + ",\"lufs\":" + f(m.lufs) + ",\"dc\":" + f(m.dc) + ",\"quietest_db\":" + f(m.quiet) +
          ",\"weakest_strike_db\":" + f(m.strike) + ",\"centroid_hz\":" + f(m.centroid) + ",\"brightness\":" + f(m.bright) + ",\"cpu_worst\":" + f(m.cpu_worst) +
-         ",\"cpu_p99\":" + f(m.cpu_p99) + ",\"cpu_mean\":" + f(m.cpu_mean) + ",\"nonfinite\":" + std::to_string(m.bad) + "}";
+         ",\"cpu_p99\":" + f(m.cpu_p99) + ",\"cpu_mean\":" + f(m.cpu_mean) + ",\"low_db\":" + f(m.low) + ",\"low_share\":" + f(m.low_frac) + ",\"nonfinite\":" + std::to_string(m.bad) + "}";
 }
 
 }  // namespace
@@ -420,6 +487,8 @@ int main(int argc, char** argv) {
   std::string all = "[\n";
   bool first = true;
   int failures = 0;
+  struct Low { std::string name; bool bass; int corner; double share; };
+  std::vector<Low> lows;
   for (const auto& d : demos) {
     if (!only.empty() && d.name != only) continue;
     const std::string base = slug(d.name);
@@ -427,13 +496,23 @@ int main(int argc, char** argv) {
     std::string entry = "{\"name\":\"" + d.name + "\",\"description\":\"" + d.description + "\",\"retrigger\":" + num(d.retrigger_s) + ",\"corners\":[";
     Measured corner[4];
     std::vector<int> unison[2];
+    std::vector<double> values[4];
+    double supersaw = 0;
     for (int c = 0; c < 4; ++c) {
       auto e = horde::make_engine();
       e->prepare(kRate, 64);
       e->load_state(d.corners[c]);
+      for (std::size_t i = 0; i < horde::manifest_size(); ++i) values[c].push_back(e->param_v(horde::manifest_param(i).id));
+      // Supersaw-ness (B645): per sounding oscillator, (members - 1) x detune x the detune range's factor; a nine-member
+      // horde at the default 0.28 reads 2.24, a single member 0. Unison is reported 0 for an oscillator that is off.
       for (int o = 0; o < 2; ++o) {
-        const horde::ParamInfo* row = horde::find_param(o ? "osc2.unison" : "osc1.unison");
-        unison[o].push_back(int(row->lo + std::round(e->param_v(row->id) * double(row->steps - 1))));
+        const std::string osc = o ? "osc2." : "osc1.";
+        auto x = [&](const char* key) { const horde::ParamInfo* p = horde::find_param(osc + key); return horde::value_of(*p, e->param_v(p->id)); };
+        const bool on = x("on") >= 1;
+        const int members = int(x("unison")) + 1;   // a Step row of consecutive integers from 1: value_of gives the index
+        const double range[3] = {1, 12, 24};
+        unison[o].push_back(on ? members : 0);
+        if (on) supersaw = std::max(supersaw, (members - 1) * x("detune") * range[std::clamp(int(x("detuneRange")), 0, 2)]);
       }
       const Render x = timed(d, chord, kHold, c);
       corner[c] = measure(x, d.retrigger_s);
@@ -471,6 +550,17 @@ int main(int argc, char** argv) {
       }
     }
     entry += ",\"closest_pair\":\"" + pair + "\",\"closest_pair_db\":" + num(closest) + ",\"centroid_ratio\":" + num(cmax / std::max(cmin, 1.0)) + ",\"lufs_spread\":" + num(lmax - lmin);
+    // How many rows move between corners: Morphable rows whose four corner values are not all equal, and Structural ones.
+    int morphable = 0, structural = 0;
+    for (std::size_t i = 0; i < horde::manifest_size(); ++i) {
+      const horde::ParamInfo& row = horde::manifest_param(i);
+      if (row.reserved || row.cls == horde::ParamClass::Device) continue;
+      if (values[0][i] == values[1][i] && values[0][i] == values[2][i] && values[0][i] == values[3][i]) continue;
+      (row.cls == horde::ParamClass::Morphable ? morphable : structural)++;
+    }
+    entry += ",\"supersaw\":" + num(supersaw) + ",\"morphable_rows_moving\":" + std::to_string(morphable) + ",\"structural_rows_moving\":" + std::to_string(structural) +
+             ",\"bass\":" + (d.bass ? "true" : "false") + ",\"routes\":" + std::to_string(d.routes.size());
+    for (int c = 0; c < 4; ++c) lows.push_back({d.name, d.bass, c, corner[c].low_frac});
     entry += ",\"unison\":[[" + std::to_string(unison[0][0]) + "," + std::to_string(unison[0][1]) + "," + std::to_string(unison[0][2]) + "," +
              std::to_string(unison[0][3]) + "],[" + std::to_string(unison[1][0]) + "," + std::to_string(unison[1][1]) + "," + std::to_string(unison[1][2]) +
              "," + std::to_string(unison[1][3]) + "]]";
@@ -503,6 +593,7 @@ int main(int argc, char** argv) {
       max_unison = std::max({max_unison, unison[0][std::size_t(c)], unison[1][std::size_t(c)]});
     }
     const bool apart = closest >= 2.0;
+    std::printf("%-20s ss %4.2f moving %2d+%-2d low %4.2f/%4.2f/%4.2f/%4.2f | ", d.name.c_str(), supersaw, morphable, structural, corner[0].low_frac, corner[1].low_frac, corner[2].low_frac, corner[3].low_frac);
     std::printf("%-22s worst block %5.1f %%  p99 %5.1f %%  sweep quiet %6.1f dB  peaks %s/%s/%s/%s sweep %s  LUFS %s/%s/%s/%s  centroids %s/%s/%s/%s  closest %s %4.1f dB  %s%s%s%s%s%s%s\n",
                 d.name.c_str(), 100 * worst, 100 * sw.cpu_p99, d.retrigger_s > 0 ? sw.strike : sw.quiet, num(corner[0].peak_db).c_str(), num(corner[1].peak_db).c_str(),
                 num(corner[2].peak_db).c_str(), num(corner[3].peak_db).c_str(), num(sw.peak_db).c_str(), num(corner[0].lufs).c_str(), num(corner[1].lufs).c_str(),
@@ -511,6 +602,15 @@ int main(int argc, char** argv) {
                 worst > 0.7 ? "CPU " : "", max_unison > 9 ? "UNISON " : "", apart ? "" : "ALIKE ");
     failures += silent || clip || bad || dc || max_unison > 9 || !apart;
   }
+  // The low-end ceiling (B645, the human on pass 1's Bell Foundry B: "really crunchy in the low end ... a lot more low end
+  // content than the others"): a corner of a preset that isn't a bass may hold at most 5 % of its power below 150 Hz.
+  // Calibrated on pass 1: that B held 27 %, every other non-bass corner but a drone's sub 1.5 % or less. A share, not a
+  // level, because spectral leakage of a loud corner with nothing down there reads as a level.
+  for (const Low& l : lows)
+    if (!l.bass && l.share > 0.05) {
+      std::printf("LOWEND %s corner %c: %.1f %% of its power below 150 Hz\n", l.name.c_str(), "ABCD"[l.corner], 100 * l.share);
+      ++failures;
+    }
   all += "\n]\n";
   std::ofstream(dir + "/metrics.json") << all;
   if (!g_deterministic) std::printf("RED: a render differed between runs\n");

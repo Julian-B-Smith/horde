@@ -165,6 +165,7 @@ bool read(std::string_view json, const std::vector<horde::BankPreset>& factory, 
       const ValueView r = p["render"];
       if (r.hasObjectMember("single") && number_of(r["single"], x)) d.single_key = int(x);
       if (r.hasObjectMember("retrigger") && number_of(r["retrigger"], x)) d.retrigger_s = x;
+      if (r.hasObjectMember("bass") && r["bass"].isBool()) d.bass = r["bass"].getBool();
     }
     if (p.hasObjectMember("glide") && number_of(p["glide"], x)) d.glide_s = x;
     if (p.hasObjectMember("glideAlways") && p["glideAlways"].isBool()) d.glide_always = p["glideAlways"].getBool();
@@ -197,6 +198,29 @@ bool read(std::string_view json, const std::vector<horde::BankPreset>& factory, 
           return false;
         }
         d.modes.push_back({key, std::string(member.value.getString()), 0});
+      }
+    }
+
+    // B.1's routes, only in the forms B.1 makes (horde_engine.h): ENV 2 or 3 to a blade's cut, cutHz or width.
+    if (p.hasObjectMember("routes")) {
+      const ValueView rs = p["routes"];
+      for (std::uint32_t i = 0; rs.isArray() && i < rs.size(); ++i) {
+        const ValueView r = rs[i];
+        Route route;
+        double env = 0;
+        if (!r.isObject() || !r.hasObjectMember("env") || !r.hasObjectMember("key") || !r.hasObjectMember("octaves") || !number_of(r["env"], env) || (env != 2 && env != 3) || !r["key"].isString() || !number_of(r["octaves"], route.octaves)) {
+          error = d.name + ": route " + std::to_string(i) + " is not {env 2 or 3, key, octaves}";
+          return false;
+        }
+        route.env = int(env);
+        route.key = std::string(r["key"].getString());
+        const auto ends = [&](const std::string& tail) { return route.key.size() > tail.size() && route.key.compare(route.key.size() - tail.size(), tail.size(), tail) == 0; };
+        const bool blade = route.key.find(".blade1.") != std::string::npos || route.key.find(".blade2.") != std::string::npos;
+        if (!horde::find_param(route.key) || !blade || !(ends(".cut") || ends(".cutHz") || ends(".width"))) {
+          error = d.name + ": route to " + route.key + ": B.1 routes reach only a blade's cut, cutHz or width";
+          return false;
+        }
+        d.routes.push_back(route);
       }
     }
 

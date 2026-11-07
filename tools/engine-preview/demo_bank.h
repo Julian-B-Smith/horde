@@ -25,6 +25,10 @@
 namespace preview::demo {
 
 struct Mode { std::string key, mode; int count = 0; };   // the page's names (morph_core.h): mode, and count 0, 2 or 4
+// B.1's blade-envelope route (horde_engine.h, BladeRoute), the stand-in for the modulation system the factory bank
+// already plays (B632): ENV 2 or ENV 3 to a blade's cut, cutHz or width, `octaves` at full level. Per preset, not per
+// corner, so it moves the key around whatever value the morph resolves.
+struct Route { int env = 2; std::string key; double octaves = 0; };
 
 struct Demo {
   std::string name, description;
@@ -32,10 +36,12 @@ struct Demo {
   // while held (a pluck, a hit), the chord struck again every this many seconds (0: held once)
   int single_key = -1;
   double retrigger_s = 0;
+  bool bass = false;                // demo_render's low-end ceiling leaves a bass preset out
   double glide_s = 0;               // B.1's glide, which the plug-in plays as 10.3's (B632)
   bool glide_always = false;
   std::vector<std::pair<std::string, double>> settings;   // D.2's settings by key, in v; morph.on is always among them
   std::vector<Mode> modes;
+  std::vector<Route> routes;
   std::string corners[4];           // A to D: each the engine's version-1 state text
 };
 

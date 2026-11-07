@@ -52,13 +52,18 @@ int main(int argc, char** argv) {
     out << "static const DemoMode kDemoModes" << d << "[] = {";
     for (const auto& m : demos[d].modes) out << "{\"" << m.key << "\", \"" << m.mode << "\", " << m.count << "}, ";
     out << "{nullptr, nullptr, 0}};\n";
+    out << "static const PresetRoute kDemoRoutes" << d << "[] = {";
+    for (const auto& r : demos[d].routes) {
+      std::snprintf(number, sizeof number, "%.17g", r.octaves);
+      out << "{" << r.env << ", \"" << r.key << "\", " << number << "}, ";
+    }
+    out << "{0, nullptr, 0}};\n";
     out << "static const char* const kDemoCorners" << d << "[4] = {";
     for (int c = 0; c < 4; ++c) out << "R\"HORDEBANK(" << demos[d].corners[c] << ")HORDEBANK\", ";
     out << "};\n";
     out << "static const EmbeddedMorph kDemoMorph" << d << " = {R\"HORDEBANK(" << demos[d].description << ")HORDEBANK\", kDemoCorners" << d
         << ", kDemoSettings" << d << ", " << demos[d].settings.size() << ", kDemoModes" << d << ", " << demos[d].modes.size() << "};\n";
   }
-  out << "static const PresetRoute kNoRoutes[] = {{0, nullptr, 0}};\n";
   out << "static const EmbeddedPreset kBank[] = {\n";
   for (std::size_t i = 0; i < bank.size(); ++i) {
     // A raw string with a delimiter no state document contains, since a state is JSON and may quote anything.
@@ -71,7 +76,7 @@ int main(int argc, char** argv) {
     // Its name says which section it is in: every list that shows the bank (the page, the host's Preset, the window)
     // shows one flat list of names.
     std::snprintf(number, sizeof number, "%.17g", demos[d].glide_s);
-    out << "{R\"HORDEBANK(Demo (morph): " << demos[d].name << ")HORDEBANK\", R\"HORDEBANK(" << demos[d].corners[0] << ")HORDEBANK\", kNoRoutes, 0, " << number << ", "
+    out << "{R\"HORDEBANK(Demo (morph): " << demos[d].name << ")HORDEBANK\", R\"HORDEBANK(" << demos[d].corners[0] << ")HORDEBANK\", kDemoRoutes" << d << ", " << demos[d].routes.size() << ", " << number << ", "
         << (demos[d].glide_always ? "true" : "false") << ", &kDemoMorph" << d << "},\n";
   }
   out << "};\n";
