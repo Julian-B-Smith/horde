@@ -913,6 +913,140 @@ int find_preset(const char* name) {
   return -1;
 }
 
+// ---- B645's demo bank ------------------------------------------------------------------------------------------------
+// One corner object of a morph member ("{\"key\":v,...}") as key and v pairs: keys are quoted and hold no comma.
+std::vector<std::pair<std::string, double>> pairs_of(const std::string& object) {
+  std::vector<std::pair<std::string, double>> out;
+  for (std::size_t at = object.find('"'); at != std::string::npos;) {
+    const std::size_t close = object.find('"', at + 1);
+    if (close == std::string::npos) break;
+    out.emplace_back(object.substr(at + 1, close - at - 1), std::strtod(object.c_str() + close + 2, nullptr));
+    const std::size_t comma = object.find(',', close);
+    at = comma == std::string::npos ? comma : object.find('"', comma);
+  }
+  return out;
+}
+// A demo loaded through the page's preset message, read in the frame that completes the load, where the page adopts
+// every corner (device.js, adopt): corner A's row count, how many rows of each other corner differ from A's, whether
+// the morph is on, and the four corner objects as sent.
+struct DemoLoad { int rows_a = 0, apart[4] = {}; bool on = false; std::string corner[4]; };
+DemoLoad demo_load(Loaded& p, const preview_bridge_ext* bridge, long long& seq, int demo) {
+  post(p.plugin, bridge, seq, "\"type\":\"want\",\"osc\":[],\"members\":false,\"morph\":true");
+  const std::string m = morph_of(send_until_acked(p.plugin, bridge, seq, "\"type\":\"preset\",\"index\":" + std::to_string(demo)));
+  DemoLoad out;
+  for (int k = 0; k < 4; ++k) out.corner[k] = corner_in(m, k);
+  const auto a = pairs_of(out.corner[0]);
+  out.rows_a = int(a.size());
+  for (int k = 1; k < 4; ++k)
+    for (const auto& [key, v] : pairs_of(out.corner[k]))
+      for (const auto& [ka, va] : a)
+        if (ka == key && va != v) ++out.apart[k];
+  out.on = number_after(m, "morph.on") == 1;
+  return out;
+}
+// The pad to (x, y) as host automation moves it (morph.x and morph.y, B639).
+void pad_to(Loaded& p, double x, double y) {
+  float l[256], r[256];
+  Events e;
+  e.param(host_id(p, "morph.x"), x);
+  e.param(host_id(p, "morph.y"), y);
+  process(p.plugin, e, l, r, 256);
+}
+// A factory preset after a demo, the pad at the centre with the demo's morph still on (a load keeps the settings): the
+// chord from the fresh engine's first sample, through the host's Preset as play() loads it.
+std::vector<float> factory_after_demo(Loaded& p, const preview_bridge_ext* bridge, long long& seq, int demo, int factory) {
+  (void)demo_load(p, bridge, seq, demo);
+  pad_to(p, 0.5, 0.5);
+  return play(p, factory, {128});
+}
+
+// The demo bank's checks (B645), each instance its own. A demo loads its four corners (the control: a build that never
+// loads corners B to D reads every corner as A), its morph comes back through a saved chunk, and a factory preset loaded
+// after it still plays bit for bit as the engine's offline render (the control: a load that fills corner A only keeps
+// the demo's other corners, and the pad between them is heard).
+void demo_checks(const char* clap, const char* plant, const char* plant_map, int factory, int engine_rows) {
+  int first = -1, demos = 0;
+  bool placed = true;
+  for (int i = 0; i < kBankSize; ++i) {
+    const bool demo = kBank[i].morph != nullptr;
+    if (demo && first < 0) first = i;
+    demos += demo;
+    placed = placed && demo == (i >= kFactorySize) && (!demo || !std::strncmp(kBank[i].name, "Demo (morph): ", 14));
+  }
+  check(first == kFactorySize && demos > 0 && placed, "the demo bank follows the factory bank: " + std::to_string(kFactorySize) + " factory presets, then " +
+                                                          std::to_string(demos) + " named \"Demo (morph): ...\"");
+  if (first < 0) return;
+  Loaded p;
+  check(p.open(clap), "a fresh instance for the demo bank loads");
+  const auto* bridge = static_cast<const preview_bridge_ext*>(p.plugin->get_extension(p.plugin, kPreviewBridgeExt));
+  if (!bridge) return;
+  long long seq = 0;
+  (void)send_until_acked(p.plugin, bridge, seq, "\"type\":\"hello\"");
+  bool all = true;
+  std::string detail;
+  DemoLoad first_load;
+  for (int d = first; d < kBankSize; ++d) {
+    const DemoLoad l = demo_load(p, bridge, seq, d);
+    if (d == first) first_load = l;
+    const bool ok = l.rows_a == engine_rows && l.apart[1] > 0 && l.apart[2] > 0 && l.apart[3] > 0 && l.on;
+    all = all && ok;
+    detail += std::string(d == first ? "" : ", ") + std::to_string(l.apart[1]) + "/" + std::to_string(l.apart[2]) + "/" + std::to_string(l.apart[3]) + (ok ? "" : " (!)");
+  }
+  check(all, "every demo loads with the morph on and corners B, C and D apart from A, in the frame that completes the load (rows apart: " + detail + ")");
+
+  // Through a saved chunk: the demo, another preset, the chunk back; a hello then resends every corner.
+  (void)demo_load(p, bridge, seq, first);
+  std::string chunk;
+  check(save_to(p, chunk), "a demo saves");
+  std::printf("     the first demo's chunk: %zu bytes\n", chunk.size());
+  fresh(p, factory);
+  blocks_of(p.plugin, 1, 256);
+  check(load_from(p, chunk), "and loads");
+  const std::string back = morph_of(send_until_acked(p.plugin, bridge, seq, "\"type\":\"hello\""));
+  bool same = true;
+  for (int k = 0; k < 4; ++k) same = same && !first_load.corner[k].empty() && corner_in(back, k) == first_load.corner[k];
+  check(same && number_after(back, "morph.on") == 1, "its four corners and the morph come back from the chunk exactly, through another preset");
+
+  const std::vector<float> reference = offline(factory);
+  const std::vector<float> heard = factory_after_demo(p, bridge, seq, first, factory);
+  const std::size_t at = first_difference(heard, reference);
+  check(at == heard.size() && peak(heard) > 0, std::string(kBank[factory].name) + " after a demo, the pad at the centre: bit-identical to the engine's offline render" +
+                                                   (at == heard.size() ? "" : " (first difference at value " + std::to_string(at) + ")"));
+  p.plugin->stop_processing(p.plugin);
+  p.plugin->deactivate(p.plugin);
+  p.plugin->destroy(p.plugin);
+
+  if (plant) {
+    Loaded q;
+    check(q.open(plant), "the plant build loads for the demo bank");
+    const auto* qb = static_cast<const preview_bridge_ext*>(q.plugin->get_extension(q.plugin, kPreviewBridgeExt));
+    if (qb) {
+      long long qs = 0;
+      (void)send_until_acked(q.plugin, qb, qs, "\"type\":\"hello\"");
+      const DemoLoad l = demo_load(q, qb, qs, first);
+      check(l.rows_a == engine_rows && l.apart[1] == 0 && l.apart[2] == 0 && l.apart[3] == 0,
+            "control: a loader that fills all four corners with A reads every corner as A");
+    }
+    q.plugin->stop_processing(q.plugin);
+    q.plugin->deactivate(q.plugin);
+    q.plugin->destroy(q.plugin);
+  }
+  if (plant_map) {
+    Loaded q;
+    check(q.open(plant_map), "the shifted-key-map plant loads for the demo bank");
+    const auto* qb = static_cast<const preview_bridge_ext*>(q.plugin->get_extension(q.plugin, kPreviewBridgeExt));
+    if (qb) {
+      long long qs = 0;
+      (void)send_until_acked(q.plugin, qb, qs, "\"type\":\"hello\"");
+      const std::vector<float> kept = factory_after_demo(q, qb, qs, first, factory);
+      check(first_difference(kept, reference) != kept.size(), "control: a load that fills corner A only keeps the demo's other corners, and misses the offline render");
+    }
+    q.plugin->stop_processing(q.plugin);
+    q.plugin->deactivate(q.plugin);
+    q.plugin->destroy(q.plugin);
+  }
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -1041,7 +1175,7 @@ int main(int argc, char** argv) {
     // A preset LOAD: acknowledged only once its engine plays, in a frame carrying every row of that engine.
     double was = -1;
     p.params->get_value(p.plugin, 0xB00001, &was);
-    const int other = (int(was) + 7) % kBankSize;
+    const int other = (int(was) + 7) % kFactorySize;
     bridge->receive(p.plugin, ("{\"type\":\"preset\",\"seq\":1000,\"index\":" + std::to_string(other) + "}").c_str());
     one_block(p.plugin);   // the audio thread applies the message: Preset moves, and the old path would ack here
     double now = -1;
@@ -1590,6 +1724,8 @@ int main(int argc, char** argv) {
           "each line holds its time (in order), the preset, the block size, the morph's state (" + std::to_string(o.moving) + " moving, " +
               std::to_string(o.still) + " still) and both unison counts as the engine holds them");
   }
+
+  demo_checks(argv[1], argc > 2 ? argv[2] : nullptr, argc > 3 ? argv[3] : nullptr, presets[1], engine_rows);
 
   if (argc > 2) {
     const OverrunLines dropped = overrun_lines(argv[2], presets[0]);

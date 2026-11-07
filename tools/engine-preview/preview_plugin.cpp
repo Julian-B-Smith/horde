@@ -414,6 +414,10 @@ struct Plugin {
   std::vector<std::array<double, 3>> lock_offsets;
   std::vector<bool> locked;
   std::vector<std::array<std::string, 2>> preset_text;   // main thread: per preset, its ratios texts as it loads
+  // B645: per demo preset, each corner as it loads (v per manifest row, polyphony capped; empty: not read yet) and its
+  // ratios texts. Main thread, like preset_v.
+  std::vector<std::array<std::vector<double>, 4>> demo_v;
+  std::vector<std::array<std::array<std::string, 2>, 4>> demo_text;
   // What the engine holds, for frames and Save current sound: written by the audio thread from every Param it sends.
   std::unique_ptr<std::atomic<double>[]> heard;     // per manifest row, v
   Published<HeardTexts> heard_texts;
@@ -509,12 +513,63 @@ void cap_polyphony(std::vector<double>& values) {
 std::atomic<double>& corner_at(Plugin& s, int corner, std::size_t m);
 void fill_corner(Plugin& s, Slot& slot, int c);
 
+// A demo's corner c as it loads (B645), read once, off the audio thread (load_state isn't real-time, RT-1), with the
+// plug-in's polyphony cap as build_slot applies it. Corner A is the preset's own state, so it equals preset_values.
+const std::vector<double>& demo_corner(Plugin& s, int preset, int c) {
+  std::vector<double>& v = s.demo_v[std::size_t(preset)][std::size_t(c)];
+  if (!v.empty()) return v;
+  const Rows& t = rows();
+  auto engine = horde::make_engine();
+  if (engine && engine->prepare(44100, 64) && engine->load_state(kBank[preset].morph->corners[c]).ok) {
+    for (const auto* row : t.all) v.push_back(engine->param_v(row->id));
+    s.demo_text[std::size_t(preset)][std::size_t(c)] = {engine->ratios(0), engine->ratios(1)};
+  } else {
+    v = t.default_v;   // gen_bank refuses a corner that won't load, so this is never heard
+  }
+  cap_polyphony(v);
+  return v;
+}
+
+// A demo load (B645) sets the whole morph from the demo, not only the corners: D.2's settings (the demo's, every other
+// at D.2's default), each key's mode (the demo's; every other Follow at As the morph), and no waypoints or locks with
+// MO-21's law and clamp at their defaults, so nothing of the patch before it acts on the demo. The position stays, as on
+// any load: the host may be automating it. The page hears all of it in the frame that completes the load (resend_all).
+// A factory load after a demo leaves these as the demo set them, as any load leaves the settings and modes (README);
+// its four equal corners make them inaudible, which smoke holds bit for bit.
+void adopt_demo(Plugin& s, int preset) {
+  using namespace preview::morph;
+  const Rows& t = rows();
+  const EmbeddedMorph& demo = *kBank[preset].morph;
+  for (int i = 0; i < kSettings; ++i) s.morph_v[i].store(default_v(i), std::memory_order_relaxed);
+  for (int i = 0; i < demo.n_settings; ++i) {
+    const int k = find_setting(demo.settings[i].key);
+    if (k >= 0) s.morph_v[k].store(demo.settings[i].v, std::memory_order_relaxed);
+  }
+  std::fill(s.modes.begin(), s.modes.end(), KeyChoice{});
+  for (int i = 0; i < demo.n_modes; ++i) {
+    const DemoMode& m = demo.modes[i];
+    const int k = !std::strcmp(m.key, "osc1.ratios") ? int(t.all.size()) : !std::strcmp(m.key, "osc2.ratios") ? int(t.all.size()) + 1
+                                                     : manifest_index(horde::find_param(m.key) ? horde::find_param(m.key)->id : 0);
+    KeyChoice choice;
+    if (k < 0 || !mode_of(m.mode, choice.mode)) continue;
+    choice.count = m.count == 2 ? horde::KeyCount::Two : m.count == 4 ? horde::KeyCount::Four : horde::KeyCount::AsMorph;
+    s.modes[std::size_t(k)] = choice;
+  }
+  for (auto& w : s.waypoints) w.clear();
+  std::fill(s.locked.begin(), s.locked.end(), false);
+  s.waypoint_law = horde::WaypointLaw::Tps;
+  s.waypoint_clamp = true;
+  s.session.modes_due = true;
+  s.session.pins_due = true;
+}
+
 // The slot's morph (B636), on the main thread beside its engine: a fresh resolver at clock 0, as the engine is, fed
 // the whole morph system at sample 0 (IF-12's calls), so the first boundary resolves what the state says. A preset load
 // (not a saved state's) puts the preset into all four corners, as GUI 3's page does (device.js adopt); the settings,
 // the modes and the position stay. While the morph is off the audible corner is the sound the engine was just given.
 void build_morph(Plugin& s, Slot& slot, int preset, bool keep_shadow) {
   const Rows& t = rows();
+  if (!keep_shadow && kBank[preset].morph) adopt_demo(s, preset);
   slot.initial.resize(t.all.size());
   for (std::size_t m = 0; m < t.all.size(); ++m) slot.initial[m] = slot.engine->param_v(t.all[m]->id);
   for (int o = 0; o < 2; ++o) std::snprintf(slot.heard_text[o], kTextBytes, "%s", slot.engine->ratios(o).c_str());
@@ -523,10 +578,23 @@ void build_morph(Plugin& s, Slot& slot, int preset, bool keep_shadow) {
   CornerTexts texts = s.corner_texts.read();
   if (!keep_shadow) {
     const std::vector<double>& loaded = s.preset_v[std::size_t(preset)];
+#ifdef HORDE_PREVIEW_PLANT_DEMO_KEEPS_CORNERS   // smoke.cpp's must-fail build: a load fills corner A only, so a factory
+    for (int c = 0; c < 1; ++c) {                 // preset after a demo keeps the demo's corners B to D
+#else
     for (int c = 0; c < 4; ++c) {
+#endif
       for (std::size_t m = 0; m < t.all.size(); ++m) corner_at(s, c, m).store(loaded[m], std::memory_order_relaxed);
       for (int o = 0; o < 2; ++o) std::snprintf(texts.t[c][o], kTextBytes, "%s", slot.heard_text[o]);
     }
+#ifndef HORDE_PREVIEW_PLANT_DEMO_ONE_CORNER   // smoke.cpp's must-fail build: a demo's corners B to D never load
+    if (kBank[preset].morph) {   // B645: a demo's own four corners
+      for (int c = 0; c < 4; ++c) {
+        const std::vector<double>& v = demo_corner(s, preset, c);
+        for (std::size_t m = 0; m < t.all.size(); ++m) corner_at(s, c, m).store(v[m], std::memory_order_relaxed);
+        for (int o = 0; o < 2; ++o) std::snprintf(texts.t[c][o], kTextBytes, "%s", s.demo_text[std::size_t(preset)][std::size_t(c)][std::size_t(o)].c_str());
+      }
+    }
+#endif
   }
   if (!slot.settings.on) {
     const int a = slot.settings.audible;
@@ -1640,6 +1708,8 @@ bool plugin_init(const clap_plugin_t* p) {
   for (std::size_t m = 0; m < t.all.size(); ++m) s.shadow[m].store(t.default_v[m], std::memory_order_relaxed);
   s.preset_v.resize(std::size_t(kBankSize));
   s.preset_text.resize(std::size_t(kBankSize));
+  s.demo_v.resize(std::size_t(kBankSize));
+  s.demo_text.resize(std::size_t(kBankSize));
   // The morph's state at its defaults: every corner the manifest's defaults until a build loads a preset into them.
   s.corners = std::make_unique<std::atomic<double>[]>(4 * t.all.size());
   for (int c = 0; c < 4; ++c)
