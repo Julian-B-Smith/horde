@@ -8392,6 +8392,10 @@
    "reason": "A parameter range (unison 1..9); the knob's steps regenerate from the manifest, so no design element changes."
   },
   {
+   "adr": "ADR-382",
+   "reason": "Preset tiers as a product direction; how they are browsed is a GUI question for a later lab or poll."
+  },
+  {
    "adr": "GUI-44",
    "reason": "A gate: GUI 3's browser check wired into ./verify fast, a hole where there's no browser. No design element."
   }
