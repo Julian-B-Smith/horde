@@ -7329,6 +7329,21 @@
    "clause": "on the test plug-in the page sends each corner's changes as corner messages (never resolved sets while morph is on), Save current sound as save, waypoints and their law, and adopts the plug-in's morph state from each frame",
    "shell": "docs/design/gui3/device.js: function syncCorners() {",
    "note": "Built in the adapter and the bridge block (no master component: the Morph page's report is a line of words), as GUI-46's bridge rows are recorded. Region locks stay in the page (GN-55). FX device: none yet."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "via": null,
+   "superseded_by": null,
+   "master_version": null,
+   "lab": null,
+   "id": "gui60-cross-hidden",
+   "adr": "GUI-60",
+   "state": "ruled",
+   "clause": "Across the pad is hidden until a row is selected",
+   "shell": "docs/design/gui3.html: crossCard.style.display = ok || !r || !S.params[k] ? 'none' : '';",
+   "note": "Shell-only: the card around the master's CrossSection, which is unchanged (as GUI-59's adapter rows are recorded). FX device: none."
   }
  ],
  "not_design": [
@@ -8586,7 +8601,8 @@
    "GN-34",
    "GN-35",
    "GN-55"
-  ]
+  ],
+  "GUI-60": "none: it changes what is drawn, not what is sent, saved or undone"
  },
  "audit_notes": [
   "[A] Counts: 33 design ADRs with 56 rows (ruled 31, of which 6 superseded and 7 legacy-only; wired 9; in-shell 7; vendored 4; in-master 4; unknown 1); 79 not_design. Every primary heading ADR-001..ADR-112 appears exactly once. Headings out of numeric order (ADR-052, ADR-053 before ADR-051; ADR-095, 094, 093, 092; ADR-091 A1-A4 after ADR-112 A3) were all covered. One non-ADR heading sits in range: 'NOTICE · Library standby (plugin-skeleton FOUNDATIONS)', line 661, not design and not listed.",

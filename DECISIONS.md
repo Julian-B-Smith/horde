@@ -12357,6 +12357,18 @@ The LCD's full custom-character budget wasn't raised with the human. If another 
 
 **FX device (ADR-254).** None yet: it has no morph behind a bridge. When it has one, the same messages serve its corners.
 
+## GUI-60 — RULED by the human: Across the pad is hidden until a row is selected (GB35; 2026-11-07)
+
+**Why.** The human, looking at the plug-in's Morph page, took the "Across the pad" card for the parameter list: "what confused me was the 'across the pad' section, which seems to only exist when it has nothing to show". With no row selected the card held only the master's "select a row". Under Blend, selecting a continuous Follow row hides it, because the Blend map takes its place. Asked whether to hide it until a row is selected or have it say where to select one, the human answered: "Hide it until then."
+
+**Ruling.** The card is shown only while a row is selected and the Blend map isn't showing it. With no row selected, the Morph page's right column holds Selected row alone, and the Morph field below stays the place to pick a row.
+
+**Scope.** The shell's card around the master's CrossSection. The component is unchanged, and so is the pad's own line: it is already hidden with no row (`.mw-pad.no-row`).
+
+**Engine impact.** None: it changes what is drawn, not what is sent, saved or undone.
+
+**FX device (ADR-254).** None: the FX device has no morph pad.
+
 ## ADR-365 — RULED by the human: the 8 Hz blocker for FM free in pitch FM; item 7.8's table remade; spec round 58 (B621, B623; 2026-11-04)
 
 **Context.** FM free in pitch FM runs an accumulator that never restarts, while each of C.16's readings starts it at 0, so the estimate cannot see its mean and BL-19 cannot hold by the law alone (Q-TA-71: engine-free, 95 of its 144 one-member cases over 0.003, up to 0.046). ADR-363 sent this to a scratch trial of C.16's existing blocker, with clips for the human. Separately, item 7.8's reference R2 places FM free's modulator half a cycle from round 56's start, and 7.8 plays before its settings settle (Q-TA-77).
