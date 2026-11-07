@@ -6672,7 +6672,7 @@
    "master_version": null,
    "shell": null,
    "state": "ruled",
-   "note": "The one-control reading is the GUI session's, open to the human. FX device: none."
+   "note": "The one-control reading is ruled (GUI-57 A1, the human: \"A: one tag\"); sources don't share ENV 2 to 4 from the card. FX device: none."
   },
   {
    "lab": "docs/design/morph-rail-lab.html",

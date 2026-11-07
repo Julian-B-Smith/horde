@@ -11916,6 +11916,19 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 
 **FX device (ADR-254).** None: it has no oscillators and no Osc dashboard.
 
+### GUI-57 A1 — RULED by the human: ruling 4 is one compact control (2026-11-07; relayed by the review facilitator)
+
+The facilitator put the readings to the human in plain terms:
+- **A**, one tag naming the followed envelope, which opens Override (the source's own envelope, or back to ENV 1);
+- **B**, an ENV 1 to 4 picker and a separate Override button;
+- a third, the tag with ENV 2 to 4 also listed, so sources could share.
+
+The human chose **"A: one tag"**. So the GUI session's reading of ruling 4 stands as ruled:
+- sources don't share ENV 2 to 4 from the card;
+- GUI-47's follow-ENV-1-until-you-ask rule holds.
+
+The question is closed. **Engine impact:** none beyond ruling 4's (the existing Envelope row). **FX device (ADR-254):** none.
+
 ## GUI-39 — DIRECTED by the human: envelope pictures you drag; curve controls on every section (GB23; UI Spec section 6, B377; 2026-11-05)
 
 **The human, 2026-11-05:** "Let's make envelope visualizers interactive. They also need curve controls on each of the sections, as per the design doc."
