@@ -8358,6 +8358,10 @@
    "reason": "A proposed CPU evaluation framework: measurement, oracle and process for the engine. No screen; a user-facing mode from it would be its own ruling."
   },
   {
+   "adr": "ADR-381",
+   "reason": "A parameter range (unison 1..9); the knob's steps regenerate from the manifest, so no design element changes."
+  },
+  {
    "adr": "GUI-44",
    "reason": "A gate: GUI 3's browser check wired into ./verify fast, a hole where there's no browser. No design element."
   }

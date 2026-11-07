@@ -12707,3 +12707,27 @@ The lead's mechanism, from the critic's review: the resolver holds the switch-of
 5. **The Serum 2 reference** is being set up. A headless Audio Unit bench measures a heavy Serum 2 patch the human exports under PF-1 and PF-3's exact conditions, on this Mac, in % of one core. The target follows that measurement.
 
 Still open: the brief's other thresholds, the listening set, the aliasing ceiling, model routing, promotion of alternatives to user-facing modes, scoped timers against DT-5, the parameter-contract freeze point, the eval role split, and the agent rung (decisions 5 to 13 in the proposal).
+
+## ADR-381 — RULED by the human: unison is 1 to 9 members per oscillator (round 63, B640)
+
+**Context.** X10 ruled 1 to 16 members per oscillator. Playing build 9 of the test plug-in, 2026-11-07, the human said: "We should lower per-osc voice limits back down to something sensible like 9, as I had initially had it. At 11 it causes clicking and spontaneous overload."
+
+**Ruling.** Each oscillator's `unison` row is **1..9**, with 9 steps, and the default stays 7 members. This replaces X10's 1 to 16. Spec round 63 writes it:
+- the row;
+- RT-1 and PF-7 sized for 9;
+- C.8's 10-to-16 seat branch removed;
+- B.1's bank `N`, clamped to 9 and reported;
+- PF-5's cells at 9 members at most.
+
+**Approvals, by poll, 2026-11-07:**
+- **The lock change:** "Approve". The engine's lockfile (IF-11) treats ranges as append-only, and shrinking `osc1.unison` and `osc2.unison` from 16 to 9 steps is approved. The manifest is frozen only from the first release (spec 5.1).
+- **Old test sessions:** "Accept the shift". Hosts store unison as a value from 0 to 1, so a test-plug-in session saved with builds 5 to 9 reopens with the count that value now means (7 members becomes 4). There is no migration for the test plug-in.
+
+**What follows.**
+- The factory bank needs no migration: every preset's `N` is at most 9.
+- The manifest hash moves to `2cf4a525…`, so the test plug-in on an older engine shows a mismatch banner until the builder adopts round 63.
+- The builder sets the row and the lockfile, sets `kMaxMembers` to 9 and re-measures PF-7.
+- The test author changes the sanity cell Q-TA-50 from unison 16 to 9, and drops any case above 9.
+- Re-recording the GUI fixtures (both are from 1ad270a) is the human's gate, when the engine changes.
+
+**FX device (ADR-254).** None: the FX device has no oscillators.
