@@ -78,7 +78,7 @@ These are the ones nothing on the engine side knows about yet.
 | GN-28 | The real law: Quantum, Stepped, count, glide, the draw. Under Quantum the field's HEARING reads the owner while a knob reads the stub's blend, and they meet when this lands. | GUI-20 | MO-6 to MO-10, D.2, IF-12 |
 | GN-29 | Per-key mode and count. The menu is in the shell (GUI-28): Exempt and Quantum play on the stand-in, and the count is held and sent to the resolver, but nothing plays it until the real resolver. | GUI-19, GUI-28, GB7 | MO-11 to MO-13, IF-12 |
 | GN-30 | Depth routes, one level only. Deleting a wire removes the depth wires on it. | GUI-3 | B70; RC-4 defers routes |
-| GN-31 | Rail and per-parameter distribution. | GUI-19, GB7 | B133, B28; no design ruling |
+| GN-31 | Rail and per-parameter distribution. Distribution is GUI-56 r3's share bars, which write a row's own four offsets (GN-6's state) and need nothing new. The rail is after 1.0, on every XY pad (GUI-56 r4), with no 1.0 need. | GUI-19, GB7, GUI-56 | B133, B28; no design ruling |
 | GN-32 | Engine phases for the Specimen. Its cost in the plugin webview is measured before 1.0. | GUI-2 r3 | IF-10, RC-8, ADR-140 |
 
 ## Host and plugin checks

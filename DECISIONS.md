@@ -11912,6 +11912,26 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 
 **FX device (ADR-254).** It has envelopes among its modulators, so the same drag applies to their pictures.
 
+## GUI-56 — RULED by the human: per-parameter distribution is share bars in 1.0; the morph rail moves after 1.0 and grows to every XY pad (GB17; B133, B28; 2026-11-06)
+
+**The human, 2026-11-06,** reviewing `docs/design/morph-rail-lab.html` live with the Labs facilitator session, answered all four questions.
+
+**Rulings.**
+1. **A rail is drawn in three modes, all offered.** "I want an option for all three": points it passes through, Bézier handles, and drawing by hand. The GUI session's pick was points plus drawing.
+2. **The puck scrubs along the rail while it's on.** "Yes, puck scrubs the rail", as the lab builds it.
+3. **Per-parameter distribution is share bars, in 1.0.** "D2: Share bars", the GUI session's pick. A row gets bars, one per corner, and dragging a divider gives a corner more of the pad. The bars write the same offsets a boundary drag writes, so a row still stores only its own four offsets and a bar can't disagree with a boundary. That is GN-6's state, and nothing new. For each share the bars find the offsets deterministically, with a fixed iteration count.
+4. **The rail is after 1.0, on every XY pad.** "Let's plan it for after 1.0; I actually want to place rails on all the XY pads, which means additional rounds of functionality testing and design." The Morph page doesn't show a rail in 1.0. Rulings 1 and 2 stand as the starting point for those rounds.
+
+**What it settles elsewhere.**
+- The lab marks B28's design question closed by D2. B28 is the lead's row, so closing it is the lead's.
+- B133's rail moves after 1.0, also the lead's.
+
+**The lab.** It is ruled (GUI-56). The human keeps it as the rail's bench for the rounds after 1.0 (2026-11-06, through the Labs facilitator: "Keep as the rail's bench"), and its review pin is off.
+
+**Engine impact.** GN-31, whose need narrows to "nothing new for distribution; the rail after 1.0".
+
+**FX device (ADR-254).** It has XY pads, and ruling 4 covers every XY pad, so the rail reaches it after 1.0 as well. Share bars apply to its morph rows as they do here.
+
 ## GUI-40 — RULED by the human: the Weather on the Noise page; square pads with the Morph pad in a sticky column; the puck over the corners; bend handles; the logo on every page (GB9, GB23; amends GUI-19, GUI-26, GUI-33; 2026-11-05)
 
 **The human, 2026-11-05.**
