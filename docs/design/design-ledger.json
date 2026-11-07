@@ -506,6 +506,10 @@
   "morph-questions-lab.html": {
    "status": "exploring",
    "note": "GB29. The morph’s eight open questions on the pad, ending in one poll; the answers go to the lead for the spec round (ADR-370, B631)."
+  },
+  "random-roles-lab.html": {
+   "status": "exploring",
+   "note": "B644 (the lead's). Every manifest row nested by PA-8's live-when table, where the human annotates how Random treats each one: roll (never, once per patch, per corner), where it unlocks on the chaos curve, the Random-page toggle that owns it, and the Discrete lock; transposition ladders and a seeded four-corner preview. The annotations come back as exported JSON for the Random page and the spec (ADR-374, GUI-55)."
   }
  },
  "not_labs": {
