@@ -2917,6 +2917,19 @@
           }
         },
         {
+          "title": "Position",
+          "tag": "IF-11",
+          "side": true,
+          "keys": [
+            "morph.x",
+            "morph.y"
+          ],
+          "abbr": {
+            "morph.x": "X",
+            "morph.y": "Y"
+          }
+        },
+        {
           "title": "Quantum",
           "tag": "MO-6 · MO-7",
           "keys": [
