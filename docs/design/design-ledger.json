@@ -8377,6 +8377,10 @@
    "reason": "A parameter range (unison 1..9); the knob's steps regenerate from the manifest, so no design element changes."
   },
   {
+   "adr": "ADR-383",
+   "reason": "The morph's switch law; the page's region painting for switches is the GUI session's to follow (ENGINE-NEEDS)."
+  },
+  {
    "adr": "GUI-44",
    "reason": "A gate: GUI 3's browser check wired into ./verify fast, a hole where there's no browser. No design element."
   }
