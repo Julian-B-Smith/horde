@@ -148,6 +148,14 @@
   {
    "version": "1793909482-958b",
    "evidence": "docs/design/arp-face/README.md: the Dial with Erode up, 2026-11-05"
+  },
+  {
+   "version": "1793939881-6f91",
+   "evidence": "docs/design/arp-face/README.md: Members at phase, GUI-49, 2026-11-05"
+  },
+  {
+   "version": "1793941176-071d",
+   "evidence": "docs/design/arp-face/README.md: Members at phase, its pills on one row, GUI-49, 2026-11-05"
   }
  ],
  "vendoring": {
@@ -212,8 +220,9 @@
    "note": "Archived in the design index (its lab-archive tag): legacy-era bench; its law is ruled or lives in the composed engine. History, never a source."
   },
   "corner-mapping-lab.html": {
-   "status": "exploring",
-   "note": "The lead's lab for B396 and B270, the human's request of 2026-11-02: per-corner mappings, with the 1.0 question left open against ADR-261 and ADR-266. Five questions for a poll after listening. Nothing here reaches the master until a ruling does."
+   "status": "ruled",
+   "adr": "GUI-53",
+   "note": "B396, ruled GUI-53 (the human, 2026-11-06, through the Labs facilitator): blend fades with the corner, stops at zero, a per-patch loop setting defaulting to allow one step late, a warning when a load drops a mapping, the pad follows the loop setting."
   },
   "detune-lab.html": {
    "status": "retired",
@@ -286,8 +295,9 @@
    "note": "Superseded by fx-design-lab.html (its lab-superseded-by tag). History, never a source."
   },
   "fx-screen-marks-lab.html": {
-   "status": "exploring",
-   "note": "GB15. Ways to show morph corners and modulation on every FX screen, with a pick per screen; waiting on the human's choices. Nothing here is in the master."
+   "status": "ruled",
+   "adr": "GUI-58",
+   "note": "GB15, ruled GUI-58 and its A1 (the human, 2026-11-06, through the Labs facilitator): a corner and a modulation mark per screen, glyphs on the workstation, vector and LCD; each screen its own grammar; weight where it fits; bezel lamps get a round (GB33). Its review pin is off. Nothing here is in the master yet."
   },
   "fx-screens-workshop.html": {
    "status": "harvested",
@@ -361,8 +371,9 @@
    "note": "BlendMaps, CrossSection, FindPane and Cohesion READMEs cite it (ADR-266 ruling 9); its rounds (B268, B269) are not all ratified (port-tab morph-editor)."
   },
   "morph-rail-lab.html": {
-   "status": "exploring",
-   "note": "GB17. How a rail is drawn, whether the puck scrubs it, and what per-parameter distribution means now that a row can own its regions (B133, B28, GN-31). Waiting on the human."
+   "status": "ruled",
+   "adr": "GUI-56",
+   "note": "GB17. The human answered all four (2026-11-06, through the Labs facilitator): rails drawn three ways, the puck scrubs the rail, distribution is D2's share bars in 1.0, and the rail is after 1.0 on every XY pad. Kept as the rail's bench for the rounds after 1.0 (the human, 2026-11-06, through the Labs facilitator); its review pin is off."
   },
   "morph-law-bench.html": {
    "status": "retired",
@@ -373,9 +384,10 @@
    "note": "Archived in the design index (its lab-archive tag): ruled as GUI-16, option B, and built into the shell. It compares against the old layout, which is gone. History, never a source."
   },
   "page-chrome-lab.html": {
-   "status": "ruled",
-   "adr": "ADR-315",
-   "note": "The docked morph pad and the info box (ADR-315); B557's menu and marks reached the master as MorphMode (GUI-28). B556 was built in the shell."
+   "status": "harvested",
+   "adr": "GUI-28",
+   "master_version": "1793909482-958b",
+   "note": "Closed by the human, 2026-11-06, through the Labs facilitator (\"Close it\"): harvested into the shell, every GUI-28 reading kept as built (GUI-51)."
   },
   "patch-model-lab.html": {
    "status": "exploring",
@@ -384,7 +396,7 @@
   "random-lab.html": {
    "status": "ruled",
    "adr": "ADR-322",
-   "note": "Folded into the Morph page (ADR-322; with ADR-318, ADR-320, ADR-321, ADR-327); its next round is still being ruled and nothing is in the master (port-tab random-page)."
+   "note": "Folded into the Morph page (ADR-322; with ADR-318, ADR-320, ADR-321, ADR-327); its next round is still being ruled and nothing is in the master (port-tab random-page). DEFERRED by the human, 2026-11-05, through the Labs facilitator until its next round is ready; pin off."
   },
   "reverb-lab.html": {
    "status": "ruled",
@@ -401,7 +413,7 @@
   },
   "shriek-gui-lab.html": {
    "status": "exploring",
-   "note": "GB14. Shriek's whole hosted interface on its 80s workstation screen with the live automaton title, for the human to judge. Controls from the vendored manifest. Open: Shriek's answers on its control surface, through the lead. Corners and modulation are a placeholder page for GB15."
+   "note": "GB14. Shriek's whole hosted interface on its 80s workstation screen with the live automaton title, for the human to judge. Controls from the vendored manifest. Open: Shriek's answers on its control surface, through the lead. Corners and modulation are a placeholder page for GB15. DEFERRED by the human, 2026-11-05, through the Labs facilitator (\"Defer both\") until Shriek answers seq 41 and 43; pin off."
   },
   "scalpel-interface-lab.html": {
    "status": "harvested",
@@ -419,7 +431,7 @@
   },
   "sluice-gui-lab.html": {
    "status": "exploring",
-   "note": "GB13. Sluice's whole hosted interface on its GBC screen with the live title, for the human to judge. It reads Sluice's data through local/sluice and carries none of it (the human's hold). Open: Sluice's answers on its control surface, through the lead. Corners and modulation are a placeholder for GB15."
+   "note": "GB13. Sluice's whole hosted interface on its GBC screen with the live title, for the human to judge. It reads Sluice's data through local/sluice and carries none of it (the human's hold). Open: Sluice's answers on its control surface, through the lead. Corners and modulation are a placeholder for GB15. Sluice answered (its seq 85, 2026-11-04), so the human’s deferral ends; pin off until the lab carries the answer."
   },
   "sluice-horde-lab.html": {
    "status": "retired",
@@ -473,16 +485,23 @@
    "note": "Retired by the human, 2026-11-05, through the Labs facilitator (ADR-369): done: Randomize has its own top button (GUI-25), in the shell."
   },
   "osc-layout-lab.html": {
-   "status": "exploring",
-   "note": "GB19. Three candidates each for an oscillator's mini view on Main, its expanded page, and the Osc dashboard with both filters (MOCK). Waiting on the human."
+   "status": "ruled",
+   "adr": "GUI-57",
+   "note": "GB19. The human answered all four (2026-11-06, through the Labs facilitator): M3 with the summed waveform under the blade view on Main, P1 tiers as built, D3 signal flow on the dashboard, and a card's envelope as a small control. Nothing open."
   },
   "envelope-workshop-lab.html": {
-   "status": "exploring",
-   "note": "GB23. How a source gets a different envelope (Override, one grid, Serum's Env button) and how envelopes show on Main and an Osc page, each with this session's pick; waiting on the human's answers."
+   "status": "ruled",
+   "adr": "GUI-47",
+   "note": "GB23, ruled GUI-47 (the human, 2026-11-05, through the Labs facilitator): Override + grid, four envelopes on Main with a map button each, picture and readout on an Osc page. Where Main’s strip fits is back with the human."
   },
   "bank-morph-lane-lab.html": {
+   "status": "ruled",
+   "adr": "GUI-50",
+   "note": "GB25, ruled GUI-50 (the human, 2026-11-05): lane B with preset menus, saving on the Morph page, asterisks on edited presets, dimmed with a switch, back to the previous tab."
+  },
+  "morph-questions-lab.html": {
    "status": "exploring",
-   "note": "GB25. What the bank's MORPH tab holds (four lanes), the tab with morph off, and where the bank goes when morph turns off; waiting on the human."
+   "note": "GB29. The morph’s eight open questions on the pad, ending in one poll; the answers go to the lead for the spec round (ADR-370, B631)."
   }
  },
  "not_labs": {
@@ -6520,8 +6539,38 @@
    "id": "gui45-pad-xy-knobs",
    "adr": "GUI-45",
    "clause": "the pad's X and Y as two knobs under the Morph page's pad, no undo step, as a drag",
-   "note": "Waits on D.2 rows for the position (GN-51); the shell draws parameter knobs only from rows. FX device: same.",
+   "note": "Waits on D.2 rows for the position (GN-51); the shell draws parameter knobs only from rows. The place is ready: a layout group marked `side` sits under the pad (gen_gui3_controls’ `side` gate, self-check 4b2e), and the Position group lands with the rows in one change (the lead’s round 61). FX device: same.",
    "lab": null
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": null,
+   "id": "gui48-cut-on-face",
+   "adr": "GUI-48",
+   "clause": "a blade's cut rate is always on its face: cutHz beside cut, and blade 2's 'as blade 1' read through blade 1 (PA-8)",
+   "note": "A fix against PA-8. FX device: none.",
+   "shell": "docs/design/gui3.html: const FOLLOWS_BLADE1"
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": null,
+   "id": "gui48-dashboard-cycle",
+   "adr": "GUI-48",
+   "clause": "the dashboard's oscillator cards draw the SCALPEL cycle from the blades' settings, not the bare base wave",
+   "note": "SAMPLE until GN-41. FX device: none.",
+   "shell": "docs/design/gui3.html: function bladeCycle("
   },
   {
    "id": "gui46-inert-on-bridge",
@@ -6552,6 +6601,711 @@
    "superseded_by": null,
    "port_tab": "random-page",
    "note": "Ruled; built after the lead's CPU hold. 'Often maps it to pitch' waits on route draws. FX device: none."
+  },
+  {
+   "lab": "docs/design/osc-layout-lab.html",
+   "via": null,
+   "superseded_by": null,
+   "port_tab": null,
+   "adr": "GUI-57",
+   "id": "gui57-main-tab-m3",
+   "clause": "ruling 1: Main's oscillator tab is M3 (ring and waveform left, one part at a time right) with the summed waveform under the blade view",
+   "component": "Deck",
+   "bundle": null,
+   "master_version": null,
+   "shell": null,
+   "state": "ruled",
+   "note": "To build: the Deck tab's layout in the master, then the shell; the waveform is GUI-49's. Its height on the 267 px tab is measured when built. FX device: none."
+  },
+  {
+   "lab": "docs/design/osc-layout-lab.html",
+   "via": null,
+   "superseded_by": null,
+   "port_tab": null,
+   "adr": "GUI-57",
+   "id": "gui57-osc-page-p1",
+   "clause": "ruling 2: the Osc page keeps GUI-30's tiers (Face, All, +Adv); named groups declined for now",
+   "component": "PageView",
+   "bundle": "PageView",
+   "master_version": "1793909482-958b",
+   "shell": "docs/design/gui3.html: function paramPage(pg, el)",
+   "state": "in-shell",
+   "note": "As built: nothing changes. FX device: a module's section tiers may borrow it."
+  },
+  {
+   "lab": "docs/design/osc-layout-lab.html",
+   "via": null,
+   "superseded_by": null,
+   "port_tab": null,
+   "adr": "GUI-57",
+   "id": "gui57-dashboard-signal-flow",
+   "clause": "ruling 3: the Osc dashboard is the signal flow, four sources in a column wired into the two filters",
+   "component": null,
+   "bundle": null,
+   "master_version": null,
+   "shell": null,
+   "state": "ruled",
+   "note": "The wires are a drawing until GN-16; the filters wait on Weir's manifest. FX device: none."
+  },
+  {
+   "lab": "docs/design/osc-layout-lab.html",
+   "via": null,
+   "superseded_by": null,
+   "port_tab": null,
+   "adr": "GUI-57",
+   "id": "gui57-card-envelope-control",
+   "clause": "ruling 4: a dashboard card's envelope becomes a small control naming the envelope it follows and opening GUI-47's Override; the card gains a control row",
+   "component": null,
+   "bundle": null,
+   "master_version": null,
+   "shell": null,
+   "state": "ruled",
+   "note": "The one-control reading is the GUI session's, open to the human. FX device: none."
+  },
+  {
+   "lab": "docs/design/morph-rail-lab.html",
+   "via": null,
+   "superseded_by": null,
+   "master_version": null,
+   "bundle": null,
+   "shell": null,
+   "port_tab": null,
+   "adr": "GUI-56",
+   "id": "gui56-share-bars",
+   "clause": "ruling 3: per-parameter distribution is share bars, writing a row's own offsets (D2), in 1.0",
+   "component": "MorphInspector",
+   "state": "ruled",
+   "note": "To build in the master's selected-row inspector, beside the scale and the lock. FX device: same, its own rows."
+  },
+  {
+   "lab": "docs/design/morph-rail-lab.html",
+   "via": null,
+   "superseded_by": null,
+   "master_version": null,
+   "bundle": null,
+   "shell": null,
+   "port_tab": null,
+   "adr": "GUI-56",
+   "id": "gui56-rail-after-1-0",
+   "clause": "rulings 1, 2 and 4: the rail is after 1.0 on every XY pad, drawn three ways, and the puck scrubs it",
+   "component": null,
+   "state": "ruled",
+   "note": "After 1.0: nothing in 1.0's GUI. Rulings 1 and 2 are where the rail's design rounds start. FX device: its XY pads too."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": null,
+   "id": "gui51-pin-caps",
+   "adr": "GUI-51",
+   "clause": "waypoints: 8 per setting, 64 per patch, stored in order",
+   "note": "FX device: applies where it has a morph. Asked on morph-questions-lab (GB29, PR #1423)."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": null,
+   "id": "gui51-pins-dormant",
+   "adr": "GUI-51",
+   "clause": "pins stay dormant across a mode change",
+   "note": "FX device: applies where it has a morph. Asked on morph-questions-lab (GB29, PR #1423)."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": null,
+   "id": "gui51-lock-shape",
+   "adr": "GUI-51",
+   "clause": "a region lock keeps only the region shape",
+   "note": "FX device: applies where it has a morph. Asked on morph-questions-lab (GB29, PR #1423)."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": null,
+   "id": "gui51-xy-host",
+   "adr": "GUI-51",
+   "clause": "X and Y are host parameters",
+   "note": "FX device: applies where it has a morph. Asked on morph-questions-lab (GB29, PR #1423)."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": null,
+   "id": "gui51-maps-per-corner",
+   "adr": "GUI-51",
+   "clause": "mappings are per corner; the puck blends their depths",
+   "note": "FX device: applies where it has a morph. Asked on morph-questions-lab (GB29, PR #1423)."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": null,
+   "id": "gui51-no-ramps",
+   "adr": "GUI-51",
+   "clause": "RAMPS dropped: two kinds of setting",
+   "note": "FX device: applies where it has a morph. Asked on morph-questions-lab (GB29, PR #1423)."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": null,
+   "id": "gui51-corner-lib",
+   "adr": "GUI-51",
+   "clause": "corner presets: the patch’s own, then a user library",
+   "note": "FX device: applies where it has a morph. Asked on morph-questions-lab (GB29, PR #1423)."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": null,
+   "id": "gui51-save-heard",
+   "adr": "GUI-51",
+   "clause": "Save current sound stores what is heard, every setting",
+   "note": "FX device: applies where it has a morph. Asked on morph-questions-lab (GB29, PR #1423)."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": "docs/design/envelope-workshop-lab.html",
+   "id": "gui51-env-strip-c",
+   "adr": "GUI-51",
+   "clause": "on Main the envelope strip replaces ENV 1’s knobs (GUI-47’s fit, option c)",
+   "note": "FX device: applies where it has a morph."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": null,
+   "id": "gui52-lfo-cards",
+   "adr": "GUI-52",
+   "clause": "four LFOs with a shared/per-note switch, envelope mode, smoothed random",
+   "note": "ADR-371. FX device: no per-note sources."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": null,
+   "id": "gui52-route-curve",
+   "adr": "GUI-52",
+   "clause": "each route has its own curve, and a new one takes its source’s natural polarity",
+   "note": "ADR-371. FX device: no per-note sources."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": null,
+   "id": "gui52-targets-sources",
+   "adr": "GUI-52",
+   "clause": "targets add FX knobs, modulator settings and the morph position (global LFO only); sources add wheels, keytrack and MPE",
+   "note": "ADR-371. FX device: no per-note sources."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": null,
+   "id": "gui52-corner-depths",
+   "adr": "GUI-52",
+   "clause": "route rows show each corner’s depth, silent corners greyed",
+   "note": "ADR-371. FX device: no per-note sources."
+  },
+  {
+   "port_tab": null,
+   "via": null,
+   "superseded_by": null,
+   "lab": null,
+   "id": "gui49-members-at-phase",
+   "adr": "GUI-49",
+   "clause": "a fourth waveform view, Members at phase: lanes, each member shifted to the mean field",
+   "note": "FX device: none.",
+   "component": "BladeView",
+   "bundle": "BladeView",
+   "shell": "docs/design/gui3.html: H.BladeView(pin",
+   "state": "in-shell",
+   "master_version": "1793941176-071d"
+  },
+  {
+   "port_tab": null,
+   "via": null,
+   "superseded_by": null,
+   "lab": null,
+   "id": "gui49-beam",
+   "adr": "GUI-49",
+   "clause": "the summed beam under the waveform on the Osc pages, one cycle on its x axis, hue riding R",
+   "note": "SAMPLE until GN-4. FX device: the painter is audio-capable.",
+   "component": "Waveform",
+   "bundle": "Viz",
+   "shell": "docs/design/gui3.html: H.Viz.scope(beam",
+   "state": "in-shell",
+   "master_version": "1793941176-071d"
+  },
+  {
+   "port_tab": null,
+   "via": null,
+   "superseded_by": null,
+   "lab": null,
+   "id": "gui49-osc-scroll",
+   "adr": "GUI-49",
+   "clause": "the Osc pages scroll; Main, Sub and Noise still fit the page area (amends ADR-345 r1)",
+   "note": "FX device: none.",
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "state": "ruled",
+   "master_version": null
+  },
+  {
+   "port_tab": null,
+   "via": null,
+   "superseded_by": null,
+   "lab": "docs/design/bank-morph-lane-lab.html",
+   "id": "gui50-lane-b",
+   "adr": "GUI-50",
+   "clause": "the MORPH lane is the corner rows with their weights (lane B)",
+   "note": "Not in the master yet. FX device: same.",
+   "component": "ModBank",
+   "bundle": null,
+   "shell": null,
+   "state": "ruled",
+   "master_version": null
+  },
+  {
+   "port_tab": null,
+   "via": null,
+   "superseded_by": null,
+   "lab": "docs/design/bank-morph-lane-lab.html",
+   "id": "gui50-name-menus",
+   "adr": "GUI-50",
+   "clause": "each corner name in the lane is a menu of existing corner presets",
+   "note": "Not in the master yet. FX device: same.",
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "state": "ruled",
+   "master_version": null
+  },
+  {
+   "port_tab": null,
+   "via": null,
+   "superseded_by": null,
+   "lab": "docs/design/bank-morph-lane-lab.html",
+   "id": "gui50-save-on-morph",
+   "adr": "GUI-50",
+   "clause": "saving the current sound to a preset or a corner lives on the Morph page",
+   "note": "Not in the master yet. FX device: same.",
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "state": "ruled",
+   "master_version": null
+  },
+  {
+   "port_tab": null,
+   "via": null,
+   "superseded_by": null,
+   "lab": "docs/design/bank-morph-lane-lab.html",
+   "id": "gui50-asterisk",
+   "adr": "GUI-50",
+   "clause": "an asterisk on every name whose values differ from its preset, every kind of preset",
+   "note": "Not in the master yet. FX device: same.",
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "state": "ruled",
+   "master_version": null
+  },
+  {
+   "port_tab": null,
+   "via": null,
+   "superseded_by": null,
+   "lab": "docs/design/bank-morph-lane-lab.html",
+   "id": "gui50-off-dimmed",
+   "adr": "GUI-50",
+   "clause": "while morph is off the MORPH tab is dimmed with a Turn morph on switch",
+   "note": "Not in the master yet. FX device: same.",
+   "component": "ModBank",
+   "bundle": null,
+   "shell": null,
+   "state": "ruled",
+   "master_version": null
+  },
+  {
+   "port_tab": null,
+   "via": null,
+   "superseded_by": null,
+   "lab": "docs/design/bank-morph-lane-lab.html",
+   "id": "gui50-back",
+   "adr": "GUI-50",
+   "clause": "when morph turns off the bank goes back to the tab it had",
+   "note": "Not in the master yet. FX device: same.",
+   "component": "ModBank",
+   "bundle": null,
+   "shell": null,
+   "state": "ruled",
+   "master_version": null
+  },
+  {
+   "port_tab": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": "docs/design/envelope-workshop-lab.html",
+   "id": "gui47-override",
+   "adr": "GUI-47",
+   "clause": "Override: a source gets its own envelope, a copy, in a free ENV 2 to 4 (three at most)",
+   "note": "Writes the Envelope row (RC-6.5). FX device: none.",
+   "component": null
+  },
+  {
+   "port_tab": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": "docs/design/envelope-workshop-lab.html",
+   "id": "gui47-grid",
+   "adr": "GUI-47",
+   "clause": "the grid of sources against envelopes as the overview, on the Mod page or the Dashboard",
+   "note": "FX device: none.",
+   "component": null
+  },
+  {
+   "port_tab": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": "docs/design/envelope-workshop-lab.html",
+   "id": "gui47-main-four",
+   "adr": "GUI-47",
+   "clause": "Main shows all four envelopes, small, with the clicked one large, each small one with a map button",
+   "note": "Its fit on Main is open (GUI-47: a, b or c). FX device: none.",
+   "component": "Envelope"
+  },
+  {
+   "port_tab": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": "docs/design/envelope-workshop-lab.html",
+   "id": "gui47-osc-readout",
+   "adr": "GUI-47",
+   "clause": "an Osc page: the envelope picture to drag, values read out under it, knobs behind +Adv",
+   "note": "FX device: none.",
+   "component": "Envelope"
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": "docs/design/fx-screen-marks-lab.html",
+   "id": "gui58-marks-ws",
+   "adr": "GUI-58",
+   "clause": "Shriek, 80s workstation: corners drawn as Bitmap glyphs, modulation as Dither band",
+   "note": "Next: the master. FX device: the same."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": "docs/design/fx-screen-marks-lab.html",
+   "id": "gui58-marks-gbc",
+   "adr": "GUI-58",
+   "clause": "Sluice, Game Boy Color: corners drawn as Sprite pips, modulation as Hatched lane",
+   "note": "Next: the master. FX device: the same."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": "docs/design/fx-screen-marks-lab.html",
+   "id": "gui58-marks-house",
+   "adr": "GUI-58",
+   "clause": "Drive, the house screen: corners drawn as Pips in one ink, modulation as the chassis’s lane",
+   "note": "Next: the master. FX device: the same."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": "docs/design/fx-screen-marks-lab.html",
+   "id": "gui58-marks-seg",
+   "adr": "GUI-58",
+   "clause": "Scape, segment glass: corners drawn as Corner digits, modulation as Blink band",
+   "note": "Next: the master. FX device: the same."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": "docs/design/fx-screen-marks-lab.html",
+   "id": "gui58-marks-nix",
+   "adr": "GUI-58",
+   "clause": "Bulwark, Nixie tubes and neon bargraphs: corners drawn as Lamps on a scale, modulation as Second column",
+   "note": "Next: the master. FX device: the same."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": "docs/design/fx-screen-marks-lab.html",
+   "id": "gui58-marks-son",
+   "adr": "GUI-58",
+   "clause": "Echo, sonar scope: corners drawn as Pips on the trace, modulation as Afterglow",
+   "note": "Next: the master. FX device: the same."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": "docs/design/fx-screen-marks-lab.html",
+   "id": "gui58-marks-crt",
+   "adr": "GUI-58",
+   "clause": "Phosphor CRT terminal: corners drawn as Letter ruler, modulation as Shade band",
+   "note": "Next: the master. FX device: the same."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": "docs/design/fx-screen-marks-lab.html",
+   "id": "gui58-marks-ttx",
+   "adr": "GUI-58",
+   "clause": "Teletext page: corners drawn as Letters in cells, modulation as Blue band, flash cell",
+   "note": "Next: the master. FX device: the same."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": "docs/design/fx-screen-marks-lab.html",
+   "id": "gui58-marks-vec",
+   "adr": "GUI-58",
+   "clause": "Vector monitor: corners drawn as Outline glyphs, modulation as Beam retrace",
+   "note": "Next: the master. FX device: the same."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": "docs/design/fx-screen-marks-lab.html",
+   "id": "gui58-marks-lcd",
+   "adr": "GUI-58",
+   "clause": "Dot-matrix character LCD: corners drawn as Custom glyphs, modulation as Sub-cell tip",
+   "note": "Next: the master. FX device: the same."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": "docs/design/fx-screen-marks-lab.html",
+   "id": "gui58-marks-cad",
+   "adr": "GUI-58",
+   "clause": "CAD blueprint: corners drawn as Balloons, modulation as Phantom limits",
+   "note": "Next: the master. FX device: the same."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": "docs/design/corner-mapping-lab.html",
+   "id": "gui53-loop-setting",
+   "adr": "GUI-53",
+   "clause": "a per-patch loop-mode setting: refuse any, refuse inside a corner, or allow one step late (default)",
+   "note": "FX device: the same."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": "docs/design/corner-mapping-lab.html",
+   "id": "gui53-drop-warning",
+   "adr": "GUI-53",
+   "clause": "a corner preset load that would close a loop loads without that mapping and names it in a warning",
+   "note": "FX device: the same."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": null,
+   "id": "gui54-splash",
+   "adr": "GUI-54",
+   "clause": "the Mindlathe logo covers the window on its first opening per Live session, fading on the first click or after 2.5 s",
+   "note": "FX device: the same."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": null,
+   "id": "gui53-mapmode-spec",
+   "adr": "GUI-53",
+   "clause": "the Map Mode spec reads per corner for 1.0 (the human approved the edit, 2026-11-06)",
+   "note": "The edit carries ADR-371 MQ17 and GUI-51 r5 (PR #1426). FX device: the same."
   }
  ],
  "not_design": [
@@ -7556,6 +8310,50 @@
    "reason": "Records the human's lab verdicts; each lab's own ledger entry is the GUI session's to change, citing this ADR."
   },
   {
+   "adr": "ADR-370",
+   "reason": "Scheduling and scope: the morph lab and its design rulings are the GUI session's, recorded as GUI-n with their own ledger rows."
+  },
+  {
+   "adr": "ADR-371",
+   "reason": "The modulation system's behaviour, ruled by poll. Its consequences for the Mod page are the GUI session's to record as GUI-n with their own ledger rows."
+  },
+  {
+   "adr": "ADR-372",
+   "reason": "The corner-mapping lab's answers as behaviour; their screens (the loop setting, the load warning) are the GUI session's GUI-53 with its own ledger rows."
+  },
+  {
+   "adr": "ADR-373",
+   "reason": "The morph's behaviour for spec round 61; the Morph page's design consequences are the GUI session's GUI-51."
+  },
+  {
+   "adr": "ADR-374",
+   "reason": "Random's draw rules; the Random page's design is unchanged, and the GUI session records the build as GUI-n."
+  },
+  {
+   "adr": "ADR-375",
+   "reason": "The modulators' behaviour, ruled from the modulator lab; their cards' design is the GUI session's."
+  },
+  {
+   "adr": "ADR-376",
+   "reason": "The morph's oscillator on/off rule and the puck's saving, as behaviour; the Morph page is unchanged."
+  },
+  {
+   "adr": "ADR-377",
+   "reason": "The morph's law for structure, as behaviour; the Morph page shows the same pad, and no screen changes."
+  },
+  {
+   "adr": "ADR-378",
+   "reason": "Random LFOs' behaviour, ruled from the modulator lab; the LFO card's design is the GUI session's."
+  },
+  {
+   "adr": "ADR-379",
+   "reason": "The modulation system's behaviour, ruled by poll and lab; the page warning and device setting it implies are the GUI session's to record as GUI-n."
+  },
+  {
+   "adr": "ADR-380",
+   "reason": "A proposed CPU evaluation framework: measurement, oracle and process for the engine. No screen; a user-facing mode from it would be its own ruling."
+  },
+  {
    "adr": "GUI-44",
    "reason": "A gate: GUI 3's browser check wired into ./verify fast, a hole where there's no browser. No design element."
   }
@@ -7706,6 +8504,46 @@
   "GUI-43": "none: an existing row in another place",
   "GUI-44": "none: a gate on the GUI shell",
   "GUI-46": "none: the bridge is B628’s, and its engine additions are GN-41, 42, 43 and 48",
+  "GUI-47": "none: Override and the grid write the existing Envelope row (RC-6.5); a map button makes an ordinary modulation route (RC-4)",
+  "GUI-49": "none: drawings of the settings; GN-4 already asks for the output tap",
+  "GUI-50": [
+   "GN-9",
+   "GN-37",
+   "GN-52"
+  ],
+  "GUI-51": [
+   "GN-6",
+   "GN-7",
+   "GN-9",
+   "GN-25",
+   "GN-27",
+   "GN-35",
+   "GN-37",
+   "GN-51"
+  ],
+  "GUI-52": [
+   "GN-23",
+   "GN-27",
+   "GN-39",
+   "GN-49"
+  ],
+  "GUI-48": "none: the drawing and the conditions are the shell’s",
+  "GUI-53": [
+   "GN-27",
+   "GN-53"
+  ],
+  "GUI-54": [
+   "GN-54"
+  ],
+  "GUI-56": [
+   "GN-31"
+  ],
+  "GUI-57": [
+   "GN-16"
+  ],
+  "GUI-58": [
+   "GN-18"
+  ],
   "GUI-55": [
    "GN-21"
   ]

@@ -53,6 +53,8 @@ WHAT --check GATES (each failure carries its tag; the controls below assert the 
   role            a section header's power/modes and a channel strip's fader/on/mute/solo suit their rows
   matrix          a group's C2 matrix (ADR-338 ruling 4: a block with a repeated sub-structure, an envelope's stages x time and
                   curve) names every control of the group exactly once, in a cell or the header, and only controls it has
+  side            a group marked `side` (GUI-45 r3: the pad's X and Y under the Morph page's pad) is on the page that has the pad,
+                  since no other page has a column to put it in, where it would be silently dropped
   fold            a group marked `fold` (P2, ADR-338 ruling 5: only where a page still overflows) has advanced controls to fold
   abbr            the abbreviation column (ADR-338 ruling 10; batch 2 hop): a tiny control's label is at most 4 characters,
                   unique within its section (a followed envelope's four blocks each count on their own), a page marked
@@ -68,7 +70,7 @@ WHAT --check GATES (each failure carries its tag; the controls below assert the 
 MUST-FAIL CONTROLS, every run, on in-memory copies: an unknown key, an unplaced host row, a placed
 reserved row, a knob on a stepped row, an override with no reason, a reason with no override, a bank control with no parameter, a bank choice
 with no reason, a live condition on a missing option, a dropped spec row, a
-shell with a hand-placed key, a shell with a second mount call, a script reading Date.now, and a
+shell with a hand-placed key, a shell with a second mount call, a group under a pad on a page without one, a script reading Date.now, and a
 stale output. Each must come back red with its own tag, or this check is red.
 
 Usage: python3 tools/gen_gui3_controls.py           write the outputs
@@ -827,6 +829,8 @@ def build_pages(rows, layout):
             if g.get("rule") not in (None, "solid", "dash", "dot", "none"):
                 raise Red("role", f"page {pg['id']} group {g['title']}: rule {g.get('rule')!r} is not solid, dash, dot or none")
             matrix = build_matrix(g, controls, f"page {pg['id']} group {g['title']}")
+            if g.get("side") and pg.get("panel") != "morph":
+                raise Red("side", f"page {pg['id']} group {g['title']}: `side` puts a group under the Morph page's pad, and this page has none")
             if g.get("fold") and not any(c["advanced"] for c in controls):
                 raise Red("fold", f"page {pg['id']} group {g['title']}: a fold (P2) folds the advanced rows, and this group has none")
             if g.get("fold") and matrix:
@@ -838,7 +842,7 @@ def build_pages(rows, layout):
             groups.append({"id": sid, "title": g["title"], "tag": g.get("tag"), "screen": g.get("screen"), "controls": controls,
                            "num": g.get("num"), "rule": g.get("rule"), "source": g.get("source"), "viz": g.get("viz"),
                            "strip": g.get("strip"), "master": bool(g.get("master")), "follow": follow_out, "matrix": matrix, "fold": bool(g.get("fold")),
-                           "titlePower": bool(g.get("title_power")), "minimized": bool(g.get("minimized"))})
+                           "titlePower": bool(g.get("title_power")), "minimized": bool(g.get("minimized")), "side": bool(g.get("side"))})
         pages.append({"id": pg["id"], "label": pg["label"], "status": pg["status"], "note": pg.get("note", ""),
                       "cite": pg.get("cite"), "panel": pg.get("panel"), "dense": bool(pg.get("dense")), "viz": pg.get("viz"),
                       "grid": bool(pg.get("grid")), "power": pg.get("power"), "deck": pg.get("deck"), "form": pg.get("form"), "groups": groups})
@@ -1413,6 +1417,8 @@ def controls(spec_text, layout, shell_text, scripts, committed, ext):
               lo=lay(lambda lo: page(lo, "arp")["form"]["tabs"][0]["rows"][0].remove("arp.latch"))),
         plant("a deck tab with a key its source page doesn't carry", "deck",
               lo=lay(lambda lo: page(lo, "main")["deck"]["tabs"][0]["rows"][0].append("noise.pitch"))),
+        plant("a group under a pad on a page without one", "side",
+              lo=lay(lambda lo: page(lo, "sub")["groups"][0].__setitem__("side", True))),
         plant("a page in no nav group", "nav",
               lo=lay(lambda lo: next(g for g in lo["nav"] if "settings" in g["pages"])["pages"].remove("settings"))),
         plant("a dashboard control whose key is not on its source page", "dashboard",

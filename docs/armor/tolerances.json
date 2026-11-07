@@ -523,6 +523,15 @@
       "value": ">=0.125 | <0.08"
     },
     {
+      "approved": "the human, 2026-11-07, by poll: Approve (the AU bench's measuring thresholds: load guard 3.0 and 0.5 core from the CPU tool, silence floor, self-test bounds)",
+      "file": "tools/au-bench/au_bench.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/au-bench/au_bench.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": "<=3.0 | <=0.5 | 100.0 > | >1e-5 | <1.0 | <1e-3f | <1e-4f | >=1e-4f"
+    },
+    {
       "approved": "baseline 2026-10-08",
       "file": "tools/bank_check.cpp",
       "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",

@@ -85,7 +85,7 @@ int main() {
     const Message m = parse_message("{\"type\":\"" + std::string(type) + "\",\"seq\":" + std::to_string(++seq) + "}", keys);
     check(m.kind != Kind::Invalid && m.seq == seq, std::string(type) + ": parsed with its seq, so it is acknowledged");
   }
-  for (const char* type : {"morph", "position", "modes", "rack", "midi", "clear"}) {
+  for (const char* type : {"rack", "midi", "clear"}) {
     const Message m = parse_message("{\"type\":\"" + std::string(type) + "\",\"seq\":1,\"values\":{\"out.level\":0.5}}", keys);
     check(m.kind == Kind::Held && m.values.empty() && !m.unknown_type, std::string(type) + ": held and dropped, nothing sent");
   }
@@ -94,6 +94,123 @@ int main() {
     check(m.kind == Kind::Held && m.unknown_type && m.seq == 7, "a type nobody knows is acknowledged, held, and reported");
     check(parse_message("{\"type\":\"set\",\"values\":{}}", keys).kind == Kind::Invalid, "control: a message with no seq can't be acknowledged");
     check(parse_message("not json", keys).kind == Kind::Invalid, "control: unreadable text is refused, never thrown");
+  }
+
+  // ---- the morph's messages (B636): each parses to what the morph system acts on ---------------------------------
+  {
+    using namespace preview::morph;
+    const Message morph = parse_message("{\"type\":\"morph\",\"seq\":11,\"settings\":{\"morph.on\":1,\"morph.glide\":1.5,\"morph.x\":0.3}}", keys);
+    bool on = false, glide = false;
+    for (const auto& [i, v] : morph.settings) {
+      on = on || (i == kOn && v == 1);
+      glide = glide || (i == kGlide && v == 1);   // clamped to [0, 1], as PA-7 clamps a host value
+    }
+    check(morph.kind == Kind::Morph && morph.seq == 11 && on && glide && morph.settings.size() == 2,
+          "morph: D.2's settings by key reach the morph system, a value past 1 clamped");
+    check(morph.unknown.size() == 1 && morph.unknown[0] == "morph.x", "morph: a key D.2 lacks (morph.x, until round 61) is reported, never guessed at");
+    const Message as_set = parse_message("{\"type\":\"set\",\"seq\":12,\"values\":{\"morph.on\":1}}", keys);
+    check(as_set.values.empty() && as_set.unknown.size() == 1, "control: a morph setting sent as `set` is no engine row: reported, not sent");
+
+    const Message pos = parse_message("{\"type\":\"position\",\"seq\":13,\"x\":0.25,\"y\":1.5}", keys);
+    check(pos.kind == Kind::Position && pos.has_position && pos.x == 0.25 && pos.y == 1, "position: x and y, clamped to the pad");
+    check(!parse_message("{\"type\":\"position\",\"seq\":14,\"x\":0.25}", keys).has_position, "control: a position without y moves nothing");
+
+    const Message modes = parse_message("{\"type\":\"modes\",\"seq\":15,\"modes\":{\"out.level\":\"quantum\",\"osc1.ratios\":\"exempt\","
+                                        "\"no.such.key\":\"quantum\",\"env1.decay\":\"wobble\",\"noise.sampleStart\":\"quantum\"},\"counts\":{\"out.level\":2}}",
+                                        keys);
+    bool level = false, ratios = false;
+    for (const auto& e : modes.modes) {
+      level = level || (e.key == keys.find("out.level") && e.choice.mode == horde::KeyMode::Quantum && e.choice.count == horde::KeyCount::Two);
+      ratios = ratios || (e.key == kRatiosKey[0] && e.choice.mode == horde::KeyMode::Exempt && e.choice.count == horde::KeyCount::AsMorph);
+    }
+    check(modes.kind == Kind::Modes && modes.modes.size() == 2 && level && ratios, "modes: each key's mode and count, a ratios text's included (MO-14 item 3)");
+    check(modes.unknown.size() == 2 && modes.reserved.size() == 1, "modes: an unknown key, a mode the menu lacks and a reserved row are each reported");
+
+    const Message corner = parse_message("{\"type\":\"corner\",\"seq\":16,\"index\":2,\"values\":{\"out.level\":0.75,\"fx1.mix\":0.5}}", keys);
+    check(corner.kind == Kind::Corner && corner.index == 2 && corner.values.size() == 1 && corner.values[0].v == 0.75 && corner.unknown.size() == 1,
+          "corner: values for one corner, by key, an unknown key reported");
+    check(parse_message("{\"type\":\"corner\",\"seq\":17,\"index\":4,\"values\":{}}", keys).index == -1, "control: a corner past D names none");
+    const Message save = parse_message("{\"type\":\"save\",\"seq\":18,\"index\":3}", keys);
+    check(save.kind == Kind::Save && save.index == 3, "save: Save current sound names its corner (MO-25)");
+    // B639: MO-21's list, its law and MO-24's lock
+    const Message pins = parse_message("{\"type\":\"waypoints\",\"seq\":21,\"key\":\"env1.decay\",\"points\":[{\"x\":0.5,\"y\":0.25,\"v\":0.75},{\"x\":0.25,\"y\":0.5,\"v\":1.5}]}", keys);
+    check(pins.kind == Kind::Waypoints && pins.readable && pins.key == keys.find("env1.decay") && pins.points.size() == 2 && pins.points[1].v == 1.5,
+          "waypoints: one key's list, in order, as sent (the resolver clamps and judges it, MO-21)");
+    check(!parse_message("{\"type\":\"waypoints\",\"seq\":22,\"key\":\"env1.decay\",\"points\":[{\"x\":0.5,\"y\":0.25}]}", keys).readable,
+          "control: a waypoint without its value makes the list unreadable, so nothing acts");
+    const Message clear = parse_message("{\"type\":\"waypoints\",\"seq\":23,\"key\":\"env1.decay\",\"points\":[]}", keys);
+    check(clear.readable && clear.points.empty(), "an empty list is readable: it clears the key's waypoints");
+    const Message law = parse_message("{\"type\":\"waypointLaw\",\"seq\":24,\"law\":\"tin\",\"clamp\":false}", keys);
+    check(law.kind == Kind::WaypointLaw && law.readable && law.law == horde::WaypointLaw::Tin && !law.clamp, "waypointLaw: TIN, Clamp off");
+    check(!parse_message("{\"type\":\"waypointLaw\",\"seq\":25,\"law\":\"spline\",\"clamp\":true}", keys).readable, "control: a law MO-21 lacks is unreadable");
+    const Message lock = parse_message("{\"type\":\"lock\",\"seq\":26,\"key\":\"osc1.ratios\",\"offsets\":[0.5,-1,2]}", keys);
+    check(lock.kind == Kind::Lock && lock.key == kRatiosKey[0] && lock.has_offsets && lock.offsets[1] == -1, "lock: a key's three offsets, a ratios text's included");
+    const Message unlock = parse_message("{\"type\":\"lock\",\"seq\":27,\"key\":\"out.level\",\"offsets\":null}", keys);
+    check(unlock.readable && !unlock.has_offsets, "lock: null offsets is no lock");
+    check(!parse_message("{\"type\":\"lock\",\"seq\":28,\"key\":\"out.level\",\"offsets\":[1,2]}", keys).readable, "control: two offsets aren't a lock");
+    const Message want = parse_message("{\"type\":\"want\",\"seq\":19,\"morph\":true}", keys);
+    check(want.want.morph && !parse_message("{\"type\":\"want\",\"seq\":20}", keys).want.morph, "want.morph asks for the morph member; a want without it doesn't");
+  }
+
+  // ---- D.2's rows, transcribed: their v defaults are the page's, and they decode to D.2's units ------------------
+  {
+    using namespace preview::morph;
+    // The page's own v defaults (docs/design/gui3/shell-data.js, each morph row's default_v, 2026-11-06), a second
+    // reading of D.2 made by another generator: exactly the same doubles.
+    const double page[kSettings] = {0.0, 0.0, 0.5, 1.0, 0.7383519587043745, 0.3, 0.10232046409281856, 0.5714285714285714, 0.0,
+                                    0.14285714285714285, 0.0, 0.0, 0.04};
+    bool same = true;
+    for (int i = 0; i < kSettings; ++i) same = same && default_v(i) == page[i];
+    check(same, "D.2's thirteen defaults as v are the page's, bit for bit");
+    double v[kSettings];
+    for (int i = 0; i < kSettings; ++i) v[i] = default_v(i);
+    const horde::MorphSettings d = decode(v);
+    // The continuous ones go through their row's law (horde::value_of, the harness's own), so what is held here is the
+    // rows themselves, against the page's (shell-data.js: lo, hi, law); their decoded units are printed for a reader.
+    std::printf("     D.2's defaults decoded: temperature %.17g, cohesion %.17g, step rate %.17g, glide %.17g\n", d.temperature, d.cohesion, d.step_rate, d.glide);
+    check(!d.on && d.audible == 0 && d.law == horde::MorphLaw::Quantum && d.count == 4 && d.seed == 1024 && !d.step_sync && d.step_division == 3 &&
+              !d.step_triplet && !d.step_dotted,
+          "the stepped defaults decode to D.2's: off, A, Quantum, Four, seed 1024, unsynced, 1/16, no triplets or dots");
+    const auto row_is = [&](int i, horde::Law l, double lo, double hi) { return setting_row(i).law == l && setting_row(i).lo == lo && setting_row(i).hi == hi; };
+    check(row_is(kTemperature, horde::Law::Log, 0.02, 4) && row_is(kCohesion, horde::Law::Lin, 0, 1) && row_is(kStepRate, horde::Law::Log, 0.25, 32) &&
+              row_is(kGlide, horde::Law::Pow, 0, 5),
+          "the continuous rows are the page's: temperature log 0.02 to 4, cohesion lin 0 to 1, step rate log 0.25 to 32, glide pow 0 to 5");
+    v[kLaw] = 0;
+    v[kSeed] = 1;
+    v[kAudible] = 1;
+    v[kOn] = 1;
+    const horde::MorphSettings e = decode(v);
+    check(e.law == horde::MorphLaw::Blend && e.seed == 9999 && e.audible == 3 && e.on, "control: law 0 is Blend, the top seed 9,999, audible 1 is D");
+  }
+
+  // ---- the morph member of a frame (B636) --------------------------------------------------------------------------
+  {
+    MorphFrame f;
+    f.x = 0.5;
+    f.y = 0.25;
+    const std::string bare = morph_json(f);
+    check(bare == "{\"x\":0.5,\"y\":0.25,\"dropped\":0,\"unknown\":0}", "a morph member with nothing changed carries the position and the refusals only");
+    std::vector<std::pair<std::string, double>> corner1 = {{"out.level", 0.5}};
+    std::vector<HeardGroup> sets(1);
+    sets[0].group = "osc1/kernel";
+    sets[0].voice = 2;
+    sets[0].n = 2;
+    sets[0].id[1] = 1;
+    sets[0].target[0] = 0.25, sets[0].target[1] = 0.75, sets[0].heard[0] = 0.5, sets[0].heard[1] = 0.5;
+    f.corners[1] = &corner1;
+    f.sets = &sets;
+    const std::string full = morph_json(f);
+    check(has(full, "\"corners\":[{},{\"out.level\":0.5},{},{}]"), "a changed corner rides in its own place among four");
+    const double levels[4] = {1, 0.5, 0, NAN};
+    horde::ResolverCounters counters;
+    counters.refused_waypoints = 2;
+    f.levels = levels;
+    f.counters = &counters;
+    const std::string with_levels = morph_json(f);
+    check(has(with_levels, "\"levels\":[1,0.5,0,null]") && has(with_levels, "\"counters\":{\"refusedWaypoints\":2,\"refusedLocks\":0"),
+          "the heard levels ride per source (an engine without them reads null), and the resolver's counters");
+    check(has(full, "\"sets\":[{\"group\":\"osc1/kernel\",\"voice\":2,\"settings\":[{\"id\":0,\"target\":0.25,\"heard\":0.5},{\"id\":1,\"target\":0.75,\"heard\":0.5}]}]"),
+          "a heard set carries each setting's id, target and heard weight (IF-10)");
   }
 
   // ---- keys, never ids: an unknown key is reported, never sent ------------------------------------------------
@@ -180,6 +297,63 @@ int main() {
     check(read_state("horde-engine-preview 2\npreset 5\nvoices 6\n4097 0.25\n", old) && old.preset == 5 && old.values.size() == 1 && old.values[0].second == 0.25,
           "a version-2 chunk carrying Voices still loads, ignoring it");
     check(!read_state("something else\npreset 3\n", old), "control: a chunk that isn't ours is refused");
+
+    // The morph's lines (B636): version 3 only when the morph holds something, and it round-trips exactly.
+    check(text == "horde-engine-preview 2\npreset 12\n3 0.30000000000000004\n", "a state with no morph in it is the version-2 chunk, byte for byte");
+    SavedState morphed = s;
+    using preview::morph::KeyChoice;
+    morphed.morph.x = 0.1 + 0.2;
+    morphed.morph.y = 1;
+    morphed.morph.settings = {{preview::morph::kOn, 1}, {preview::morph::kTemperature, 0.123456789}};
+    morphed.morph.corners = {{1, 3, 0.25}, {3, 8, 0.1 + 0.7}};
+    morphed.morph.texts = {{2, 1, "1, 3/2 \"odd\" \\ \x01"}};
+    morphed.morph.modes = {{3, {horde::KeyMode::Quantum, horde::KeyCount::Two}}, {horde::kRatiosKeyId[1], {horde::KeyMode::Exempt, horde::KeyCount::AsMorph}}};
+    const std::string mtext = write_state(morphed);
+    SavedState mback;
+    const bool read = read_state(mtext, mback);
+    const auto& mb = mback.morph;
+    check(has(mtext, "horde-engine-preview 4\n") && read && mback.values.size() == 1 && mb.x == 0.1 + 0.2 && mb.y == 1 && mb.settings.size() == 2 &&
+              mb.settings[1].second == 0.123456789 && mb.corners.size() == 2 && mb.corners[1].corner == 3 && mb.corners[1].id == 8 &&
+              mb.corners[1].v == 0.1 + 0.7 && mb.texts.size() == 1 && mb.texts[0].text == morphed.morph.texts[0].text && mb.modes.size() == 2 &&
+              mb.modes[0].choice == (KeyChoice{horde::KeyMode::Quantum, horde::KeyCount::Two}) && mb.modes[1].id == horde::kRatiosKeyId[1],
+          "the morph's corners, position, settings, texts and modes round-trip exactly (version 4)");
+    SavedState pinned = morphed;
+    pinned.morph.waypoints = {{3, {{0.5, 0.25, 0.1 + 0.2}, {0.75, 0.75, 1}}}, {8, {{0.25, 0.5, 0}}}};
+    pinned.morph.law = horde::WaypointLaw::Tin;
+    pinned.morph.clamp = false;
+    pinned.morph.locks = {{3, {0.5, -0.25, 1e-3 + 0.5}}, {horde::kRatiosKeyId[0], {0, 0, 0}}};
+    const std::string ptext = write_state(pinned);
+    SavedState pback;
+    const auto& pb = pback.morph;
+    check(read_state(ptext, pback) && pb.waypoints.size() == 2 && pb.waypoints[0].points.size() == 2 && pb.waypoints[0].points[0].v == 0.1 + 0.2 &&
+              pb.waypoints[1].id == 8 && pb.law == horde::WaypointLaw::Tin && !pb.clamp && pb.locks.size() == 2 &&
+              pb.locks[0].offsets[2] == 1e-3 + 0.5 && pb.locks[1].id == horde::kRatiosKeyId[0],
+          "version 4: each key's waypoints in order, the law and its clamp, and the locks round-trip exactly");
+    std::printf("     the waypoints and locks add %zu bytes\n", ptext.size() - mtext.size());
+    SavedState v3;
+    check(read_state("horde-engine-preview 3\npreset 5\nmorph position 0.5 0.5\n", v3) && v3.morph.x == 0.5 && v3.morph.waypoints.empty() &&
+              v3.morph.law == horde::WaypointLaw::Tps && v3.morph.clamp,
+          "a version-3 chunk still loads, with no waypoints or locks and the default law");
+    std::string cut = mtext;
+    const std::size_t line = cut.find("morph corner 3");
+    cut.erase(line, cut.find('\n', line) - line + 1);
+    SavedState cut_back;
+    check(read_state(cut, cut_back) && cut_back.morph.corners.size() == 1, "control: a chunk missing a corner line reads back without it");
+    SavedState v2;
+    check(read_state("horde-engine-preview 2\npreset 5\n4097 0.25\n", v2) && v2.morph.empty() && v2.values.size() == 1,
+          "a version-2 chunk still loads, with the morph at its defaults");
+
+    // A four-corner patch as the human might leave one: 40 rows apart in each of B, C and D, the morph on, a few modes.
+    SavedState four = defaults;
+    four.morph.x = 0.3125;
+    four.morph.y = 0.6875;
+    four.morph.settings = {{preview::morph::kOn, 1}, {preview::morph::kLaw, 0}};
+    for (int c = 0; c < 4; ++c)
+      for (std::uint32_t r = 0; r < 40; ++r) four.morph.corners.push_back({c, 4096 + r * 7, 0.123456789012345 + 0.01 * r});
+    for (std::uint32_t r = 0; r < 6; ++r) four.morph.modes.push_back({4096 + r, {horde::KeyMode::Quantum, horde::KeyCount::AsMorph}});
+    const std::string four_text = write_state(four);
+    std::printf("     a four-corner chunk (160 corner rows, 6 modes) is %zu bytes\n", four_text.size());
+    check(four_text.size() < 16384, "a four-corner chunk stays well under the size a host drops silently");
   }
 
   // ---- the polyphony cap ----------------------------------------------------------------------------------------
