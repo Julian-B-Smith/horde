@@ -100,6 +100,19 @@
     }
     var seq = 0, sentSeq = Object.create(null), sentV = Object.create(null), fromEngine = Object.create(null);
     var lastSnap = null, events = [];
+    /* THE MORPH BEHIND A BRIDGE (GUI-59; B636, B639). When the transport hosts the morph (`morphHost`: the test plug-in, or a
+       replay of it), the plug-in's resolver is the only source of every key it resolves (IF-12), and it refuses and counts a
+       `set` of one. So while morph is on no resolved value goes as a set; each corner's values go as `corner` messages instead,
+       diffed against what that corner last sent, whatever wrote them (an edit, revert, Scatter, a reset, MO-12's Exempt, undo).
+       Waypoints and their law go as their own messages, and Save current sound is a `save`, read back from the next frames.
+       The plug-in's state comes back in each frame's `morph` member and is adopted where it differs from what was sent, never
+       as an undo step, skipping what a frame hasn't yet seen of our sends (the params' rule). Region locks stay in the page:
+       their offsets are the ownership stand-in's, and the bridge can't yet read the offsets a lock "as is" should take. */
+    var HOST = !!transport.morphHost;
+    var sentCorner = [{}, {}, {}, {}], cornerSeq = [{}, {}, {}, {}], sentPins = {}, sentLaw = null, pinsSeq = 0, modesSeq = 0, posSeq = 0;
+    var mo = { dropped: 0, unknown: 0, levels: null, counters: null, heard: {} }, saving = null, posTimer = null, posDue = null;
+    var loaded = !opts.adopt;   // on a bridge nothing about the corners goes until hello's answer: the page's defaults would overwrite what the plug-in restored
+    var LAW_WIRE = { tps: 'tps', tind: 'tin' }, LAW_PAGE = { tps: 'tps', tin: 'tind' };   // the page's TIN·Δ is MO-21's "tin"
     var pending = [];                                // sources activated with the bank's + and not yet mapped (B556): never saved, never undone
     var D = {};
 
@@ -134,6 +147,7 @@
       if (key === 'morph.on') return st.morphOn ? 1 : 0;
       if (key === 'morph.audible') return st.audible / 3;
       if (r.class === 'D') return st.dev[key];
+      if (HOST && st.morphOn && key in mo.heard) return mo.heard[key];   // GUI-59: what the plug-in's resolver plays, not the stand-in's blend
       if (st.modes[key] === 'exempt') return st.corners[0][key];   // MO-12: corner A's value, at every position
       if (r.class === 'S' || st.modes[key] === 'quantum') return st.corners[owners[key]][key];   // MO-11: flips at its boundaries, whatever the law is
       var w = weights(), b = 0; for (var i = 0; i < 4; i++) b += w[i] * st.corners[i][key]; return b;
@@ -148,18 +162,105 @@
     function send(keys) {
       var by_t = {}, n = 0;
       (keys || rows.map(function (r) { return r.key; })).forEach(function (k) {
+        if (HOST && st.morphOn && by[k].class !== 'D' && (by[k].target || 'engine') === 'engine') return;   // the resolver's alone (IF-12): its corners go instead
         var v = heard(k), had = k in fromEngine; delete fromEngine[k];
         if (!had && sentV[k] === v) return;
         var t = MSG[by[k].target || 'engine'];
         (by_t[t] = by_t[t] || {})[k] = v; n++;
       });
-      if (!n) return;
-      ['set', 'morph', 'rack', 'midi'].forEach(function (t) {
+      // On a bridge the morph's settings go first, so the sets that morph off allows arrive after it is off, not while it's on
+      if (n) (HOST ? ['morph', 'set', 'rack', 'midi'] : ['set', 'morph', 'rack', 'midi']).forEach(function (t) {
         var vals = by_t[t]; if (!vals) return;
         var s = ++seq;
         for (var k in vals) { sentV[k] = vals[k]; sentSeq[k] = s; }
         transport.send(t === 'morph' ? { type: t, seq: s, settings: vals } : { type: t, seq: s, values: vals });
       });
+      if (HOST && loaded) { syncCorners(); syncPins(); }
+    }
+    /* GUI-59: each corner's engine rows that differ from what that corner last sent, as one `corner` message per corner. The
+       audible corner while morph is off goes too: the bridge writes it into that corner, and the set above into the engine. */
+    function syncCorners() {
+      for (var c = 0; c < 4; c++) {
+        var vals = {}, n = 0;
+        morphing.forEach(function (r) {
+          if ((r.target || 'engine') !== 'engine') return;
+          var v = st.corners[c][r.key]; if (sentCorner[c][r.key] !== v) { vals[r.key] = v; n++; }
+        });
+        if (!n) continue;
+        var s = ++seq;
+        for (var k in vals) { sentCorner[c][k] = vals[k]; cornerSeq[c][k] = s; }
+        transport.send({ type: 'corner', seq: s, index: c, values: vals });
+      }
+    }
+    /* MO-21's waypoints, a key's whole list when it changed (an empty list clears it), and the patch's waypoint law and clamp. */
+    function syncPins() {
+      var keys = {}, k;
+      for (k in st.pins) keys[k] = 1;
+      for (k in sentPins) keys[k] = 1;
+      for (k in keys) {
+        var now = JSON.stringify(st.pins[k] || []); if (sentPins[k] === now) continue;
+        sentPins[k] = now; pinsSeq = ++seq;
+        transport.send({ type: 'waypoints', seq: pinsSeq, key: k, points: (st.pins[k] || []).map(function (p) { return { x: p[0], y: p[1], v: p[2] }; }) });
+      }
+      var law = st.blend.law + '|' + st.blend.clamp;
+      if (law !== sentLaw) { sentLaw = law; pinsSeq = ++seq; transport.send({ type: 'waypointLaw', seq: pinsSeq, law: LAW_WIRE[st.blend.law] || 'tps', clamp: !!st.blend.clamp }); }
+    }
+    /* B639: the position, at most one a frame while the puck is dragged; the last one always goes. */
+    function sendPosition() {
+      posDue = { x: pos.x, y: pos.y };
+      if (posTimer !== null) return;
+      flushPosition();
+      posTimer = setTimeout(function () { posTimer = null; flushPosition(); }, 1000 / 60);
+    }
+    function flushPosition() { var p = posDue; posDue = null; if (!p) return; posSeq = ++seq; transport.send({ type: 'position', seq: posSeq, x: p.x, y: p.y }); }
+    /* GUI-59: a frame's `morph` member (bridge_core.cpp, morph_json). The counts, the levels and the counters every frame; the
+       rest only where the plug-in's state differs from what it last told this page. */
+    function adoptMorph(m, ack) {
+      var moved = false, k, c, r, v;
+      mo.dropped = +m.dropped || 0; mo.unknown = +m.unknown || 0;
+      if (m.levels) mo.levels = m.levels;
+      if (m.counters) mo.counters = m.counters;
+      if (m.heard) for (k in m.heard) mo.heard[k] = m.heard[k];
+      // host automation of morph.x and morph.y moves the pad, unless our own position hasn't reached the plug-in yet
+      if (typeof m.x === 'number' && typeof m.y === 'number' && ack >= posSeq && posDue === null && (m.x !== pos.x || m.y !== pos.y)) { pos = { x: m.x, y: m.y }; moved = true; }
+      if (m.settings) for (k in m.settings) {
+        r = by[k]; if (!r || (sentSeq[k] !== undefined && ack < sentSeq[k])) continue;
+        v = m.settings[k]; sentV[k] = v;
+        if (k === 'morph.on') { if ((v >= 0.5) !== st.morphOn) { st.morphOn = v >= 0.5; moved = true; } }
+        else if (k === 'morph.audible') { if (Math.round(v * 3) !== st.audible) { st.audible = Math.round(v * 3); moved = true; } }
+        else if (r.class === 'D' && st.dev[k] !== v) { st.dev[k] = v; moved = true; }
+      }
+      if (m.modes && ack >= modesSeq) {
+        var counts = m.counts || {};
+        if (JSON.stringify(m.modes) !== JSON.stringify(st.modes) || JSON.stringify(counts) !== JSON.stringify(st.counts)) { st.modes = copy(m.modes); st.counts = copy(counts); moved = true; }
+      }
+      if (m.corners) for (c = 0; c < 4; c++) for (k in m.corners[c] || {}) {
+        r = by[k]; if (!r || r.class === 'D' || (cornerSeq[c][k] !== undefined && ack < cornerSeq[c][k])) continue;
+        v = m.corners[c][k]; sentCorner[c][k] = v;
+        if (st.corners[c][k] !== v) { st.corners[c][k] = v; moved = true; }
+      }
+      if (m.waypoints && ack >= pinsSeq) {
+        var pins = {}; for (k in m.waypoints) if (by[k]) pins[k] = m.waypoints[k].map(function (p) { return p.slice(); });
+        if (JSON.stringify(pins) !== JSON.stringify(st.pins)) { st.pins = pins; moved = true; }
+        var was = sentPins; sentPins = {}; for (k in was) sentPins[k] = '[]'; for (k in pins) sentPins[k] = JSON.stringify(pins[k]);
+      }
+      if (m.waypointLaw && ack >= pinsSeq) {
+        var lw = LAW_PAGE[m.waypointLaw.law] || 'tps', cl = !!m.waypointLaw.clamp;
+        if (lw !== st.blend.law || cl !== st.blend.clamp) { st.blend = { law: lw, clamp: cl }; moved = true; }
+        sentLaw = lw + '|' + cl;
+      }
+      // MO-25: the saved corner comes back as that corner's changed rows. It becomes the corner's saved preset, and the save's
+      // undo step learns it, so redo brings it back. A save that changed nothing is settled after about a second of frames.
+      if (saving && ack >= saving.seq) {
+        saving.wait++;
+        var back = m.corners && m.corners[saving.index] && Object.keys(m.corners[saving.index]).length;
+        if (back || saving.wait > 30) {
+          st.saved[saving.index] = copy(st.corners[saving.index]);
+          if (saving.node !== null && cur.i === saving.node) cur.after = snapshot();
+          saving = null; moved = true;
+        }
+      }
+      if (moved) { reown(); rev++; }
     }
     /* B628: on the plug-in's bridge the engine already holds a sound (the preset the plug-in loaded), so the adapter takes the
        engine's values instead of pushing its own. The bridge answers `hello` and a `preset` load with every engine row in the frame
@@ -170,15 +271,18 @@
       for (var k in params) {
         var r = by[k]; if (!r || (r.target || 'engine') !== 'engine' || r.reserved) continue;
         var v = params[k];
-        if (r.class === 'D') st.dev[k] = v; else for (var c = 0; c < 4; c++) st.corners[c][k] = v;
+        if (r.class === 'D') st.dev[k] = v; else for (var c = 0; c < 4; c++) { st.corners[c][k] = v; sentCorner[c][k] = v; }   // a load puts the preset in all four (the bridge does too)
         sentV[k] = v; sentSeq[k] = ack; delete fromEngine[k];
       }
       newRoot(); reown(); rev++;
+      loaded = true; sentLaw = st.blend.law + '|' + st.blend.clamp;   // the plug-in's own law arrives with the morph member, so the page's isn't pushed over it
+      if (HOST && lastSnap && lastSnap.morph) adoptMorph(lastSnap.morph, ack);   // the corners a host's state restored, after the preset that seeded them
     }
     function everyRow(params) { return rows.every(function (r) { return (r.target || 'engine') !== 'engine' || r.reserved || r.key in params; }); }
     function onSnapshot(s) {
       lastSnap = s;
       if (loadAt !== null && s.ack >= loadAt && s.params && everyRow(s.params)) { loadAt = null; adopt(s.params, s.ack); return; }
+      if (HOST && s.morph) adoptMorph(s.morph, s.ack);
       if (s.events && s.events.length) events = events.concat(s.events);
       var g = tx && tx.key, moved = false;
       for (var k in s.params) {
@@ -192,7 +296,7 @@
       if (moved) rev++;
     }
     function snapshot() { return JSON.stringify(st); }
-    function sendModes() { transport.send({ type: 'modes', seq: ++seq, modes: st.modes, counts: st.counts }); }   // IF-12: to the resolver, never the engine
+    function sendModes() { modesSeq = ++seq; transport.send({ type: 'modes', seq: modesSeq, modes: st.modes, counts: st.counts }); }   // IF-12: to the resolver, never the engine
     function apply(s) { st = JSON.parse(s); reown(); send(); sendModes(); rev++; }
     function changed() { rev++; }
 
@@ -231,9 +335,9 @@
     var lawX = function (k) { return root.GUI3Engine.lawX(by[k], D.shown(k)); };
     D.morphSettings = function () { return { law: Math.round(D.shown('morph.law') * 2), cohesion: D.shown('morph.cohesion'), seed: D.shown('morph.seed'), rate: lawX('morph.stepRate'), glide: lawX('morph.glide') }; };
     D.pins = function (key) { return (st.pins[key] || []).map(function (p) { return p.slice(); }); };
-    D.setPins = function (key, pins, label) { if (JSON.stringify(st.pins[key] || []) === JSON.stringify(pins)) return false; step(label || 'Waypoints', function () { if (pins.length) st.pins[key] = pins.map(function (p) { return p.slice(); }); else delete st.pins[key]; }); changed(); return true; };
+    D.setPins = function (key, pins, label) { if (JSON.stringify(st.pins[key] || []) === JSON.stringify(pins)) return false; step(label || 'Waypoints', function () { if (pins.length) st.pins[key] = pins.map(function (p) { return p.slice(); }); else delete st.pins[key]; }); if (HOST && loaded) syncPins(); changed(); return true; };
     D.blendSettings = function () { return { law: st.blend.law, clamp: st.blend.clamp }; };
-    D.setBlendSettings = function (law, clamp) { if (law === st.blend.law && clamp === st.blend.clamp) return false; step('Waypoint law', function () { st.blend = { law: law, clamp: clamp }; }); changed(); return true; };
+    D.setBlendSettings = function (law, clamp) { if (law === st.blend.law && clamp === st.blend.clamp) return false; step('Waypoint law', function () { st.blend = { law: law, clamp: clamp }; }); if (HOST && loaded) syncPins(); changed(); return true; };
     D.setMorphLaw = function (i, label) { return D.set('morph.law', i / 2, { label: label }); };
     D.regions = function () { return st.regions; };
     D.reown = function () { reown(); send(morphing.map(function (r) { return r.key; })); changed(); };
@@ -270,7 +374,8 @@
       if (x === pos.x && y === pos.y && on === st.morphOn) return;
       var moved = x !== pos.x || y !== pos.y;
       pos = { x: x, y: y };
-      if (moved) transport.send({ type: 'position', seq: ++seq, x: x, y: y });   // IF-12: the position, to the resolver
+      if (moved && HOST) sendPosition();
+      else if (moved) transport.send({ type: 'position', seq: ++seq, x: x, y: y });   // IF-12: the position, to the resolver
       if (on !== st.morphOn) step(on ? 'Morph on' : 'Morph off', function () { st.morphOn = on; });
       reown(); send(morphing.map(function (r) { return r.key; }).concat(by['morph.on'] ? ['morph.on'] : [])); changed();
     };
@@ -303,6 +408,12 @@
     /* "Save current sound to snapshot" (ADR-319 item 1): what is heard now becomes corner i, named, and saved. */
     D.saveSoundTo = function (i, name) {
       if (!(i >= 0 && i < 4) || !okName(name)) return { ok: false, why: 'a corner A to D and a name of 1 to ' + NAME_MAX + ' characters' };
+      if (HOST) {   // GUI-59: MO-25 reads the resolver itself; the corner comes back in the frames (adoptMorph)
+        var at = cur.i;
+        step('Save the current sound to ' + CORNER_IDS[i] + ' as ' + name.trim(), function () { st.names[i] = name.trim(); st.saved[i] = null; });
+        saving = { index: i, seq: ++seq, node: cur.i !== at ? cur.i : null, wait: 0 };
+        transport.send({ type: 'save', seq: saving.seq, index: i }); changed(); return { ok: true, pending: true };
+      }
       step('Save the current sound to ' + CORNER_IDS[i] + ' as ' + name.trim(), function () {
         morphing.forEach(function (r) { st.corners[i][r.key] = heard(r.key); });
         st.names[i] = name.trim(); st.saved[i] = copy(st.corners[i]);
@@ -505,7 +616,12 @@
     /* B628, the plug-in's own messages: which parts of RC-8 to send (`want`) and its preset bank (`preset`). (Its Voices, the
        `plugin` message, is gone: Polyphony is the one voice control, GUI-46 A2; `plugin {build}` still arrives in snapshots.) None is a step in the history: a preset load replaces the engine, and the bridge's state answers for it. */
     D.sides = function () { return transport.sides || { engine: true, resolver: true, device: true }; };
-    D.want = function (w) { transport.send({ type: 'want', seq: ++seq, osc: w.osc || [], members: !!w.members, cycles: !!w.cycles }); };
+    D.want = function (w) { transport.send({ type: 'want', seq: ++seq, osc: w.osc || [], members: !!w.members, cycles: !!w.cycles, morph: !!w.morph }); };
+    /* GUI-59: whether the morph runs behind the transport, and what its resolver reported: refused edits (`dropped`), events this
+       build doesn't know (`unknown`), each source's heard morph level [osc1, osc2, sub, noise] (null where the engine has none) and
+       the resolver's counters. Null on the stub. */
+    D.hosted = function () { return HOST; };
+    D.morphReport = function () { return HOST ? { dropped: mo.dropped, unknown: mo.unknown, levels: mo.levels, counters: mo.counters, saving: !!saving } : null; };
     D.presets = function () { return lastSnap && lastSnap.presets || null; };
     D.loadPreset = function (i) { loadAt = ++seq; transport.send({ type: 'preset', seq: seq, index: i }); rev++; };
     D.plugin = function () { return lastSnap && lastSnap.plugin || null; };
