@@ -284,3 +284,8 @@ Note-on randoms; the trigger timer, its impulses and every trigger source; the M
   The lab builds them for the human's ear. **This is the only [OPEN] left in the round.**
 - **The thermostat auto-kicks a stopped field.** MB-2. With the thermostat on, where the free bodies' mean speed is below 10⁻⁹ (the reference's skip threshold, [X89]), every free body gets speed v*. Body j's direction is 2π·u, with u being draw k of `mod/orbital/autokick/<j>` at `orb.seed`, and k counting restarts since reset [X90]. Item 38.2 checks it. Orbit size is not part of this ruling.
 - **For the lead to record:** ADR-379 A2 (these three).
+
+
+## ADR-379 A3 (the human, 2026-11-06, the reopened ORBITAL lab, round 6b)
+
+The human chose **CENTRE**: each body's angle, and so its sine and cosine, is measured about the field centre (½, ½), as first built. The other bodies' centre of mass and the direction of travel were heard and not chosen, and the nearest-body option is not wanted for now. [OPEN M4] is closed in MB-6 and §11.0, and nothing is open before the modulation system's stage.
