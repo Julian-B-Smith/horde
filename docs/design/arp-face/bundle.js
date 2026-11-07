@@ -1,4 +1,4 @@
-/* vendored from the horde Design System artifact, version 1794078853-724a, 2026-11-07; do not edit, re-vendor */
+/* vendored from the horde Design System artifact, version 1794086465-fbf9, 2026-11-07; do not edit, re-vendor */
 /* @ds-bundle: {"format":4,"namespace":"Horde","components":[{"name":"Knob"},{"name":"Slider"},{"name":"MapControl"},{"name":"XYPad"},{"name":"CornerChip"},{"name":"ScreenScheme"},{"name":"SourceStrip"},{"name":"ModMatrixGrid"},{"name":"RouteRow"},{"name":"ModLedger"},{"name":"TraceLanes"},{"name":"CompactWires"},{"name":"HostedMacroRows"},{"name":"ModCardHeader"},{"name":"LfoShapeEditor"},{"name":"EnvelopeEditor"},{"name":"TempoDivisions"},{"name":"CurvePlot"},{"name":"OrbitalCard"},{"name":"MidiTrackers"},{"name":"GateLanes"},{"name":"EventLanes"},{"name":"SmoothingLanes"},{"name":"ShClockCard"},{"name":"OwnershipTier"},{"name":"QuantumPad"},{"name":"PadBars"},{"name":"CrossSection"},{"name":"MorphGrid"},{"name":"FindPane"},{"name":"MorphInspector"},{"name":"KindLegend"},{"name":"MorphMode"},{"name":"NameField"},{"name":"SteppedControl"},{"name":"Stepper"},{"name":"Cohesion"},{"name":"FxRack"},{"name":"FxMatrix"},{"name":"FxPanel"},{"name":"FxCables"},{"name":"GainStaging"},{"name":"ChainLine"},{"name":"BlendMaps"},{"name":"PageNav"},{"name":"SectionHeader"},{"name":"ChannelStrip"},{"name":"Companion"},{"name":"SourceChip"},{"name":"SourceRows"},{"name":"RoutesBySource"},{"name":"Cluster"},{"name":"Lens"},{"name":"Fold"},{"name":"PageView"},{"name":"ModTiers"},{"name":"MacroRow"},{"name":"ModBank"},{"name":"ModPage"},{"name":"UndoLine"},{"name":"MacroFace"},{"name":"PresetBar"},{"name":"Deck"},{"name":"MacroCard"},{"name":"ParamPicker"},{"name":"HistoryRail"},{"name":"PicturePicker"},{"name":"AssignXY"},{"name":"Specimen"}]} */
 /* horde house reference behaviours (vanilla JS, no React, no network).
    The morph knob and slider follow the human's HORDE Morph Knob Spec and HORDE Map Mode Spec
@@ -194,6 +194,14 @@
       Horde.frames = (Horde.frames || 0) + 1;   // a liveness counter the tests read
     }
     requestAnimationFrame(frame);
+    /* GUI-61 r3: no text is selected while a drag holds the pointer. Every drag here captures its pointer, so the capture is the one signal
+       that covers them all (a knob, the pad, a fader, a boundary): while it holds, the page can't select, and a selection the press began is
+       cleared. A drag that overshoots its box onto text selected that text before (the human, 2026-11-07). */
+    if (typeof document !== 'undefined' && document.addEventListener && !Session.noSelect) {   // the seam check's stand-in document has no events Session.noSelect = true;
+      var root = document.documentElement, held = 0;
+      document.addEventListener('gotpointercapture', function () { held++; root.classList.add('hd-nosel'); var sel = window.getSelection && window.getSelection(); if (sel && sel.rangeCount) sel.removeAllRanges(); }, true);
+      var release = function () { held = Math.max(0, held - 1); if (!held) root.classList.remove('hd-nosel'); };
+      document.addEventListener('lostpointercapture', release, true); }   // a pointer's capture always ends in lostpointercapture, on release or cancel
     /* KEYS: accelerators only, and only in keyboard mode (ADR-259 ruling 6). Every one has a mouse route. */
     var mDown = 0;
     addEventListener('keydown', function (e) {
@@ -3812,22 +3820,26 @@
       var sc = engine.scoresAt(S, p, q.x, q.y), ks = [0, 1, 2, 3].sort(function (a, b) { return sc[b] - sc[a]; });
       return { k: ks[0], m: ks[1] };
     }
-    /* the layer takes every pointer the puck and the chips do not: an empty click moves nothing */
+    /* the layer takes every pointer the puck and the chips do not. An empty click moves nothing, unless opts.jumps (GUI-61 r2, the Morph page's
+       pad): then it puts the puck where you click, and the drag carries it, absolute. A boundary under the pointer is still dragged instead. */
     layer.addEventListener('pointerdown', function (e) {
       e.stopPropagation(); if (e.button !== 0) return;
       var p = row(), q = at(e), bd = boundaryUnder(p, q);
+      if (!bd && opts.jumps) { try { layer.setPointerCapture(e.pointerId); } catch (_) { /* keep the drag */ } drag = { puck: true }; S.pad.x = q.x; S.pad.y = q.y; return; }
       if (!bd) { if (p && !picks(S, p)) S.say(noRegions(S, p) + ' Drag the puck to move where you listen.'); return; }
       try { layer.setPointerCapture(e.pointerId); } catch (_) { /* keep the drag */ }
       drag = { k: bd.k, m: bd.m, before: lockCopy(S, p), p: p, moved: false }; hot = bd;
     });
     layer.addEventListener('pointermove', function (e) {
       var q = at(e), p = row();
-      if (!drag) { M.hover = { x: q.x, y: q.y }; hot = boundaryUnder(p, q); layer.style.cursor = hot ? 'move' : 'default'; return; }
+      if (!drag) { M.hover = { x: q.x, y: q.y }; hot = boundaryUnder(p, q); layer.style.cursor = hot ? 'move' : opts.jumps ? 'crosshair' : 'default'; return; }
+      if (drag.puck) { S.pad.x = q.x; S.pad.y = q.y; return; }
       engine.dragBoundary(S, drag.p, drag.k, drag.m, q.x, q.y); drag.moved = true;
     });
     function end(e) {
       if (e && e.pointerId !== undefined && layer.hasPointerCapture(e.pointerId)) layer.releasePointerCapture(e.pointerId);
       if (!drag) return; var d = drag; drag = null; hot = null;
+      if (d.puck) return;
       if (d.moved) { record(S, lockEntry(S, d.p, d.before, lockCopy(S, d.p), 'Moved ' + d.p.name + '\'s ' + CORNERS[d.k].id + '|' + CORNERS[d.m].id + ' boundary'));
         S.say(d.p.name + ': ' + CORNERS[d.k].id + '|' + CORNERS[d.m].id + ' boundary moved; the row is locked'); }
     }
@@ -5850,15 +5862,17 @@
           law?: 'tps' | 'tind' (the setting; default the first of `laws`), clamp?: true (CLAMP TO SET VALUES; on by default),
           laws?: ['tps', 'tind'] (B272: the two laws the setting offers; the first is the default),
           compare?: [] (extra laws drawn as labelled comparisons only, never selectable: a preview passes ['tin', 'idw']),
-          maps?: 'value' | 'diff', onChange?(info) }
+          maps?: 'value' | 'diff', onChange?(info), onPad?(x, y) }
      Gestures follow the lab (:4000-4090): the pin and the section line's ends follow the pointer (ABSOLUTE, with a grab radius), a pin's value tag is
-     dragged up and down (the pad's height is the parameter's range, shift x0.1), double-click on empty pad adds a pin at the value the law already
-     gives there, right-click or Delete removes one, alt+wheel on a pin turns its value; arrows move the selected pin (shift fine), alt+up/down its value. */
+     dragged up and down (the pad's height is the parameter's range, shift x0.1), right-click or Delete removes one, alt+wheel on a pin turns its value;
+     arrows move the selected pin (shift fine), alt+up/down its value. GUI-61 r2: alt (Option) + click on empty pad adds a pin at the value the law
+     already gives there, and so does the next click after ADD WAYPOINT; a plain click on empty pad calls o.onPad(x, y), the host's puck, and the drag
+     carries it (without onPad it selects nothing, as before). Double-click no longer adds a pin: two clicks are two puck moves. */
   function BlendMaps(el, o) {
     var row = null, ruled = (o.laws && o.laws.length ? o.laws : ['tps', 'tind']).slice(), cmp = (o.compare || []).filter(function (l) { return ruled.indexOf(l) < 0; });
     var all = ruled.concat(cmp), REF = ruled[0];
     var st = { law: o.law && ruled.indexOf(o.law) >= 0 ? o.law : REF, clamp: o.clamp !== false, maps: o.maps === 'diff' ? 'diff' : 'value', sel: -1, xs: { auto: true, a: [0, 0], b: [1, 1] }, ver: 0, say: '' };
-    var gest = null, tags = [], cache = {}, cacheVer = -1;
+    var gest = null, tags = [], cache = {}, cacheVer = -1, armed = false;
     el.classList.add('hd-bm'); el.innerHTML = '';
 
     /* ----- the row ----- */
@@ -5940,7 +5954,7 @@
     padCv.tabIndex = 0; padCv.setAttribute('role', 'application'); padCv.setAttribute('aria-roledescription', 'blend pad'); padCv.classList.add('hd-focus');
     padCv.style.touchAction = 'none';
     var pinRow = tag('div', 'hd-row bm-pins'), pinList = tag('span', 'hd-pills bm-pinlist'), pinKey = '', say = tag('div', 'hd-hint bm-say'); say.setAttribute('aria-live', 'polite');
-    var addBtn = tag('button', 'hd-pill hd-focus', 'Add pin'), delBtn = tag('button', 'hd-pill hd-focus', 'Delete pin');
+    var addBtn = tag('button', 'hd-pill hd-focus', 'Add waypoint'), delBtn = tag('button', 'hd-pill hd-focus', 'Delete waypoint');
     addBtn.type = 'button'; delBtn.type = 'button';
     /* o.padHost (GUI-21): the map IS the morph pad. Its glass goes into the host as a layer under the host's puck and over its other layers, and the host's own corner chips stand in for the
        ones drawn here. Only the pad's glass moves: the pins, the laws, the maps and the cross-section stay in el, beside it. A pin under the puck is reached by moving the puck. */
@@ -5975,12 +5989,9 @@
     el.appendChild(ctl); el.appendChild(top); el.appendChild(legend); el.appendChild(xsCtl); el.appendChild(xsViz); el.appendChild(xsKey); el.appendChild(xsNote);
     thru.addEventListener('click', function () { st.xs = { auto: true, a: [0, 0], b: [1, 1] }; draw(); });
     diag.addEventListener('click', function () { st.xs = { auto: false, a: [0, 0], b: [1, 1] }; draw(); });
-    addBtn.addEventListener('click', function () {
-      var spots = [[.5, .5], [.3, .3], [.7, .7], [.3, .7], [.7, .3], [.5, .2], [.5, .8], [.2, .5], [.8, .5]], i;
-      for (i = 0; i < spots.length; i++) if (spotOk(spots[i][0], spots[i][1])) break;
-      st.say = i < spots.length ? pinAdd(spots[i][0], spots[i][1], lawAt(st.law, spots[i][0], spots[i][1])) : 'No free spot is left on the pad.';
-      changed('add'); draw();
-    });
+    addBtn.setAttribute('aria-pressed', 'false');
+    function arm(on) { armed = on; addBtn.setAttribute('aria-pressed', String(on)); addBtn.classList.toggle('on', on); padCv.style.cursor = on ? 'copy' : ''; st.say = on ? 'Click the pad to drop a waypoint there.' : ''; draw(true); }
+    addBtn.addEventListener('click', function () { arm(!armed); });   // GUI-61 r2: arms the next click on the pad; a second press disarms
     delBtn.addEventListener('click', function () { if (st.sel >= 0) { pinDelete(st.sel); st.say = ''; changed('delete'); draw(); } });
 
     function setLaw(l) { if (ruled.indexOf(l) < 0) return; st.law = l; changed('law'); draw(); }
@@ -6197,7 +6208,7 @@
       }
       pinList.querySelectorAll('button').forEach(function (b, j) { b.setAttribute('aria-pressed', String(j === st.sel)); });
       delBtn.disabled = st.sel < 0;
-      say.textContent = st.say || (row.pins.length ? 'Drag a pin to move it, its tag up or down for its value; double-click the pad to add one, right-click a pin to delete it.' : 'No pins: this is today’s blend. Double-click the pad to add one.');
+      say.textContent = st.say || (row.pins.length ? 'Drag a waypoint to move it, its tag up or down for its value; Option-click the pad (or ADD WAYPOINT, then click) to add one, right-click one to delete it.' : 'No waypoints: this is today’s blend. Option-click the pad, or ADD WAYPOINT and then click, to add one.');
     }
     var sig = '';
     function draw(force) {
@@ -6219,29 +6230,30 @@
       if (e.button !== 0) return;
       var p = pxy(e); try { padCv.setPointerCapture(e.pointerId); } catch (_) { /* keep the drag */ }
       var tg = tagUnder(p), j = tg >= 0 ? tg : pinUnder(p); st.say = '';
+      if (j < 0 && endUnder(p) < 0 && (armed || e.altKey)) {   // GUI-61 r2: Option-click, or the click ADD WAYPOINT armed, drops a pin at the value the law already gives there
+        if (armed) arm(false);
+        st.say = pinAdd(p.x, p.y, lawAt(st.law, p.x, p.y)); changed('add'); gest = { kind: 'none' }; draw(true); return; }
       if (j >= 0) { st.sel = j; var P0 = row.pins[j]; gest = (tg >= 0 || e.altKey) ? { kind: 'value', j: j, y0: p.y, v0: P0[2] } : { kind: 'move', j: j, from: [P0[0], P0[1]] }; }
       else {
         var end = endUnder(p);
         if (end >= 0) { if (st.xs.auto) { var ab = line(); st.xs = { auto: false, a: ab[0].slice(), b: ab[1].slice() }; } gest = { kind: 'xs', end: end }; }
+        else if (o.onPad) { gest = { kind: 'puck' }; st.sel = -1; o.onPad(p.x, p.y); }   // GUI-61 r2: the host's puck goes where you click
         else { gest = { kind: 'none' }; st.sel = -1; }
       }
       draw(true);
     });
     padCv.addEventListener('pointermove', function (e) {
       var p = pxy(e);
-      if (!gest) { padCv.style.cursor = tagUnder(p) >= 0 ? 'ns-resize' : (pinUnder(p) >= 0 || endUnder(p) >= 0 ? 'grab' : 'default'); return; }
+      if (!gest) { padCv.style.cursor = tagUnder(p) >= 0 ? 'ns-resize' : (pinUnder(p) >= 0 || endUnder(p) >= 0 ? 'grab' : armed || e.altKey ? 'copy' : o.onPad ? 'crosshair' : 'default'); return; }
       if (gest.kind === 'move') { var m = pinMove(gest.j, p.x, p.y); st.say = m; if (!m) changed('move'); }   // refused: the pin stays at its last legal spot
       else if (gest.kind === 'value') { pinSetValue(gest.j, gest.v0 + (gest.y0 - p.y) * span() * (e.shiftKey ? .1 : 1)); changed('value'); }
       else if (gest.kind === 'xs') st.xs[gest.end ? 'b' : 'a'] = [p.x, p.y];
+      else if (gest.kind === 'puck') { o.onPad(p.x, p.y); return; }
       else return;
       draw(true);
     });
     function up(e) { if (e && e.pointerId !== undefined && padCv.hasPointerCapture && padCv.hasPointerCapture(e.pointerId)) padCv.releasePointerCapture(e.pointerId); if (!gest) return; gest = null; draw(true); }
     padCv.addEventListener('pointerup', up); padCv.addEventListener('pointercancel', up); padCv.addEventListener('lostpointercapture', up);
-    padCv.addEventListener('dblclick', function (e) {
-      var p = pxy(e); if (tagUnder(p) >= 0 || pinUnder(p) >= 0) return;
-      st.say = pinAdd(p.x, p.y, lawAt(st.law, p.x, p.y)); changed('add'); draw(true);   // the value the law already gives there: under TPS·Δ the new pin changes nothing until its value is moved
-    });
     padCv.addEventListener('contextmenu', function (e) {
       var p = pxy(e), tg = tagUnder(p), j = tg >= 0 ? tg : pinUnder(p); if (j < 0) return;   // off a pin the browser's menu is left alone
       e.preventDefault(); pinDelete(j); st.say = ''; changed('delete'); draw(true);

@@ -15,6 +15,7 @@ The layer's accessible name states the row, its region shares, whether it is loc
 - Drag a boundary: it moves to the pointer and the row LOCKS (its regions are then its own; the seed and Cohesion no longer reach it). One drag is one undo entry.
 - Double-click a locked boundary: unlock (back to the seed's regions).
 - A click on empty pad moves nothing (B269: "it will be necessary to be able to hear how the value changes at the current position"). Only dragging the puck moves it; the corner chips still pin.
+- **`opts.jumps`** (GUI-61 r2, the Morph page's pad): a click on empty pad puts the puck there, and the drag carries it, absolute. A boundary under the pointer is still dragged instead. Without it, the rule above holds.
 - Hover sets the session's hover point; the scale bar shows the value under the pointer, beside the pad, never over it.
 - A unit (rows sharing `unit`) flips, and locks, as one.
 
