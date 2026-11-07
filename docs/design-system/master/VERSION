@@ -4,8 +4,8 @@
 # (python3 tools/design_vendor.py record-master --version <id> --date <d>) and re-vendor.
 # tools/design_chain_check.py holds the tree to these hashes: every file listed, none extra.
 artifact: https://claude.ai/artifact/EGDwetDHwcvxhTbNffCzJc
-version: 1793941176-071d
-date: 2026-11-05
+version: 1794029674-ea43
+date: 2026-11-07
 files: 194
 3295c4838005a6b54b4d7f95e31e3bd6c27c62f92a99a8b6b0eb899b10b2314e  README.md
 ce354240f6e15082fbd556989b9224c787e4a13b497b6cb5e8ed4341fcef5e11  accessibility.md
@@ -143,7 +143,7 @@ d33d44f7ed501f84a8a0dce9c08ca14757b1930cc4f8cf2a788ef2c5ad2db5b4  components/Pic
 5ec17e984393f27c6adbe494fc6c06879bdfdd5ce90dfc0e156130fea749e614  components/PresetBar/preview.html
 5f29cf59ce4397c33eea7393efcb4bf0458297da5bc555f6bee4cce430594088  components/QuantumPad/README.md
 dce0ec6d06dc979e2558f55ddd6ccb26ab7df10e9d63ae95276108cff1244098  components/QuantumPad/preview.html
-603f4c53441e8e51309dcc51343443be41a2186a66c7e67975225753a15ff83d  components/RandomPanel/README.md
+a3ec79f21ed5cb08de888a6888f47d19452cd7cbf50a3c62383ac1308f132793  components/RandomPanel/README.md
 fa38846267dd5c5b8813475a11adced3f6979fa8bf1e314da423e0a46d6e6ca8  components/RouteRow/README.md
 77604225f542e13df060e096b317384503b95a66ab6c10c980eb6723daf50f4d  components/RouteRow/preview.html
 29e8cdbf372cc081e8afd6e084442dc6e329a47e2c5e89daaea318a46c947ace  components/RoutesBySource/README.md
@@ -195,7 +195,7 @@ a18ecfe745ed481016abed2f88491fa90ad8567b0a32d9df1747ad51dd94b65d  components/Tem
 706ba6c02712c8df590f7282f772c49d01bd0a957e6c25748cb43ab0eaa1e0f7  components/XYPad/README.md
 d701129232df94a3ea81b2499559b1f13bd8cf22f065b70b2c7f0d666e2ce3d8  components/XYPad/preview.html
 425b16c2298abc3e32c1c83bb4ae4e47a694c8d89cb2f5e49bceabfb7ee3b7e1  components/bundle.css
-8745647b19f6c409a9fb15d7e79809b7c8b244dce8cffba3fee3c90b0fe2bfdc  components/bundle.js
+55d5ab2a2c5b9c49c7887611d6ffd9ed98929b46e3db436f6dc5c8a1085d5aa5  components/bundle.js
 51e667c8fca609ee958824e4bbe202c605f828732894016724371d61659a4646  components/index.d.ts
 6c3f598e97da2ab5ed7ce3e02d35e32afb208bd1c7ddcb32335f97ee701c2901  contrast-audit.md
 b22892adec0ac89e9c3eb244e52d609e0e94a11a8a45fe986acd5a1c750ce8d3  design-system.json

@@ -1,4 +1,4 @@
-/* vendored from the horde Design System artifact, version 1793941176-071d, 2026-11-05; do not edit, re-vendor */
+/* vendored from the horde Design System artifact, version 1794029674-ea43, 2026-11-07; do not edit, re-vendor */
 /* @ds-bundle: {"format":4,"namespace":"Horde","components":[{"name":"Knob"},{"name":"Slider"},{"name":"MapControl"},{"name":"XYPad"},{"name":"CornerChip"},{"name":"ScreenScheme"},{"name":"SourceStrip"},{"name":"ModMatrixGrid"},{"name":"RouteRow"},{"name":"ModLedger"},{"name":"TraceLanes"},{"name":"CompactWires"},{"name":"HostedMacroRows"},{"name":"ModCardHeader"},{"name":"LfoShapeEditor"},{"name":"EnvelopeEditor"},{"name":"TempoDivisions"},{"name":"CurvePlot"},{"name":"OrbitalCard"},{"name":"MidiTrackers"},{"name":"GateLanes"},{"name":"EventLanes"},{"name":"SmoothingLanes"},{"name":"ShClockCard"},{"name":"OwnershipTier"},{"name":"QuantumPad"},{"name":"PadBars"},{"name":"CrossSection"},{"name":"MorphGrid"},{"name":"FindPane"},{"name":"MorphInspector"},{"name":"KindLegend"},{"name":"MorphMode"},{"name":"NameField"},{"name":"SteppedControl"},{"name":"Stepper"},{"name":"Cohesion"},{"name":"FxRack"},{"name":"FxMatrix"},{"name":"FxPanel"},{"name":"FxCables"},{"name":"GainStaging"},{"name":"ChainLine"},{"name":"BlendMaps"},{"name":"PageNav"},{"name":"SectionHeader"},{"name":"ChannelStrip"},{"name":"Companion"},{"name":"SourceChip"},{"name":"SourceRows"},{"name":"RoutesBySource"},{"name":"Cluster"},{"name":"Lens"},{"name":"Fold"},{"name":"PageView"},{"name":"ModTiers"},{"name":"MacroRow"},{"name":"ModBank"},{"name":"ModPage"},{"name":"UndoLine"},{"name":"MacroFace"},{"name":"PresetBar"},{"name":"Deck"},{"name":"MacroCard"},{"name":"ParamPicker"},{"name":"HistoryRail"},{"name":"PicturePicker"},{"name":"AssignXY"},{"name":"Specimen"}]} */
 /* horde house reference behaviours (vanilla JS, no React, no network).
    The morph knob and slider follow the human's HORDE Morph Knob Spec and HORDE Map Mode Spec
@@ -9155,12 +9155,35 @@ window.Horde.MainStage = {
      corner unless "All four" is on, keeps a level's locks and the exemptions, and is one undo step in the host. `draw` is pure. ---------- */
   function hash(s) { var h = 2166136261; for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
   var sigma = function (c) { return Math.min(1.2, .6 * c * Math.pow(12, c - 1)); };   // the lab's curve (report Q9, tuned by ear later), in travel
-  /* rows: [{key, n (steps, 0 = continuous), home 0..1}]. Returns {key: value} for the rows drawn */
+  /* GUI-55: the simplicity prior's stand-ins, kept in one place. Rule 6 gives their shapes to the tuning session (ADR-342's open item), so each one
+     is a guess to be replaced by ear, not a ruling. c is Chaos, 0..1, and each one is 0 at Chaos 0, so a draw there still changes nothing (ADR-318). */
+  var PRIOR = {
+    flip: function (c) { return c; },                       // the chance, times Amount, that a patch draw flips the second oscillator, the sub or the noise
+    subAlone: function (c) { return c > 0 ? .1 : 0; },      // "maybe sometimes just the sub osc can be on": the chance a patch is the sub alone
+    blade: function (c) { return .6 * c * c; },             // the chance a drawn blade switch comes out on: rare at low chaos (rule 4)
+    lean: function (c) { return 1 - c; },                   // how hard a leaning row is pulled toward its low end and its first options (rule 4)
+    tight: .3,                                              // ENV 4's decay centre in travel: about 65 ms on its 5 ms to 30 s log law (rule 5)
+    envFrom: .7,                                            // where "moderate" chaos ends: below it a source's envelope selector never moves (A1)
+    env: function (c) { return c <= PRIOR.envFrom ? 0 : Math.min(.5, .5 * (c - PRIOR.envFrom) / (1 - PRIOR.envFrom)); }   // the chance it moves, rising to a cap of .5 ("maybe still bounded", A1)
+  };
+  /* rows: [{key, n (steps, 0 = continuous), home 0..1, p?, lean?, centre?}]. Returns {key: value} for the rows drawn.
+     GUI-55's hints: `p` draws a two-way switch fresh, on with that chance; `lean` pulls a row toward its low end, or a stepped row toward its first
+     options, harder at low Chaos (a leaning stepped row may stay where it is); `centre` replaces the home a continuous row is drawn around.
+     Each row takes its three numbers from the stream whatever its hints, so a hint never shifts another row's draw. */
   function drawRows(rows, kind, chaos, amount, seed, click, level) { var r = H.Synth.rng((seed ^ hash(level + '/' + kind) ^ Math.imul(click, 2654435761)) | 0), out = {}, s = sigma(chaos);
     function gauss() { var u = 0; for (var i = 0; i < 6; i++) u += r(); return (u - 3) / .707; }
-    rows.forEach(function (q) { var a = r(), g = gauss(), pick = r(); if (a > amount) return;
-      if (q.n > 1) { var st = q.n - 1, cur = Math.round(q.home * st), nx = Math.floor(pick * st); if (nx >= cur) nx++; if (chaos > 0) out[q.key] = nx / st; }
-      else out[q.key] = Math.max(0, Math.min(1, q.home + g * s)); });
+    rows.forEach(function (q) { var a = r(), g = gauss(), pick = r(), w = q.lean ? PRIOR.lean(chaos) : 0; if (a > amount || !(chaos > 0) && (q.p !== undefined || q.lean || q.centre !== undefined)) return;
+      if (q.p !== undefined) out[q.key] = pick < q.p ? 1 : 0;
+      else if (q.n > 1) { var st = q.n - 1;
+        if (w > 0) out[q.key] = Math.min(st, Math.floor(Math.pow(pick, 1 + 3 * w) * q.n)) / st;
+        else { var cur = Math.round(q.home * st), nx = Math.floor(pick * st); if (nx >= cur) nx++; if (chaos > 0) out[q.key] = nx / st; } }
+      else out[q.key] = Math.max(0, Math.min(1, (q.centre !== undefined ? q.centre : q.home * (1 - w)) + g * s)); });
+    return out; }
+  /* GUI-55 r2: a patch draw's sources, by role ({main, second, sub, noise}, each 0 or 1). Osc 1 (main) is on, except in the occasional patch that is
+     the sub alone, so the second oscillator, and the noise, are never alone. The others flip by PRIOR.flip. With nothing to draw it returns `cur`. */
+  function drawSources(cur, chaos, amount, seed, click) { var r = H.Synth.rng((seed ^ hash('sources') ^ Math.imul(click, 2654435761)) | 0), alone = r() < PRIOR.subAlone(chaos) * amount, out = { main: alone ? 0 : 1 };
+    if (!(chaos > 0 && amount > 0)) return { main: cur.main, second: cur.second, sub: cur.sub, noise: cur.noise };
+    ['second', 'sub', 'noise'].forEach(function (k) { var f = r() < PRIOR.flip(chaos) * amount; out[k] = alone ? (k === 'sub' ? 1 : 0) : f ? 1 - cur[k] : cur[k]; });
     return out; }
   function RandomPanel(el, o) {
     var st = { chaos: .35, amount: 1, seed: 1, click: 0, all: false, locks: {} }, levels = o.levels;
@@ -9174,8 +9197,8 @@ window.Horde.MainStage = {
     prof.addEventListener('change', function () { var p = o.profiles[+prof.value]; st.chaos = p.chaos; st.amount = p.amount; ch.set(p.chaos); am.set(p.amount); st.locks = {}; (p.locks || []).forEach(function (id) { st.locks[id] = true; }); paintLocks(); if (o.say) o.say('Profile: ' + p.name); });
     var go = tag('div', 'rd-row rd-go'); left.appendChild(go);
     var out = tag('output', 'hd-value rd-seed');
-    go.appendChild(btn('Randomize patch', 'Architecture and parameters at every unlocked level', function () { draw(levels.filter(function (l) { return !l.mock; }), 'both'); }));
-    go.appendChild(btn('Randomize parameters', 'Numbers only: every unlocked level’s parameters', function () { draw(levels.filter(function (l) { return !l.mock; }), 'params'); }));
+    go.appendChild(btn('Randomize patch', 'Architecture and parameters at every unlocked level', function () { draw(levels.filter(function (l) { return !l.mock; }), 'both', true); }));
+    go.appendChild(btn('Randomize parameters', 'Numbers only: every unlocked level’s parameters', function () { draw(levels.filter(function (l) { return !l.mock; }), 'params', true); }));
     go.appendChild(btn('Undo the draw', 'One step back: a draw is one undo step', function () { if (o.undo) o.undo(); }));
     left.appendChild(out);
     var ex = tag('div', 'rd-ex'); left.appendChild(ex); ex.appendChild(tag('span', 'hd-label', 'Exempt by default')); (o.exemptNames || []).forEach(function (n) { ex.appendChild(tag('span', 'rd-chip', n)); });
@@ -9192,11 +9215,11 @@ window.Horde.MainStage = {
       var mon = tag('span', 'rd-mon'); if (l.monitor) l.monitor(mon); r.appendChild(mon); tb.appendChild(r); });
     function paintLocks() { Object.keys(lockBtns).forEach(function (id) { lockBtns[id].setAttribute('aria-pressed', String(!!st.locks[id])); }); }
     function paint() { var c = o.selected ? o.selected() : 0; who.textContent = st.all ? 'A to D' : c === null ? 'pick a corner on the pad' : 'Corner ' + LETTERS[c]; out.textContent = 'Seed ' + st.seed + ' · draw ' + st.click; }
-    function draw(ls, kind) { var live = ls.filter(function (l) { return !st.locks[l.id]; }); if (!live.length) { if (o.say) o.say('Those levels are locked'); return; } st.click++; if (o.draw) o.draw(live, kind, { chaos: st.chaos, amount: st.amount, seed: st.seed, click: st.click, all: st.all }); paint(); }
+    function draw(ls, kind, patch) { var live = ls.filter(function (l) { return !st.locks[l.id]; }); if (!live.length) { if (o.say) o.say('Those levels are locked'); return; } st.click++; if (o.draw) o.draw(live, kind, { chaos: st.chaos, amount: st.amount, seed: st.seed, click: st.click, all: st.all, patch: !!patch }); paint(); }   // patch: a whole-patch button, where GUI-55 r2 draws the sources
     paint();
     return { el: el, state: st, repaint: paint, press: draw, lock: function (id, on) { st.locks[id] = on; paintLocks(); }, chaos: ch, amount: am };
   }
-  H.FxChains = FxChains; H.ShapeMorph = ShapeMorph; H.LfoMorph = LfoMorph; H.RandomPanel = RandomPanel; H.RandomPanel.draw = drawRows; H.RandomPanel.sigma = sigma;
+  H.FxChains = FxChains; H.ShapeMorph = ShapeMorph; H.LfoMorph = LfoMorph; H.RandomPanel = RandomPanel; H.RandomPanel.draw = drawRows; H.RandomPanel.sigma = sigma; H.RandomPanel.sources = drawSources; H.RandomPanel.prior = PRIOR;
 })();
 
 /* ======== GUI-39: the envelope picture you drag (UI Spec section 6, the hierarchy lab's section 0: one model, two views). ======== */
