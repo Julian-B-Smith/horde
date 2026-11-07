@@ -11916,6 +11916,19 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 
 **FX device (ADR-254).** None: it has no oscillators and no Osc dashboard.
 
+### GUI-57 A1 — RULED by the human: ruling 4 is one compact control (2026-11-07; relayed by the review facilitator)
+
+The facilitator put the readings to the human in plain terms:
+- **A**, one tag naming the followed envelope, which opens Override (the source's own envelope, or back to ENV 1);
+- **B**, an ENV 1 to 4 picker and a separate Override button;
+- a third, the tag with ENV 2 to 4 also listed, so sources could share.
+
+The human chose **"A: one tag"**. So the GUI session's reading of ruling 4 stands as ruled:
+- sources don't share ENV 2 to 4 from the card;
+- GUI-47's follow-ENV-1-until-you-ask rule holds.
+
+The question is closed. **Engine impact:** none beyond ruling 4's (the existing Envelope row). **FX device (ADR-254):** none.
+
 ## GUI-39 — DIRECTED by the human: envelope pictures you drag; curve controls on every section (GB23; UI Spec section 6, B377; 2026-11-05)
 
 **The human, 2026-11-05:** "Let's make envelope visualizers interactive. They also need curve controls on each of the sections, as per the design doc."
@@ -12024,6 +12037,31 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 - that rule 5 needs no engine row.
 
 **Engine impact.** GN-21, as above. **FX device (ADR-254).** None.
+
+### GUI-55 A2 — RULED by the human: a moved envelope selector leans hard toward osc 1's envelope (2026-11-07; the lead's ADR-374 A2)
+
+**The human, relayed by the lead:** "at lower and moderate chaos settings, oscillator volumes should stay on whatever envelope they're already attached to, and fully randomized patches should heavily bias toward attaching every osc volume to Osc 1."
+
+**What changes.**
+- **Low and moderate chaos:** unchanged from A1. A source's envelope selector never moves.
+- **When a selector does move** (above `prior.envFrom`, by `prior.env(c)`'s chance), it lands on osc 1's envelope with the chance `prior.envOne`, and the other options share the rest evenly.
+- **`prior.envOne` is a stand-in of 0.8**, for the tuning session, beside A1's two.
+- **The master:** `drawRows` gains a `favour` hint (a stepped row's option index), drawn from the row's existing pick so no other row's draw shifts.
+
+**The GUI session's reading, for the lead to confirm.** "Attaching every osc volume to Osc 1" is read as osc 1's envelope:
+- osc 1's own selector favours ENV 1;
+- the other sources favour whatever osc 1 holds after the same draw.
+
+Osc 1 is drawn first, so the other sources can follow it. This is the lead's ENV 1 except in the rare draw where osc 1's own selector moved.
+
+**Tests.** Self-check 4c8c checks three things:
+- a favoured draw lands on the favoured option in at least 70 % of 400 draws;
+- **control:** the same draws with no favour do not;
+- after a Chaos 1 patch draw, the sources' selectors sit on osc 1's envelope at least 80 % of the time.
+
+A plant of an even weight (0.25) turned it red: 29 % against 37 %, then 54 %.
+
+**Engine impact.** GN-21, as above. **FX device (ADR-254).** None: these are the instrument's sources.
 
 ## GUI-41 — DIRECTED by the human: FX patching, wires dragged both ways, every source its own input, and no loop at rest (GB21; ADR-201; supersedes GUI-36; 2026-11-05)
 

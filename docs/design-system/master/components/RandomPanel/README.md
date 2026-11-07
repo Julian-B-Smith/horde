@@ -7,16 +7,18 @@ The Random page's panel (GUI-38, a MOCK-UP the human asked to land), from `rando
 **The law: `Horde.RandomPanel.draw(rows, kind, chaos, amount, seed, click, level)`, pure.** Rows are `{ key, n, home }`. A stepped row moves to another step, so ARCH changes something; a continuous row draws a bell around its home with σ from Chaos. Amount is the chance a row is drawn. Seed and click make a draw repeatable.
 
 **What a random patch may be (GUI-55).**
-- **Row hints.** A row may carry three hints:
+- **Row hints.** A row may carry four hints:
   - `p` draws a two-way switch fresh, on with that chance (a blade's switch).
   - `lean` pulls a row toward its low end, or a stepped row toward its first options, harder at low Chaos.
   - `centre` replaces the home a continuous row is drawn around (ENV 4's tight decay).
+  - `favour` is a stepped row's option index that a draw lands on with `prior.envOne`'s chance, the other options sharing the rest evenly (A2).
 - **`Horde.RandomPanel.sources(cur, chaos, amount, seed, click)`.** It takes and returns `{main, second, sub, noise}` as 0 or 1.
   - Main, which is osc 1, stays on, except in the occasional patch where the sub plays alone.
   - The other three flip by chance.
   - So the second oscillator never plays alone.
 - **The patch flag.** The whole-patch buttons pass `patch: true` to `draw`, and the consumer draws the sources only then. A level press never flips its own source's switch.
 - **A source's envelope selector (A1).** Below `prior.envFrom`, the end of "moderate" chaos, it never moves. Above it, the consumer draws it with `prior.env(c)` as its chance, which rises to a cap.
+- **Where a moved selector lands (A2).** The human: "fully randomized patches should heavily bias toward attaching every osc volume to Osc 1." The consumer passes osc 1's envelope as `favour` (ENV 1 for osc 1's own selector), so a moved selector lands there with `prior.envOne`'s chance, a stand-in of 0.8.
 - **The curves are stand-ins.** They live in one object, `Horde.RandomPanel.prior`, and each is 0 at Chaos 0. Their shapes are the tuning session's (GUI-55 r6, ADR-342).
 
 **The consumer provides** `levels` (`{ id, name, arch, params, custom?, mock?, monitor? }`), `profiles` (`{ name, chaos, amount, locks }`), `selected()`, `exemptNames`, `draw(levels, kind, params)`, `copy(level, kind, from, to)`, `undo()`, `say(text)`, `keys()`. `Horde.RandomPanel(el, o)`.
