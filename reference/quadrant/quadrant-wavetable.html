@@ -283,8 +283,11 @@ function recompute(){
 /* ---------- audio: 8-voice polyphonic worklet sharing one blended, mipmapped table ---------- */
 const VOICES=8;
 const WORKLET=`const N=${N},MAXV=${VOICES};
+// B647 sanctioned edit (ADR-384): the voice start phase came from Math.random(); it now draws from a
+// mulberry32 stream with a fixed seed (SPEC §5.7: seeded RNG only), so a replay starts every voice alike.
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
 class Q extends AudioWorkletProcessor{
-constructor(){super();this.cur=null;this.prev=null;this.pend=null;this.x=1;this.t=0;
+constructor(){super();this.rng=mulberry32(0x51AD7E);this.cur=null;this.prev=null;this.pend=null;this.x=1;this.t=0;
  this.v=[];for(let i=0;i<MAXV;i++)this.v.push({id:null,f:110,ph:0,env:0,gate:false,age:0});
  this.port.onmessage=e=>{const d=e.data;
   if(d.mips){if(!this.cur)this.cur=d.mips;else this.pend=d.mips;}
@@ -294,7 +297,7 @@ constructor(){super();this.cur=null;this.prev=null;this.pend=null;this.x=1;this.
 on(id,f){let v=this.v.find(v=>v.id===id&&(v.gate||v.env>1e-4));
  if(!v)v=this.v.find(v=>!v.gate&&v.env<1e-4);
  if(!v)v=this.v.reduce((a,b)=>a.age<b.age?a:b);
- if(v.id!==id||v.env<1e-4)v.ph=Math.random();
+ if(v.id!==id||v.env<1e-4)v.ph=this.rng();
  v.id=id;v.f=f;v.gate=true;v.age=++this.t;}
 lvl(f){const m=Math.floor(20000/f);let L=6;while(L>0&&(1<<L)>m)L--;return L;}
 process(i,o){const out=o[0],L=out[0],n=L.length;L.fill(0);
