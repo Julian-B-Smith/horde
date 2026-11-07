@@ -12514,3 +12514,33 @@ The lead's proposals for the round's fine questions stand as proposals for the s
 3. **The noise is the one exception to the off-source rule.** The human: "noise settings influence erosion even if the noise osc is off; I say erosion is colored by any corner where noise is influencing the erosion of its respective sub, or if the erosion control is connected to a modulator, regardless of whether that noise osc is active. That said, this means any active noise oscs will have to blend the sound of those as well, and the audible noise will need to influence the erosion (each patch only has one noise osc as a source for either the erosion or the audible noise). This is the exception to the off-oscillator blend rule." The lead's restatement, confirmed by poll ("Yes, that's it"): the noise's one set of settings blends over the corners where the noise is on **or** erosion is active (the sub's erode above 0, or erode modulated). Corners with neither are ignored. The noise's volume still fades only by the corners where it is on.
 
 The lead's mechanism, from the critic's review: the resolver holds the switch-off until a mirror of PA-1's heard level reaches the floor, and holds the source's values meanwhile. So no off corner's values sound while it fades out, and the engine keeps PA-5's "at once".
+
+## ADR-379 — RULED by the human: the modulation system's open questions, after a critic's review of round 62 (B637)
+
+**Context.** Round 62 (branch `b637-round-62`) turned the ruled modulation draft into Appendix E. A critic's first review found six open design questions (M1 to M6) and seven blocking defects. The lead put the human's share to them by poll on 2026-11-06. The labs facilitator put the rest through the reopened modulator lab.
+
+**Rulings.**
+1. **Routes respect a source's on corners** ("Only on-corners' routes"). For an oscillator, the sub or the noise, routes in a corner where it is off never touch it, just as its settings don't (ADR-376, ADR-377 A1).
+2. **M1: where a route is evaluated is decided per mapping, automatically.** The human asked "Can this be set on a case-by-case basis depending on which parameters are mapped?" and then chose "Automatic". A route from a per-note source (ENV 1 to 4, velocity, a per-note LFO) into an audio-rate destination runs inside the engine, sample-exact. Every other route runs outside the engine, one control interval late. There is no switch.
+3. **M5: only global LFOs and the 2-D random may move the morph position** ("Only LFOs and 2-D random"). ORBITAL, the Kuramoto LFO, the mod wheel and macros may not.
+4. **M6: modulator settings get the morph modes only in 1.0** ("Modes only for 1.0"). Follow, Quantum and Exempt apply. Waypoints and region locks on them come after 1.0.
+5. **M4: ORBITAL's per-body outputs are the lab's five plus acceleration** ("Lab's five plus accel").
+6. **M3 goes to a lab first** ("Let's test a mix in a lab before deciding"); see A2.
+
+**The lead's calls, from the critic's review:**
+- **M2:** a Control route holds exactly through a morph jump. The engine takes one per-key input (1 − W).
+- **Save under a position route:** stores the unrouted target, consistent with ADR-373 r6 (modulation is not frozen).
+
+**FX device (ADR-254).** The FX device hosts the same matrix. It has no engine voices, so its per-note LFOs and every route run in its own modulation system.
+
+**ADR-379 A1 (the human, by poll, 2026-11-06).**
+1. **Audio-rate destinations.** The four source levels and the noise filter's cutoff ("Source levels", "Noise filter cutoff"). The blades' position and width join the existing cut rate and FM depth ("Position and width"). The voice filters' cutoff and resonance join when the filters are built ("Cutoff and resonance").
+2. **A per-note source routed to a shared destination reads the newest note.** The human: "The newest note, but there should probably be a UI warning about it".
+3. **A device-level setting disallows such routes.** The human: "Maybe there's a global settings option to disallow mapping per-note mod sources to universal parameters". The lead's readings are in round 62: off by default; saved outside the patch; when on, a preset's existing such routes are muted and named, not deleted.
+
+**ADR-379 A2 (the human, through the labs facilitator, 2026-11-06, the reopened ORBITAL lab).**
+1. **M3 switches.** The human: "What I really want is a system that allows whatever intermediate shape to be stored as its own pattern, but that will probably need to go after 1.0. For now, it will just have to flip along a quantum boundary." Capturing an in-between shape as its own pattern comes after 1.0.
+2. **The sine and cosine of each body's angle join ORBITAL's outputs** ("Yes, add them"), for 34 sources in all. The point the angle is measured from (the field centre, the other bodies' centre of mass, or the direction of travel) stays open until the human hears both alternatives ("Build both, then decide").
+3. **The thermostat auto-kicks a stopped field** ("Auto-kick a stopped field").
+
+**Engine change (for the clean room).** Round 62 reverses RC-4 for per-note LFOs, which now run in the engine. It adds a Control input to PA-2, publishes VO-10's note counter, and widens PA-4's audio-rate destinations. Five manifest rows' rate changes from C to A, plus the blades' position and width; the manifest's hash is unchanged. PF-2 must be measured again.
