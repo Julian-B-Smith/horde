@@ -117,21 +117,29 @@ frame. **Outputs:** the published level sets (one per law's need: one cycle unde
 under Linear's pre-blend, or none under Linear's read-time blend where the members read the corner sets
 directly, WT-23), plus the loudness gain.
 
-**Memory, the reference design** (6-point read, N = max(2048, 16·H), one level per octave, H = 1 to 1,024: a level
-set is 45,056 samples, **176 KiB** in float32):
+**Memory, the reference design** (the capped 6-point read of WT-6, N = min(8192, max(2048, 16·H)), one level per
+octave, H = 1 to 1,024: a level set is 36,864 samples, **144 KiB** in float32, the largest level 32 KiB):
 
 | part | per oscillator |
 |---|---|
 | canonical spectra: 4 corner slots + 4 staging slots, 128 KiB each, plus the log-magnitude cache (64 KiB each) | 1.5 MiB |
-| Spectral log: published sets, three (heard, heard, building) | 0.5 MiB |
-| Linear, strategy (a): pre-built level sets for every corner frame, 4 × 16, plus one staging corner (16) | 13.75 MiB |
-| **total, strategy (a)** | **≈ 15.8 MiB**, so **≈ 31.5 MiB per instance** |
-| Linear, strategy (b) instead: three pre-blended sets of 16 frames | 8.25 MiB per oscillator in place of 13.75 |
+| Spectral log: published sets, three (heard, heard, building) | 0.42 MiB |
+| Linear, strategy (a): pre-built level sets for every corner frame, 4 × 16, plus one staging corner (16) | 11.25 MiB |
+| **total, strategy (a)** | **≈ 13.2 MiB**, so **≈ 26.3 MiB per instance** |
+| Linear, strategy (b) instead: three pre-blended sets of 16 frames | 6.75 MiB per oscillator in place of 11.25 |
 
-At ρ = 2^¼ (WT-4's alternative) a level set is about 584 KiB and strategy (a) needs about 94 MiB per instance,
-over WT-8's proposed 48 MiB cap: that choice cannot be made without a cheaper Linear strategy or the human's
-ruling. For comparison, the clean-room manifest states 43.2 MB for the whole engine today (`manifest_memory_bytes`
-at `e72a092`).
+**By level spacing** (WT-4, WT-5; the same read and cap):
+
+| spacing ρ | levels | level set | strategy (a), per instance | strategy (b), per instance |
+|---|---|---|---|---|
+| 2 (one per octave, built) | 11 | 144 KiB | ≈ 26.3 MiB | ≈ 17.5 MiB |
+| 2^½ (half-octave) | 21 | 266 KiB | ≈ 46.1 MiB | ≈ 28.5 MiB |
+| 2^¼ (quarter-octave) | 41 | 511 KiB | ≈ 85.8 MiB | ≈ 51.5 MiB |
+
+Half-octave levels fit under WT-8's proposed 48 MiB cap with either Linear strategy, barely with (a); quarter-octave
+levels fit with neither. The uncapped read (N = max(2048, 16·H)) costs about 22 % more at every spacing. For
+comparison, the clean-room manifest states 43.2 MB for the whole engine today (`manifest_memory_bytes` at
+`e72a092`). These are allocations; what the cache sees is the levels in use, which the timed runs judge (WT-P1a).
 
 **Real time.** Nothing on the audio thread allocates, locks, makes a system call or waits (RT-1). A rebuild's work
 is bounded by the level sizes (RT-2). The inverse FFT is the builder's own code or a dependency the human approves
@@ -409,6 +417,10 @@ targeted; Glass horde pad at 61.89 %, REPORT.md §7). Here:
   Mac's retired instructions for a fixed offline render, ADR-380 A1), at once, and its share of WT-BUDGET.
 - **The conversion** from instructions to a share of a core is fixed once, at S0, by a timed PF-3 run in the
   quiet window, and kept for the build; the lead re-fixes it only if a timed run disagrees by more than 10 %.
+- **The cost bench's evidence** (B648; spec WT-P1a): one oscillator's worst cell is about 3.9 % of a core and
+  moving costs 2 to 8 times static, so every stage's cells include one with the morph moving. **Instruction counts
+  miss memory stalls**: a stage whose count passes can still fail its timed run, which is why a timed result over
+  the share reopens the stage.
 - **Timed runs** (PF-3's method, its load guard, best of 5) only between 2 and 6 am (ADR-380 A1), queued by the
   lead, one batch a night. A timed result over the stage's share reopens the stage.
 - **The shares** of WT-BUDGET (PROPOSED; the lead fixes them with the budget):
@@ -446,7 +458,7 @@ Each stage is small enough to be heard. A stage starts only when its gates are w
 |---|---|---|---|---|
 | **S0** (lead) | repo, harness skeleton, the alias meter, the click detector, the instruction counter; WT-BUDGET proposed and approved; the instruction-to-time conversion fixed | — | every S1 gate proven engine-free | conversion fixed |
 | **S1** | the data model, the eight factory generators, levels, the read; one member, a static table, one frame | factory tables | WT-F1, WT-F5, WT-F8 (static), WT-F9, WT-F13; generator accuracy (WT-41) and goldens (WT-43); table gates (WT-47) | ≤ 35 % |
-| **S2** | the four-corner blend, both laws, rebuild and crossfade, loudness normalisation, the weights input | morph sweeps | WT-F4 (sweeps on the sine probe), WT-F6, WT-F7, WT-F10, WT-F5 at every block split | ≤ 55 % |
+| **S2** | the four-corner blend, both laws (Spectral log's frame rule by WT-3), rebuild and crossfade with the two cheaper schemes measured (WT-15), loudness normalisation, the weights input | morph sweeps | WT-F4 (sweeps on the sine probe), WT-F6, WT-F7, WT-F10, WT-F5 at every block split | ≤ 55 % |
 | **S3** | levels across pitch, the pitch crossfade, the read-rate level choice; ρ as a constant | glides across the range | WT-F1 at C1 to C8 at 44.1, 48 and 96 kHz; WT-F2; WT-F4 over glides | ≤ 65 % |
 | **S4** | U members from the stand-in swarm, per-voice frame (Linear), frame spread, Spectral log's newest-voice frame, 8 voices | unison and scanned plucks | WT-F4, WT-F5, WT-F7 at U = 7; WT-P4 (cost when off); memory against WT-8 | ≤ 85 % (first full) |
 | **S5** | sync and window, asym and bend, PM from osc 2, the loop reuse, DC removal; High quality | growls, sync leads, formants | WT-F3 (reported), WT-F8 with every transformation, WT-F12, WT-F4 on the probe with each amount swept; sync's edge correction by QS-1's method at r = 2.5 | ≤ 100 % |
@@ -468,7 +480,7 @@ Each stage is small enough to be heard. A stage starts only when its gates are w
 | | `s2-3-opposed-centre` | saw and reverse saw corners, the centre, normalisation on | Does the centre hold its level? |
 | | `s2-4-orbit` | a 0.2 Hz orbit, Linear then Spectral log | Any grain or zipper from the rebuilds? |
 | | `s2-5-log-phase` | Spectral log with the linear-sum phase, then a fixed phase | Which is steadier? (QUADRANT's open question) |
-| | `s2-6-fast-jumps` | 10 ms corner jumps on rich tables | Do jumps sound like transitions, not clicks? |
+| | `s2-6-log-frame-scan` | Vowel scanned 0 → 15 under Spectral log, log-domain frame interpolation, then exact (WT-3) | Which in-between frames sound right? (C6) |
 | S3 | `s3-1-glide-octave` | saw glide C1 → C8 over 12 s, ρ = 2 | Do you hear the brightness rise and fall per octave? |
 | | `s3-2-glide-half` | the same, ρ = 2^½ | Better enough to pay memory for? |
 | | `s3-3-glide-quarter` | the same, ρ = 2^¼ | Better enough to pay memory for? |
@@ -579,15 +591,30 @@ Each with the drafter's recommendation. Grouped by what they decide.
 ### C. Fidelity, memory, CPU
 
 - **C1. Level spacing** (WT-4). One level per octave (ADR-384 #1) dips the top harmonic to about 9.9 kHz at the
-  bottom of each octave at 44.1 kHz; quarter-octave levels keep it at 16.7 to 19.8 kHz but need about 94 MiB per
-  instance with Linear's read-time strategy. A third lever: let harmonics run past c up to f_int − 20 kHz, where
-  their aliases land above 20 kHz. Recommendation: **build the constant, hear S3's three glides, then rule**.
-- **C2. WT-BUDGET** (from B648): the lead proposes, the human approves before S1.
+  bottom of each octave at 44.1 kHz; quarter-octave levels keep it at 16.7 to 19.8 kHz but need about 86 MiB per
+  instance with Linear's read-time strategy; half-octave levels halve the dip and the pitch crossfade's early fade
+  (WT-5) for about 46 MiB. A third lever: let harmonics run past c up to f_int − 20 kHz, where
+  their aliases land above 20 kHz. Recommendation: **build the constant, hear S3's three glides, then rule**; if
+  one per octave is audibly lacking, half-octave is the one that fits the memory cap.
+- **C2. WT-BUDGET** (from B648): the lead proposes, the human approves before S1. The bench's evidence (spec
+  WT-P1a): about 3.9 % of a core for one oscillator in the worst cell (H = 1,024, Spectral log, 9 members, the
+  morph moving), 1.2 % static, at an uncalibrated conversion; instruction counts miss memory stalls.
+- **C6. Spectral log's frame interpolation** (WT-3; found by B648). Lerping the cached log-magnitudes between frames
+  is a geometric lerp, not the magnitude of the complex lerp, and fails the corner-identity test by 4.7 × 10³ to
+  1.6 × 10⁴ at fractional frames. Recommendation: **define it in the log domain** (the same law on both axes; uses
+  the cache; moves formant peaks between frames rather than crossfading them) and write the test to match. The
+  alternative, exact, costs a log and a hypot per harmonic per corner per rebuild. S2 plays both.
+- **C7. The rebuild crossfade's scheme** (WT-15; found by B648). Under motion a crossfade is always running, so every
+  member read touches two sets. Recommendation: **measure a fused read and a once-per-control-interval interpolated
+  set at S2**; keep the set if it passes the click gate, else the fused read.
+- **C8. Level size cap** (WT-6, WT-6a). Recommendation: **cap at 8,192 samples with the 6-point read** (144 KiB per
+  level set, the 140 dB cap at C1, C2 and C4 engine-free); the 8-point read capped at 4,096 is the fallback if the
+  timed runs show cache misses on the large levels.
 - **C3. The PROPOSED numbers** in the spec's section 9 (level steadiness ±1.5 dB; the static-patch, corner-identity
   and capture tolerances; QS-1's floors applied to the table member). Recommendation: approve as written; S1 and S2
   measure them.
 - **C4. The memory cap** (WT-8: 48 MiB for both oscillators' table sets). Recommendation: approve; it allows the
-  reference design (about 31.5 MiB) and refuses the quarter-octave read-time combination.
+  reference design (about 26.3 MiB) and half-octave levels (about 46.1 MiB), and refuses quarter-octave levels.
 - **C5. The rebuild interval:** 4 control intervals (116 samples at 44.1 kHz) for ADR-384 #7's 128 samples, so it
   is defined in time. Recommendation: approve.
 
@@ -656,5 +683,9 @@ Not edited here; listed so the lead can draft the round when the direction is ru
 5. **MS-29 and ADR-384 #9 disagree** once X and Y are the morph position (§7 B3).
 6. **ADR-384 #1 and #8 pull against each other** at 44.1 kHz (§7 C1), and the bench's 2048-sample linear read
    fails QS-1's floors at low notes (WT-6: 64 dB at C2 against 110).
-7. **The clean-room engine is three rounds behind its spec** (rounds 62 to 64: PA-4's new rows, unison 1 to 9);
+7. **The cost bench (B648) found three more** in this spec's first draft: Spectral log's cached frame lerp is not
+   the law the corner-identity test assumed (WT-3, C6); the rebuild crossfade is always running under motion and
+   doubles the member reads (WT-15, C7); and the pitch crossfade toward the darker level fades the top octave early
+   (WT-5). Each is now stated, with a recommendation.
+8. **The clean-room engine is three rounds behind its spec** (rounds 62 to 64: PA-4's new rows, unison 1 to 9);
    the harness header still says 16 members. S7 pins a commit and re-reads the seam.
