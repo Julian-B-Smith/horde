@@ -15,4 +15,7 @@ struct preview_bridge_ext {
   const char* (*frame)(const clap_plugin_t* plugin);
   // Tests only, between process calls: the live engine's stored v for a row (NaN for an unknown id, or no engine).
   double (*engine_v)(const clap_plugin_t* plugin, std::uint32_t id);
+  // Tests only, between process calls: a sounding note's pitch input (IF-2) and sounding pitch, in Hz, from the live
+  // engine's observation view (IF-10). False when no voice sounds that note.
+  bool (*note_pitch)(const clap_plugin_t* plugin, std::int32_t note_id, double* played, double* sounding);
 };

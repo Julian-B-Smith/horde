@@ -1,29 +1,38 @@
 // horde ENGINE PREVIEW (B624): a thin CLAP around the clean-room engine, so the human can play it in Live and we
 // can see what it costs there. Throwaway on purpose: it isn't the B398 shell and owes none of ADR-186 §5's rules.
 // Its window is GUI 3's page in a web view (preview_webview.mm, B628), or the small AppKit one (preview_gui.mm) when
-// built with HORDE_PREVIEW_WEBVIEW=OFF. No filters, effects, modulation matrix, glide or pitch bend: the engine has
-// none of them yet.
+// built with HORDE_PREVIEW_WEBVIEW=OFF. No filters, effects or modulation matrix: the engine has none of them yet.
+// Pitch bend and the bank's glide are played here, a stand-in for the pitch system (RC-3) until B504 (B632). The morph
+// is the clean room's own resolver (IF-12), hosted here (B636; see "the morph system" below).
 //
-// Four choices worth keeping in mind before changing this file:
-// - At most 64 host parameters. Live gives a plug-in with up to 64 a panel of sliders automatically; above that the
-//   panel opens empty and is filled by touching controls in the plug-in's window. So 47 rows plus Preset are host
-//   parameters: 48, since the separate Voices limit went (the human, 2026-11-05: "One control: Polyphony"). Every
-//   engine row has a shadow v besides (the page and the saved state read it); a row outside the 47 can be set from the
-//   page but isn't host-automatable.
+// Six choices worth keeping in mind before changing this file:
+// - Every non-reserved engine row is a host parameter (317, plus Preset; B632, ADR-370), under the engine's own id.
+//   Live gives a plug-in of more than 64 an empty panel that fills as controls in the plug-in's window are touched,
+//   which the page's gestures do. Polyphony is the one voice control (the human, 2026-11-05).
 // - A preset change builds a whole new engine on the main thread and hands it to the audio thread. load_state and
 //   prepare aren't real-time (RT-1), and the swap keeps the audio thread free of them. Sounding notes stop at the swap.
 // - The saved chunk is the preset's index and the rows that differ from what the preset loads, not the
 //   engine's state text. It stays small (large chunks make hosts drop state silently), and it never reads the engine
 //   from the main thread while audio runs.
+// - Pitch (B632): a stand-in for the pitch system (RC-3), MIDI pitch bend at a fixed +/-2 semitones and each preset's
+//   glide exactly as 10.3 states it for the phrases (the law below, after tests/wasm/item15b.mjs). A note's pitch is
+//   taken over only once it glides or is bent; until then the engine plays it 12-TET itself, tuning expression included.
+//   A moving pitch goes in at audio rate through IF-2's pitch stream, not as an event per sample, which would cut the
+//   engine into one-sample segments for the whole glide.
 // - GUI 3's bridge (bridge_core.h, B628) runs on the main thread. Page messages reach audio through the same lock-free
 //   edit queue as the window's edits, each message closed by an acknowledgement entry, so the audio thread publishes
 //   the last applied seq in order. Frames read the engine's RC-8 snapshot, which any thread may read.
+// - The morph (B636): each engine slot carries its own resolver, prepared and fed on the main thread beside its engine,
+//   so the two clocks start together and stay in lockstep (MO-3). On the audio thread its events go to the engine in the
+//   same span, whatever kind they are (generic on purpose: the 1.0 resolver is a rebuild, not a rewrite). The corners
+//   live in atomics the audio thread writes, since an edit of the audible corner while the morph is off arrives there.
 #include <clap/clap.h>
 
 #include <sys/stat.h>
 #include <unistd.h>
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <cmath>
@@ -41,13 +50,13 @@
 #include "bridge_ext.h"
 #include "flush_to_zero.h"
 #include "horde_engine.h"
+#include "morph_core.h"
 #include "preview_gui.h"
 
 namespace {
 
 // kPresetId (preview_gui.h) sits above the engine's id range: IF-11 keeps its ids below 0xB00000.
 using preview::kPresetId;
-constexpr int kMaxRows = 63;   // + Preset = Live's 64
 constexpr int kMaxVoices = 64;
 constexpr int kMaxRouteKeys = 8;
 constexpr int kMaxTargets = 16;
@@ -60,34 +69,34 @@ constexpr int kPolyphonyCap = 8;
 // A power of two: edits waiting for the audio thread. A page `set` can carry every engine row at once (a preset morph,
 // a load), about 330 entries, and a message goes in whole or waits, so this holds a dozen of those.
 constexpr std::uint32_t kEditQueue = 4096;
-constexpr int kNoteRing = 128;          // recent note-ons, by note id, for the page's notes (a power of two)
-constexpr const char* kDefaultPreset = "Trance jitter";   // one of the lighter patches in the 2026-11-05 worst-block run
+constexpr int kNoteRing = 128;
+constexpr std::uint64_t kScopeRing = 8192, kScopeWindow = 2048, kScopeStep = 16;   // a power of two; 128 points a frame          // recent note-ons, by note id, for the page's notes (a power of two)
+constexpr const char* kDefaultPreset = "Trance jitter";
+// The morph (B636). Events one span may carry: spans are cut at every control interval while the morph moves, so one
+// boundary's worth (every key and set) fits many times over. A resolver drop past this is counted, never silent.
+constexpr std::size_t kMorphEvents = 4096;
+constexpr std::size_t kTextBytes = horde::kRatiosMaxBytes + 1;
+using preview::morph::kSettings;
+// MO-14's groups the engine renders (fx/N goes to a rack this plug-in hasn't got), for IF-10's heard sets in frames.
+constexpr const char* kSetGroups[] = {"osc1/pan", "osc1/env", "osc1/kernel", "osc1/swarm", "osc2/pan", "osc2/env",
+                                      "osc2/kernel", "osc2/swarm", "noise/env", "sub/chain", "noise/chain"};
+constexpr int kSetGroupCount = int(sizeof kSetGroups / sizeof kSetGroups[0]);   // one of the lighter patches in the 2026-11-05 worst-block run
 #ifndef HORDE_PREVIEW_BUILD_LABEL
 #define HORDE_PREVIEW_BUILD_LABEL "engine unknown, build 0"
 #endif
 // Which engine commit and which build this is, so the human can tell test builds apart in Live (window, log, description).
 constexpr const char* kBuildLabel = HORDE_PREVIEW_BUILD_LABEL;
 
-// The rows on the panel. A key the engine doesn't have is skipped, and the smoke test prints how many stood.
-const char* const kExposedKeys[] = {
-    "voice.mode", "voice.gravity", "env1.attack", "env1.decay", "env1.sustain", "env1.release",
-    "mix.osc1", "mix.osc2", "mix.sub", "mix.noise", "out.level", "voice.quality", "quality",
-    "osc1.on", "osc1.unison", "osc1.detune", "osc1.coupling", "osc1.driftDepth", "osc1.width", "osc1.crossMod", "osc1.feedback",
-    "osc1.blade1.on", "osc1.blade1.mode", "osc1.blade1.wave", "osc1.blade1.cut", "osc1.blade1.position", "osc1.blade1.width",
-    "osc1.blade1.edges", "osc1.blade1.depth", "osc1.blade1.fmDepth", "osc1.blade1.modRate",
-    "osc1.blade2.on", "osc1.blade2.mode", "osc1.blade2.wave", "osc1.blade2.cut", "osc1.blade2.position", "osc1.blade2.width",
-    "osc1.blade2.edges", "osc1.blade2.depth", "osc1.blade2.fmDepth", "osc1.blade2.modRate",
-    "osc2.on", "osc2.unison", "osc2.detune", "osc2.coupling", "sub.on", "sub.drive", "noise.on",
-};
-
-// Every manifest row (the shadow, the page and the saved state), and the host rows among them. Built once on the main
-// thread at init, read-only after, so the audio thread reads it freely.
+// Every manifest row (the shadow, the page and the saved state), and the host rows among them: since B632 every
+// non-reserved row, in manifest order, under the engine's own id, so automation written today still finds its row when
+// the manifest grows (ids are append-only, IF-11). Built once on the main thread at init, read-only after, so the audio
+// thread reads it freely.
 struct Rows {
   std::vector<const horde::ParamInfo*> all;   // the manifest, in its ascending id order
   std::vector<double> default_v;              // per manifest row: the manifest's defaults as v
-  std::vector<int> host_of;                   // per manifest row: its host row, or -1
-  const horde::ParamInfo* row[kMaxRows] = {};   // the host rows
-  int at[kMaxRows] = {};                        // a host row's manifest index
+  std::vector<int> host_of;                   // per manifest row: its host row, or -1 (reserved)
+  std::vector<const horde::ParamInfo*> row;   // the host rows
+  std::vector<int> at;                        // a host row's manifest index
   int count = 0;
   std::string hash, text;                     // the manifest hash (section 3) and the text it hashes
 };
@@ -97,13 +106,11 @@ const Rows& rows() {
     Rows t;
     for (std::size_t i = 0; i < horde::manifest_size(); ++i) t.all.push_back(&horde::manifest_param(i));
     t.host_of.assign(t.all.size(), -1);
-    for (const char* key : kExposedKeys) {
-      const horde::ParamInfo* p = horde::find_param(key);
-      if (!p || p->reserved || t.count >= kMaxRows) continue;
-      const int m = int(std::find(t.all.begin(), t.all.end(), p) - t.all.begin());
-      t.at[t.count] = m;
-      t.host_of[std::size_t(m)] = t.count;
-      t.row[t.count++] = p;
+    for (std::size_t m = 0; m < t.all.size(); ++m) {
+      if (t.all[m]->reserved) continue;   // not a host parameter in 1.0 (5.1): the engine refuses a Param to it
+      t.host_of[m] = t.count++;
+      t.at.push_back(int(m));
+      t.row.push_back(t.all[m]);
     }
     auto probe = horde::make_engine();   // the manifest's defaults as v, which ParamInfo gives only in units
     for (const auto* p : t.all) t.default_v.push_back(probe->param_v(p->id));
@@ -149,9 +156,23 @@ struct Slot {
   std::uint32_t key_id[kMaxRouteKeys] = {};
   int n_keys = 0;
   double env_velocity[2] = {1, 1};
+  double glide_s = 0;          // B.1's glide and glideAlways, played by the pitch stand-in (B632)
+  bool glide_always = false;
   std::uint64_t ci = 29;
   std::uint64_t counter[kMaxVoices] = {};
   double last[kMaxVoices][kMaxRouteKeys] = {};
+
+  // The morph (B636), built and fed on the main thread with the engine, used by the audio thread after the swap.
+  std::unique_ptr<horde::MorphResolver> resolver;   // null if the engine's build has none
+  double setting_v[kSettings] = {};                 // D.2, as v; `settings` is their decoding, which the audio thread reads
+  horde::MorphSettings settings{};
+  bool settings_dirty = false, corner_dirty[4] = {};   // inputs the resolver hears at the end of the edits' drain
+  bool busy = false;                                // the last span's resolver emitted something: it may still be moving
+  std::vector<double> by_id;                        // a corner by manifest id (IF-12's array), filled from the atomics
+  char text[4][2][kTextBytes] = {};                 // each corner's two ratios texts
+  char heard_text[2][kTextBytes] = {};              // the texts the engine holds now (IF-4: a set's heaviest setting's)
+  std::vector<horde::MorphEvent> morph_out;         // kMorphEvents, the resolver's output for one span
+  std::vector<double> initial;                      // per manifest row, the engine's v once built: `heard` at the swap
 };
 
 // One preset's cost in this session. Written by the audio thread alone, read by the main thread for the log, so
@@ -166,13 +187,51 @@ struct Stats {
 // own gesture when `bracket` is set (a window edit, or a page set with no page gesture open). Begin and End: a page
 // gesture on a host row. Ack: every page message ends with one, so the seq it carries is published only after all
 // that message's entries are applied.
+// The morph's kinds (B636): Setting (id: a D.2 index, value: its v), Position (value, y), KeyMode (id: a manifest id
+// or kRatiosKeyId, mode, count), Corner (corner, id, value in v) and Save (corner).
 struct Edit {
-  enum Kind : std::uint8_t { Value, Begin, End, Ack };
+  enum Kind : std::uint8_t { Value, Begin, End, Ack, Setting, Position, KeyMode, Corner, Save };
   Kind kind = Value;
   bool bracket = true;
   clap_id id = 0;
   double value = 0;
   std::int64_t seq = 0;
+  double y = 0;
+  int corner = 0;
+  horde::KeyMode mode = horde::KeyMode::Follow;
+  horde::KeyCount count = horde::KeyCount::AsMorph;
+};
+
+// One writer at a time publishes a block of plain data that another thread copies whole: a sequence lock. The reader
+// retries while the count is odd (a write under way) or moved during its copy. Used for what atomics can't hold: texts
+// and the heard sets. The writers here never overlap in practice (the audio thread, or the main thread at a load
+// while no Save is queued), which the lock assumes.
+template <class T>
+struct Published {
+  std::atomic<std::uint32_t> seq{0};
+  T data{};
+  void write(const T& v) {
+    seq.fetch_add(1, std::memory_order_acq_rel);
+    std::atomic_thread_fence(std::memory_order_release);
+    data = v;
+    std::atomic_thread_fence(std::memory_order_release);
+    seq.fetch_add(1, std::memory_order_acq_rel);
+  }
+  T read() const {
+    for (;;) {
+      const std::uint32_t a = seq.load(std::memory_order_acquire);
+      if (a & 1) continue;
+      T copy = data;
+      std::atomic_thread_fence(std::memory_order_acquire);
+      if (seq.load(std::memory_order_acquire) == a) return copy;
+    }
+  }
+};
+struct CornerTexts { char t[4][2][kTextBytes] = {}; };
+struct HeardTexts { char t[2][kTextBytes] = {}; };
+struct HeardSets {
+  int n = 0;
+  preview::bridge::HeardGroup group[kSetGroupCount];
 };
 
 // What the page's session needs between frames. Main thread only.
@@ -205,8 +264,44 @@ struct Session {
   bool refused_due = false;
   std::vector<bool> gesture_open;   // per manifest row
   std::deque<std::vector<Edit>> waiting;   // whole messages the queue had no room for yet, in order
+  // The morph's `morph` member (B636): what was last sent, so a frame carries only changes (NaN: never sent).
+  double sent_settings[kSettings] = {};
+  bool sent_settings_ok = false, modes_due = true;
+  std::int64_t modes_after = 0;
+  std::vector<double> sent_corner;               // 4 x manifest rows
+  std::vector<double> sent_heard;                // per manifest row
+  std::string sent_texts[4][2], sent_heard_text[2];
+  bool sent_texts_ok = false, sent_heard_text_ok = false;
   std::unique_ptr<horde::GuiFrame> frame = std::make_unique<horde::GuiFrame>();   // 64 voices of members: tens of KB, never on the stack
   std::string out;               // the last frame's text, alive until the next
+};
+
+// The pitch stand-in's notes and bend (B632). Audio thread only; nothing here allocates once built.
+constexpr int kPitchNotes = 64;     // notes followed, newest first: an older one past this is forgotten
+constexpr int kPitchStreams = 16;   // notes gliding at once
+constexpr int kBendChanges = 64;    // bend messages in one span
+constexpr double kBendSemitones = 2;   // fixed, until B504's per-patch bend range
+struct PitchNote {
+  std::int32_t id = -1;
+  std::int16_t key = -1, channel = -1;
+  double tuning = 0;           // semitones, the note's tuning expression (IF-2: folded in once we set the pitch)
+  double f = 0;                // its 12-TET pitch, as the engine computes it (Note::hz), so a takeover changes nothing
+  double from = 0;             // where its glide starts; 0: it doesn't glide
+  std::uint64_t at = 0;        // its note-on on the engine's sample clock
+  bool held = false, gliding = false, taken = false, live = false;
+};
+struct BendChange { std::uint32_t sample; int channel; double semitones; };
+struct Pitch {
+  PitchNote notes[kPitchNotes];
+  int next = 0, last = -1;     // the next slot to fill; the most recently started note
+  double bend[16] = {};        // semitones per MIDI channel
+  double bend_at_start[16] = {};
+  BendChange changes[kBendChanges];
+  int n_changes = 0;
+  std::uint64_t span_clock = 0;   // the engine's sample clock at the span being built
+  float stream[kPitchStreams][kEngineMaxBlock];
+  horde::AudioStream streams[kPitchStreams];
+  int n_streams = 0;
 };
 
 struct Plugin {
@@ -251,14 +346,42 @@ struct Plugin {
   std::atomic<bool> engine_silent{true};  // OU-4 as the audio thread last saw it
   // The output's peak since the last frame, tapped here: the engine's frame holds only its last processing call's
   // peaks, and with routes a call is one control interval long. The reader asks for a reset; the audio thread does it.
+  // GN-4's tap (B632): the plug-in's own output, mono, into a ring the main thread copies the newest window from. One
+  // writer; the reader takes kScopeWindow behind the write count, so the writer would need the rest of the ring
+  // (most of 0.15 s) during one copy to tear it.
+  float scope_ring[kScopeRing] = {};
+  std::atomic<std::uint64_t> scope_written{0};
   float out_peak_accum = 0;               // audio thread
   std::atomic<float> out_peak{0};
   std::atomic<bool> out_peak_reset{false};
 
   std::vector<horde::Event> events;
+  Pitch pitch;                            // audio thread
   std::int32_t next_note_id = 1 << 24;   // above any id a host's own counter reaches in a session
   std::atomic<std::uint64_t> nonfinite{0};
   std::atomic<std::uint64_t> idle_blocks{0};   // blocks skipped while the engine was silent (OU-4)
+
+  // The morph system's state (RC-11.1, B636). The corners and the settings are atomics the audio thread writes (an
+  // edit of the audible corner while the morph is off lands there, and D.2's rows become host parameters there one
+  // day); the main thread writes them only at a load, before the slot that reads them is built. The modes are the
+  // main thread's: only the page sets them (MO-11 keeps them out of the host).
+  std::unique_ptr<std::atomic<double>[]> corners;   // 4 x manifest rows, v, by manifest index
+  Published<CornerTexts> corner_texts;
+  std::atomic<double> morph_v[kSettings];           // D.2, v
+  std::atomic<double> pos_x{0}, pos_y{0};           // D.2's position (morph.x, morph.y once round 61 lands)
+  std::vector<preview::morph::KeyChoice> modes;     // main thread: manifest rows, then osc1.ratios, osc2.ratios
+  std::vector<std::array<std::string, 2>> preset_text;   // main thread: per preset, its ratios texts as it loads
+  // What the engine holds, for frames and Save current sound: written by the audio thread from every Param it sends.
+  std::unique_ptr<std::atomic<double>[]> heard;     // per manifest row, v
+  Published<HeardTexts> heard_texts;
+  Published<HeardSets> heard_sets;
+  std::atomic<std::uint64_t> morph_dropped{0};      // edits of a key the morph resolves, refused while it is on
+  std::atomic<std::uint64_t> morph_unknown{0};      // resolver events of a kind this build doesn't forward
+  std::atomic<bool> want_morph{false};
+  std::vector<horde::Event> morph_events, merged;   // audio thread: one span's morph events, and them merged with ours
+  std::vector<horde::Event> piece;                  // audio thread: one piece of a span cut at a text
+  horde::AudioStream shifted[kPitchStreams];
+  horde::HeardSet heard_scratch;                    // audio thread: one observe_setting_set's answer (kilobytes)
   std::atomic<std::uint32_t> last_frames{0};
   std::uint64_t frames_since_callback = 0;
   Stats stats[kBankSize];
@@ -309,6 +432,53 @@ void cap_polyphony(std::vector<double>& values) {
   values[std::size_t(m)] = preview::bridge::capped_count_v(*row, values[std::size_t(m)], kPolyphonyCap);
 }
 
+std::atomic<double>& corner_at(Plugin& s, int corner, std::size_t m);
+void fill_corner(Plugin& s, Slot& slot, int c);
+
+// The slot's morph (B636), on the main thread beside its engine: a fresh resolver at clock 0, as the engine is, fed
+// the whole morph system at sample 0 (IF-12's calls), so the first boundary resolves what the state says. A preset load
+// (not a saved state's) puts the preset into all four corners, as GUI 3's page does (device.js adopt); the settings,
+// the modes and the position stay. While the morph is off the audible corner is the sound the engine was just given.
+void build_morph(Plugin& s, Slot& slot, int preset, bool keep_shadow) {
+  const Rows& t = rows();
+  slot.initial.resize(t.all.size());
+  for (std::size_t m = 0; m < t.all.size(); ++m) slot.initial[m] = slot.engine->param_v(t.all[m]->id);
+  for (int o = 0; o < 2; ++o) std::snprintf(slot.heard_text[o], kTextBytes, "%s", slot.engine->ratios(o).c_str());
+  for (int i = 0; i < kSettings; ++i) slot.setting_v[i] = s.morph_v[i].load(std::memory_order_relaxed);
+  slot.settings = preview::morph::decode(slot.setting_v);
+  CornerTexts texts = s.corner_texts.read();
+  if (!keep_shadow) {
+    const std::vector<double>& loaded = s.preset_v[std::size_t(preset)];
+    for (int c = 0; c < 4; ++c) {
+      for (std::size_t m = 0; m < t.all.size(); ++m) corner_at(s, c, m).store(loaded[m], std::memory_order_relaxed);
+      for (int o = 0; o < 2; ++o) std::snprintf(texts.t[c][o], kTextBytes, "%s", slot.heard_text[o]);
+    }
+  }
+  if (!slot.settings.on) {
+    const int a = slot.settings.audible;
+    for (std::size_t m = 0; m < t.all.size(); ++m) corner_at(s, a, m).store(slot.initial[m], std::memory_order_relaxed);
+    for (int o = 0; o < 2; ++o) std::snprintf(texts.t[a][o], kTextBytes, "%s", slot.heard_text[o]);
+  }
+  s.corner_texts.write(texts);
+  std::memcpy(slot.text, texts.t, sizeof slot.text);
+  slot.morph_out.resize(kMorphEvents);
+  slot.by_id.assign(horde::manifest_id_span(), 0.0);
+  slot.resolver = horde::make_morph_resolver();
+  if (slot.resolver && !slot.resolver->prepare(s.sample_rate)) slot.resolver.reset();
+  if (!slot.resolver) return;
+  for (int c = 0; c < 4; ++c) {
+    fill_corner(s, slot, c);
+    slot.resolver->set_corner(c, slot.by_id.data(), slot.text[c][0], slot.text[c][1], 0);
+  }
+  slot.resolver->set_settings(slot.settings, 0);
+  for (std::size_t k = 0; k < s.modes.size(); ++k) {
+    if (s.modes[k] == preview::morph::KeyChoice{}) continue;
+    const std::uint32_t id = k < t.all.size() ? t.all[k]->id : horde::kRatiosKeyId[k - t.all.size()];
+    slot.resolver->set_key(id, s.modes[k].mode, s.modes[k].count, 0);
+  }
+  slot.resolver->set_position(s.pos_x.load(std::memory_order_relaxed), s.pos_y.load(std::memory_order_relaxed), 0);
+}
+
 Slot* build_slot(Plugin& s, int preset, bool keep_shadow) {
   auto slot = std::make_unique<Slot>();
   slot->preset = preset;
@@ -317,6 +487,9 @@ Slot* build_slot(Plugin& s, int preset, bool keep_shadow) {
   if (!slot->engine || !slot->engine->prepare(s.sample_rate, s.max_block)) return nullptr;
   if (!slot->engine->load_state(kBank[preset].state).ok) return nullptr;
   slot->ci = std::uint64_t(std::max(1L, std::lround(s.sample_rate / 1500)));   // PA-3
+  s.preset_text[std::size_t(preset)] = {slot->engine->ratios(0), slot->engine->ratios(1)};
+  slot->glide_s = kBank[preset].glide_s;
+  slot->glide_always = kBank[preset].glide_always;
 
 #ifndef HORDE_PREVIEW_PLANT_NO_ROUTES   // the smoke test's must-fail build: without routes it must miss the reference
   for (int r = 0; r < kBank[preset].n_routes && slot->n_targets < kMaxTargets; ++r) {
@@ -365,6 +538,7 @@ Slot* build_slot(Plugin& s, int preset, bool keep_shadow) {
   setup.push_back(cap);
 #endif
   slot->engine->flush(setup.data(), setup.size());
+  build_morph(s, *slot, preset, keep_shadow);
   return slot.release();
 }
 
@@ -397,22 +571,39 @@ void play_routes(Plugin& s, Slot& slot) {
   }
 }
 
-void set_param(Plugin& s, clap_id id, double value) {
+// A key the morph resolves (MO-2: every row but Device ones; a reserved row is never a host parameter at all).
+bool morph_resolves(const horde::ParamInfo& p) { return !p.reserved && p.cls != horde::ParamClass::Device; }
+std::atomic<double>& corner_at(Plugin& s, int corner, std::size_t m) { return s.corners[std::size_t(corner) * rows().all.size() + m]; }
+
+// One edit of an engine row, from the host, the window or the page. False when it is refused: while the morph is on,
+// the resolver is the only source of the keys it resolves (IF-12), so an edit of one goes nowhere and is counted.
+// IF-12 routes such an edit to the corners (ADR-109), but how it splits across them isn't in the spec yet, so this
+// plug-in doesn't guess (README); corner edits arrive as the page's `corner` message instead. While the morph is off
+// the edit also lands in the audible corner, which is the sound being edited (D.2's morph.audible).
+bool set_param(Plugin& s, clap_id id, double value) {
   if (id == kPresetId) {
     s.wanted_preset.store(std::clamp(int(std::lround(value)), 0, kBankSize - 1), std::memory_order_relaxed);
-    return;
+    return true;
   }
   const int m = manifest_index(id);
-  if (m < 0 || rows().all[std::size_t(m)]->reserved) return;
+  if (m < 0 || rows().all[std::size_t(m)]->reserved) return false;
   const int host = rows().host_of[std::size_t(m)];
+  const Slot* slot = s.live;
+  if (slot && slot->settings.on && morph_resolves(*rows().all[std::size_t(m)])) {
+    s.morph_dropped.fetch_add(1, std::memory_order_relaxed);
+    return false;
+  }
   // A host parameter's value is in the host's form; any other engine row can only come from the page, in v.
   const double v = std::clamp(host >= 0 ? host_to_v(*rows().row[host], value) : value, 0.0, 1.0);
   s.shadow[m].store(v, std::memory_order_relaxed);
+  s.heard[m].store(v, std::memory_order_relaxed);
+  if (slot && !slot->settings.on) corner_at(s, slot->settings.audible, std::size_t(m)).store(v, std::memory_order_relaxed);
   horde::Event e;
   e.type = horde::EventType::Param;
   e.param_id = id;
   e.value = v;
   if (s.events.size() < kMaxEvents) s.events.push_back(e);
+  return true;
 }
 
 bool host_parameter(clap_id id) {
@@ -426,6 +617,100 @@ void push_gesture(const clap_output_events_t* out, clap_id id, bool begin) {
   gesture.header = {sizeof gesture, 0, CLAP_CORE_EVENT_SPACE_ID, std::uint16_t(begin ? CLAP_EVENT_PARAM_GESTURE_BEGIN : CLAP_EVENT_PARAM_GESTURE_END), 0};
   gesture.param_id = id;
   out->try_push(out, &gesture.header);
+}
+
+// ---- the morph system on the audio thread (B636) -------------------------------------------------------------------
+// The one way a position reaches the morph. Today only the page's `position` message calls it (through the edit
+// queue); when round 61 (#1431) merges, morph.x and morph.y become host parameters and their host events call it too,
+// from set_param, at the event's sample. Audio thread, or the main thread while no slot is live.
+void set_position(Plugin& s, double x, double y) {
+  s.pos_x.store(x, std::memory_order_relaxed);
+  s.pos_y.store(y, std::memory_order_relaxed);
+  if (s.live && s.live->resolver) s.live->resolver->set_position(x, y, s.live->resolver->clock());
+}
+
+// A corner as IF-12's array by manifest id, from the atomics. Into the slot's own buffer: nothing allocates.
+void fill_corner(Plugin& s, Slot& slot, int c) {
+  const Rows& t = rows();
+  for (std::size_t m = 0; m < t.all.size(); ++m) slot.by_id[t.all[m]->id] = corner_at(s, c, m).load(std::memory_order_relaxed);
+}
+
+// MO-25, Save current sound into corner `c`: what the engine holds now, which IF-4 makes the heard sound's values (a
+// Morphable key's glided value as last sent, a blending group's heaviest setting), and the texts it holds. Device keys
+// are not written. The engine's stored values are read between process calls, on the thread that processes.
+void save_sound(Plugin& s, Slot& slot, int c) {
+  const Rows& t = rows();
+  for (std::size_t m = 0; m < t.all.size(); ++m)
+    if (morph_resolves(*t.all[m])) corner_at(s, c, m).store(slot.engine->param_v(t.all[m]->id), std::memory_order_relaxed);
+  std::memcpy(slot.text[c], slot.heard_text, sizeof slot.heard_text);
+  CornerTexts texts;
+  std::memcpy(texts.t, slot.text, sizeof texts.t);
+  s.corner_texts.write(texts);
+  slot.corner_dirty[c] = true;
+}
+
+// The morph's edits. A corner edit to the corner that sounds while the morph is off is an edit of the sound itself, so
+// it goes the way any edit does (and the host hears of it); any other lands in its corner for the resolver.
+bool apply_morph_edit(Plugin& s, const Edit& edit) {
+  Slot* slot = s.live;
+  switch (edit.kind) {
+    case Edit::Setting:
+      s.morph_v[edit.id].store(edit.value, std::memory_order_relaxed);
+      if (slot) {
+        slot->setting_v[edit.id] = edit.value;
+        slot->settings = preview::morph::decode(slot->setting_v);   // at once: the edits after it in this drain read it
+        slot->settings_dirty = true;
+      }
+      return false;
+    case Edit::Position:
+      set_position(s, edit.value, edit.y);
+      return false;
+    case Edit::KeyMode:
+      if (slot && slot->resolver) slot->resolver->set_key(edit.id, edit.mode, edit.count, slot->resolver->clock());
+      return false;
+    case Edit::Corner: {
+      const int m = manifest_index(edit.id);
+      if (m < 0) return false;
+      if (slot && !slot->settings.on && edit.corner == slot->settings.audible) return true;   // the caller applies it
+      corner_at(s, edit.corner, std::size_t(m)).store(edit.value, std::memory_order_relaxed);
+      if (slot) slot->corner_dirty[edit.corner] = true;
+      return false;
+    }
+    case Edit::Save:
+      if (slot) save_sound(s, *slot, edit.corner);
+      return false;
+    default: return false;
+  }
+}
+
+// After a drain: the resolver hears the corners that changed, then the settings, at the clock where the drain stands,
+// so it applies them at its next boundary in that order (MO-3). A change of the settings sends every corner: the
+// audible one has been taking edits while the morph was off, and the resolver's copy is only read at a hand-over.
+void push_morph_inputs(Plugin& s, Slot& slot) {
+  if (!slot.resolver) return;
+  const std::uint64_t at = slot.resolver->clock();
+  for (int c = 0; c < 4; ++c) {
+    if (!slot.corner_dirty[c] && !slot.settings_dirty) continue;
+    fill_corner(s, slot, c);
+    slot.resolver->set_corner(c, slot.by_id.data(), slot.text[c][0], slot.text[c][1], at);
+    slot.corner_dirty[c] = false;
+  }
+  if (slot.settings_dirty) slot.resolver->set_settings(slot.settings, at);
+  slot.settings_dirty = false;
+}
+
+void push_value(const clap_output_events_t* out, clap_id id, double value, bool bracket) {
+  if (bracket) push_gesture(out, id, true);
+  clap_event_param_value_t e{};
+  e.header = {sizeof e, 0, CLAP_CORE_EVENT_SPACE_ID, CLAP_EVENT_PARAM_VALUE, 0};
+  e.param_id = id;
+  e.note_id = -1;
+  e.port_index = -1;
+  e.channel = -1;
+  e.key = -1;
+  e.value = value;
+  out->try_push(out, &e.header);
+  if (bracket) push_gesture(out, id, false);
 }
 
 // The window's and the page's edits become parameter changes here, and the host hears of those that are its
@@ -444,21 +729,18 @@ void drain_edits(Plugin& s, const clap_output_events_t* out) {
       if (out) push_gesture(out, edit.id, edit.kind == Edit::Begin);
       continue;
     }
-    set_param(s, edit.id, edit.value);
-    if (!out || !host_parameter(edit.id)) continue;
-    if (edit.bracket) push_gesture(out, edit.id, true);
-    clap_event_param_value_t value{};
-    value.header = {sizeof value, 0, CLAP_CORE_EVENT_SPACE_ID, CLAP_EVENT_PARAM_VALUE, 0};
-    value.param_id = edit.id;
-    value.note_id = -1;
-    value.port_index = -1;
-    value.channel = -1;
-    value.key = -1;
-    value.value = edit.value;
-    out->try_push(out, &value.header);
-    if (edit.bracket) push_gesture(out, edit.id, false);
+    double value = edit.value;
+    if (edit.kind != Edit::Value) {
+      if (!apply_morph_edit(s, edit)) continue;
+      const int m = manifest_index(edit.id);   // a corner edit of the sound: in the host's form, as a set's
+      const int host = rows().host_of[std::size_t(m)];
+      if (host >= 0) value = v_to_host(*rows().row[host], value);
+    }
+    if (!set_param(s, edit.id, value)) continue;   // refused: neither the engine nor the host hears of it
+    if (out && host_parameter(edit.id)) push_value(out, edit.id, value, edit.bracket);
   }
   s.edit_tail.store(tail, std::memory_order_release);
+  if (s.live) push_morph_inputs(s, *s.live);
 }
 
 // The engine's voice events (VO-10) give each voice its note; the note's key and velocity come from our own note-ons.
@@ -472,6 +754,8 @@ std::uint64_t pack_note(const Plugin& s, std::int32_t note_id, bool gate) {
   return 0;   // a note we never saw start: no key to show
 }
 
+void pitch_forget_note(Pitch& p, std::int32_t id);
+
 void follow_voices(Plugin& s, horde::Engine& engine) {
   horde::OutEvent buffer[64];
   for (;;) {
@@ -483,9 +767,15 @@ void follow_voices(Plugin& s, horde::Engine& engine) {
       switch (e.type) {
         case horde::OutType::VoiceStarted: slot.store(pack_note(s, e.note_id, true), std::memory_order_relaxed); break;
         case horde::OutType::VoiceTaken:
+          pitch_forget_note(s.pitch, e.old_note_id);
+          slot.store(pack_note(s, e.new_note_id, true), std::memory_order_relaxed);
+          break;
         case horde::OutType::NoteChanged: slot.store(pack_note(s, e.new_note_id, true), std::memory_order_relaxed); break;
         case horde::OutType::VoiceReleased: slot.store(slot.load(std::memory_order_relaxed) & ~std::uint64_t(2), std::memory_order_relaxed); break;
-        case horde::OutType::VoiceFreed: slot.store(0, std::memory_order_relaxed); break;
+        case horde::OutType::VoiceFreed:
+          slot.store(0, std::memory_order_relaxed);
+          pitch_forget_note(s.pitch, e.note_id);
+          break;
         default: break;
       }
     }
@@ -499,6 +789,162 @@ void forget_voices(Plugin& s) {
 
 void remember_note(Plugin& s, const horde::Event& on) {
   s.recent[s.recent_next++ % kNoteRing] = {on.note_id, on.key, on.value};
+}
+
+// ---- the pitch stand-in (B632) ---------------------------------------------------------------------------------
+// 10.3's glide, as tests/wasm/item15b.mjs writes it for the renders: a note that glides moves from `from` to its own
+// pitch f along ln f(t) = ln f + (ln from - ln f) e^(-3t/T), t seconds after its note-on, T the preset's glide (95 %
+// done at t = T). Unbent: the bend multiplies the result.
+double glide_hz(const PitchNote& n, std::uint64_t clock, double rate, double glide_s) {
+  if (!n.from) return n.f;
+  const double t = double(clock - n.at) / rate;
+  return std::exp(std::log(n.f) + (std::log(n.from) - std::log(n.f)) * std::exp(-3 * t / glide_s));
+}
+double bend_factor(double semitones) { return std::pow(2.0, semitones / 12.0); }
+double twelve_tet(int key, double tuning) { return 440 * std::pow(2.0, (key - 69) / 12.0 + tuning / 12); }   // the engine's Note::hz
+
+void forget_pitch(Pitch& p) {
+  for (auto& n : p.notes) n = PitchNote{};
+  p.next = 0;
+  p.last = -1;
+}
+
+PitchNote* pitch_note(Pitch& p, std::int32_t id) {
+  if (id < 0) return nullptr;
+  for (auto& n : p.notes)
+    if (n.live && n.id == id) return &n;
+  return nullptr;
+}
+
+void push_pitch(Plugin& s, std::int32_t id, double hz) {
+  horde::Event e;
+  e.type = horde::EventType::NotePitch;
+  e.note_id = id;
+  e.value = hz;
+  if (s.events.size() < kMaxEvents) s.events.push_back(e);
+}
+
+// A note-on: whether it glides (10.3: when a note is held, or always with glideAlways; from the most recently started
+// note, a chord's earlier note included, at the pitch that note sounds at this one's first sample), and if it glides
+// or a bend stands on its channel, its pitch from its first sample (IF-2), so it never sounds 12-TET first.
+void pitch_note_on(Plugin& s, const horde::Event& on, std::uint32_t sample) {
+  Pitch& p = s.pitch;
+  const Slot* slot = s.live;
+  const std::uint64_t at = p.span_clock + sample;
+  bool any_held = false;
+  for (const auto& n : p.notes) any_held = any_held || (n.live && n.held);
+  const PitchNote* src = p.last >= 0 && p.notes[p.last].live ? &p.notes[p.last] : nullptr;
+  PitchNote& n = p.notes[p.next];
+  const int index = p.next;
+  p.next = (p.next + 1) % kPitchNotes;
+  PitchNote fresh;
+  fresh.id = on.note_id;
+  fresh.key = on.key;
+  fresh.channel = on.channel;
+  fresh.f = twelve_tet(on.key, 0);
+  fresh.at = at;
+  fresh.held = fresh.live = true;
+  if (slot && slot->glide_s > 0 && src && (any_held || slot->glide_always)) {
+    const double from = glide_hz(*src, at, s.sample_rate, slot->glide_s);
+    if (from != fresh.f) {
+      fresh.from = from;
+      fresh.gliding = fresh.taken = true;
+    }
+  }
+  n = fresh;
+  p.last = index;
+  const int ch = std::clamp<int>(on.channel, 0, 15);
+  if (n.gliding) {
+    // The glide's first pitch as an event at the note-on too, not only in the stream: the engine sets up a voice from
+    // its pitch at the start (IF-2: "a glide begins at its start pitch"), and the stream reaches it one sample later.
+    // The same float value the stream carries there, so the two never disagree.
+    push_pitch(s, n.id, double(float(glide_hz(n, at, s.sample_rate, slot->glide_s) * bend_factor(p.bend[ch]))));
+  } else if (p.bend[ch] != 0) {
+    n.taken = true;
+    push_pitch(s, n.id, n.f * bend_factor(p.bend[ch]));
+  }
+}
+
+void pitch_note_off(Pitch& p, const horde::Event& off) {
+  for (auto& n : p.notes) {
+    if (!n.live || !n.held) continue;
+    const bool match = off.note_id >= 0 ? n.id == off.note_id
+                                        : (off.channel < 0 || off.channel == n.channel) && (off.key < 0 || off.key == n.key);
+    if (match) n.held = false;
+  }
+}
+
+void pitch_bend(Plugin& s, int channel, double semitones, std::uint32_t sample) {
+  Pitch& p = s.pitch;
+  p.bend[channel] = semitones;
+  if (p.n_changes < kBendChanges) p.changes[p.n_changes++] = {sample, channel, semitones};
+  for (auto& n : p.notes) {
+    if (!n.live || n.channel != channel || n.gliding) continue;   // a gliding note's stream reads the bend sample by sample
+    n.taken = true;
+    push_pitch(s, n.id, n.f * bend_factor(semitones));
+  }
+}
+
+void pitch_tuning(Plugin& s, std::int32_t id, double semitones) {
+  PitchNote* n = pitch_note(s.pitch, id);
+  if (!n) return;
+  n->tuning = semitones;
+  n->f = twelve_tet(n->key, semitones);
+  if (n->taken && !n->gliding) push_pitch(s, n->id, n->f * bend_factor(s.pitch.bend[std::clamp<int>(n->channel, 0, 15)]));
+}
+
+// Events stay in sample order, which the engine reads them in: a glide's last pitch goes in at its own sample.
+void insert_pitch(Plugin& s, std::uint32_t sample, std::int32_t id, double hz) {
+  if (s.events.size() >= kMaxEvents) return;
+  horde::Event e;
+  e.type = horde::EventType::NotePitch;
+  e.note_id = id;
+  e.value = hz;
+  e.sample = sample;
+  auto at = std::upper_bound(s.events.begin(), s.events.end(), sample, [](std::uint32_t v, const horde::Event& x) { return v < x.sample; });
+  s.events.insert(at, e);   // within the capacity reserved at activation: no allocation
+}
+
+// Each gliding note's pitch for the span, one value per sample (IF-2's audio-rate input, float32). NaN where it gives
+// none: before the note starts, and from the sample its glide arrives, where one exact NotePitch at f takes over. It
+// arrives when its float value equals the note's own float pitch: the stream can't carry anything finer, so this is
+// item15b.mjs's end of a run (within 1e-9 of ln f) at the resolution the stream has, and it needs no threshold.
+void pitch_streams(Plugin& s, std::uint32_t span) {
+  Pitch& p = s.pitch;
+  const Slot* slot = s.live;
+  p.n_streams = 0;
+  for (auto& n : p.notes) {
+    if (!n.live || !n.gliding || !slot || p.n_streams == kPitchStreams) continue;
+    float* out = p.stream[p.n_streams];
+    const int ch = std::clamp<int>(n.channel, 0, 15);
+    double semitones = p.bend_at_start[ch];
+    int change = 0;
+    for (std::uint32_t k = 0; k < span; ++k) {
+      while (change < p.n_changes && p.changes[change].sample <= k) {
+        if (p.changes[change].channel == ch) semitones = p.changes[change].semitones;
+        ++change;
+      }
+      const std::uint64_t clock = p.span_clock + k;
+      if (!n.gliding || clock < n.at) { out[k] = NAN; continue; }
+      const double factor = bend_factor(semitones);
+      const float value = float(glide_hz(n, clock, s.sample_rate, slot->glide_s) * factor);
+      if (value == float(n.f * factor)) {
+        n.gliding = false;
+        insert_pitch(s, k, n.id, n.f * factor);
+        out[k] = NAN;
+        continue;
+      }
+      out[k] = value;
+    }
+    p.streams[p.n_streams++] = {n.id, horde::StreamTarget::VoicePitchHz, 0, out};
+  }
+  std::copy(std::begin(p.bend), std::end(p.bend), std::begin(p.bend_at_start));
+  p.n_changes = 0;
+}
+
+void pitch_forget_note(Pitch& p, std::int32_t id) {
+  for (auto& n : p.notes)
+    if (n.live && n.id == id) n.live = false;
 }
 
 // One CLAP event to engine events, at `sample` in the span being built.
@@ -518,6 +964,8 @@ void translate(Plugin& s, const clap_event_header_t* h, std::uint32_t sample) {
       e.value = h->type == CLAP_EVENT_NOTE_CHOKE ? 0 : n->velocity;
       if (h->type == CLAP_EVENT_NOTE_ON) remember_note(s, e);
       if (s.events.size() < kMaxEvents) s.events.push_back(e);
+      if (h->type == CLAP_EVENT_NOTE_ON) pitch_note_on(s, e, sample);
+      else pitch_note_off(s.pitch, e);
     } else if (h->type == CLAP_EVENT_NOTE_EXPRESSION) {
       const auto* x = reinterpret_cast<const clap_event_note_expression_t*>(h);
       horde::Event e;
@@ -536,6 +984,7 @@ void translate(Plugin& s, const clap_event_header_t* h, std::uint32_t sample) {
         default: e.expression = horde::ExpressionKind::Pressure; break;
       }
       if (s.events.size() < kMaxEvents) s.events.push_back(e);
+      if (e.expression == horde::ExpressionKind::Tuning) pitch_tuning(s, e.note_id, e.value);
     } else if (h->type == CLAP_EVENT_PARAM_VALUE) {
       const auto* p = reinterpret_cast<const clap_event_param_value_t*>(h);
       set_param(s, p->param_id, p->value);
@@ -550,26 +999,180 @@ void translate(Plugin& s, const clap_event_header_t* h, std::uint32_t sample) {
         e.key = std::int16_t(d1);
         e.value = d2 / 127.0;
         remember_note(s, e);
+        if (s.events.size() < kMaxEvents) s.events.push_back(e);
+        pitch_note_on(s, e, sample);   // its pitch, if any, after it: same sample, either order (IF-2)
+        for (std::size_t i = before; i < s.events.size(); ++i) s.events[i].sample = sample;
+        return;
       } else if (status == 0x80 || status == 0x90) {
         e.type = horde::EventType::NoteOff;
         e.key = std::int16_t(d1);
+        pitch_note_off(s.pitch, e);
       } else if (status == 0xB0 && d1 == 64) {
         e.type = horde::EventType::Pedal;
         e.value = d2;
       } else if (status == 0xB0 && d1 == 120) {
         e.type = horde::EventType::AllSoundOff;
+        for (auto& n : s.pitch.notes) n.held = false;
       } else if (status == 0xB0 && d1 == 123) {
         e.type = horde::EventType::AllNotesOff;
+        for (auto& n : s.pitch.notes) n.held = false;
       } else if (status == 0xD0) {
         e.type = horde::EventType::ChannelPressure;
         e.value = d1 / 127.0;
+      } else if (status == 0xE0) {
+#ifndef HORDE_PREVIEW_PLANT_DROP_BEND   // smoke.cpp's must-fail build: a bend that never arrives
+        // 14 bits, centre 8192, at a fixed +/-2 semitones: the top and bottom values reach exactly +2 and -2.
+        const int value = (d1 & 0x7F) | ((d2 & 0x7F) << 7);
+        pitch_bend(s, channel, kBendSemitones * (value - 8192) / (value >= 8192 ? 8191.0 : 8192.0), sample);
+#endif
+        for (std::size_t i = before; i < s.events.size(); ++i) s.events[i].sample = sample;
+        return;
       } else {
-        return;   // pitch bend included: the pitch system that would read it isn't built
+        return;
       }
       if (s.events.size() < kMaxEvents) s.events.push_back(e);
     }
   }
   for (std::size_t i = before; i < s.events.size(); ++i) s.events[i].sample = sample;
+}
+
+// GN-4: the block just sent to the host, as the scope draws it. Silence writes its zeros too, or the scope would hold
+// the last loud window.
+void tap(Plugin& s, const float* left, const float* right, std::uint32_t frames) {
+  const std::uint64_t written = s.scope_written.load(std::memory_order_relaxed);
+#if defined(HORDE_PREVIEW_PLANT_FROZEN_TAP)   // smoke.cpp's must-fail build: the tap stops after its first block
+  if (written > 0) return;
+#endif
+  for (std::uint32_t i = 0; i < frames; ++i) {
+#if defined(HORDE_PREVIEW_PLANT_SILENT_TAP)   // smoke.cpp's must-fail build: the tap hears silence while sound plays
+    s.scope_ring[(written + i) & (kScopeRing - 1)] = 0;
+#else
+    s.scope_ring[(written + i) & (kScopeRing - 1)] = 0.5f * (left[i] + right[i]);
+#endif
+  }
+  s.scope_written.store(written + frames, std::memory_order_release);
+}
+
+// ---- the resolver's events into the engine (IF-12: "the shell passes them to the engine in the same block") ----------
+// What the resolver emits for one span, translated, and the texts it carries. Generic: every kind it emits today goes
+// on, and a kind this build doesn't know is dropped and counted rather than guessed at. A text is not an event (the
+// engine's set_ratios is a call), so it is kept with its sample and the span is cut there (run_span).
+struct MorphTexts { std::uint32_t sample; int osc; const char* text; };
+constexpr int kMaxTexts = 64;
+
+// The heaviest entry of a set (IF-4: the stored value of a blending key is its heaviest setting's, the lower id on a tie).
+int heaviest_entry(const horde::SettingSet& set) {
+  int best = 0;
+  for (int i = 1; i < set.n_entries; ++i) {
+    const auto& a = set.entries[i];
+    const auto& b = set.entries[best];
+    if (a.weight > b.weight || (a.weight == b.weight && a.id < b.id)) best = i;
+  }
+  return best;
+}
+
+// Turns `n` resolver events into engine events at their span offsets, in the resolver's order (MO-20's), and keeps what
+// the engine will hold in `heard`. While the morph is off they are its hand-over (MO-20): the sound becomes the audible
+// corner, which is what the host, the page and the saved state read, so the shadow follows too.
+std::size_t morph_to_events(Plugin& s, Slot& slot, std::size_t n, std::uint64_t clock, MorphTexts* texts) {
+  s.morph_events.clear();
+  std::size_t n_texts = 0;
+  const bool off = !slot.settings.on;
+  for (std::size_t i = 0; i < n; ++i) {
+    const horde::MorphEvent& ev = slot.morph_out[i];
+    const std::uint32_t at = std::uint32_t(ev.sample - clock);
+    if (ev.kind == horde::MorphEvent::Kind::Param) {
+      horde::Event e;
+      e.type = horde::EventType::Param;
+      e.sample = at;
+      e.param_id = ev.param_id;
+      e.value = ev.value;
+      s.morph_events.push_back(e);
+      const int m = manifest_index(ev.param_id);
+      if (m >= 0) {
+        s.heard[m].store(ev.value, std::memory_order_relaxed);
+        // Not a parameter change the host is told of (IF-4: the morph's values aren't edits), but its panel would show
+        // the old sound: a rescan of values, as a preset load asks for, keeps it truthful without writing automation.
+        if (off) {
+          s.shadow[m].store(ev.value, std::memory_order_relaxed);
+          s.rescan_pending.store(true, std::memory_order_relaxed);
+        }
+      }
+    } else if (ev.kind == horde::MorphEvent::Kind::Ratios) {
+      if (n_texts < std::size_t(kMaxTexts) && ev.text) texts[n_texts++] = {at, ev.osc, ev.text};
+    } else if (ev.kind == horde::MorphEvent::Kind::Set && ev.set) {
+      if (!std::strncmp(ev.set->group, "fx/", 3)) continue;   // IF-12: an FX slot's set goes to a rack, and there is none
+      horde::Event e;
+      e.type = horde::EventType::SettingSet;
+      e.sample = at;
+      e.setting_set = ev.set;
+      s.morph_events.push_back(e);
+      if (ev.set->n_entries > 0) {
+        const horde::SettingEntry& top = ev.set->entries[heaviest_entry(*ev.set)];
+        for (int k = 0; k < ev.set->n_keys; ++k) {
+          const std::uint32_t id = ev.set->keys[k];
+          if (id == horde::kRatiosKeyId[0] || id == horde::kRatiosKeyId[1]) {
+            const char* text = top.texts ? top.texts[k] : nullptr;
+            if (text) std::snprintf(slot.heard_text[id == horde::kRatiosKeyId[0] ? 0 : 1], kTextBytes, "%s", text);
+            continue;
+          }
+          const int m = manifest_index(id);
+          if (m >= 0 && top.values) s.heard[m].store(top.values[k], std::memory_order_relaxed);
+        }
+      }
+    } else {
+      s.morph_unknown.fetch_add(1, std::memory_order_relaxed);
+    }
+  }
+  return n_texts;
+}
+
+// Merges this span's own events (in sample order) with the morph's (in sample order), ours first at a shared sample: the
+// render harness's shell does the same (tests/harness/render.h puts injected events after the score's at that sample).
+// Into a buffer reserved at activation, so nothing allocates.
+void merge_events(Plugin& s) {
+  s.merged.clear();
+  std::size_t a = 0, b = 0;
+  while (a < s.events.size() || b < s.morph_events.size()) {
+    if (b == s.morph_events.size() || (a < s.events.size() && s.events[a].sample <= s.morph_events[b].sample)) s.merged.push_back(s.events[a++]);
+    else s.merged.push_back(s.morph_events[b++]);
+  }
+}
+
+// One span into the engine, cut wherever the morph sets a text: the text applies from its sample, before that
+// sample's events, as the clean room's own shell applies one before the interval it starts.
+void run_span(Plugin& s, Slot& slot, const horde::Event* events, std::size_t n_events, const MorphTexts* texts, std::size_t n_texts,
+              float* left, float* right, std::uint32_t span) {
+  horde::Engine& engine = *slot.engine;
+  const horde::AudioStream* streams = s.pitch.n_streams ? s.pitch.streams : nullptr;
+  if (n_texts == 0) {
+    engine.process(events, n_events, streams, std::size_t(s.pitch.n_streams), left, right, int(span));
+    return;
+  }
+  horde::AudioStream* shifted = s.shifted;   // the pitch streams from a cut onwards
+  horde::Event* piece = s.piece.data();      // sized at activation for every event a span can hold
+  std::uint32_t done = 0;
+  std::size_t e = 0;
+  for (std::size_t t = 0; t <= n_texts; ++t) {
+    const std::uint32_t until = t < n_texts ? texts[t].sample : span;
+    if (until > done) {
+      std::size_t n = 0;
+      for (; e < n_events && events[e].sample < until; ++e) {
+        piece[n] = events[e];
+        piece[n++].sample -= done;
+      }
+      for (int k = 0; k < s.pitch.n_streams; ++k) {
+        shifted[k] = s.pitch.streams[k];
+        shifted[k].samples += done;
+      }
+      engine.process(piece, n, streams ? shifted : nullptr, std::size_t(s.pitch.n_streams), left + done, right + done, int(until - done));
+      done = until;
+    }
+    if (t < n_texts) {
+      engine.set_ratios(texts[t].osc, texts[t].text);
+      std::snprintf(slot.heard_text[texts[t].osc], kTextBytes, "%s", texts[t].text);
+    }
+  }
 }
 
 void render(Plugin& s, const clap_process_t* proc, float* left, float* right, std::uint32_t frames) {
@@ -585,6 +1188,7 @@ void render(Plugin& s, const clap_process_t* proc, float* left, float* right, st
     const bool routed = slot.n_targets > 0;
     if (routed) span = std::min(span, std::uint32_t(slot.ci - clock % slot.ci));
     s.events.clear();
+    s.pitch.span_clock = clock;
     if (transport_due) {
       transport_due = false;
       horde::Event e;
@@ -605,6 +1209,11 @@ void render(Plugin& s, const clap_process_t* proc, float* left, float* right, st
       s.events.push_back(e);
     }
     if (pos == 0) drain_edits(s, proc->out_events);
+    horde::MorphResolver* resolver = slot.resolver.get();
+    if (resolver && s.events.size() && s.events.front().type == horde::EventType::Transport && pos == 0)
+      resolver->transport(s.events.front().transport, resolver->clock());   // RC-7 for Stepped's sync (MO-10)
+    // While the morph moves, one span per control interval, as for routes: each span then holds one boundary's events.
+    if (resolver && (slot.settings.on || slot.busy)) span = std::min(span, std::uint32_t(slot.ci - clock % slot.ci));
     // The span's first sample: its events, then the routes (PA-3's order, as the render harness plays them).
     while (next < n_in) {
       const clap_event_header_t* h = in->get(in, next);
@@ -619,9 +1228,65 @@ void render(Plugin& s, const clap_process_t* proc, float* left, float* right, st
       translate(s, h, h->time - pos);
       ++next;
     }
-    engine.process(s.events.data(), s.events.size(), nullptr, 0, left + pos, right + pos, int(span));
+    pitch_streams(s, span);
+    const std::size_t n_morph = resolver ? resolver->process(span, slot.morph_out.data(), slot.morph_out.size()) : 0;
+    slot.busy = n_morph > 0;
+    if (n_morph == 0) {   // the morph said nothing: the path every span took before it existed
+      engine.process(s.events.data(), s.events.size(), s.pitch.n_streams ? s.pitch.streams : nullptr, std::size_t(s.pitch.n_streams), left + pos, right + pos, int(span));
+    } else {
+      MorphTexts texts[kMaxTexts];
+      const std::size_t n_texts = morph_to_events(s, slot, n_morph, clock, texts);
+      merge_events(s);
+      run_span(s, slot, s.merged.data(), s.merged.size(), texts, n_texts, left + pos, right + pos, span);
+    }
     pos += span;
   }
+}
+
+// IF-10's heard setting set of every group that holds one, for the lowest voice with a note, when the page asked for
+// the morph. Only on the audio thread, between process calls, which is when the observation view may be read.
+void publish_heard_sets(Plugin& s, Slot& slot) {
+  HeardSets out;
+  int voice = -1;
+  for (int i = 0; i < kMaxVoices && voice < 0; ++i)
+    if (s.voice_note[i].load(std::memory_order_relaxed) & 1) voice = i;
+  for (int g = 0; voice >= 0 && g < kSetGroupCount; ++g) {
+    if (!slot.engine->observe_setting_set(voice, kSetGroups[g], s.heard_scratch) || s.heard_scratch.n_settings <= 0) continue;
+    preview::bridge::HeardGroup& h = out.group[out.n++];
+    h.group = kSetGroups[g];
+    h.voice = voice;
+    h.n = std::min(s.heard_scratch.n_settings, horde::kMaxHeardSettings);
+    for (int k = 0; k < h.n; ++k) {
+      h.id[k] = s.heard_scratch.setting[k].id;
+      h.target[k] = s.heard_scratch.setting[k].target;
+      h.heard[k] = s.heard_scratch.setting[k].heard;
+    }
+  }
+  s.heard_sets.write(out);
+}
+
+// The resolver's clock moves with the engine's even while the engine is skipped (OU-4). A skip is taken only when the
+// last span's resolver said nothing, so a still morph says nothing here either; if it does (a step, a transport jump),
+// its events go in by flush, whose sample times don't matter to an engine with no voice, and the next block renders.
+void skip_morph(Plugin& s, Slot& slot, std::uint32_t frames) {
+  if (!slot.resolver) return;
+  const std::uint64_t clock = slot.resolver->clock();
+  const std::size_t n = slot.resolver->process(frames, slot.morph_out.data(), slot.morph_out.size());
+  slot.busy = n > 0;
+  if (!n) return;
+  MorphTexts texts[kMaxTexts];
+  const std::size_t n_texts = morph_to_events(s, slot, n, clock, texts);
+  for (std::size_t t = 0; t < n_texts; ++t) {
+    slot.engine->set_ratios(texts[t].osc, texts[t].text);
+    std::snprintf(slot.heard_text[texts[t].osc], kTextBytes, "%s", texts[t].text);
+  }
+  slot.engine->flush(s.morph_events.data(), s.morph_events.size());
+}
+
+void publish_heard_texts(Plugin& s, const Slot& slot) {
+  HeardTexts t;
+  std::memcpy(t.t, slot.heard_text, sizeof t.t);
+  s.heard_texts.write(t);
 }
 
 clap_process_status plugin_process(const clap_plugin_t* p, const clap_process_t* proc) {
@@ -632,7 +1297,10 @@ clap_process_status plugin_process(const clap_plugin_t* p, const clap_process_t*
     if (s.live) s.retired.store(s.live, std::memory_order_release);
     s.live = fresh;
     s.live_tag.store(fresh->generation << 8 | std::uint64_t(fresh->preset), std::memory_order_release);
+    for (std::size_t m = 0; m < fresh->initial.size(); ++m) s.heard[m].store(fresh->initial[m], std::memory_order_relaxed);
+    publish_heard_texts(s, *fresh);
     forget_voices(s);   // a new engine starts with no voices; the old one's notes stop at the swap
+    forget_pitch(s.pitch);   // and no note to glide from: a render on a fresh engine starts the same way
     want_callback = true;
   }
   if (proc->audio_outputs_count == 0 || proc->frames_count == 0) return CLAP_PROCESS_CONTINUE;
@@ -650,10 +1318,12 @@ clap_process_status plugin_process(const clap_plugin_t* p, const clap_process_t*
 
   const bool quiet_in = (!proc->in_events || proc->in_events->size(proc->in_events) == 0) &&
                         s.edit_tail.load(std::memory_order_relaxed) == s.edit_head.load(std::memory_order_acquire);
-  if (quiet_in && s.live->engine->silent()) {
+  if (quiet_in && s.live->engine->silent() && !s.live->busy) {
     std::fill_n(left, frames, 0.0f);
     std::fill_n(right, frames, 0.0f);
+    skip_morph(s, *s.live, frames);
     s.live->engine->skip(frames);
+    tap(s, left, right, frames);
     s.engine_silent.store(true, std::memory_order_relaxed);
     if (s.out_peak_reset.exchange(false, std::memory_order_relaxed)) {   // silence reads as silence, not the last loud frame
       s.out_peak_accum = 0;
@@ -686,8 +1356,13 @@ clap_process_status plugin_process(const clap_plugin_t* p, const clap_process_t*
   if (bad) s.nonfinite.fetch_add(bad, std::memory_order_relaxed);
   s.out_peak_accum = peak;
   s.out_peak.store(peak, std::memory_order_relaxed);
+  tap(s, left, right, frames);
   // After the timed span: the page's notes and its silence flag cost a few loads, and aren't the engine's cost.
   follow_voices(s, *s.live->engine);
+  if (s.live->resolver && s.want_morph.load(std::memory_order_relaxed)) {
+    publish_heard_sets(s, *s.live);
+    publish_heard_texts(s, *s.live);
+  }
   s.engine_silent.store(s.live->engine->silent(), std::memory_order_relaxed);
 
   // Only blocks with sound count: an idle device's near-zero blocks would hide what a note costs.
@@ -705,6 +1380,7 @@ clap_process_status plugin_process(const clap_plugin_t* p, const clap_process_t*
 
   s.frames_since_callback += frames;
   if (s.wanted_preset.load(std::memory_order_relaxed) != preset || s.frames_since_callback >= std::uint64_t(2 * s.sample_rate)) want_callback = true;
+  if (s.rescan_pending.load(std::memory_order_relaxed)) want_callback = true;   // the morph's hand-over moved values
   if (want_callback) {
     s.frames_since_callback = 0;
     s.host->request_callback(s.host);   // thread-safe by CLAP's contract, and the only way to reach the main thread
@@ -741,6 +1417,9 @@ bool plugin_activate(const clap_plugin_t* p, double sample_rate, std::uint32_t, 
   s.sample_rate = sample_rate;
   s.max_block = max_frames ? int(std::min<std::uint32_t>(max_frames, kEngineMaxBlock)) : kEngineMaxBlock;
   s.events.reserve(kMaxEvents + 1);
+  s.morph_events.reserve(kMorphEvents);
+  s.merged.reserve(kMaxEvents + 1 + kMorphEvents);
+  s.piece.resize(kMaxEvents + 1 + kMorphEvents);
   const int wanted = s.wanted_preset.load(std::memory_order_relaxed);
   s.live = build_slot(s, wanted, s.apply_shadow);
   if (!s.live) return false;
@@ -774,6 +1453,17 @@ bool plugin_init(const clap_plugin_t* p) {
   s.shadow = std::make_unique<std::atomic<double>[]>(t.all.size());
   for (std::size_t m = 0; m < t.all.size(); ++m) s.shadow[m].store(t.default_v[m], std::memory_order_relaxed);
   s.preset_v.resize(std::size_t(kBankSize));
+  s.preset_text.resize(std::size_t(kBankSize));
+  // The morph's state at its defaults: every corner the manifest's defaults until a build loads a preset into them.
+  s.corners = std::make_unique<std::atomic<double>[]>(4 * t.all.size());
+  for (int c = 0; c < 4; ++c)
+    for (std::size_t m = 0; m < t.all.size(); ++m) corner_at(s, c, m).store(t.default_v[m], std::memory_order_relaxed);
+  s.heard = std::make_unique<std::atomic<double>[]>(t.all.size());
+  for (std::size_t m = 0; m < t.all.size(); ++m) s.heard[m].store(t.default_v[m], std::memory_order_relaxed);
+  for (int i = 0; i < kSettings; ++i) s.morph_v[i].store(preview::morph::default_v(i), std::memory_order_relaxed);
+  s.modes.assign(t.all.size() + 2, preview::morph::KeyChoice{});
+  s.session.sent_corner.assign(4 * t.all.size(), NAN);
+  s.session.sent_heard.assign(t.all.size(), NAN);
   s.session.sent.assign(t.all.size(), NAN);
   s.session.gesture_open.assign(t.all.size(), false);
   s.wanted_preset.store(default_preset(), std::memory_order_relaxed);
@@ -792,6 +1482,7 @@ void plugin_reset(const clap_plugin_t* p) {
   if (!s.live) return;
   s.live->engine->reset();
   forget_voices(s);
+  forget_pitch(s.pitch);
   std::fill_n(s.live->counter, kMaxVoices, std::uint64_t(0));
   for (auto& voice : s.live->last) std::fill_n(voice, kMaxRouteKeys, 0.0);
 }
@@ -827,11 +1518,10 @@ bool params_get_info(const clap_plugin_t*, std::uint32_t index, clap_param_info_
 bool params_get_value(const clap_plugin_t* p, clap_id id, double* out) {
   Plugin& s = *self(p);
   if (id == kPresetId) { *out = s.wanted_preset.load(std::memory_order_relaxed); return true; }
-  const Rows& t = rows();
-  for (int i = 0; i < t.count; ++i) {
-    if (t.row[i]->id == id) { *out = v_to_host(*t.row[i], s.shadow[t.at[i]].load(std::memory_order_relaxed)); return true; }
-  }
-  return false;
+  const int m = manifest_index(id);
+  if (m < 0 || rows().host_of[std::size_t(m)] < 0) return false;
+  *out = v_to_host(*rows().all[std::size_t(m)], s.shadow[m].load(std::memory_order_relaxed));
+  return true;
 }
 
 bool params_value_to_text(const clap_plugin_t*, clap_id id, double value, char* out, std::uint32_t size) {
@@ -839,18 +1529,12 @@ bool params_value_to_text(const clap_plugin_t*, clap_id id, double value, char* 
     std::snprintf(out, size, "%s", kBank[std::clamp(int(std::lround(value)), 0, kBankSize - 1)].name);
     return true;
   }
-  const Rows& t = rows();
-  for (int i = 0; i < t.count; ++i) {
-    if (t.row[i]->id != id) continue;
-    const horde::ParamInfo& row = *t.row[i];
-    if (stepped(row)) std::snprintf(out, size, "%d", int(std::lround(value)));
-    else {
-      // Rounded to nine places first: a law's arithmetic shouldn't read as -2e-15 on the panel.
-      std::snprintf(out, size, "%.3g", std::round(horde::value_of(row, value) * 1e9) / 1e9 + 0.0);
-    }
-    return true;
-  }
-  return false;
+  const int m = manifest_index(id);
+  if (m < 0 || rows().host_of[std::size_t(m)] < 0) return false;
+  const horde::ParamInfo& row = *rows().all[std::size_t(m)];
+  if (stepped(row)) std::snprintf(out, size, "%d", int(std::lround(value)));
+  else std::snprintf(out, size, "%.3g", std::round(horde::value_of(row, value) * 1e9) / 1e9 + 0.0);   // nine places first: no -2e-15 on a panel
+  return true;
 }
 
 bool params_text_to_value(const clap_plugin_t*, clap_id id, const char* text, double* out) {
@@ -869,7 +1553,11 @@ void params_flush(const clap_plugin_t* p, const clap_input_events_t* in, const c
   const bool edits_waiting = s.edit_tail.load(std::memory_order_relaxed) != s.edit_head.load(std::memory_order_acquire);
   drain_edits(s, out);
   const std::uint32_t n = in ? in->size(in) : 0;
+  if (s.live) s.pitch.span_clock = s.live->engine->sample_clock();
   for (std::uint32_t i = 0; i < n; ++i) translate(s, in->get(in, i), 0);
+  // A flush has no samples: any bend it carried is simply the bend from now on.
+  std::copy(std::begin(s.pitch.bend), std::end(s.pitch.bend), std::begin(s.pitch.bend_at_start));
+  s.pitch.n_changes = 0;
   if (s.live) s.live->engine->flush(s.events.data(), s.events.size());
   else s.apply_shadow = n > 0 || edits_waiting || s.apply_shadow;   // inactive: the next build must keep these values
   if (s.wanted_preset.load(std::memory_order_relaxed) != s.built_preset) s.host->request_callback(s.host);
@@ -915,10 +1603,43 @@ const std::vector<double>& preset_values(Plugin& s, int preset) {
   if (engine && engine->prepare(44100, 64) && engine->load_state(kBank[preset].state).ok) {
     for (const auto* row : t.all) loaded.push_back(engine->param_v(row->id));
     cap_polyphony(loaded);   // as build_slot loads it
+    s.preset_text[std::size_t(preset)] = {engine->ratios(0), engine->ratios(1)};
   } else {
     loaded = t.default_v;   // a preset that won't load is never built either; its defaults stand in
   }
   return loaded;
+}
+
+// The morph's part of the chunk (morph_core.h, State): each piece only where it differs from what a load rebuilds alone.
+preview::morph::State morph_state(Plugin& s, int preset, const std::vector<double>& loaded) {
+  using namespace preview::morph;
+  const Rows& t = rows();
+  State out;
+  double v[kSettings];
+  for (int i = 0; i < kSettings; ++i) {
+    v[i] = s.morph_v[i].load(std::memory_order_relaxed);
+    if (v[i] != default_v(i)) out.settings.emplace_back(i, v[i]);
+  }
+  const horde::MorphSettings settings = decode(v);
+  out.x = s.pos_x.load(std::memory_order_relaxed);
+  out.y = s.pos_y.load(std::memory_order_relaxed);
+  const CornerTexts texts = s.corner_texts.read();
+  const auto& own = s.preset_text[std::size_t(preset)];
+  for (int c = 0; c < 4; ++c) {
+    if (!settings.on && c == settings.audible) continue;   // the sound itself: the rows hold it
+    for (std::size_t m = 0; m < t.all.size(); ++m) {
+      if (!morph_resolves(*t.all[m])) continue;
+      const double cv = corner_at(s, c, m).load(std::memory_order_relaxed);
+      if (cv != loaded[m]) out.corners.push_back({c, t.all[m]->id, cv});
+    }
+    for (int o = 0; o < 2; ++o)
+      if (own[std::size_t(o)] != texts.t[c][o]) out.texts.push_back({c, o, texts.t[c][o]});
+  }
+  for (std::size_t k = 0; k < s.modes.size(); ++k) {
+    if (s.modes[k] == KeyChoice{}) continue;
+    out.modes.push_back({k < t.all.size() ? t.all[k]->id : horde::kRatiosKeyId[k - t.all.size()], s.modes[k]});
+  }
+  return out;
 }
 
 bool state_save(const clap_plugin_t* p, const clap_ostream_t* stream) {
@@ -938,6 +1659,9 @@ bool state_save(const clap_plugin_t* p, const clap_ostream_t* stream) {
   for (std::size_t m = 0; m < t.all.size(); ++m)
     if (!t.all[m]->reserved) loaded.push_back(all_loaded[m]);
   saved.values = preview::bridge::differences(ids, current, loaded);
+#ifndef HORDE_PREVIEW_PLANT_STATE_NO_MORPH   // smoke.cpp's must-fail build: the chunk forgets the morph
+  saved.morph = morph_state(s, saved.preset, all_loaded);
+#endif
   const std::string text = preview::bridge::write_state(saved);
   for (std::size_t done = 0; done < text.size();) {
     const std::int64_t wrote = stream->write(stream, text.data() + done, text.size() - done);
@@ -947,6 +1671,36 @@ bool state_save(const clap_plugin_t* p, const clap_ostream_t* stream) {
   s.session.state = text;   // the page hears of a save once, never per frame (section 3)
   s.session.state_due = true;
   return true;
+}
+
+// The morph from a chunk: its defaults and the preset in every corner, then what the chunk says differs. An older
+// chunk (version 1 or 2) has no morph lines and loads with the morph off at A, the preset in all four corners. The
+// audible corner of a morph that is off is rebuilt from the rows when the slot is built (build_morph).
+void load_morph(Plugin& s, int preset, const std::vector<double>& loaded, const preview::morph::State& in) {
+  using namespace preview::morph;
+  const Rows& t = rows();
+  for (int i = 0; i < kSettings; ++i) s.morph_v[i].store(default_v(i), std::memory_order_relaxed);
+  for (const auto& [i, v] : in.settings) s.morph_v[i].store(v, std::memory_order_relaxed);
+  s.pos_x.store(in.x, std::memory_order_relaxed);
+  s.pos_y.store(in.y, std::memory_order_relaxed);
+  std::fill(s.modes.begin(), s.modes.end(), KeyChoice{});
+  for (const auto& mode : in.modes) {
+    const int m = mode.id == horde::kRatiosKeyId[0] ? int(t.all.size()) : mode.id == horde::kRatiosKeyId[1] ? int(t.all.size()) + 1 : manifest_index(mode.id);
+    if (m >= 0) s.modes[std::size_t(m)] = mode.choice;
+  }
+  for (int c = 0; c < 4; ++c)
+    for (std::size_t m = 0; m < t.all.size(); ++m) corner_at(s, c, m).store(loaded[m], std::memory_order_relaxed);
+  for (const auto& v : in.corners) {
+    const int m = manifest_index(v.id);
+    if (m >= 0 && morph_resolves(*t.all[std::size_t(m)])) corner_at(s, v.corner, std::size_t(m)).store(std::clamp(v.v, 0.0, 1.0), std::memory_order_relaxed);
+  }
+  CornerTexts texts;
+  const auto& own = s.preset_text[std::size_t(preset)];
+  for (int c = 0; c < 4; ++c)
+    for (int o = 0; o < 2; ++o) std::snprintf(texts.t[c][o], kTextBytes, "%s", own[std::size_t(o)].c_str());
+  for (const auto& text : in.texts) std::snprintf(texts.t[text.corner][text.osc], kTextBytes, "%s", text.text.c_str());
+  s.corner_texts.write(texts);
+  s.session.modes_due = true;
 }
 
 bool state_load(const clap_plugin_t* p, const clap_istream_t* stream) {
@@ -972,6 +1726,7 @@ bool state_load(const clap_plugin_t* p, const clap_istream_t* stream) {
     const int m = manifest_index(id);
     if (m >= 0 && !t.all[std::size_t(m)]->reserved) s.shadow[m].store(std::clamp(v, 0.0, 1.0), std::memory_order_relaxed);
   }
+  load_morph(s, preset, loaded, saved.morph);
   s.apply_shadow = true;
   s.force_build = true;
   s.session.state = text;
@@ -1026,12 +1781,18 @@ void resend_all(Plugin& s) {
   std::fill(ss.sent.begin(), ss.sent.end(), NAN);
   ss.sent_preset = -1;
   ss.sent_plugin = false;
+  std::fill(ss.sent_corner.begin(), ss.sent_corner.end(), NAN);
+  std::fill(ss.sent_heard.begin(), ss.sent_heard.end(), NAN);
+  ss.sent_settings_ok = ss.sent_texts_ok = ss.sent_heard_text_ok = false;
+  ss.modes_due = true;
+  ss.modes_after = 0;
 }
 
 // A new page in a new window: it knows nothing, and hasn't said hello.
 void open_session(Plugin& s) {
   Session& ss = s.session;
   ss.want = preview::bridge::Want{};
+  s.want_morph.store(false, std::memory_order_relaxed);
   ss.load = Load{};
   ss.saw_hello = ss.hello_due = false;
   std::fill(ss.gesture_open.begin(), ss.gesture_open.end(), false);
@@ -1096,7 +1857,82 @@ void bridge_receive(Plugin& s, std::string_view json) {
         ss.events += "{\"type\":\"gesture\",\"key\":" + quoted(m.gesture_key) + ",\"phase\":\"" + (m.gesture_begin ? "begin" : "end") + "\"}";
       }
       break;
-    case Kind::Want: ss.want = m.want; break;
+    case Kind::Want:
+      ss.want = m.want;
+      s.want_morph.store(m.want.morph, std::memory_order_relaxed);
+      break;
+    // ---- the morph system (B636): each becomes edits the audio thread applies in order, then the ack ----
+    case Kind::Morph:
+      for (const auto& [i, v] : m.settings) {
+        Edit e;
+        e.kind = Edit::Setting;
+        e.id = clap_id(i);
+        e.value = v;
+        batch.push_back(e);
+      }
+      break;
+    case Kind::Position:
+#ifndef HORDE_PREVIEW_PLANT_DROP_POSITION   // smoke.cpp's must-fail build: the pad moves nothing
+      if (m.has_position) {
+        Edit e;
+        e.kind = Edit::Position;
+        e.value = m.x;
+        e.y = m.y;
+        batch.push_back(e);
+      }
+#endif
+      break;
+    case Kind::Modes: {
+      // The whole menu: a key it doesn't name goes back to Follow at As the morph. Only changes reach the resolver.
+      std::vector<preview::morph::KeyChoice> next(s.modes.size());
+      for (const auto& km : m.modes) {
+        const std::size_t k = km.key == kRatiosKey[0] ? t.all.size() : km.key == kRatiosKey[1] ? t.all.size() + 1 : std::size_t(km.key);
+        if (k < next.size()) next[k] = km.choice;
+      }
+      for (std::size_t k = 0; k < next.size(); ++k) {
+        if (next[k] == s.modes[k]) continue;
+        Edit e;
+        e.kind = Edit::KeyMode;
+        e.id = k < t.all.size() ? t.all[k]->id : horde::kRatiosKeyId[k - t.all.size()];
+        e.mode = next[k].mode;
+        e.count = next[k].count;
+        batch.push_back(e);
+      }
+      if (next != s.modes) {
+        ss.modes_due = true;
+        ss.modes_after = m.seq;   // echoed once the audio thread has applied them, in the frame that acknowledges them
+      }
+      s.modes = std::move(next);
+      break;
+    }
+    case Kind::Corner:
+      if (m.index < 0) {
+        note_refused(ss.types, "corner (no index 0 to 3)", ss.refused_due);
+        break;
+      }
+      for (const auto& value : m.values) {
+        const horde::ParamInfo& row = keymap().row(value.row);
+        Edit e;
+        e.kind = Edit::Corner;
+        e.corner = m.index;
+        e.id = row.id;
+        e.value = value.v;
+        e.bracket = !ss.gesture_open[std::size_t(manifest_index(row.id))];
+        batch.push_back(e);
+      }
+      break;
+    case Kind::Save:
+      if (m.index < 0) {
+        note_refused(ss.types, "save (no index 0 to 3)", ss.refused_due);
+        break;
+      }
+      {
+        Edit e;
+        e.kind = Edit::Save;
+        e.corner = m.index;
+        batch.push_back(e);
+      }
+      break;
     case Kind::Preset:
       if (m.index >= 0) {
         const int index = std::clamp(m.index, 0, kBankSize - 1);
@@ -1130,6 +1966,85 @@ void bridge_receive(Plugin& s, std::string_view json) {
   batch.push_back(ack);
   ss.waiting.push_back(std::move(batch));
   pump(s);
+}
+
+// The snapshot's `morph` member (bridge_core.h, morph_json): the position and the refusals every frame; the rest only
+// where it changed since this page last heard it, and, while a load is pending, nothing the load will replace.
+std::string morph_member(Plugin& s, bool holding, std::int64_t acked) {
+  using namespace preview::bridge;
+  Session& ss = s.session;
+  const Rows& t = rows();
+  MorphFrame f;
+  f.x = s.pos_x.load(std::memory_order_relaxed);
+  f.y = s.pos_y.load(std::memory_order_relaxed);
+  f.dropped = s.morph_dropped.load(std::memory_order_relaxed);
+  f.unknown = s.morph_unknown.load(std::memory_order_relaxed);
+  double settings[kSettings];
+  bool settings_changed = !ss.sent_settings_ok;
+  for (int i = 0; i < kSettings; ++i) {
+    settings[i] = s.morph_v[i].load(std::memory_order_relaxed);
+    settings_changed = settings_changed || settings[i] != ss.sent_settings[i];
+  }
+  if (settings_changed) {
+    f.settings = settings;
+    std::copy(settings, settings + kSettings, ss.sent_settings);
+    ss.sent_settings_ok = true;
+  }
+  std::vector<std::pair<std::string, preview::morph::KeyChoice>> modes;
+  if (ss.modes_due && acked >= ss.modes_after) {
+    for (std::size_t k = 0; k < s.modes.size(); ++k)
+      if (s.modes[k] != preview::morph::KeyChoice{}) modes.emplace_back(k < t.all.size() ? t.all[k]->key : k == t.all.size() ? "osc1.ratios" : "osc2.ratios", s.modes[k]);
+    f.modes = &modes;
+    ss.modes_due = false;
+  }
+  std::vector<std::pair<std::string, double>> corners[4], heard;
+  if (!holding) {
+    for (int c = 0; c < 4; ++c) {
+      for (std::size_t m = 0; m < t.all.size(); ++m) {
+        if (t.all[m]->reserved) continue;
+        const double v = corner_at(s, c, m).load(std::memory_order_relaxed);
+        double& sent = ss.sent_corner[std::size_t(c) * t.all.size() + m];
+        if (v == sent) continue;
+        sent = v;
+        corners[c].emplace_back(t.all[m]->key, v);
+      }
+      if (!corners[c].empty()) f.corners[c] = &corners[c];
+    }
+    for (std::size_t m = 0; m < t.all.size(); ++m) {
+      if (t.all[m]->reserved) continue;
+      const double v = s.heard[m].load(std::memory_order_relaxed);
+      if (v == ss.sent_heard[m]) continue;
+      ss.sent_heard[m] = v;
+      heard.emplace_back(t.all[m]->key, v);
+    }
+    if (!heard.empty()) f.heard = &heard;
+  }
+  const CornerTexts texts = s.corner_texts.read();
+  std::string ratios[4][2];
+  bool texts_changed = !ss.sent_texts_ok;
+  for (int c = 0; c < 4; ++c)
+    for (int o = 0; o < 2; ++o) {
+      ratios[c][o] = texts.t[c][o];
+      texts_changed = texts_changed || ratios[c][o] != ss.sent_texts[c][o];
+    }
+  if (texts_changed && !holding) {
+    f.ratios = ratios;
+    for (int c = 0; c < 4; ++c)
+      for (int o = 0; o < 2; ++o) ss.sent_texts[c][o] = ratios[c][o];
+    ss.sent_texts_ok = true;
+  }
+  const HeardTexts heard_texts = s.heard_texts.read();
+  const std::string now[2] = {heard_texts.t[0], heard_texts.t[1]};
+  if (!ss.sent_heard_text_ok || now[0] != ss.sent_heard_text[0] || now[1] != ss.sent_heard_text[1]) {
+    f.texts = now;
+    ss.sent_heard_text[0] = now[0];
+    ss.sent_heard_text[1] = now[1];
+    ss.sent_heard_text_ok = true;
+  }
+  const HeardSets sets = s.heard_sets.read();
+  std::vector<HeardGroup> groups(sets.group, sets.group + sets.n);
+  f.sets = &groups;
+  return morph_json(f);
 }
 
 const std::string& bridge_frame(Plugin& s) {
@@ -1166,6 +2081,17 @@ const std::string& bridge_frame(Plugin& s) {
     const horde::ParamInfo& row = keymap().row(m);
     const double v = s.shadow[manifest_index(row.id)].load(std::memory_order_relaxed);
     in.unison[o] = int(std::lround(row.lo + std::round(v * double(row.steps > 1 ? row.steps - 1 : 0))));
+  }
+  float scope[kScopeWindow / kScopeStep];
+  if (ss.want.summed) {
+    // Acquire: every sample counted in `written` is in the ring. The newest window, every kScopeStep-th sample.
+    const std::uint64_t written = s.scope_written.load(std::memory_order_acquire);
+    if (written >= kScopeWindow) {
+      for (std::uint64_t k = 0; k < kScopeWindow / kScopeStep; ++k) scope[k] = s.scope_ring[(written - kScopeWindow + k * kScopeStep) & (kScopeRing - 1)];
+      in.scope = scope;
+      in.scope_n = int(kScopeWindow / kScopeStep);
+      in.scope_rate = s.sample_rate / double(kScopeStep);
+    }
   }
   in.out_tapped = true;
   in.out_peak = s.out_peak.load(std::memory_order_relaxed);
@@ -1204,6 +2130,7 @@ const std::string& bridge_frame(Plugin& s) {
     p.refused_types = &ss.types;
   }
   if (!ss.events.empty()) p.events = "[" + ss.events + "]";
+  if (ss.want.morph) p.morph = morph_member(s, holding, p.ack);
   ss.out = snapshot_json(p);
   ss.events.clear();
   if (completes) ss.hello_due = false;
@@ -1217,7 +2144,20 @@ double ext_engine_v(const clap_plugin_t* p, std::uint32_t id) {
   Plugin& s = *self(p);
   return s.live ? s.live->engine->param_v(id) : NAN;
 }
-const preview_bridge_ext kBridgeExt = {ext_receive, ext_frame, ext_engine_v};
+bool ext_note_pitch(const clap_plugin_t* p, std::int32_t note_id, double* played, double* sounding) {
+  Plugin& s = *self(p);
+  if (!s.live) return false;
+  static horde::VoiceView view;   // tens of KB; tests only, on one thread
+  const int n = std::min(s.live->engine->voice_count(), kMaxVoices);
+  for (int i = 0; i < n; ++i) {
+    if (!s.live->engine->observe_voice(i, view) || !view.sounding || view.note_id != note_id) continue;
+    *played = view.played_pitch;
+    *sounding = view.sounding_pitch;
+    return true;
+  }
+  return false;
+}
+const preview_bridge_ext kBridgeExt = {ext_receive, ext_frame, ext_engine_v, ext_note_pitch};
 
 const void* plugin_get_extension(const clap_plugin_t*, const char* id) {
   if (!std::strcmp(id, CLAP_EXT_PARAMS)) return &kParams;

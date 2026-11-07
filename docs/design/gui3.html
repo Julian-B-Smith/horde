@@ -33,7 +33,6 @@
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="lab-part" content="Presentation">
-<meta name="lab-review" content="B584 · 2026-10-29">
 <title>GUI 3 — the wired shell, first slice (Sub and Noise pages; no audio engine)</title>
 <link rel="stylesheet" href="arp-face/tokens.css">
 <link rel="stylesheet" href="arp-face/bundle.css">
@@ -534,10 +533,15 @@ function writeStep(row, path, idx) {
 }
 
 // ===== BLOCK C: live-when (PA-8, from the layout) =====
+// PA-8: "blade 2's 'as blade 1' options read blade 1's value". A condition on a blade 2 row that follows blade 1 is judged on blade 1's row;
+// without this, blade 2's cut rate (cutIn "as blade 1", its default) matched neither unit and was never shown (the human, 2026-11-05).
+const FOLLOWS_BLADE1 = ['as blade 1', 'blade 1\u2019s', "blade 1's", 'with blade 1'];
 function live(c) {
   if (!c) return true;
   if (c.all) return c.all.every(live);
   if (c.any) return c.any.some(live);
+  if (/\.blade2\./.test(c.key) && ROW[c.key].options && FOLLOWS_BLADE1.includes(optLabel(ROW[c.key], dev.shown(c.key))) && ROW[c.key.replace('.blade2.', '.blade1.')])
+    return live(Object.assign({}, c, { key: c.key.replace('.blade2.', '.blade1.') }));
   const r = ROW[c.key], v = dev.shown(c.key);
   if (c.gt !== undefined) return ENG.lawX(r, v) > c.gt;
   if (c.ne !== undefined) return ENG.lawX(r, v) !== c.ne;
@@ -1040,7 +1044,7 @@ function vizView(v, pid, big) {
       st.t = S.reduce ? 0 : (st.frames = (st.frames || 0) + 1) * PICTURE_DT; H.Viz.subDial(main, o, st); H.Viz.off(main, !isOnKey(K.on)); return;
     }
     if (ringIO) ringIO.frame();                 // the swarm moves every frame, so the ring is drawn before the change test below
-    const sig = Object.values(K).map(k => dev.shown(k)).join('|') + '|' + colourKey() + '|' + sizeOf(main);
+    const sig = Object.values(K).concat(v.kind === 'osc' ? bladeKeys(K.unison.split('.')[0]).concat(K.unison.split('.')[0] + '.on') : []).map(k => dev.shown(k)).join('|') + '|' + colourKey() + '|' + sizeOf(main);
     if (sig === last && v.kind !== 'noise') return;
     if (sig === last && !noiseDue()) return;   // GUI-33: noise's picture animates, so an unchanged one still waits for the pace
     last = sig;
@@ -1058,6 +1062,10 @@ function vizView(v, pid, big) {
       // row, which it does not draw; the curves are C.12's, drawn by the bundle's own law (Viz.envAt).
       const a = xOf(K.a), dd = xOf(K.d), r = xOf(K.r);
       H.Viz.envelope(main, { a, d: dd, s: xOf(K.s), r, hold: (a + dd + r) / 3, ac: xOf(K.ac), dc: xOf(K.dc), rc: xOf(K.rc) }, null);
+    } else if (v.kind === 'osc') {
+      // GB27: the oscillator's SCALPEL cycle (its base wave cut by its blades, summed over its members at rest), as the Osc page's waveform draws it
+      const src = K.unison.split('.')[0], { cy } = bladeCycle(src, Math.max(1, Math.round(xOf(K.unison)))), l = Array.from(cy.sum);
+      H.Viz.scope(main, { l, r: l, R: 0 }); H.Viz.off(main, !isOnKey(src + '.on'));
     } else {
       const name = labOf(K.wave), o = { width: K.width && xOf(K.width), softness: K.softness && xOf(K.softness), bump: K.bump && xOf(K.bump) }, l = [];
       for (let i = 0; i < 128; i++) l.push(waveAt(name, i / 127, o));
@@ -1131,8 +1139,24 @@ function oscRing(cv, K, pid, wrap) {
    step. `full` is an Osc page (carpet, voice map, spectrum beside the waveform); Main's tab has the ring and the waveform. */
 const PICS = {};   // what oscPictures mounted, by page and oscillator, for the self-checks
 const SAMPLE_F0 = 110;   // the note the formant band and the bars are worked out at (A2): SAMPLE, no key is held
+/* One SCALPEL cycle from an oscillator's settings: its base wave cut by each blade that is on (H.Synth.cycle, the bench's sketch of
+   SPEC-ENGINE's laws). Shared by the Osc page's waveform and the dashboard's card (the human, 2026-11-05: "show the accurate scalpel
+   instead of the placeholder saw"). A blade 2 option that follows blade 1 reads blade 1's (PA-8, as live() does). SAMPLE. */
+const BLADE_S = ['on', 'mode', 'wave', 'cutIn', 'cut', 'cutHz', 'position', 'width', 'edges', 'depth', 'positionSpread', 'cutSpread'];
+function bladeKeys(src) { return [1, 2].flatMap(b => BLADE_S.map(s => src + '.blade' + b + '.' + s)); }
+function bladeCycle(src, n) {
+  const bk = (b, s) => src + '.blade' + b + '.' + s, lab = (b, s) => { const l = labOf(bk(b, s)); return b === 2 && FOLLOWS_BLADE1.includes(l) ? labOf(bk(1, s)) : l; };
+  const f0 = SAMPLE_F0, blades = [];
+  [1, 2].forEach(b => {
+    if (!isOnKey(bk(b, 'on'))) return;
+    const w = xOf(bk(b, 'width')), cutIn = lab(b, 'cutIn'), rate = cutIn === 'Hz' ? xOf(bk(b, 'cutHz')) / f0 * w : /blade/.test(cutIn) ? xOf(bk(b, 'cut')) : xOf(bk(b, 'cut')) * w, waveName = lab(b, 'wave');
+    blades.push({ blade: b, mode: lab(b, 'mode'), width: w, position: xOf(bk(b, 'position')), cycles: rate, depth: xOf(bk(b, 'depth')), edges: xOf(bk(b, 'edges')), posSpread: xOf(bk(b, 'positionSpread')), cutSpread: xOf(bk(b, 'cutSpread')), wave: x => waveAt(waveName, x, {}) });
+  });
+  const base = labOf(src + '.baseWave');
+  return { blades, cy: H.Synth.cycle({ n, blades, base: x => waveAt(base, x, {}) }) };
+}
 function oscPictures(v, pid, full) {
-  const K = v.keys, src = K.unison.split('.')[0], BLADE_S = ['on', 'mode', 'wave', 'cutIn', 'cut', 'cutHz', 'position', 'width', 'edges', 'depth', 'positionSpread', 'cutSpread'];
+  const K = v.keys, src = K.unison.split('.')[0];
   const bk = (b, s) => src + '.blade' + b + '.' + s, BLADES = [1, 2];
   const wrap = h('div', { class: 'vz' });
   const well = (label, hgt, parent) => { const cv = h('canvas', { class: 'vz-cv', style: 'height:' + hgt + 'px', 'aria-label': label + ' (SAMPLE)', role: 'img' }); (parent || wrap).append(h('div', { class: 'hd-viz vz-well' }, cv)); return cv; };
@@ -1153,7 +1177,14 @@ function oscPictures(v, pid, full) {
     },
     read: k => dev.shown(k), circ: k => /wraps/.test(ROW[k].law), label: k => ROW[k].label, value: k => ENG.display(ROW[k], dev.shown(k)),
     write: upd => Object.keys(upd).forEach(k => put(k, upd[k])), begin: () => dev.begin(PG[pid].label + ' · waveform (drag)'), end: () => dev.end() });
-  let spec = null, carpet = null, vmap = null, note = null, twinCap = null;
+  let spec = null, carpet = null, vmap = null, note = null, twinCap = null, beam = null;
+  /* GUI-49, the beam (the human: "add the summed waveform below the scalpel on the osc page, like in the scalpel lab"): the master's
+     Waveform painter (Viz.scope, gui2's scope) directly under the cycle, the same width, one cycle across on the same x axis, its hue
+     riding R. It draws the members as they line up now, summed (atPhase), a SAMPLE until the plug-in taps its output (GN-4). */
+  if (full) {
+    const bw = h('div', { class: 'hd-viz vz-well' }); beam = h('canvas', { class: 'vz-cv', style: 'height:60px', role: 'img', 'aria-label': 'Summed waveform: the members as they line up now, summed (SAMPLE)' });
+    bw.append(beam); pin.append(bw, h('span', { class: 'hd-hint vz-cap', text: 'Summed: the members as they line up now (SAMPLE until the output tap, GN-4)' }));
+  }
   if (full) {
     spec = well('Spectrum, with each blade’s predicted formant band', 56);
     note = h('span', { class: 'hd-hint vz-cap' }); wrap.append(note);
@@ -1165,17 +1196,11 @@ function oscPictures(v, pid, full) {
   }
   let sig = '', cy = null, n = 0, frame = 0, hist = [], bands = null; const specSt = {};
   const sig0 = () => [K.unison, K.wave].concat(BLADES.flatMap(b => BLADE_S.map(s => bk(b, s)))).map(k => dev.shown(k)).join('|');
-  const due = paced(() => [ring, bv.canvas].concat(full ? [spec, carpet, vmap] : []));
+  const due = paced(() => [ring, bv.canvas].concat(full ? [spec, carpet, vmap, beam] : []));
   const rebuild = () => {
-    const f0 = SAMPLE_F0, blades = [];
-    BLADES.forEach(b => {
-      if (!isOnKey(bk(b, 'on'))) return;
-      const w = xOf(bk(b, 'width')), cutIn = labOf(bk(b, 'cutIn')), rate = cutIn === 'Hz' ? xOf(bk(b, 'cutHz')) / f0 * w : /blade/.test(cutIn) ? xOf(bk(b, 'cut')) : xOf(bk(b, 'cut')) * w, waveName = labOf(bk(b, 'wave'));
-      blades.push({ blade: b, mode: labOf(bk(b, 'mode')), width: w, position: xOf(bk(b, 'position')), cycles: rate, depth: xOf(bk(b, 'depth')), edges: xOf(bk(b, 'edges')), posSpread: xOf(bk(b, 'positionSpread')), cutSpread: xOf(bk(b, 'cutSpread')), wave: x => waveAt(waveName, x, {}) });
-    });
+    const f0 = SAMPLE_F0;
     n = Math.max(1, Math.round(xOf(K.unison)));
-    const base = labOf(K.wave);
-    cy = H.Synth.cycle({ n, blades, base: x => waveAt(base, x, {}) });
+    const built = bladeCycle(src, n), blades = built.blades; cy = built.cy;
     // the bench's display rule: centre the cut rate as a frequency, main lobe f0/width x (1 + edges). Fold, Noise and Crush have no such band.
     specSt.marks = blades.filter(b => !['Noise', 'Fold', 'Crush'].includes(b.mode) && b.width >= .004).map(b => { const fc = b.cycles / b.width * f0, hw = f0 / b.width * (1 + b.edges); return { blade: b.blade, lo: fc - hw, hi: fc + hw, fc, hw }; });
     if (note) note.textContent = specSt.marks.length ? specSt.marks.map(m => (m.blade === 1 ? '①' : '②') + ' formant ' + Math.round(m.fc) + ' Hz ± ' + Math.round(m.hw) + ' Hz').join(' · ') : 'No formant band: no cutting blade is on';
@@ -1198,6 +1223,7 @@ function oscPictures(v, pid, full) {
     cy.atPhase = H.Synth.atPhase(cy, phase);
     const off = !isOnKey(PG[src].power);
     bv.frame(cy); H.Viz.off(bv.canvas, off);
+    if (beam && beam.clientWidth) { const l = Array.from(cy.atPhase.sum); H.Viz.scope(beam, { l, r: l, R: cy.atPhase.R }); H.Viz.off(beam, off); }
     if (!full || !spec.clientWidth) return;
     if (!bands || frame % 6 === 0) bands = H.Synth.cycleBands(cy.atPhase.sum, SAMPLE_F0);
     H.Viz.spectrum(spec, bands, specSt, frame * 1000 * PICTURE_DT); H.Viz.off(spec, off);
@@ -1209,7 +1235,7 @@ function oscPictures(v, pid, full) {
     let root = 0, rd = 9; for (let i = 0; i < n; i++) { const q = Math.abs(u(i) * wide); if (q < rd) { rd = q; root = i; } }
     H.Viz.voiceMap(vmap, phase.map((_, i) => ({ tp: u(i) * wide, tc: u(i) * dt * 24, p: u(i) * wide + away[i] * .12, c: u(i) * dt * 24 + away[i] * 8, root: i === root }))); H.Viz.off(vmap, off);
   } });
-  const out = { left: wrap, pin, bv, swarm: io.swarm, model: () => cy, frames: () => frame }; PICS[pid + '/' + src] = out; return out;
+  const out = { left: wrap, pin, bv, beam: () => beam, swarm: io.swarm, model: () => cy, frames: () => frame }; PICS[pid + '/' + src] = out; return out;
 }
 
 /* A dense section (B589): a Section header (identity rule, the power toggle, the number, the name, the mode pills, the
@@ -1469,7 +1495,7 @@ const mainMock = {
 };
 function placePad() { const slot = page === 'main' ? $('mainPad') : $('dock').querySelector('.face'); if (slot && $('padHost').parentElement !== slot) slot.prepend($('padHost')); }
 function paramPage(pg, el) {
-  const secs = h('div', { class: 'pv-secs' }, pg.groups.map(g => gridSection(pg, g)));
+  const secs = h('div', { class: 'pv-secs' }, pg.groups.filter(g => !g.side).map(g => gridSection(pg, g)));   // a `side` group goes under the Morph page's pad instead (GUI-45 r3)
   const pics = pg.viz && pg.viz.kind === 'osc' && pg.viz.keys.unison ? oscPictures(pg.viz, pg.id, true) : null;   // GUI-30: the SCALPEL lab's Osc page
   const band = pg.viz && pg.viz.band ? vizView(pg.viz, pg.id, true) : null;   // GUI-35: across the page, above the controls, which take the column's width
   const left = h('div', { class: 'pv-left' + (pics ? ' osc' : '') }, pics ? pics.left : pg.viz && !band ? vizView(pg.viz, pg.id, true) : null);   // the Lens left this column for the foot row (GUI-8 r1)
@@ -1713,6 +1739,7 @@ DATA.pages.forEach(pg => {
      cross-section and blend map, the field, and D.2's settings last. A column taller than the page area hid its own foot, and stopping it above D.2's settings let the pad scroll away there (the human, 2026-11-05). */
   if (pg.panel === 'morph') { const bench = morphBench(), side = h('div', { class: 'morph-side' }), main = h('div', { class: 'morph-main' }, morphPanel(), bench), wrap = h('div', { class: 'morph-wrap' }, side, main), left = bench.querySelector('.mw-left'), right = bench.querySelector('.mw-right');
     const [padEl, banner] = [...left.children]; side.append(padEl, banner);   // the pad, then the law's banner
+    pg.groups.filter(g => g.side).forEach(g => side.append(gridSection(pg, g)));   // GUI-45 r3: the pad's X and Y under it, mounted here and nowhere else (layout.json's `side`)
     right.children[0].after(...left.children); left.remove();   // the scale, the lock and the blend note go with the selected row
     const after = [...el.children].slice(1); el.insertBefore(wrap, el.children[1] || null); after.forEach(c => main.append(c)); }
   if (pg.id === 'fx') el.insertBefore(fxRack(pg), el.children[1] || null);
@@ -2209,6 +2236,41 @@ CLOCK.checking = true;
     selectPage('morph'); const onMorph = pads(), wrap = pageEls.morph.querySelector('.morph-wrap'), kids = wrap ? [...wrap.querySelector('.morph-main').children] : [], first = kids[0] && kids[0].id, second = kids[1] && kids[1].id, side = !!(wrap && wrap.querySelector('.morph-side #morphPad')), noDock = $('dock').hidden && !$('bodyGrid').classList.contains('with-dock'), padSwitch = $('padOn').disabled;
     selectPage(pg0); setMorphOn(false); dev.undo(); dev.undo(); dev.clearRedo();
     line(onMorph === 1 && onFilters === 1 && noDock && padSwitch && side && first === 'morphCorners' && second === 'morphBench', 'Morph page (GUI-26, GUI-40): ' + onMorph + ' pad showing with morph on (control: ' + onFilters + ' on Filters, the dock), no dock, the Pad switch off here, the pad in its sticky column, and the page\u2019s own column runs ' + first + ', then ' + second + '.'); }
+  // 4b2b. GB27, PA-8: a cut rate is always on a blade's face. Blade 2 follows blade 1's unit while its cutIn is "as blade 1" (its default):
+  // blade 1 per cycle shows both blades' CUT, blade 1 in Hz shows both blades' CHZ. Control: blade 2 set to its own Hz shows CHZ whatever blade 1 says.
+  { const bk = (b, s) => ['osc1', 'blade' + b, s].join('.');   // built, never written out: the shell names no parameter key (gen_gui3_controls)
+    const pg0 = page, tick = () => { for (const v of S.views) v.render(); for (const v of views) if (v.page === page || v.page === '*') v.update(); }, el = k => pageEls.osc1.querySelector('.ctl[data-key="' + k + '"]');
+    const shown = k => { const e = el(k); return !!e && !e.classList.contains('idle'); }, opt = (k, label) => { const r = ROW[k]; dev.set(k, vOf(r, r.options.indexOf(label)), { corner: dev.morph().audible }); };
+    selectPage('osc1'); dev.begin('self-check'); opt(bk(1, 'cutIn'), '× pitch per cycle'); opt(bk(2, 'cutIn'), 'as blade 1'); dev.end(); tick();
+    const perCycle = shown(bk(1, 'cut')) && shown(bk(2, 'cut')) && !shown(bk(1, 'cutHz')) && !shown(bk(2, 'cutHz'));
+    dev.begin('self-check'); opt(bk(1, 'cutIn'), 'Hz'); dev.end(); tick();
+    const hz = shown(bk(1, 'cutHz')) && shown(bk(2, 'cutHz')) && !shown(bk(2, 'cut'));
+    dev.begin('self-check'); opt(bk(1, 'cutIn'), '× pitch per cycle'); opt(bk(2, 'cutIn'), 'Hz'); dev.end(); tick();
+    const own = shown(bk(2, 'cutHz')) && !shown(bk(2, 'cut'));
+    dev.undo(); dev.undo(); dev.undo(); dev.clearRedo(); selectPage(pg0); tick();
+    line(perCycle && hz && own, 'Cut rate on the blade face (GB27, PA-8): per cycle, both blades show CUT (' + perCycle + '); blade 1 in Hz, blade 2 following shows CHZ (' + hz + '); blade 2 in its own Hz shows CHZ (control: ' + own + ').'); }
+  // 4b2c. GB27: the dashboard's Osc 1 card draws the SCALPEL cycle. Turning blade 1 on changes it; a setting the card doesn't draw (Coupling) leaves it (control).
+  { const pg0 = page, tick = () => { for (const v of views) if (v.page === page || v.page === '*') v.update(); };
+    selectPage('dashboard'); tick(); const cv = pageEls.dashboard.querySelector('canvas[aria-label^="One cycle"]'), img = () => cv ? cv.toDataURL() : '';
+    const k1 = ['osc1', 'blade1', 'on'].join('.'), cpl = ['osc1', 'coupling'].join('.'), on0 = isOnKey(k1); /* keys built, never written out (gen_gui3_controls) */ dev.begin('self-check'); dev.set(k1, 0, { corner: dev.morph().audible }); dev.end(); tick(); const a = img();
+    dev.begin('self-check'); dev.set(cpl, dev.shown(cpl) > .5 ? .2 : .8, { corner: dev.morph().audible }); dev.end(); tick(); const same = img() === a;
+    dev.begin('self-check'); dev.set(k1, 1, { corner: dev.morph().audible }); dev.end(); tick(); const cut = img() !== a;
+    dev.undo(); dev.undo(); dev.undo(); dev.clearRedo(); selectPage(pg0); tick();
+    line(!!cv && cut && same && isOnKey(k1) === on0, 'The dashboard’s Osc 1 card (GB27): blade 1 on changes its cycle (' + cut + '); Coupling, which it doesn’t draw, leaves it (control: ' + same + ').'); }
+  // 4b2d. GUI-49: the waveform's four views draw four pictures, Members at phase among them, and the summed beam under it draws. Control: one view drawn twice is the same image.
+  { const pg0 = page, pic = PICS['osc1/osc1'], v0 = pic && pic.bv.view(), tick = () => { for (const v of S.views) v.render(); for (const v of views) if (v.page === 'osc1' || v.page === '*') v.update(); };
+    const shot = v => { pic.bv.view(v); tick(); return pic.bv.canvas.toDataURL(); };   // a view change paints on the next frame, so the frame is run
+    const reduce0 = S.reduce; selectPage('osc1'); tick(); S.reduce = true;   // the swarm holds still, so one view drawn twice can be compared
+    const imgs = ['sum', 'members', 'phase', 'mphase'].map(shot), again = shot('mphase'), distinct = new Set(imgs).size === 4, same = again === imgs[3];
+    const bm = pic && pic.beam(), blank = bm ? (() => { const c = document.createElement('canvas'); c.width = bm.width; c.height = bm.height; return c.toDataURL(); })() : '', beamDraws = !!bm && bm.toDataURL() !== blank;
+    S.reduce = reduce0; if (pic) pic.bv.view(v0); selectPage(pg0);
+    line(!!pic && distinct && same && beamDraws, 'Waveform views (GUI-49): Sum, Members, At phase and Members at phase draw ' + new Set(imgs).size + ' different pictures; Members at phase twice is the same image (control: ' + same + '); the summed beam draws (' + beamDraws + ').'); }
+  // 4b2e. GUI-45 r3: a group marked `side` sits in the pad's column, after the pad and its law's banner, and not in the page's grid. Every placed control
+  // must still be mounted exactly once, which the stale/shell gates hold. Until D.2's rows for X and Y land, no group is marked, and the line says so.
+  { const sides = PG.morph.groups.filter(g => g.side), col = pageEls.morph.querySelector('.morph-side'), kids = col ? [...col.children] : [], pad = kids.findIndex(e => e.id === 'morphPad' || e.querySelector && e.querySelector('#morphPad'));
+    const placed = sides.map(g => ({ g, inSide: kids.findIndex(e => e.dataset && e.dataset.section === g.id), all: pageEls.morph.querySelectorAll('[data-section="' + g.id + '"]').length }));
+    const ok = pad >= 0 && placed.every(q => q.inSide > pad + 1 && q.all === 1);
+    line(ok, 'Under the Morph pad (GUI-45 r3): ' + (sides.length ? placed.map(q => q.g.title + (q.inSide > pad + 1 ? ' below the pad and its banner' : ' MISSING from the pad\u2019s column') + (q.all === 1 ? '' : ', drawn ' + q.all + ' times')).join('; ') : 'no group is marked `side` yet; X and Y wait on D.2\u2019s rows (GN-51)') + '.'); }
   // 4b3. GN-20: a second drag of one source onto one destination adds no wire, by either path. Control: the first drag adds one.
   { const k = Object.keys(ROW).find(x => dev.canRoute(x)), e2 = { id: 'env2', name: 'ENV 2' }, n0 = dev.routes().length, first = dropMap(e2, k), n1 = dev.routes().length, again = dropMap(e2, k), n2 = dev.routes().length;
     if (first.ok) dev.undo(); dev.clearRedo();
@@ -2266,18 +2328,18 @@ CLOCK.checking = true;
     const gaps = pic.model().windows.flatMap(x => x.members), gap = [...Array(100).keys()].map(i => i / 100).find(x => !gaps.some(q => ((x - q.st) % 1 + 1) % 1 < q.w)), pa = dev.shown(posK(b1)), pb = dev.shown(posK(b2));
     drag(gap, gap + .05); const both = far(dev.shown(posK(b1)), pa) > .03 && far(dev.shown(posK(b2)), pb) > .03; dev.undo(); tick();
     const m2 = pic.model(), lock = H.Synth.atPhase(m2, m2.members.map(() => .3)), splay = H.Synth.atPhase(m2, m2.members.map((_, i) => i / m2.members.length)), diff = (a, b) => a.reduce((t, v, i) => Math.max(t, Math.abs(v - b[i])), 0), atLock = diff(lock.sum, m2.sum) < 1e-5, atSplay = diff(splay.sum, m2.sum) > .01;
-    const names = [...pic.pin.querySelectorAll('.bv-tools [role=radio]')].map(b => b.textContent); const seen = ['sum', 'members', 'phase'].every(v => { pic.bv.view(v); tick(); return m2.view === v; }); pic.bv.view(view0);
+    const names = [...pic.pin.querySelectorAll('.bv-tools [role=radio]')].map(b => b.textContent); const seen = ['sum', 'members', 'phase', 'mphase'].every(v => { pic.bv.view(v); tick(); return m2.view === v; }); pic.bv.view(view0);
     secOf(b2).querySelector('.fd-head .hd-toggle').click(); secOf(b1).querySelector('.fd-head .hd-toggle').click(); tick();
     while (dev.history().past.length > keep0) dev.undo(); dev.clearRedo(); tick();
     const others = ['osc1', 'osc2'].every(id => { const el = pageEls[id], ls = [...el.querySelectorAll('.pv-left canvas')].map(c => c.getAttribute('aria-label')); return ['Phase ring', 'Spectrum', 'Phase carpet', 'Voice map'].every(n => ls.some(l => l.startsWith(n))) && el.querySelector('.bv-pin canvas'); });
-    const onMain = ['osc1', 'osc2'].every(id => { const pn = mainDeck.panel(id); return pn.querySelector('.hd-bladeview canvas') && pn.querySelectorAll('.bv-tools [role=radio]').length === 3 && ![...pn.querySelectorAll('canvas')].some(c => /carpet|Voice map|Spectrum/.test(c.getAttribute('aria-label') || '')); });
-    selectPage('osc2'); tick(); const offCvs = [...pageEls.osc2.querySelectorAll('.pv-left canvas, .bv-pin canvas')], osc2Off = !isOnKey(PG.osc2.power) && offCvs.length === 5 && offCvs.every(c => c.__off === true);
-    selectPage('osc1'); tick(); const onCvs = [...pageEls.osc1.querySelectorAll('.pv-left canvas, .bv-pin canvas')], osc1On = isOnKey(PG.osc1.power) && onCvs.length === 5 && onCvs.every(c => c.__off === false);
+    const onMain = ['osc1', 'osc2'].every(id => { const pn = mainDeck.panel(id); return pn.querySelector('.hd-bladeview canvas') && pn.querySelectorAll('.bv-tools [role=radio]').length === 4 && ![...pn.querySelectorAll('canvas')].some(c => /carpet|Voice map|Spectrum/.test(c.getAttribute('aria-label') || '')); });
+    selectPage('osc2'); tick(); const offCvs = [...pageEls.osc2.querySelectorAll('.pv-left canvas, .bv-pin canvas')], osc2Off = !isOnKey(PG.osc2.power) && offCvs.length === 6 && offCvs.every(c => c.__off === true);
+    selectPage('osc1'); tick(); const onCvs = [...pageEls.osc1.querySelectorAll('.pv-left canvas, .bv-pin canvas')], osc1On = isOnKey(PG.osc1.power) && onCvs.length === 6 && onCvs.every(c => c.__off === false);
     selectPage(pg0);
-    line(osc2Off && osc1On, 'Visuals follow the switch (ADR-105 A2): Osc 2 is off and its ring, waveform, spectrum, carpet and voice map say OFF; Osc 1 is on and none does (control).');
+    line(osc2Off && osc1On, 'Visuals follow the switch (ADR-105 A2): Osc 2 is off and its ring, waveform, summed beam, spectrum, carpet and voice map say OFF; Osc 1 is on and none does (control).');
     line(closedDefault && inTitle && offShows && modeHides, 'Blades (GUI-30): the switch and mode are in the title bar, a fold marked minimized starts closed, and an off blade’s Width still draws. A mode’s own rule still hides FM depth (control).');
     line(pure && noneOn && switched && trueToData && grabStill && moved > 0 && oneStep && follows && otherStill && undone && fine && shifted && both, 'Waveform drag (GUI-30): no blade on, the sum is the base and a drag writes nothing (controls); the switch adds a window and the sum leaves the base only inside it (' + inMax.toFixed(2) + ' in, ' + outMax.toExponential(1) + ' out); a grab writes nothing; a drag of a tenth moves Position ' + moved.toFixed(3) + ' as one undo step, not the other blade; alt is a quarter; shift drives Width; empty space drives both.');
-    line(atLock && atSplay && seen && names.length === 3 && others && onMain, 'Waveform views (GUI-30): ' + names.join(', ') + ' on Main and the Osc pages; at lock At phase is Sum (control), and splayed it differs. Ring, spectrum, carpet and voice map are on both Osc pages; Main’s tabs have no carpet, map or spectrum.'); }
+    line(atLock && atSplay && seen && names.length === 4 && others && onMain, 'Waveform views (GUI-30): ' + names.join(', ') + ' on Main and the Osc pages; at lock At phase is Sum (control), and splayed it differs. Ring, spectrum, carpet and voice map are on both Osc pages; Main’s tabs have no carpet, map or spectrum.'); }
   // 4b6. GUI-29: a source that's off still draws its controls, on its own page. Control: a mode's own rule still hides, so a page has idle controls too.
   { const pg0 = page, tick = () => { for (const v of views) if (v.page === page || v.page === '*') v.update(); }, ids = ['osc2', 'sub', 'noise'], allOff = ids.every(id => !isOnKey(PG[id].power));
     const faces = id => [...pageEls[id].querySelectorAll('[data-key]')], drawn = ids.map(id => { selectPage(id); tick(); return faces(id).filter(e => e.offsetWidth).length; }), hides = (selectPage('osc2'), tick(), faces('osc2').some(e => e.classList.contains('idle')));
@@ -2940,11 +3002,14 @@ CLOCK.checking = true;
     { const limit = $('pages').clientHeight, over = [], size = {};
       const bodyH = pid => { selectPage(pid); const a = $('pages'), was2 = [a.style.overflow, a.style.flex, a.style.height]; a.style.overflow = 'visible'; a.style.flex = 'none'; a.style.height = 'auto';
         const hgt = a.scrollHeight; [a.style.overflow, a.style.flex, a.style.height] = was2; return hgt; };
-      ['main', 'osc1', 'osc2', 'sub', 'noise'].forEach(id => { size[id] = bodyH(id); if (size[id] > limit) over.push(id + ' ' + size[id]); });
+      // GUI-49 (the human, 2026-11-05: "Let the osc page scroll: we still need to add the advanced option sections below anyway"): Osc 1 and 2 are
+      // measured and named, and no longer held to the page area. Main, Sub and Noise still must fit.
+      const SCROLLS = ['osc1', 'osc2'];
+      ['main', 'osc1', 'osc2', 'sub', 'noise'].forEach(id => { size[id] = bodyH(id); if (size[id] > limit && !SCROLLS.includes(id)) over.push(id + ' ' + size[id]); });
       const folds = [...pageEls.osc1.querySelectorAll('.hd-fold')], TIER = '.fd-head [role=radiogroup][aria-label$="tier"] [role=radio]', tiers = folds.map(f => f.querySelector(TIER + '[aria-checked=true]')), pillsOf = f => [...f.querySelectorAll(TIER)];   // a title bar can hold a mode's radios too (GUI-30)
       pillsOf(folds[0]).slice(-1)[0].click(); folds.slice(1).forEach(f => pillsOf(f).slice(-1)[0].click()); const opened = bodyH('osc1');
       folds.forEach((f, i) => pillsOf(f).find(b => b.textContent === tiers[i].textContent).click()); selectPage('osc1');
-      line(!over.length && opened > limit && folds.length === 3, 'Fit: main ' + size.main + ', Osc 1 ' + size.osc1 + ', Osc 2 ' + size.osc2 + ', Sub ' + size.sub + ' and Noise ' + size.noise + ' px fit the page area of ' + limit + ' px (ADR-345 r1)' + (over.length ? ' (OVER: ' + over.join(', ') + ')' : '') + '; Osc 1 with its three folds at +Adv is ' + opened + ' px, so the folds hold the rest (control).'); }
+      line(!over.length && opened > limit && folds.length === 3, 'Fit: main ' + size.main + ', Osc 1 ' + size.osc1 + ', Osc 2 ' + size.osc2 + ', Sub ' + size.sub + ' and Noise ' + size.noise + ' px against the page area of ' + limit + ' px (ADR-345 r1; the Osc pages scroll, GUI-49)' + (over.length ? ' (OVER: ' + over.join(', ') + ')' : '') + '; Osc 1 with its three folds at +Adv is ' + opened + ' px, so the folds hold the rest (control).'); }
     // 39. ADR-341 r2 (DR-c): the section header’s readout slot is two stacked lines in a fixed box and nothing here resizes it: hovering a tiny knob fills both
     // lines (the editing corner’s own value, then “now”) and the box is the same size at rest and hot. Control: at rest it shows the summary and not the lines.
     withSourceOn('sub', () => { selectPage('sub'); tick(); const sec = pageEls.sub.querySelector('[data-section="sub/colour"]'), slot = sec.querySelector('.hd-rslot'), box = () => { const b = slot.getBoundingClientRect(); return [Math.round(b.width), Math.round(b.height)].join('x'); };

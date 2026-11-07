@@ -211,6 +211,99 @@ Message parse_message(std::string_view json, const KeyMap& keys) {
     }
     if (doc.hasObjectMember("members") && doc["members"].isBool()) m.want.members = doc["members"].getBool();
     if (doc.hasObjectMember("cycles") && doc["cycles"].isBool()) m.want.cycles = doc["cycles"].getBool();
+    if (doc.hasObjectMember("summed") && doc["summed"].isBool()) m.want.summed = doc["summed"].getBool();
+    if (doc.hasObjectMember("morph") && doc["morph"].isBool()) m.want.morph = doc["morph"].getBool();
+  } else if (m.type == "morph") {
+    // D.2's settings by key, in v, as the page's device.js sends them: only the keys that changed. A key D.2 lacks
+    // (morph.x and morph.y included, until round 61 makes them rows) is reported, never guessed at.
+    m.kind = Kind::Morph;
+    if (doc.hasObjectMember("settings") && doc["settings"].isObject()) {
+      const auto settings = doc["settings"];
+      for (std::uint32_t i = 0; i < settings.size(); ++i) {
+        const auto member = settings.getObjectMemberAt(i);
+        const int at = morph::find_setting(member.name);
+        double v = 0;
+        if (at >= 0 && number_of(member.value, v)) m.settings.emplace_back(at, std::clamp(v, 0.0, 1.0));
+        else m.unknown.emplace_back(member.name);
+      }
+    }
+  } else if (m.type == "position") {
+    m.kind = Kind::Position;
+    double x = 0, y = 0;
+    if (doc.hasObjectMember("x") && doc.hasObjectMember("y") && number_of(doc["x"], x) && number_of(doc["y"], y)) {
+      m.has_position = true;
+      m.x = std::clamp(x, 0.0, 1.0);   // PA-7's rule for host values: a value outside [0, 1] is clamped to it
+      m.y = std::clamp(y, 0.0, 1.0);
+    }
+  } else if (m.type == "modes") {
+    // The whole menu, every time (device.js sendModes): a key it doesn't name is Follow at As the morph.
+    m.kind = Kind::Modes;
+    const auto key_of = [&](std::string_view key, bool& reserved) {
+      reserved = false;
+      if (key == "osc1.ratios") return kRatiosKey[0];
+      if (key == "osc2.ratios") return kRatiosKey[1];
+      const int row = keys.find(key);
+      if (row >= 0 && keys.row(row).reserved) reserved = true;
+      return row;
+    };
+    const auto entry = [&](std::string_view key) -> Message::KeyMode* {
+      bool reserved = false;
+      const int k = key_of(key, reserved);
+      if (k == -1 || reserved) {
+        (reserved ? m.reserved : m.unknown).emplace_back(key);
+        return nullptr;
+      }
+      for (auto& e : m.modes)
+        if (e.key == k) return &e;
+      m.modes.push_back({k, {}});
+      return &m.modes.back();
+    };
+    if (doc.hasObjectMember("modes") && doc["modes"].isObject()) {
+      const auto modes = doc["modes"];
+      for (std::uint32_t i = 0; i < modes.size(); ++i) {
+        const auto member = modes.getObjectMemberAt(i);
+        horde::KeyMode mode;
+        if (!member.value.isString() || !morph::mode_of(member.value.getString(), mode)) {
+          m.unknown.emplace_back(member.name);   // a mode the menu doesn't have
+          continue;
+        }
+        if (Message::KeyMode* e = entry(member.name)) e->choice.mode = mode;
+      }
+    }
+    if (doc.hasObjectMember("counts") && doc["counts"].isObject()) {
+      const auto counts = doc["counts"];
+      for (std::uint32_t i = 0; i < counts.size(); ++i) {
+        const auto member = counts.getObjectMemberAt(i);
+        double n = 0;
+        if (!number_of(member.value, n) || (n != 0 && n != 2 && n != 4)) {
+          m.unknown.emplace_back(member.name);
+          continue;
+        }
+        if (Message::KeyMode* e = entry(member.name)) e->choice.count = n == 2 ? horde::KeyCount::Two : n == 4 ? horde::KeyCount::Four : horde::KeyCount::AsMorph;
+      }
+    }
+  } else if (m.type == "corner") {
+    // Values written into one corner: the seam a corner edit needs (IF-12's corners are four arrays the morph system
+    // holds; the page keeps its own today and sends none). Keys as `set`'s, by the same rules.
+    m.kind = Kind::Corner;
+    double n = -1;
+    if (doc.hasObjectMember("index") && number_of(doc["index"], n) && n == std::floor(n) && n >= 0 && n <= 3) m.index = int(n);
+    if (doc.hasObjectMember("values") && doc["values"].isObject()) {
+      const auto values = doc["values"];
+      for (std::uint32_t i = 0; i < values.size(); ++i) {
+        const auto member = values.getObjectMemberAt(i);
+        const int row = keys.find(member.name);
+        double v = 0;
+        if (row < 0) m.unknown.emplace_back(member.name);
+        else if (keys.row(row).reserved) m.reserved.emplace_back(member.name);
+        else if (number_of(member.value, v)) m.values.push_back({row, std::clamp(v, 0.0, 1.0)});
+        else m.unknown.emplace_back(member.name);
+      }
+    }
+  } else if (m.type == "save") {
+    m.kind = Kind::Save;   // MO-25: what is heard now, into corner `index`
+    double n = -1;
+    if (doc.hasObjectMember("index") && number_of(doc["index"], n) && n == std::floor(n) && n >= 0 && n <= 3) m.index = int(n);
   } else if (m.type == "preset") {
     m.kind = Kind::Preset;
     double n = 0;
@@ -229,7 +322,7 @@ Message parse_message(std::string_view json, const KeyMap& keys) {
   } else {
     // The stub throws on these when nothing stands behind them; here they are acknowledged and dropped (section 3).
     m.kind = Kind::Held;
-    m.unknown_type = !(m.type == "morph" || m.type == "position" || m.type == "modes" || m.type == "rack" || m.type == "midi" || m.type == "clear");
+    m.unknown_type = !(m.type == "rack" || m.type == "midi" || m.type == "clear");
   }
   return m;
 }
@@ -276,22 +369,26 @@ Mismatch check_hello(const Message& hello, const std::string& engine_hash, const
 // ---- the saved state --------------------------------------------------------------------------------------------
 const char* const kStateMagic1 = "horde-engine-preview 1";
 const char* const kStateMagic2 = "horde-engine-preview 2";
+const char* const kStateMagic3 = "horde-engine-preview 3";
 
 std::string write_state(const SavedState& s) {
-  std::string text = std::string(kStateMagic2) + "\n";
+  // Version 2 whenever the morph holds nothing a load wouldn't rebuild: an untouched patch's chunk is unchanged.
+  std::string text = std::string(s.morph.empty() ? kStateMagic2 : kStateMagic3) + "\n";
   text += "preset " + std::to_string(s.preset) + "\n";
   for (const auto& [id, v] : s.values) {
     text += std::to_string(id) + ' ';
     put_num(text, v);   // the shortest that reads back exactly: a state reloads to the same v
     text += '\n';
   }
+  morph::write_lines(s.morph, text);
   return text;
 }
 
 bool read_state(std::string_view text, SavedState& out) {
   const std::size_t first = text.find('\n');
   const std::string_view magic = text.substr(0, first);
-  if (magic != kStateMagic1 && magic != kStateMagic2) return false;   // no promise across builds: an unknown chunk leaves the default
+  // No promise across builds: an unknown chunk leaves the default.
+  if (magic != kStateMagic1 && magic != kStateMagic2 && magic != kStateMagic3) return false;
   SavedState s;
   std::size_t at = first;
   while (at != std::string_view::npos && at + 1 < text.size()) {
@@ -300,7 +397,8 @@ bool read_state(std::string_view text, SavedState& out) {
     int n = 0;
     unsigned id = 0;
     double v = 0;
-    if (std::sscanf(line.c_str(), "preset %d", &n) == 1) s.preset = n;
+    if (morph::read_line(line, s.morph)) {}   // first: "morph corner 1 4097 0.5" would otherwise not read as a row only by luck
+    else if (std::sscanf(line.c_str(), "preset %d", &n) == 1) s.preset = n;
     else if (std::sscanf(line.c_str(), "voices %d", &n) == 1) {}   // the retired Voices limit: read, ignored (no `continue`: `at` must move)
     else if (std::sscanf(line.c_str(), "%u %lf", &id, &v) == 2 && std::isfinite(v)) s.values.emplace_back(id, v);
     at = end;
@@ -416,8 +514,90 @@ std::string observe_json(const FrameInputs& in, const Want& want) {
   const horde::Counters c = f ? f->counters : horde::Counters{};
   out += "},\"counters\":{\"memberSamples\":" + std::to_string(c.member_samples) + ",\"edgesCorrected\":" + std::to_string(c.edges_corrected) +
          ",\"edgesLeftOver\":" + std::to_string(c.edges_left_over) + ",\"envelopeSteps\":" + std::to_string(c.envelope_steps) +
-         ",\"voicesSounding\":" + std::to_string(sounding ? c.voices_sounding : 0u) + "}}";
-  return out;
+         ",\"voicesSounding\":" + std::to_string(sounding ? c.voices_sounding : 0u) + "}";
+  if (want.summed && in.scope) {
+    out += ",\"summed\":{\"rate\":";
+    put_num(out, in.scope_rate);
+    out += ",\"samples\":[";
+    char b[24];
+    for (int k = 0; k < in.scope_n; ++k) {
+      // Nine digits: a float reads back exactly, so a test can hold the window to the output sample for sample.
+      std::snprintf(b, sizeof b, "%s%.9g", k ? "," : "", std::isfinite(in.scope[k]) ? double(in.scope[k]) : 0.0);
+      out += b;
+    }
+    out += "]}";
+  }
+  return out + "}";
+}
+
+std::string morph_json(const MorphFrame& m) {
+  std::string out = "{\"x\":";
+  put_num(out, m.x);
+  out += ",\"y\":";
+  put_num(out, m.y);
+  out += ",\"dropped\":" + std::to_string(m.dropped) + ",\"unknown\":" + std::to_string(m.unknown);
+  const auto pairs = [&](const std::vector<std::pair<std::string, double>>& list) {
+    out += '{';
+    for (std::size_t i = 0; i < list.size(); ++i) {
+      if (i) out += ',';
+      out += quoted(list[i].first) + ':';
+      put_num(out, list[i].second);
+    }
+    out += '}';
+  };
+  if (m.settings) {
+    out += ",\"settings\":{";
+    for (int i = 0; i < morph::kSettings; ++i) {
+      if (i) out += ',';
+      out += quoted(morph::setting_row(i).key) + ':';
+      put_num(out, m.settings[i]);
+    }
+    out += '}';
+  }
+  if (m.modes) {
+    std::string modes, counts;
+    for (const auto& [key, choice] : *m.modes) {
+      if (choice.mode != horde::KeyMode::Follow) modes += (modes.empty() ? "" : ",") + quoted(key) + ":\"" + morph::mode_name(choice.mode) + '"';
+      if (choice.count != horde::KeyCount::AsMorph) counts += (counts.empty() ? "" : ",") + quoted(key) + ':' + std::to_string(morph::count_number(choice.count));
+    }
+    out += ",\"modes\":{" + modes + "},\"counts\":{" + counts + '}';
+  }
+  if (m.corners[0] || m.corners[1] || m.corners[2] || m.corners[3]) {
+    static const std::vector<std::pair<std::string, double>> kNone;
+    out += ",\"corners\":[";
+    for (int c = 0; c < 4; ++c) {
+      if (c) out += ',';
+      pairs(m.corners[c] ? *m.corners[c] : kNone);
+    }
+    out += ']';
+  }
+  if (m.ratios) {
+    out += ",\"ratios\":[";
+    for (int c = 0; c < 4; ++c) out += std::string(c ? "," : "") + '[' + quoted(m.ratios[c][0]) + ',' + quoted(m.ratios[c][1]) + ']';
+    out += ']';
+  }
+  if (m.heard) {
+    out += ",\"heard\":";
+    pairs(*m.heard);
+  }
+  if (m.texts) out += ",\"texts\":[" + quoted(m.texts[0]) + ',' + quoted(m.texts[1]) + ']';
+  if (m.sets) {
+    out += ",\"sets\":[";
+    for (std::size_t g = 0; g < m.sets->size(); ++g) {
+      const HeardGroup& h = (*m.sets)[g];
+      out += std::string(g ? "," : "") + "{\"group\":" + quoted(h.group ? h.group : "") + ",\"voice\":" + std::to_string(h.voice) + ",\"settings\":[";
+      for (int k = 0; k < h.n; ++k) {
+        out += std::string(k ? "," : "") + "{\"id\":" + std::to_string(h.id[k]) + ",\"target\":";
+        put_num(out, h.target[k]);
+        out += ",\"heard\":";
+        put_num(out, h.heard[k]);
+        out += '}';
+      }
+      out += "]}";
+    }
+    out += ']';
+  }
+  return out + '}';
 }
 
 std::string snapshot_json(const Pieces& p) {
@@ -463,6 +643,7 @@ std::string snapshot_json(const Pieces& p) {
     put_strings(out, p.refused_types ? *p.refused_types : kNone);
     out += '}';
   }
+  if (!p.morph.empty()) out += ",\"morph\":" + p.morph;   // last, and only when asked: every other member is unchanged
   return out + '}';
 }
 

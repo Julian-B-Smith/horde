@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <string>
@@ -22,10 +23,14 @@ namespace {
 
 constexpr int kWidth = 620, kHeight = 660, kHeaderHeight = 132, kRowHeight = 26, kGutter = 16;
 constexpr NSInteger kPrevTag = 1, kNextTag = 2, kPresetTag = 3, kPolyphonyTag = 4, kRowTagBase = 1000;
+// A stepped row with more options than this gets a stepped slider instead of a menu: since every engine row is shown
+// (B632), the seeds' 1,000,000 options would otherwise build a menu that hangs the window.
+constexpr int kMenuOptions = 128;
 constexpr double kTouchHoldSeconds = 0.4;   // how long a moved control ignores the readback, so it can't jump under the hand
 
 struct RowControls {
   NSSlider* slider = nil;
+  bool whole = false;   // a stepped slider: its host value is a whole option index
   NSPopUpButton* popup = nil;
   NSTextField* value = nil;
   double touched_at = 0;
@@ -112,7 +117,7 @@ void act_imp(id self, SEL, id sender) {
   if (row < 0 || row >= int(g.rows.size())) return;
   RowControls& c = g.rows[std::size_t(row)];
   c.touched_at = now();
-  const double value = c.popup ? double(c.popup.indexOfSelectedItem) : c.slider.doubleValue;
+  const double value = c.popup ? double(c.popup.indexOfSelectedItem) : c.whole ? std::round(c.slider.doubleValue) : c.slider.doubleValue;
   preview::edit(g.plugin, preview::row_id(row), value);
   char text[64];
   preview::row_text(row, value, text, sizeof text);
@@ -230,7 +235,7 @@ void build(GuiState& g) {
     RowControls& c = g.rows[std::size_t(row)];
     [doc addSubview:make_label(label_for(preview::row_key(row)), NSMakeRect(kGutter, ry + 4, 216, 18), 12, NSColor.labelColor)];
     const int steps = preview::row_steps(row);
-    if (steps > 0) {
+    if (steps > 0 && steps <= kMenuOptions) {
       c.popup = [[[NSPopUpButton alloc] initWithFrame:NSMakeRect(kGutter + 222, ry, 96, 24) pullsDown:NO] autorelease];
       for (int k = 0; k < steps; ++k) [c.popup addItemWithTitle:[NSString stringWithFormat:@"%d", k]];
       c.popup.tag = kRowTagBase + row;
@@ -239,7 +244,8 @@ void build(GuiState& g) {
       c.popup.controlSize = NSControlSizeSmall;
       [doc addSubview:c.popup];
     } else {
-      c.slider = [NSSlider sliderWithValue:0 minValue:0 maxValue:1 target:g.target action:@selector(act:)];
+      c.whole = steps > 0;
+      c.slider = [NSSlider sliderWithValue:0 minValue:0 maxValue:c.whole ? steps - 1 : 1 target:g.target action:@selector(act:)];
       c.slider.frame = NSMakeRect(kGutter + 222, ry + 2, 250, 20);
       c.slider.tag = kRowTagBase + row;
       c.slider.continuous = YES;
