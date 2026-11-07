@@ -11958,6 +11958,35 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 
 **FX device (ADR-254).** The same patching, with its own inputs in place of the sources.
 
+
+## GUI-53 — RULED by the human: per-corner mappings' five questions; a per-patch loop setting and a warning when a load drops a mapping (B396; ADR-371; 2026-11-06)
+
+**The human, 2026-11-06,** on the lead's `docs/design/corner-mapping-lab.html`, through the Labs facilitator:
+1. A mapping's blend "Fades with the corner".
+2. Past zero it "Stops at zero".
+3. Loops between corners: "Let's make this a setting". The setting offers three modes: refuse any possible loop, refuse only inside a corner, or allow, one step late. It defaults to "Allow, one step late" and is saved per patch. Where its control lives is not ruled.
+4. A corner preset load that would close a loop under a refusing mode: "Load it minus the mapping but with a warning". The page names what was dropped.
+5. The pad in loops "Follows the loop setting": it counts under the refusing modes, and is read a step late under Allow.
+
+**What this session draws.** The loop setting as a three-way control. Its place is the human's to rule; the GUI session will propose one. The warning is a line in the window naming each dropped mapping (source → target and the corner) when a load drops any.
+
+**The Map Mode spec now reads per corner.** `docs/design-system/HORDE-Map-Mode-Spec.md`'s scope rule and its decisions-table row said "global for 1.0". The human approved the edit in this session ("Yes, edit that rule"), carrying ADR-371 MQ17 and GUI-51 r5. Only that rule changed; morph and intent targets stay forced global.
+
+**Engine impact.** GN-27 (mappings per corner) and GN-53 (the loop mode as a per-patch setting, and a load's report of what it dropped). The lead records the engine side.
+
+**FX device (ADR-254).** It has a morph and mappings, so all five apply.
+
+## GUI-54 — DIRECTED by the human: the Mindlathe logo over the window when it first opens, fading on the first click or after 2.5 s (2026-11-06)
+
+**The human, 2026-11-06:** "I want my Mindlathe logo to overlay the gui when you first open it and fade on first click or after a few seconds". By poll: once per Live session, and 2.5 seconds.
+
+**What changes.** The first time the window opens after the plug-in loads, the Mindlathe logo covers the window. It fades out on the first click (the click does nothing else) or after 2.5 s, whichever comes first, and later openings go straight to the GUI. Under reduced motion it goes without a fade. It goes into the design master first, as a component with the artwork as an asset (ADR-316).
+
+**Waiting on the artwork.** The human showed the logo, a cyan-to-magenta wordmark, but no file reached the repo, and an overlay needs it with a transparent background (PNG or SVG). The master component is built once the file arrives.
+
+**Engine impact.** GN-54: "once per Live session" outlives the page, which dies with the window, so the plug-in tells the page at `hello` whether this is the first opening since it loaded.
+
+**FX device (ADR-254).** The same, as a Mindlathe plug-in.
 ## GUI-42 — DIRECTED by the human: the Morph page fits beside its pad; pictures keep moving; the waveform's name (amends GUI-40 and GUI-33; 2026-11-05)
 
 **The human, 2026-11-05:** "The morph grid still gets cut off at the bottom of the scroll by the morph box. I feel like we need to reformat a little to fit everything on the page more sensibly." And: "Also the osc visualizers are all freezing".
@@ -11979,6 +12008,44 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 
 
 **Fixed 2026-11-05: why the pictures still froze, a bug, not a ruling.** The human, after GUI-42 merged: "Everything is still frozen on all the osc views". The self-checks drive the pictures on a clock millions of ms ahead (`CLOCK.now = 1e7`), and each picture's pace kept that as its last draw. Once the checks ended, the real clock read as earlier than the last draw, so no picture was ever due again. Loading with `?fast` skipped the checks, which is why some tests saw motion. `picturePace` now treats a clock that goes backward as a new clock. Measured in headless Chrome after a full self-check run: the ring, spectrum, carpet and voice map move with the fix, and none of them move on main without it (the control).
+
+## GUI-51 — RULED by the human: the morph's eight open questions (GB29; ADR-370, B631; 2026-11-06)
+
+**The human, 2026-11-06,** by poll on `docs/design/morph-questions-lab.html`, each question shown on the pad:
+1. **Waypoint limits (GN-7): 8 per setting, 64 per patch,** stored in order.
+2. **Pins across a mode change (GN-7, GN-29): they stay dormant,** kept and unused under Quantum or Stepped, and working again back in Blend (as the shell does).
+3. **A region lock keeps only the region shape (GN-6).** Corner edits still change the locked setting's values inside its regions.
+4. **X and Y are host parameters (GN-51),** automatable in Live; the knobs under the Morph pad (GUI-45 r3) draw from their rows once D.2 has them.
+5. **Mappings are per corner (GN-27).** Each corner keeps its own depth per route, and the puck blends between them. It was not the recommended option. ADR-371 rules the same for 1.0, reversing ADR-261 r3 and ADR-266 r4. The Map Mode spec's "global for 1.0" (`docs/design-system/HORDE-Map-Mode-Spec.md`, a protected path) needs the human's edit.
+6. **RAMPS is dropped (GN-25):** two kinds, Morphable and Structural, as the spec has. The design master drops the third pill.
+7. **Corner presets live in both places (GN-52, which lands with GUI-50):** the patch's own corners first, then a user library shared by every patch; saving asks which.
+8. **Save current sound stores what you hear (GN-35):** every setting, blended at the puck, offsets baked.
+
+**Also ruled the same day, through the Labs facilitator:**
+- **GUI-47's open fit, option (c):** "Strip replaces ENV 1 knobs". On Main the four envelope thumbnails take the place of ENV 1's four knobs, values read under the large picture, the knobs go behind +Adv, and nothing shrinks.
+- **page-chrome-lab closed** ("Close it"). GUI-28's readings are kept as built: the Q and EX tags, Exempt's dashed outline, the menu on right-click and at the top of the selected row ("Keep it as built"). Exempt holds what's heard at the pick, written into all four corners, and an edit then moves all four ("Yes, as built"). An Exempt control still takes modulation ("Yes, still modulated"), which stays open for the morph round as part of GN-40 (ADR-371).
+
+**Engine impact.** GN-6, GN-7, GN-25, GN-27, GN-35, GN-51, and the preset seam and saved document (GN-9, GN-37). The lead writes them into the morph's spec round.
+
+**FX device (ADR-254).** It has a morph, so all eight apply.
+
+## GUI-52 — RULED by the human through ADR-371: what the modulation spec changes on the Mod page (B633; amends GUI-37 and GUI-9; 2026-11-06)
+
+**ADR-371** (the lead's record of the human's eighteen answers on the modulation spec) changes what the Mod page draws:
+1. **Four LFOs,** each with a shared or per-note switch, a rate from 0.02 to 40 Hz, and smoothed random as a kind. A synced LFO locks to song position.
+2. **An LFO can switch to envelope mode:** one cycle, then it stops ("as in Serum 2"). There are no envelopes beyond ENV 1 to 4.
+3. **Each route has its own curve** (lin, exp, log). A new mapping takes its source's natural polarity: LFOs and XY bipolar; envelopes, velocity and macros unipolar. 64 routes at most. A knob's end is a wall.
+4. **Targets beyond the engine's knobs:** FX module knobs, a modulator's own settings, and the morph position. Only a global LFO may target the morph position.
+5. **Sources add** the mod wheel, pitch bend, keytrack and MPE (pressure, slide, per-note bend, lift).
+6. **An LFO's rate, sync, division and retrigger are host parameters** and morph like knobs. A modulator with no mappings keeps its settings until removed.
+7. **Mappings are per corner** (GUI-51 r5). A silent corner's mappings stay visible, greyed (B392).
+8. **ORBITAL, the Kuramoto LFO and the 2-D random** join 1.0, each after its own lab ruling.
+
+**What this session does next.** The Mod page's LFO cards gain the shared/per-note switch, envelope mode and the route curve. Each route row shows its corner depths, the silent corners greyed. The source list grows. The master carries each piece before the shell (ADR-316).
+
+**Engine impact.** GN-23 (a retrigger row per modulator, now ruled), GN-27, GN-39 (an unrouted modulator keeps its settings) and GN-49 (the LFOs): ADR-371 rules them, and the lead's spec round writes them.
+
+**FX device (ADR-254).** It has modulators but no notes, so per-note LFOs, keytrack and MPE don't apply; the rest does.
 ## GUI-43 — DIRECTED by the human: each source's on switch on Main (GUI-4; 2026-11-05)
 
 **The human, 2026-11-05:** "There's currently no way to turn oscillators on and off from main."
@@ -11991,6 +12058,39 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 
 **FX device (ADR-254).** It has no Main or sources.
 
+
+## GUI-49 — DIRECTED by the human: a waveform view of Members at phase; the summed beam under it; the Osc pages scroll (GB28; amends ADR-345 r1 for the Osc pages; 2026-11-05)
+
+**The human, 2026-11-05:** "I would like a scalpel view option that has members at phase", and "add the summed waveform below the scalpel on the osc page, like in the scalpel lab". Asked where the beam's 78 px should come from: "Let the osc page scroll: we still need to add the advanced option sections below anyway".
+
+**What changes.**
+1. **A fourth waveform view, Members at phase** (the master's BladeView and `Viz.blade`, version `1793941176-071d`). It draws Members' lanes, each member shifted as At phase shifts it, with its windows, and a tick in its lane where its cycle starts. The four pills keep one row, and the XY legend gives up its width instead. It is one choice for every instance, remembered per machine, as the other three are.
+2. **The beam under the waveform on the Osc pages:** the master's Waveform painter (`Viz.scope`, gui2's scope), one cycle across on the waveform's x axis, its hue riding R. It draws the members as they line up now, summed: a SAMPLE until the plug-in taps its output (GN-4), and it says so.
+3. **The Osc pages scroll** (amends ADR-345 r1, which held every dense page to the page area). The fit self-check still measures Osc 1 and 2 and names their heights. Main, Sub and Noise must still fit.
+
+**Reading (the GUI session's, open to the human).** "Members at phase" is read as Members' lanes with At phase's shift. Main's Osc tabs carry the same four pills, and nothing else of the beam.
+
+**Engine impact.** None: drawings of the settings, and GN-4's output tap is already requested.
+
+**FX device (ADR-254).** It has no oscillators; the Waveform painter is audio-capable and is its to use.
+
+## GUI-50 — RULED by the human: the bank's MORPH lane, rows and weights with preset menus; saving on the Morph page; an asterisk on every edited preset (GB25; completes GUI-45; 2026-11-05)
+
+**The human, 2026-11-05,** on `docs/design/bank-morph-lane-lab.html`: "Let's do rows and weights but also make the names menus where users can select existing corner presets. The save menu can exist on the morph page (there needs to be a way to save the current sound to a preset or to a corner, and whenever parameters have been altered from the corner or global preset (or any other kind of preset), there needs to be an asterisk next to each relevant name)". By poll: the tab "Dimmed, with a switch" while morph is off, and the bank "Goes back to the tab you had" when it turns off.
+
+**Rulings.**
+1. **The lane is B:** the four corner rows, each with its weight at the puck as a bar and a percent.
+2. **Each row's name is a menu** of the existing corner presets. Picking one loads it into that corner.
+3. **Saving lives on the Morph page.** Save the current sound to a preset (the global one) or to a corner. The lane has no save.
+4. **An asterisk next to every name whose values differ from the preset it came from:** a corner's, the global preset's in the top bar, and any other kind of preset (a hosted module's, Arp's pattern). It replaces the master's edited dot.
+5. **While morph is off,** the MORPH tab stays, its rows dimmed, with a "Turn morph on" button over them.
+6. **When morph turns off,** the bank goes back to the tab it was on before the flip.
+
+**Next.** The master: ModBank's third segment and lane, the name menu, the asterisk across CornerChip, PresetBar and the module cards. Then re-vendor and the shell.
+
+**Engine impact.** GN-9 (the global preset seam: list, load, save), GN-37 (the morph system's saved document) and GN-52 (a corner preset library, and every preset kind's "edited since loaded" baseline).
+
+**FX device (ADR-254).** It has a morph, a bank and module presets, so all six apply.
 ## GUI-45 — DIRECTED by the human: a MORPH tab in the bank on every page, flipped to from Main; the pad's X and Y as knobs under the Morph pad (GB25; amends GUI-8 and GUI-40; 2026-11-05)
 
 **The human, 2026-11-05:** "What if we add a third tab here for "morph" here (pictured) which shows the morph corner presets, and when morph is activated on Main it automatically flips over (I don't love that Main is the only page that doesn't show the morph corner presets interface anywhere). And it occurs to me that the XY coordinates for Morph should be parameters visible below the grid on the Morph page." The picture was the bank's MAC | MODS segments. By poll: the tab on **every page**, its lane "Let's workshop it in a lab", and X and Y as **two knobs**.
@@ -12043,6 +12143,21 @@ The GUI session recommends (c). Nothing is built until the human picks.
 **Engine impact.** None: a gate on the GUI shell.
 
 **FX device (ADR-254).** Its pages can use the same harness when they exist.
+
+## GUI-48 — DIRECTED by the human: a cut rate always on a blade's face; the dashboard's oscillator cards draw the SCALPEL cycle (GB27; 2026-11-05)
+
+**The human, 2026-11-05:** "For some reason, cut rate isn't visible in the osc sections on the test plugin. Also, can we update the waveform visuals in the osc dashboard so they show the accurate scalpel instead of the placeholder saw?"
+
+**What was wrong (the shell's, against the spec).** A blade's cut rate is two rows, chosen by `cutIn`: `cut` (× pitch) on the face, and `cutHz` behind +Adv. So a preset in Hz showed no cut rate on the face. Blade 2's `cutIn` defaults to "as blade 1", which neither condition listed, so blade 2's cut rate was never shown: the shell's conditions didn't apply PA-8's "blade 2's 'as blade 1' options read blade 1's value".
+
+**What changes.**
+1. **PA-8's rule is applied in the shell's conditions.** A blade 2 row that follows blade 1 is judged on blade 1's.
+2. **`cutHz` sits on the face beside `cut`,** in the Cut group. Exactly one of the two is live, so a cut rate is always in view.
+3. **The dashboard's Osc 1 and Osc 2 cards** draw the oscillator's SCALPEL cycle: its base wave cut by each blade that is on, from the same builder as the Osc page's waveform (`bladeCycle`), never the bare base wave. It is still a SAMPLE drawing of the settings, not the engine's output (GN-41).
+
+**Engine impact.** None: the drawing and the conditions are the shell's.
+
+**FX device (ADR-254).** It has no oscillators.
 ## GUI-46 — RULED by the human: on the plug-in's bridge, a control this engine can't act on is dimmed and still visible (B628, GB26; 2026-11-05)
 
 **The human, 2026-11-05,** through the lead's poll on `docs/proposals/gui-on-engine.md`: "Dimmed, still visible", and "build it now, I want it for sound testing". The lead's choice where the plan left it open: dimmed with the idle styling, plus a small "not in this engine yet" note.
@@ -12356,3 +12471,86 @@ Two readings, the lead's, open to overrule:
 **What follows.** The lead proposes defaults for the lab's fine questions, and the facilitator puts any the human wants to hear to them. B633's item (2) closes when ORBITAL's open items are ruled.
 
 **FX device (ADR-254).** The FX device hosts the same modulators. The 2-D random's bar lock and ORBITAL's scaling carry over unchanged.
+
+## ADR-376 — RULED by the human: an oscillator fades in with the corner it heads to; a preset saves the puck (B631)
+
+**Context.** Round 61 found that `osc1.on` and `osc2.on` sit in neither MO-14's groups nor MO-15's list (the builder's finding), and GN-10 left open whether a preset carries the puck. The lead asked both by poll, 2026-11-06.
+
+**Rulings.**
+1. **An oscillator's on/off fades in, carrying the values of the corner it heads toward.** The human: "We came up with a special rule for this in legacy: it fades in, but with the values of the corner it's headed to instead of the arbitrary values of the off-oscillator in the corner it's coming from." The legacy rule is ADR-123/B48, B65 and ADR-183/B232. The level follows the summed weight of the corners where the oscillator is on. Its other keys blend only over those corners, renormalised, so an off corner's stored values never sound. Round 61 writes it as MO-26.
+2. **A preset saves the puck's position** ("Yes, saved with it"). `morph.x` and `morph.y` save with the patch and stay host parameters (GN-10).
+3. **Void the same day.** The lead asked where sub and noise settings blend, before or after the drive. The human answered "After the drive", but both options presumed mixing renders, which ADR-377 then ruled out. Nothing rests on this answer.
+
+**FX device (ADR-254).** None: the FX device has no oscillators, and its morph position saves the same way.
+
+## ADR-377 — RULED by the human: no sound crossfades except brief timed transitions; in 1.0 structure follows its quantum boundaries; reverses ADR-317's Blend half (B631)
+
+**Context.** ADR-317 (2026-10-29) ruled that under Blend a structural difference between corners crossfades, with both architectures running. Round 48 specified that as setting sets (Appendix D, D.5 and D.6), and the builder had built most of it on 2026-11-06. The human, the same day: "I don't want any sounds to crossfade except as brief transitions, temporally-bound. The whole concept is parametric morph that allows every point to become its own corner preset."
+
+**Ruling (the human, by poll, 2026-11-06):** "For 1.0, anything that can't blend naturally follows its quantum boundaries. We can work on the waveform morphing after 1.0 and when we start adding new sound engines, etc."
+- **Under every law, every Structural key resolves to one value:** its quantum pick and latch (MO-7, MO-8), read at the stepped position under Stepped, and changing on sounding voices by PA-5's brief crossfade. Exempt still holds corner A.
+- **Morphable keys blend as before** (MO-9, Count Two or Four, waypoints).
+- **No two settings of one group sound at once in 1.0,** except during PA-5's timed flip. Setting sets, the slot rule and per-setting instances (D.5 and D.6's rendering) go after 1.0.
+- **The exception: an oscillator's on/off** fades in by its level (ADR-376), which is a parameter, not a mix of renders.
+- **Parametric morphing of structure** (wave shapes interpolating, and the like) is after 1.0, alongside new sound engines.
+
+**Supporting evidence, engine-free (the test author's B-74 study).** A PA-1 jump of the blend weights between two blade tones fires the ratified click detector. That is the sound QS-4 warns about, so the reversal also removes a class of clicks the blend could not avoid.
+
+**What follows.**
+- Round 61 is redrafted: every Structural key follows its quantum boundaries, the set rows are marked after 1.0, and MO-26 is restated as a level. A critic reviews the round before the human.
+- The builder holds D.6 and removes exactly what the round marks after 1.0. That also removes SB-9's instance memory: about 46 MB at 64 voices, plus the noise's 60 MB on PF-7's stated figure.
+- The test author holds item 35 and PF-10's Blend cells until the round arrives.
+- ADR-317's Quantum and Stepped halves stand.
+
+**FX device (ADR-254).** The same rule applies to FX-module structure that differs between corners: it follows the quantum boundaries. `fx/N` sets (MO-19) go after 1.0 with the rest.
+
+**ADR-375 A1 (the human, 2026-11-06, by poll through the labs facilitator): ORBITAL's open items.**
+1. **Thermostat:** "Yes, as a switchable option". A target mean speed and a time constant, plus an off position for fully free motion. It is the Berendsen form, which keeps orbit shapes and regulates only the pace.
+2. **Edge cushion:** "Not in 1.0". The walls stay as they are. It moves after 1.0 and is not dropped (the human asked for it on 2026-09-15).
+3. **Source count:** "Bodies 1 to 4". That is 4 bodies × 5 observables, plus the two field-wide sources (energy, spread). Bodies 5 to 8 still move and act on the others, but they aren't routable.
+
+With these, B633's item (2) is closed. The lab's fine questions carry the lead's proposed defaults until a spec round adopts them.
+
+**ADR-377 A1 (the human, 2026-11-06, by poll): how a source's on/off fades, after a critic's review of round 61.**
+1. **Floor:** a source fading by weight switches fully off below a summed on-weight of 10⁻³ (−60 dB), as legacy did, so inaudible tails cost nothing.
+2. **Picks while fading:** its Structural keys pick only among the corners where it is on.
+3. **Save during a fade bakes the level** into the corner's level key, so the corner sounds as the position did.
+4. **Waypoints** on a source's key, where it is off in some corners, bend the on corners' blend.
+5. **The sub and the noise follow the same rule** ("Sub and noise too"), as the human asked of the sub in B203 and B232.
+6. **Under Quantum a source switches** ("Switch under Quantum"): its on/off flips at its quantum boundary by PA-5's brief crossfade, and the fade by weight applies under Blend and Stepped only. When it flips back on, its keys land on the picked on-corner's values outright, so no off corner's values glide in (legacy B250's defect).
+
+The lead's mechanism: the level glides by PA-1 only, as legacy's gain smoother did, never by the morph glide. That way the fade-out is never cut short by the switch.
+
+The critic's review also asked for these drafting choices to be recorded. They are the lead's, open to overrule:
+- a 0.04 minimum spacing between waypoints, with a list that breaks a limit refused whole;
+- a region lock per key;
+- a lock's latch margin not divided by the temperature;
+- waypoints holding absolute values;
+- Clamp on by default;
+- the source's level reading the stepped position under Stepped;
+- the oscillator's volume key counted among its keys.
+
+## ADR-378 — RULED by the human: random LFOs' travel stage, strikes and shapes (B237; B633)
+
+**Context.** MQ4 (ADR-371) put smoothed random in 1.0 as an LFO kind, so round 3 of the modulator lab (B237, S&H and smoothed random) gates 1.0. The labs facilitator put its sound calls to the human, 2026-11-06, along with the lead's proposal for SLEW.
+
+**Rulings.**
+1. **What a strike does to a random stream is a choice per LFO.** All three are offered: the next unused draw (a new step each note), keep the held value (as shipped), or rewind to draw 0 (a repeatable random riff).
+2. **The look-ahead stays on the beat** (as built). LINEAR, COSINE and CUBIC keep their knots on cycle starts.
+3. **CUBIC clips its peaks** (as built): Catmull-Rom clamped to ±1.
+4. **One travel stage follows every random shape** ("Yes, every shape"). The choices are None, Time, Rate and Spring, the same family as the 2-D random and the pitch glide. It defaults to None on LINEAR, COSINE and CUBIC, and S&H keeps its shipped SLEW law as its default. The human's earlier "Maybe it gets all the glide options (including spring)" is now a firm yes in this form.
+
+The lead's proposals for the round's fine questions stand as proposals for the spec round:
+- one S&H shape, clocked by its own cycle in 1.0;
+- a draw at every cycle start, the first included;
+- STEPS and S&H both stay;
+- a check for each modulator when it is ported.
+
+**FX device (ADR-254).** The same modulators run in the FX device, with no change.
+
+**ADR-377 A2 (the human, 2026-11-06, by poll, after a second critic pass on round 61): landing, Save below the floor, and the noise's erosion exception.**
+1. **A landing skips the engine's smoothing** ("Skip it"). When a source comes back on, under any law, its keys jump to the on-corner's values with neither the morph glide nor PA-1's. The source was silent, so the jump is inaudible.
+2. **Save below the floor stores the source off** ("The source off"), matching what is heard.
+3. **The noise is the one exception to the off-source rule.** The human: "noise settings influence erosion even if the noise osc is off; I say erosion is colored by any corner where noise is influencing the erosion of its respective sub, or if the erosion control is connected to a modulator, regardless of whether that noise osc is active. That said, this means any active noise oscs will have to blend the sound of those as well, and the audible noise will need to influence the erosion (each patch only has one noise osc as a source for either the erosion or the audible noise). This is the exception to the off-oscillator blend rule." The lead's restatement, confirmed by poll ("Yes, that's it"): the noise's one set of settings blends over the corners where the noise is on **or** erosion is active (the sub's erode above 0, or erode modulated). Corners with neither are ignored. The noise's volume still fades only by the corners where it is on.
+
+The lead's mechanism, from the critic's review: the resolver holds the switch-off until a mirror of PA-1's heard level reaches the floor, and holds the source's values meanwhile. So no off corner's values sound while it fades out, and the engine keeps PA-5's "at once".

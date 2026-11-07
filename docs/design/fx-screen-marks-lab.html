@@ -1245,7 +1245,7 @@ function buildReference() {
   UI.refG = { vis: !UI.io }; if (UI.io) { UI.obs.set(cv, UI.refG); UI.io.observe(cv); }
   const wrap = el('div'); wrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:14px;align-items:center'; const tx = el('div'); tx.style.flex = '1 1 420px';
   add(tx, el('p', null, 'A knob and a slider on horde\'s chassis, drawn here for reference, so not the master\'s components. The chassis says "which corner" with hue and shape together (ADR-259 ruling 3, ADR-261 ruling 1): each pip is its corner\'s glyph, sized by weight, and the owner\'s is the big one with a tether to the blend. It says "modulation" with a ring or lane in the source\'s colour: its range, an origin dot at the base, and a live tick at the output.'),
-    el('p', null, 'Inside a glass the hue is gone (ADR-259 ruling 4), the source colour is gone, and each skin has its own rules on what it can draw. The chassis around each glass below still carries the four corner chips in colour. Mappings are global for 1.0 (ADR-266 ruling 4), so a mod mark never needs to say which corner it belongs to.'),
+    el('p', null, 'Inside a glass the hue is gone (ADR-259 ruling 4), the source colour is gone, and each skin has its own rules on what it can draw. The chassis around each glass below still carries the four corner chips in colour. Mappings are per corner since GUI-53 (ADR-371 MQ17), but a mark here draws the depth you hear at the puck’s blend, so it still needn’t say which corner a depth came from.'),
     el('p', null, 'Nothing below draws a hue inside a glass, and self-check 5 reads the pixels to prove it. Today no glass draws any modulation, so no modulation card is a "Today".'));
   add(wrap, cv, tx); add(box, wrap);
 }

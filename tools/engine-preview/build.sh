@@ -39,7 +39,7 @@ if [ -n "${HORDE_SDK_CACHE:-}" ]; then
 fi
 cmake "${args[@]}"
 # At most 4 threads, niced: the clean-room sessions share this machine (see the CPU throttle rule).
-nice -n 10 cmake --build "$build_dir" -j4 --target horde-engine-preview_all preview-plant preview-plant-map preview-smoke preview-gui-shot preview-bridge-test preview-frames-dump
+nice -n 10 cmake --build "$build_dir" -j4 --target horde-engine-preview_all preview-plant preview-plant-map preview-plant-morph preview-smoke preview-gui-shot preview-bridge-test preview-frames-dump
 
 # Every configure rewrites the AU bundle's Info.plist from CMake's template, and only a relink copies the wrapper's real
 # one back. So a second run with nothing to relink leaves an AU with no identity, and auval "didn't find the component".
@@ -51,9 +51,10 @@ codesign --force -s - "$au_built"
 clap="$(find "$build_dir" -name 'horde-engine-preview.clap' -maxdepth 3 | head -1)"
 plant="$(find "$build_dir" -name 'preview-plant.clap' -maxdepth 3 | head -1)"
 plant_map="$(find "$build_dir" -name 'preview-plant-map.clap' -maxdepth 3 | head -1)"
+plant_morph="$(find "$build_dir" -name 'preview-plant-morph.clap' -maxdepth 3 | head -1)"
 smoke="$(find "$build_dir" -name 'preview-smoke' -type f -maxdepth 3 | head -1)"
 "$(dirname "$smoke")/preview-bridge-test"
-"$smoke" "$clap" "$plant" "$plant_map"
+"$smoke" "$clap" "$plant" "$plant_map" "$plant_morph"
 "$(dirname "$smoke")/preview-gui-shot" "$clap" "$out/window.png"
 
 # The recorded frames GUI 3's ReplayTransport plays (B628), where gui3_browser_check reads them. A fresh dump is held

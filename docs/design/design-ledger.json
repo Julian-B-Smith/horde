@@ -148,6 +148,14 @@
   {
    "version": "1793909482-958b",
    "evidence": "docs/design/arp-face/README.md: the Dial with Erode up, 2026-11-05"
+  },
+  {
+   "version": "1793939881-6f91",
+   "evidence": "docs/design/arp-face/README.md: Members at phase, GUI-49, 2026-11-05"
+  },
+  {
+   "version": "1793941176-071d",
+   "evidence": "docs/design/arp-face/README.md: Members at phase, its pills on one row, GUI-49, 2026-11-05"
   }
  ],
  "vendoring": {
@@ -212,8 +220,9 @@
    "note": "Archived in the design index (its lab-archive tag): legacy-era bench; its law is ruled or lives in the composed engine. History, never a source."
   },
   "corner-mapping-lab.html": {
-   "status": "exploring",
-   "note": "The lead's lab for B396 and B270, the human's request of 2026-11-02: per-corner mappings, with the 1.0 question left open against ADR-261 and ADR-266. Five questions for a poll after listening. Nothing here reaches the master until a ruling does."
+   "status": "ruled",
+   "adr": "GUI-53",
+   "note": "B396, ruled GUI-53 (the human, 2026-11-06, through the Labs facilitator): blend fades with the corner, stops at zero, a per-patch loop setting defaulting to allow one step late, a warning when a load drops a mapping, the pad follows the loop setting."
   },
   "detune-lab.html": {
    "status": "retired",
@@ -374,9 +383,10 @@
    "note": "Archived in the design index (its lab-archive tag): ruled as GUI-16, option B, and built into the shell. It compares against the old layout, which is gone. History, never a source."
   },
   "page-chrome-lab.html": {
-   "status": "ruled",
-   "adr": "ADR-315",
-   "note": "The docked morph pad and the info box (ADR-315); B557's menu and marks reached the master as MorphMode (GUI-28). B556 was built in the shell."
+   "status": "harvested",
+   "adr": "GUI-28",
+   "master_version": "1793909482-958b",
+   "note": "Closed by the human, 2026-11-06, through the Labs facilitator (\"Close it\"): harvested into the shell, every GUI-28 reading kept as built (GUI-51)."
   },
   "patch-model-lab.html": {
    "status": "exploring",
@@ -483,8 +493,13 @@
    "note": "GB23, ruled GUI-47 (the human, 2026-11-05, through the Labs facilitator): Override + grid, four envelopes on Main with a map button each, picture and readout on an Osc page. Where Main’s strip fits is back with the human."
   },
   "bank-morph-lane-lab.html": {
+   "status": "ruled",
+   "adr": "GUI-50",
+   "note": "GB25, ruled GUI-50 (the human, 2026-11-05): lane B with preset menus, saving on the Morph page, asterisks on edited presets, dimmed with a switch, back to the previous tab."
+  },
+  "morph-questions-lab.html": {
    "status": "exploring",
-   "note": "GB25. What the bank's MORPH tab holds (four lanes), the tab with morph off, and where the bank goes when morph turns off; waiting on the human."
+   "note": "GB29. The morph’s eight open questions on the pad, ending in one poll; the answers go to the lead for the spec round (ADR-370, B631)."
   }
  },
  "not_labs": {
@@ -6526,6 +6541,36 @@
    "lab": null
   },
   {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": null,
+   "id": "gui48-cut-on-face",
+   "adr": "GUI-48",
+   "clause": "a blade's cut rate is always on its face: cutHz beside cut, and blade 2's 'as blade 1' read through blade 1 (PA-8)",
+   "note": "A fix against PA-8. FX device: none.",
+   "shell": "docs/design/gui3.html: const FOLLOWS_BLADE1"
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": null,
+   "id": "gui48-dashboard-cycle",
+   "adr": "GUI-48",
+   "clause": "the dashboard's oscillator cards draw the SCALPEL cycle from the blades' settings, not the bare base wave",
+   "note": "SAMPLE until GN-41. FX device: none.",
+   "shell": "docs/design/gui3.html: function bladeCycle("
+  },
+  {
    "id": "gui46-inert-on-bridge",
    "adr": "GUI-46",
    "clause": "on the plug-in's bridge, a control this engine can't act on is dimmed with the master's disabled opacity and stays visible",
@@ -6537,6 +6582,336 @@
    "lab": null,
    "via": null,
    "superseded_by": null,
+   "state": "ruled",
+   "master_version": null
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": null,
+   "id": "gui51-pin-caps",
+   "adr": "GUI-51",
+   "clause": "waypoints: 8 per setting, 64 per patch, stored in order",
+   "note": "FX device: applies where it has a morph. Asked on morph-questions-lab (GB29, PR #1423)."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": null,
+   "id": "gui51-pins-dormant",
+   "adr": "GUI-51",
+   "clause": "pins stay dormant across a mode change",
+   "note": "FX device: applies where it has a morph. Asked on morph-questions-lab (GB29, PR #1423)."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": null,
+   "id": "gui51-lock-shape",
+   "adr": "GUI-51",
+   "clause": "a region lock keeps only the region shape",
+   "note": "FX device: applies where it has a morph. Asked on morph-questions-lab (GB29, PR #1423)."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": null,
+   "id": "gui51-xy-host",
+   "adr": "GUI-51",
+   "clause": "X and Y are host parameters",
+   "note": "FX device: applies where it has a morph. Asked on morph-questions-lab (GB29, PR #1423)."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": null,
+   "id": "gui51-maps-per-corner",
+   "adr": "GUI-51",
+   "clause": "mappings are per corner; the puck blends their depths",
+   "note": "FX device: applies where it has a morph. Asked on morph-questions-lab (GB29, PR #1423)."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": null,
+   "id": "gui51-no-ramps",
+   "adr": "GUI-51",
+   "clause": "RAMPS dropped: two kinds of setting",
+   "note": "FX device: applies where it has a morph. Asked on morph-questions-lab (GB29, PR #1423)."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": null,
+   "id": "gui51-corner-lib",
+   "adr": "GUI-51",
+   "clause": "corner presets: the patch’s own, then a user library",
+   "note": "FX device: applies where it has a morph. Asked on morph-questions-lab (GB29, PR #1423)."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": null,
+   "id": "gui51-save-heard",
+   "adr": "GUI-51",
+   "clause": "Save current sound stores what is heard, every setting",
+   "note": "FX device: applies where it has a morph. Asked on morph-questions-lab (GB29, PR #1423)."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": "docs/design/envelope-workshop-lab.html",
+   "id": "gui51-env-strip-c",
+   "adr": "GUI-51",
+   "clause": "on Main the envelope strip replaces ENV 1’s knobs (GUI-47’s fit, option c)",
+   "note": "FX device: applies where it has a morph."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": null,
+   "id": "gui52-lfo-cards",
+   "adr": "GUI-52",
+   "clause": "four LFOs with a shared/per-note switch, envelope mode, smoothed random",
+   "note": "ADR-371. FX device: no per-note sources."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": null,
+   "id": "gui52-route-curve",
+   "adr": "GUI-52",
+   "clause": "each route has its own curve, and a new one takes its source’s natural polarity",
+   "note": "ADR-371. FX device: no per-note sources."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": null,
+   "id": "gui52-targets-sources",
+   "adr": "GUI-52",
+   "clause": "targets add FX knobs, modulator settings and the morph position (global LFO only); sources add wheels, keytrack and MPE",
+   "note": "ADR-371. FX device: no per-note sources."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": null,
+   "id": "gui52-corner-depths",
+   "adr": "GUI-52",
+   "clause": "route rows show each corner’s depth, silent corners greyed",
+   "note": "ADR-371. FX device: no per-note sources."
+  },
+  {
+   "port_tab": null,
+   "via": null,
+   "superseded_by": null,
+   "lab": null,
+   "id": "gui49-members-at-phase",
+   "adr": "GUI-49",
+   "clause": "a fourth waveform view, Members at phase: lanes, each member shifted to the mean field",
+   "note": "FX device: none.",
+   "component": "BladeView",
+   "bundle": "BladeView",
+   "shell": "docs/design/gui3.html: H.BladeView(pin",
+   "state": "in-shell",
+   "master_version": "1793941176-071d"
+  },
+  {
+   "port_tab": null,
+   "via": null,
+   "superseded_by": null,
+   "lab": null,
+   "id": "gui49-beam",
+   "adr": "GUI-49",
+   "clause": "the summed beam under the waveform on the Osc pages, one cycle on its x axis, hue riding R",
+   "note": "SAMPLE until GN-4. FX device: the painter is audio-capable.",
+   "component": "Waveform",
+   "bundle": "Viz",
+   "shell": "docs/design/gui3.html: H.Viz.scope(beam",
+   "state": "in-shell",
+   "master_version": "1793941176-071d"
+  },
+  {
+   "port_tab": null,
+   "via": null,
+   "superseded_by": null,
+   "lab": null,
+   "id": "gui49-osc-scroll",
+   "adr": "GUI-49",
+   "clause": "the Osc pages scroll; Main, Sub and Noise still fit the page area (amends ADR-345 r1)",
+   "note": "FX device: none.",
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "state": "ruled",
+   "master_version": null
+  },
+  {
+   "port_tab": null,
+   "via": null,
+   "superseded_by": null,
+   "lab": "docs/design/bank-morph-lane-lab.html",
+   "id": "gui50-lane-b",
+   "adr": "GUI-50",
+   "clause": "the MORPH lane is the corner rows with their weights (lane B)",
+   "note": "Not in the master yet. FX device: same.",
+   "component": "ModBank",
+   "bundle": null,
+   "shell": null,
+   "state": "ruled",
+   "master_version": null
+  },
+  {
+   "port_tab": null,
+   "via": null,
+   "superseded_by": null,
+   "lab": "docs/design/bank-morph-lane-lab.html",
+   "id": "gui50-name-menus",
+   "adr": "GUI-50",
+   "clause": "each corner name in the lane is a menu of existing corner presets",
+   "note": "Not in the master yet. FX device: same.",
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "state": "ruled",
+   "master_version": null
+  },
+  {
+   "port_tab": null,
+   "via": null,
+   "superseded_by": null,
+   "lab": "docs/design/bank-morph-lane-lab.html",
+   "id": "gui50-save-on-morph",
+   "adr": "GUI-50",
+   "clause": "saving the current sound to a preset or a corner lives on the Morph page",
+   "note": "Not in the master yet. FX device: same.",
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "state": "ruled",
+   "master_version": null
+  },
+  {
+   "port_tab": null,
+   "via": null,
+   "superseded_by": null,
+   "lab": "docs/design/bank-morph-lane-lab.html",
+   "id": "gui50-asterisk",
+   "adr": "GUI-50",
+   "clause": "an asterisk on every name whose values differ from its preset, every kind of preset",
+   "note": "Not in the master yet. FX device: same.",
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "state": "ruled",
+   "master_version": null
+  },
+  {
+   "port_tab": null,
+   "via": null,
+   "superseded_by": null,
+   "lab": "docs/design/bank-morph-lane-lab.html",
+   "id": "gui50-off-dimmed",
+   "adr": "GUI-50",
+   "clause": "while morph is off the MORPH tab is dimmed with a Turn morph on switch",
+   "note": "Not in the master yet. FX device: same.",
+   "component": "ModBank",
+   "bundle": null,
+   "shell": null,
+   "state": "ruled",
+   "master_version": null
+  },
+  {
+   "port_tab": null,
+   "via": null,
+   "superseded_by": null,
+   "lab": "docs/design/bank-morph-lane-lab.html",
+   "id": "gui50-back",
+   "adr": "GUI-50",
+   "clause": "when morph turns off the bank goes back to the tab it had",
+   "note": "Not in the master yet. FX device: same.",
+   "component": "ModBank",
+   "bundle": null,
+   "shell": null,
    "state": "ruled",
    "master_version": null
   },
@@ -6764,6 +7139,66 @@
    "adr": "GUI-58",
    "clause": "CAD blueprint: corners drawn as Balloons, modulation as Phantom limits",
    "note": "Next: the master. FX device: the same."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": "docs/design/corner-mapping-lab.html",
+   "id": "gui53-loop-setting",
+   "adr": "GUI-53",
+   "clause": "a per-patch loop-mode setting: refuse any, refuse inside a corner, or allow one step late (default)",
+   "note": "FX device: the same."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": "docs/design/corner-mapping-lab.html",
+   "id": "gui53-drop-warning",
+   "adr": "GUI-53",
+   "clause": "a corner preset load that would close a loop loads without that mapping and names it in a warning",
+   "note": "FX device: the same."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": null,
+   "id": "gui54-splash",
+   "adr": "GUI-54",
+   "clause": "the Mindlathe logo covers the window on its first opening per Live session, fading on the first click or after 2.5 s",
+   "note": "FX device: the same."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": null,
+   "id": "gui53-mapmode-spec",
+   "adr": "GUI-53",
+   "clause": "the Map Mode spec reads per corner for 1.0 (the human approved the edit, 2026-11-06)",
+   "note": "The edit carries ADR-371 MQ17 and GUI-51 r5 (PR #1426). FX device: the same."
   }
  ],
  "not_design": [
@@ -7792,6 +8227,18 @@
    "reason": "The modulators' behaviour, ruled from the modulator lab; their cards' design is the GUI session's."
   },
   {
+   "adr": "ADR-376",
+   "reason": "The morph's oscillator on/off rule and the puck's saving, as behaviour; the Morph page is unchanged."
+  },
+  {
+   "adr": "ADR-377",
+   "reason": "The morph's law for structure, as behaviour; the Morph page shows the same pad, and no screen changes."
+  },
+  {
+   "adr": "ADR-378",
+   "reason": "Random LFOs' behaviour, ruled from the modulator lab; the LFO card's design is the GUI session's."
+  },
+  {
    "adr": "GUI-44",
    "reason": "A gate: GUI 3's browser check wired into ./verify fast, a hole where there's no browser. No design element."
   }
@@ -7943,6 +8390,36 @@
   "GUI-44": "none: a gate on the GUI shell",
   "GUI-46": "none: the bridge is B628’s, and its engine additions are GN-41, 42, 43 and 48",
   "GUI-47": "none: Override and the grid write the existing Envelope row (RC-6.5); a map button makes an ordinary modulation route (RC-4)",
+  "GUI-49": "none: drawings of the settings; GN-4 already asks for the output tap",
+  "GUI-50": [
+   "GN-9",
+   "GN-37",
+   "GN-52"
+  ],
+  "GUI-51": [
+   "GN-6",
+   "GN-7",
+   "GN-9",
+   "GN-25",
+   "GN-27",
+   "GN-35",
+   "GN-37",
+   "GN-51"
+  ],
+  "GUI-52": [
+   "GN-23",
+   "GN-27",
+   "GN-39",
+   "GN-49"
+  ],
+  "GUI-48": "none: the drawing and the conditions are the shell’s",
+  "GUI-53": [
+   "GN-27",
+   "GN-53"
+  ],
+  "GUI-54": [
+   "GN-54"
+  ],
   "GUI-58": [
    "GN-18"
   ]

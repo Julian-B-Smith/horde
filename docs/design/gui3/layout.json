@@ -1913,6 +1913,9 @@
             "cut": {
               "sub": "Cut"
             },
+            "cutHz": {
+              "sub": "Cut"
+            },
             "position": {
               "sub": "Cut"
             },
@@ -1992,6 +1995,9 @@
               "sub": "Cut"
             },
             "cut": {
+              "sub": "Cut"
+            },
+            "cutHz": {
               "sub": "Cut"
             },
             "position": {
@@ -2237,6 +2243,9 @@
             "cut": {
               "sub": "Cut"
             },
+            "cutHz": {
+              "sub": "Cut"
+            },
             "position": {
               "sub": "Cut"
             },
@@ -2316,6 +2325,9 @@
               "sub": "Cut"
             },
             "cut": {
+              "sub": "Cut"
+            },
+            "cutHz": {
               "sub": "Cut"
             },
             "position": {
@@ -2902,6 +2914,19 @@
             "morph.law": "MMOD",
             "morph.count": "CNT",
             "morph.glide": "MGLD"
+          }
+        },
+        {
+          "title": "Position",
+          "tag": "IF-11",
+          "side": true,
+          "keys": [
+            "morph.x",
+            "morph.y"
+          ],
+          "abbr": {
+            "morph.x": "X",
+            "morph.y": "Y"
           }
         },
         {

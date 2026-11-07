@@ -173,6 +173,26 @@ void web_window(const clap_plugin_t* plugin, const clap_plugin_params_t* params,
   check(touched != CLAP_INVALID_ID && heard == std::vector<std::uint16_t>{CLAP_EVENT_PARAM_GESTURE_BEGIN, CLAP_EVENT_PARAM_VALUE, CLAP_EVENT_PARAM_GESTURE_END},
         "a touch from the page reaches the host as one gesture: begin, value, end, on a row Live's panel holds only once touched");
 
+  // The morph (B636): the page's own messages, as GUI 3's Morph page would send them, reach the morph system, and the
+  // frame's `morph` member brings back what the engine now holds. `heard` carries only changes, so it is gathered.
+  run(wk, "var g = window.hordeNativeSnapshot; window.__heard = {};"
+          "window.hordeNativeSnapshot = function (s) { if (s.morph && s.morph.heard) Object.assign(__heard, s.morph.heard); return g(s); }; return 'ok';");
+  page_send(wk, "{type: 'want', seq: 9010, osc: [1, 2], members: true, cycles: false, morph: true}");
+  page_send(wk, "{type: 'corner', seq: 9011, index: 1, values: {'osc1.detune': 0.9}}");
+  page_send(wk, "{type: 'morph', seq: 9012, settings: {'morph.on': 1, 'morph.law': 0, 'morph.glide': 0}}");
+  page_send(wk, "{type: 'position', seq: 9013, x: 1, y: 0}");
+  pump(0.2);
+  check(run(wk, "return String(__shot.last.ack < 9013 && __heard['osc1.detune'] !== 0.9);") == "true",
+        "control: before a block runs, the morph's messages are neither acknowledged nor heard");
+  block(plugin, false);
+  check(wait_for(wk, "__shot.last.ack >= 9013 && __shot.last.morph && __shot.last.morph.x === 1 && __shot.last.morph.y === 0", 3),
+        "the page's morph messages are acknowledged, and its frames carry the pad's position");
+  check(wait_for(wk, "__heard['osc1.detune'] === 0.9", 3), "with the pad on corner B, the engine holds B's value, and the page hears it");
+  page_send(wk, "{type: 'morph', seq: 9014, settings: {'morph.on': 0}}");
+  page_send(wk, "{type: 'want', seq: 9015, osc: [1, 2], members: true, cycles: false}");
+  block(plugin, false);
+  check(wait_for(wk, "__shot.last.ack >= 9015 && !__shot.last.morph", 3), "control: morph off again, and without want.morph no morph member");
+
   for (int i = 0; i < 40; ++i) block(plugin, i == 0);
   check(wait_for(wk, "__shot.last.observe.sounding && Array.isArray(__shot.last.observe.voices[0].osc[0].phases)", 3),
         "a chord's frames reach the page sounding, with the members it asked for");

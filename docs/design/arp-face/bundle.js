@@ -1,4 +1,4 @@
-/* vendored from the horde Design System artifact, version 1793909482-958b, 2026-11-05; do not edit, re-vendor */
+/* vendored from the horde Design System artifact, version 1793941176-071d, 2026-11-05; do not edit, re-vendor */
 /* @ds-bundle: {"format":4,"namespace":"Horde","components":[{"name":"Knob"},{"name":"Slider"},{"name":"MapControl"},{"name":"XYPad"},{"name":"CornerChip"},{"name":"ScreenScheme"},{"name":"SourceStrip"},{"name":"ModMatrixGrid"},{"name":"RouteRow"},{"name":"ModLedger"},{"name":"TraceLanes"},{"name":"CompactWires"},{"name":"HostedMacroRows"},{"name":"ModCardHeader"},{"name":"LfoShapeEditor"},{"name":"EnvelopeEditor"},{"name":"TempoDivisions"},{"name":"CurvePlot"},{"name":"OrbitalCard"},{"name":"MidiTrackers"},{"name":"GateLanes"},{"name":"EventLanes"},{"name":"SmoothingLanes"},{"name":"ShClockCard"},{"name":"OwnershipTier"},{"name":"QuantumPad"},{"name":"PadBars"},{"name":"CrossSection"},{"name":"MorphGrid"},{"name":"FindPane"},{"name":"MorphInspector"},{"name":"KindLegend"},{"name":"MorphMode"},{"name":"NameField"},{"name":"SteppedControl"},{"name":"Stepper"},{"name":"Cohesion"},{"name":"FxRack"},{"name":"FxMatrix"},{"name":"FxPanel"},{"name":"FxCables"},{"name":"GainStaging"},{"name":"ChainLine"},{"name":"BlendMaps"},{"name":"PageNav"},{"name":"SectionHeader"},{"name":"ChannelStrip"},{"name":"Companion"},{"name":"SourceChip"},{"name":"SourceRows"},{"name":"RoutesBySource"},{"name":"Cluster"},{"name":"Lens"},{"name":"Fold"},{"name":"PageView"},{"name":"ModTiers"},{"name":"MacroRow"},{"name":"ModBank"},{"name":"ModPage"},{"name":"UndoLine"},{"name":"MacroFace"},{"name":"PresetBar"},{"name":"Deck"},{"name":"MacroCard"},{"name":"ParamPicker"},{"name":"HistoryRail"},{"name":"PicturePicker"},{"name":"AssignXY"},{"name":"Specimen"}]} */
 /* horde house reference behaviours (vanilla JS, no React, no network).
    The morph knob and slider follow the human's HORDE Morph Knob Spec and HORDE Map Mode Spec
@@ -1120,7 +1120,9 @@
      dashed; members faint; the heard sum on top. The bands are true to the data: the sum departs from the base only inside them.
      MEMBERS: one lane per member, over its own phase. AT PHASE (cy.atPhase, Synth.atPhase): each member shifted to where it is against
      the mean field, so the swarm lines up as it does now; only the lifted member's windows keep their edges, since N members'
-     windows tile the cycle. At lock every offset is 0 and this view draws SUM's picture. cy.lift lifts a member; cy.overlay
+     windows tile the cycle. At lock every offset is 0 and this view draws SUM's picture. MEMBERS AT PHASE (GUI-49, the human: "a scalpel
+     view option that has members at phase"): MEMBERS' lanes, each drawn as AT PHASE has it, shifted to where it is against the mean
+     field, with a tick at its cycle's start; the windows are the shifted ones. cy.lift lifts a member; cy.overlay
      ({ blades, drag, lines }) outlines what a drag would move, in the attention ink, and carries its readout. */
   /* GUI-35, the Dial (GB9, sub-noise-lab.html): one heavy cycle wrapped round a dial with its ceiling as a ring, and, where there's room, the same cycle unrolled beside it. Drive flattens it against the ring,
      Erode frays it. `st` keeps its turn and its noise: st.t in seconds, st.level 0..1. */
@@ -1182,8 +1184,8 @@
     if (o.type === 'Crackle') { const want = o.density / 60 * st.level; let n = Math.floor(want); if (r() < want - n) n++; for (let i = 0; i < Math.min(n, 48); i++) st.flash.push({ x: .5 + (r() - .5) * width, y: r(), a: 1 }); st.flash = st.flash.filter(f => f.a > .05).slice(-300); st.flash.forEach(f => { f.a *= .84; g.strokeStyle = K.c('value', f.a); g.lineWidth = 1.4 * V; g.beginPath(); g.arc(f.x * W, f.y * H, (1 - f.a) * 26 * V + V, 0, TAU); g.stroke(); g.fillStyle = K.c('value', f.a); g.fillRect(f.x * W - 1.5 * V, f.y * H - 1.5 * V, 3 * V, 3 * V); }); }
   };
   Viz.blade = function (cv, cy) {
-    var K = Viz.kit(cv), g = K.g, W = K.W, H = K.H, V = K.V, top = 3 * V, bot = H - 3 * V, q, view = cy.view || 'sum', pm = view === 'phase' ? cy.atPhase : null,
-      lanes = view === 'members' && cy.members.length > 1, nL = lanes ? cy.members.length : 1, hi = pm && cy.lift >= 0 ? cy.lift : -1,
+    var K = Viz.kit(cv), g = K.g, W = K.W, H = K.H, V = K.V, top = 3 * V, bot = H - 3 * V, q, view = cy.view || 'sum', pm = view === 'phase' || view === 'mphase' ? cy.atPhase : null,
+      lanes = (view === 'members' || view === 'mphase') && cy.members.length > 1, nL = lanes ? cy.members.length : 1, hi = pm && !lanes && cy.lift >= 0 ? cy.lift : -1,
       mono = getComputedStyle(cv).getPropertyValue('--font-mono') || 'monospace';
     K.tube(); K.scan();
     g.strokeStyle = K.c('grid', .18); g.lineWidth = V; g.beginPath();
@@ -1208,8 +1210,9 @@
     if (lanes) {
       for (var L = 0; L < nL; L++) {
         var y0 = top + (bot - top) * L / nL, y1 = top + (bot - top) * (L + 1) / nL, ym = (y0 + y1) / 2, am = (y1 - y0) / 2 / 1.25;
-        cy.windows.forEach(function (wd) { var m = (wd.members || [])[L]; if (m) band(m.st, m.w, wd.blade, wd.a, .6, false, y0, y1); });
-        line(cy.base, 'grid', .55, 1, [3, 3], ym, am); heard(cy.members[L], 1.4, ym, am);
+        (pm ? pm.windows : cy.windows).forEach(function (wd) { var m = (wd.members || [])[L]; if (m) band(m.st, m.w, wd.blade, wd.a, .6, false, y0, y1); });
+        line(cy.base, 'grid', .55, 1, [3, 3], ym, am); heard((pm ? pm.members : cy.members)[L], 1.4, ym, am);
+        if (pm) { var tx = Math.round(((-pm.off[L] % 1) + 1) % 1 * W) + .5; g.strokeStyle = K.c('physics', .8); g.lineWidth = 1.2 * V; g.beginPath(); g.moveTo(tx, y0); g.lineTo(tx, y0 + Math.min(5 * V, (y1 - y0) / 3)); g.stroke(); }   // where this member's cycle starts
       }
     } else if (pm) {
       var a0 = Math.max(.07, .22 / Math.sqrt(Math.max(1, pm.members.length)));
@@ -1233,7 +1236,7 @@
     g.font = (9 * V) + 'px ' + mono; g.textBaseline = 'top';
     function box(t, x, y, ink) { var w = g.measureText(t).width; g.fillStyle = K.c('ground', .72); g.fillRect(x - w - 3 * V, y - V, w + 6 * V, 12 * V); g.fillStyle = K.c(ink); g.textAlign = 'right'; g.fillText(t, x, y); g.textAlign = 'left'; }
     if (!lanes) cy.windows.forEach(function (wd) { g.fillStyle = K.c('value'); g.fillText(wd.blade === 1 ? '①' : '②', ((wd.st + wd.w / 2) % 1) * W - 4 * V, top + 2 * V); });
-    if (pm && pm.members.length > 1) {
+    if (pm && !lanes && pm.members.length > 1) {
       pm.off.forEach(function (d, i) { var x = Math.round(((-d % 1) + 1) % 1 * W) + .5, up = i === hi; g.strokeStyle = K.c('physics', up ? 1 : .7); g.lineWidth = (up ? 2 : 1.2) * V; g.beginPath(); g.moveTo(x, top); g.lineTo(x, top + (up ? 10 : 5) * V); g.stroke(); });
       box(hi >= 0 ? 'member ' + (hi + 1) + ' · ' + (pm.off[hi] >= 0 ? '+' : '−') + Math.abs(pm.off[hi]).toFixed(2) + ' cycle from ψ' : 'R ' + pm.R.toFixed(2) + ' · ticks = cycle starts', W - 5 * V, top + 2 * V, 'physics');
     }
@@ -5202,7 +5205,7 @@
      mapping are one for every instance (the lab's "one mapping for OSC and MAIN"), remembered per machine, never with a patch.
      o: { height, label, roles: { blade, swarm, play: [[id, label]] }, keyOf(role, blade) -> key | null, read(key) -> 0..1, circ(key),
      write({ key: 0..1 }), begin(), end(), label(key), value(key), keys() }. Returned: { frame(cy), view(v?), canvas, drag }. */
-  var BV_DEF = { x: ['position', '', 0], y: ['cut', '', 0], sx: ['width', '', 0] }, BV_KEY = 'hd.bladeview', BV_VIEWS = ['sum', 'members', 'phase'], BV_NAMES = ['Sum', 'Members', 'At phase'], BV_ALL = [];
+  var BV_DEF = { x: ['position', '', 0], y: ['cut', '', 0], sx: ['width', '', 0] }, BV_KEY = 'hd.bladeview', BV_VIEWS = ['sum', 'members', 'phase', 'mphase'], BV_NAMES = ['Sum', 'Members', 'At phase', 'Members at phase'], BV_ALL = [];
   var BV = { view: 'sum', map: JSON.parse(JSON.stringify(BV_DEF)) };
   try { var bvS = JSON.parse(window.localStorage.getItem(BV_KEY)); if (bvS) { if (BV_VIEWS.indexOf(bvS.view) >= 0) BV.view = bvS.view; if (bvS.map && bvS.map.x && bvS.map.y && bvS.map.sx) BV.map = bvS.map; } } catch (_) { /* no storage: the session holds it */ }
   function bvKeep() { try { window.localStorage.setItem(BV_KEY, JSON.stringify(BV)); } catch (_) { /* as above */ } }
@@ -5237,7 +5240,7 @@
       rs.addEventListener('click', function () { BV.map = JSON.parse(JSON.stringify(BV_DEF)); bvKeep(); buildMap(); refresh(); }); map.appendChild(rs);
     }
     leg.addEventListener('click', function () { map.hidden = !map.hidden; if (!map.hidden) buildMap(); sync(); });
-    function winsOf() { var src = BV.view === 'phase' && cy && cy.atPhase ? cy.atPhase.windows : cy ? cy.windows : []; return src; }
+    function winsOf() { var src = (BV.view === 'phase' || BV.view === 'mphase') && cy && cy.atPhase ? cy.atPhase.windows : cy ? cy.windows : []; return src; }
     function target(ph) { var best = 0, bd = 9, wins = winsOf(), on = wins.map(function (w) { return w.blade; });
       wins.forEach(function (wd) { wd.members.forEach(function (m) { if (frac(ph - m.st) >= m.w) return; var dd = Math.abs(frac(ph - m.st - m.w / 2 + .5) - .5); if (dd < bd) { bd = dd; best = wd.blade; } }); });
       return best ? { blades: [best], why: 'under the pointer' } : { blades: on, why: on.length ? 'empty space, every blade' : 'no blade is on' }; }

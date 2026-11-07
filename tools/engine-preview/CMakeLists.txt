@@ -93,7 +93,7 @@ else()
   set(PREVIEW_WINDOW preview_gui.mm)
   set(PREVIEW_WINDOW_LIBS "-framework AppKit")
 endif()
-add_library(preview-impl STATIC preview_plugin.cpp bridge_core.cpp ${PREVIEW_WINDOW})
+add_library(preview-impl STATIC preview_plugin.cpp bridge_core.cpp morph_core.cpp ${PREVIEW_WINDOW})
 # build.sh passes which engine commit and which build this is; the window, the log and the description show it.
 set(HORDE_PREVIEW_BUILD_LABEL "engine unknown, build 0" CACHE STRING "")
 target_compile_definitions(preview-impl PUBLIC "HORDE_PREVIEW_BUILD_LABEL=\"${HORDE_PREVIEW_BUILD_LABEL}\"")
@@ -124,11 +124,13 @@ endforeach()
 
 # The smoke test's must-fail builds, bare CLAPs never installed. They keep the AppKit window whatever
 # HORDE_PREVIEW_WEBVIEW says, so every build compiles the fallback and it can't rot unseen.
-#   preview-plant      the routes removed, the retired Voices limit of 4 put back, pitch bends dropped, and the
-#                      output tap frozen after its first block
-#   preview-plant-map  the bridge's key map shifted one row, and the output tap hearing silence
-foreach(plant preview-plant preview-plant-map)
-  add_library(${plant} MODULE preview_plugin.cpp bridge_core.cpp preview_gui.mm preview_entry.cpp)
+#   preview-plant        the routes removed, the retired Voices limit of 4 put back, pitch bends dropped, the output tap
+#                        frozen after its first block, and a state chunk that forgets the morph (B636)
+#   preview-plant-map    the bridge's key map shifted one row, and the output tap hearing silence
+#   preview-plant-morph  the pad's position messages dropped (B636), alone: every other plant here changes something
+#                        the morph's checks also read, which would let its control fail for the wrong reason
+foreach(plant preview-plant preview-plant-map preview-plant-morph)
+  add_library(${plant} MODULE preview_plugin.cpp bridge_core.cpp morph_core.cpp preview_gui.mm preview_entry.cpp)
   add_dependencies(${plant} bank_embedded)
   target_compile_definitions(${plant} PRIVATE "HORDE_PREVIEW_BUILD_LABEL=\"${HORDE_PREVIEW_BUILD_LABEL}\"")
   target_include_directories(${plant} PRIVATE ${CMAKE_BINARY_DIR}/generated ${CMAKE_CURRENT_SOURCE_DIR} ${HORDE_REPO_ROOT}/h2 ${PREVIEW_CHOC_DIR})
@@ -136,8 +138,9 @@ foreach(plant preview-plant preview-plant-map)
   set_target_properties(${plant} PROPERTIES PREFIX "" SUFFIX ".clap")
 endforeach()
 target_compile_definitions(preview-plant PRIVATE HORDE_PREVIEW_PLANT_NO_ROUTES HORDE_PREVIEW_PLANT_VOICE_CAP
-                           HORDE_PREVIEW_PLANT_DROP_BEND HORDE_PREVIEW_PLANT_FROZEN_TAP)
+                           HORDE_PREVIEW_PLANT_DROP_BEND HORDE_PREVIEW_PLANT_FROZEN_TAP HORDE_PREVIEW_PLANT_STATE_NO_MORPH)
 target_compile_definitions(preview-plant-map PRIVATE HORDE_PREVIEW_PLANT_KEYMAP_SHIFT HORDE_PREVIEW_PLANT_SILENT_TAP)
+target_compile_definitions(preview-plant-morph PRIVATE HORDE_PREVIEW_PLANT_DROP_POSITION)
 
 add_executable(preview-smoke smoke.cpp)
 add_dependencies(preview-smoke bank_embedded)
@@ -150,7 +153,7 @@ target_include_directories(preview-gui-shot PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(preview-gui-shot PRIVATE clap "-framework AppKit" "-framework WebKit")
 
 # The bridge's pure half, headless (section 7's rows). It links the engine only for its manifest.
-add_executable(preview-bridge-test bridge_test.cpp bridge_core.cpp)
+add_executable(preview-bridge-test bridge_test.cpp bridge_core.cpp morph_core.cpp)
 target_include_directories(preview-bridge-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${PREVIEW_CHOC_DIR})
 target_link_libraries(preview-bridge-test PRIVATE horde_engine2)
 
