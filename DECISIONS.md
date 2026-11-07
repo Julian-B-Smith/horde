@@ -12856,3 +12856,9 @@ Spec round 64 writes it, with item 34.19's checks. Its must-fail control is the 
 **The CPU finding,** recorded here for B638: a moving morph under Blend costs about 1.6 times morph off, and its worst block reached about 100 % of a 512-sample buffer with 8 notes. That is a budget matter, not a bug.
 
 **FX device (ADR-254).** None: the FX device has no source switches.
+
+**ADR-374 A2 (the human, 2026-11-07): moved envelope selectors lean to osc 1's.** The human: "at lower and moderate chaos settings, oscillator volumes should stay on whatever envelope they're already attached to, and fully randomized patches should heavily bias toward attaching every osc volume to Osc 1."
+- **Low and moderate chaos:** a source's `env` selector doesn't move. This is unchanged from A1.
+- **When a selector moves:** high chaos only. It lands on osc 1's envelope 80 % of the time (`prior.envOne`, a stand-in for the tuning session), and the other options share the rest evenly.
+
+The GUI session built it as GUI-55 A2 (#1455). Its reading, for the human to confirm: "osc 1's envelope" means whichever envelope osc 1 holds after the same draw. That is ENV 1, except in the rare draw where osc 1's own selector moved.
