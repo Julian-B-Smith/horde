@@ -499,9 +499,13 @@ S.ownerOf = function (p) {
   return own;
 };
 // FIRST view: the device follows the pad, a gesture ends when the bundle's drag does, and the routes are mirrored.
+// On the plug-in (GUI-59) the device can move by itself, when the host automates morph.x and morph.y: then the pad follows it.
+let devSeen = null;
 S.add({ render() {
   const m = dev.morph();
-  if (m.on && (S.pad.x !== m.x || S.pad.y !== m.y)) dev.setMorph({ x: S.pad.x, y: S.pad.y });
+  if (dev.hosted() && m.on && devSeen && (m.x !== devSeen.x || m.y !== devSeen.y)) { S.pad.x = m.x; S.pad.y = m.y; }
+  else if (m.on && (S.pad.x !== m.x || S.pad.y !== m.y)) dev.setMorph({ x: S.pad.x, y: S.pad.y });
+  devSeen = { x: dev.morph().x, y: dev.morph().y };
   const g = dev.gestureKey();
   if (g && !(S.drag && S.drag.key === g)) dev.end();
   mapBridge.frame();
@@ -2009,7 +2013,7 @@ H.PresetBar($('presetHost'), S, { value: 'INIT - Init', note: 'MOCK: the factory
 fillMain();
 
 // ===== BLOCK E2: the plug-in's bridge (B628, docs/proposals/gui-on-engine.md; GUI-46) =====
-/* Only on a bridge (BRIDGE, BLOCK B). The clean-room engine has no morph, no modulation and no FX rack or Arp yet, so the controls
+/* Only on a bridge (BRIDGE, BLOCK B). The test plug-in plays the morph since B636 and B639 (GUI-59), but has no modulation and no FX rack or Arp yet, so the controls
    those would serve stay on the page, dimmed with the master's disabled opacity, saying so (the human: "Dimmed, still visible").
    GUI-21's idle still HIDES a control whose condition fails; this is a different thing: the control works, its engine doesn't
    exist yet. A row's side comes from its target (engine, resolver, rack, midi) and what stands behind the transport. */
@@ -2020,16 +2024,18 @@ const INERT_SAYS = 'Not in this engine yet';
 let wanted = '';
 function wantFor(id) {
   if (!BRIDGE) return;
-  const osc = id === 'main' || id === 'dashboard' ? [1, 2] : id === 'osc1' ? [1] : id === 'osc2' ? [2] : [], w = { osc, members: osc.length > 0, cycles: false }, k = JSON.stringify(w);
+  // morph: on every page whenever the plug-in hosts the morph (GUI-59), so the page hears its state even before you turn it on
+  const osc = id === 'main' || id === 'dashboard' ? [1, 2] : id === 'osc1' ? [1] : id === 'osc2' ? [2] : [], w = { osc, members: osc.length > 0, cycles: false, morph: !!dev.sides().resolver }, k = JSON.stringify(w);
   if (k !== wanted) { wanted = k; dev.want(w); }
 }
 if (BRIDGE) {
   if (transport.tick) views.push({ page: '*', update() { transport.tick(S.now); } });   // a replay plays on the page's own frame time
   if (BRIDGE === 'replay') window.GUI3_BRIDGE = { transport, dev, selectPage, pics: PICS };   // the browser check's hook, as GUI3_FEED is (GUI-34); never set inside the plug-in
   document.querySelectorAll('#pages [data-key]').forEach(e => { const r = ROW[e.dataset.key]; if (r && inertRow(r)) { e.classList.add('inert'); e.title = INERT_SAYS; } });
-  Object.values(pageEls).forEach(el => { if (el.querySelector('.inert')) el.insertBefore(h('p', { class: 'hd-hint inert-note', text: 'Dimmed controls aren’t in this engine yet: the morph, modulation, the FX rack and Arp come later.' }), el.children[1] || null); });
-  // The morph and MAP make no sound here: the morph has no resolver behind the bridge, and routes reach no engine (RC-4).
-  $('morphOn').disabled = true; $('morphOn').closest('label').classList.add('inert'); $('morphOn').closest('label').title = INERT_SAYS + ': the morph';
+  const later = (dev.sides().resolver ? [] : ['the morph']).concat(['modulation', 'the FX rack and Arp']);
+  Object.values(pageEls).forEach(el => { if (el.querySelector('.inert')) el.insertBefore(h('p', { class: 'hd-hint inert-note', text: 'Dimmed controls aren’t in this engine yet: ' + later.join(', ') + ' come later.' }), el.children[1] || null); });
+  // MAP makes no sound here: routes reach no engine (RC-4). The morph does once the bridge hosts it (B636, B639; GUI-59).
+  if (!dev.sides().resolver) { $('morphOn').disabled = true; $('morphOn').closest('label').classList.add('inert'); $('morphOn').closest('label').title = INERT_SAYS + ': the morph'; }
   $('mapHost').classList.add('inert'); $('mapHost').title = INERT_SAYS + ': modulation';
   // A mismatch the bridge reports for hello's hash is a banner in the window, never a silent play: the keys that differ are named.
   const banner = h('p', { class: 'hd-note bad bridge-banner', role: 'alert', hidden: true });
@@ -2061,7 +2067,22 @@ if (BRIDGE) {
     const b = (pl && pl.build) || (dev.bridge().hello || {}).build || '', t = b ? 'Build ' + b : '';
     if ($('buildLabel').textContent !== t) $('buildLabel').textContent = t;
   };
-  const paintBridge = () => { paintMismatch(); paintBank(); paintPlugin(); };
+  /* GUI-59: what the plug-in's morph reports, on the Morph page: each source's heard level, the edits it refused (a resolved
+     value sent as a set), the events this build doesn't know, and the resolver's counters. Words, not a new picture: a fade
+     drawn on the sources waits on the master. Region locks and corner names stay in the page, and it says so. */
+  const mline = h('p', { class: 'hd-hint morph-bridge', id: 'morphBridge', 'aria-live': 'off' });
+  if (dev.hosted()) pageEls.morph.insertBefore(mline, pageEls.morph.children[1] || null);
+  const pct = x => x === null || x === undefined ? 'none' : Math.round(x * 100) + ' %';
+  let mKey = '';
+  const paintMorphBridge = () => {
+    const r = dev.morphReport(); if (!r) return;
+    const c = r.counters || {}, L = r.levels || [], t = 'The plug-in’s morph: heard levels Osc 1 ' + pct(L[0]) + ', Osc 2 ' + pct(L[1]) + ', Sub ' + pct(L[2]) + ', Noise ' + pct(L[3]) +
+      '. Refused edits ' + r.dropped + ', unknown events ' + r.unknown + ', refused waypoints ' + (c.refusedWaypoints || 0) + ', refused locks ' + (c.refusedLocks || 0) +
+      ', dropped inputs ' + (c.droppedInputs || 0) + ', dropped events ' + (c.droppedEvents || 0) + (r.saving ? '. Saving the current sound…' : '') +
+      '. Region locks and corner names stay in this page for now.';
+    if (t !== mKey) { mKey = t; mline.textContent = t; mline.classList.toggle('bad', r.dropped > 0 || r.unknown > 0); }
+  };
+  const paintBridge = () => { paintMismatch(); paintBank(); paintPlugin(); paintMorphBridge(); };
   views.push({ page: '*', update: paintBridge });
   transport.onSnapshot(paintBridge);   // after the adapter's own subscriber, so dev.presets() and the rest already read this snapshot
   wantFor(page);

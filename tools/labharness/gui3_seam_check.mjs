@@ -113,6 +113,12 @@
  *                frame without presets keeps the last; the feed comes from an engine frame and never from the stub's MOCK
  *                meters; and shell-data's manifest_hash equals one recomputed here, in JS with C's %.17g, from the rows
  *                (the generator writes it in Python: two oracles, and the bridge's C++ is the third)
+ *   morphbridge  GUI-59, the plug-in's morph (B636, B639), on ReplayTransport: with morph off an edit is a `set` (the control);
+ *                with morph on no resolved value goes as a set, and a corner edit is one `corner` message carrying only what
+ *                changed; Scatter and its undo send B to D and not A; Save current sound is a `save`, and the corner the
+ *                next frame brings becomes the saved preset; a frame's corner is adopted, but not by a frame that hasn't
+ *                seen a newer edit (control: the same frame once it has); waypoints and their law go as their own messages;
+ *                turning morph off sends its setting before the sets it allows; every message passes the schema
  *
  * MUST-FAIL CONTROLS (plants), every run, on in-memory copies of the two scripts: an observe() that
  * counts, an undo that applies the wrong side, a scatter that draws from a counter, a route check
@@ -1074,6 +1080,44 @@ function suite(W) {
     ok(DATA.manifest_hash === hx, 'shell-data’s manifest_hash ' + DATA.manifest_hash + ' is not the rows’ ' + hx);
   };
 
+  T.morphbridge = () => {
+    const loadF = { params: Object.fromEntries(host.map(r => [r.key, r.default_v])) };
+    const t = ENG.ReplayTransport([loadF, loadF], { rows }), d = DEV.create(DATA, t, { seed: 5, adopt: true }), after = n => t.sent.slice(n);
+    d.hello(DATA.manifest_hash); t.tick(0); t.tick(40);
+    ok(d.hosted() && !fresh(1).d.hosted(), 'the replay doesn’t host the morph, or the stub does');
+    const k = cont.key, k2 = host.find(r => r.class === 'M' && r.law === 'lin' && r.key !== k).key;
+    let n = t.sent.length; d.set(k, .31);
+    ok(after(n).some(m => m.type === 'set' && m.values[k] === .31), 'with morph off an edit of the audible corner sent no set (the control: a set this test can see)');
+    n = t.sent.length; d.setMorph({ on: true }); d.set(k2, .62, { corner: 2 });
+    const on = after(n), cm = on.filter(m => m.type === 'corner');
+    ok(!on.some(m => m.type === 'set' && Object.keys(m.values).some(x => by[x].class !== 'D')), 'with morph on a resolved value went as a set: ' + JSON.stringify(on.find(m => m.type === 'set')));
+    ok(on.some(m => m.type === 'morph' && m.settings['morph.on'] === 1), 'turning morph on sent no morph.on');
+    ok(cm.length === 1 && cm[0].index === 2 && Object.keys(cm[0].values).join() === k2 && cm[0].values[k2] === .62, 'the corner edit went as ' + JSON.stringify(cm));
+    n = t.sent.length; d.scatter(7); const sc = after(n).filter(m => m.type === 'corner');
+    ok(sc.map(m => m.index).join() === '1,2,3', 'Scatter sent corners ' + sc.map(m => m.index).join() + ', not B to D');
+    n = t.sent.length; d.undo(); ok(after(n).filter(m => m.type === 'corner').map(m => m.index).join() === '1,2,3', 'undoing Scatter didn’t send B to D back');
+    n = t.sent.length; const res = d.saveSoundTo(1, 'Heard'), sv = after(n).find(m => m.type === 'save');
+    ok(res.ok && sv && sv.index === 1 && !after(n).some(m => m.type === 'corner' || m.type === 'set'), 'Save current sound sent ' + JSON.stringify(after(n)));
+    const morphF = (ack, corners) => ({ ack, morph: { x: .5, y: .5, dropped: 2, unknown: 0, corners, levels: [1, .5, 0, null], counters: { refusedWaypoints: 1, refusedLocks: 0, droppedInputs: 0, droppedEvents: 0 } } });
+    t.push(morphF(sv.seq, [{}, { [k]: .77 }, {}, {}]));
+    ok(d.corner(k, 1) === .77 && !d.morphReport().saving, 'the saved corner didn’t come back from the frame (' + d.corner(k, 1) + ')');
+    const r0 = d.morphReport(); ok(r0.dropped === 2 && r0.levels[1] === .5 && r0.levels[3] === null && r0.counters.refusedWaypoints === 1, 'the frame’s report read ' + JSON.stringify(r0));
+    d.set(k, .1, { corner: 1 }); ok(d.edited(1), 'the corner that came back isn’t the saved preset: editing it doesn’t read as edited');
+    d.set(k, .4, { corner: 3 }); const s3 = t.sent[t.sent.length - 1].seq;
+    t.push(morphF(s3 - 1, [{}, {}, {}, { [k]: .99 }]));
+    ok(d.corner(k, 3) === .4, 'a frame that hadn’t seen a newer corner edit overwrote it (' + d.corner(k, 3) + ')');
+    t.push(morphF(s3, [{}, {}, {}, { [k]: .99 }]));
+    ok(d.corner(k, 3) === .99, 'a current frame’s corner wasn’t adopted, so the stale case proves nothing (' + d.corner(k, 3) + ')');
+    n = t.sent.length; d.setPins(k, [[.3, .3, .5]]); d.setBlendSettings('tind', false);
+    const wp = after(n).find(m => m.type === 'waypoints'), wl = after(n).find(m => m.type === 'waypointLaw');
+    ok(wp && wp.key === k && wp.points.length === 1 && wp.points[0].x === .3 && wp.points[0].v === .5 && wl && wl.law === 'tin' && wl.clamp === false, 'waypoints and their law went as ' + JSON.stringify([wp, wl]));
+    d.set(k, .55, { corner: 0 });
+    n = t.sent.length; d.setMorph({ on: false }); const off = after(n), iM = off.findIndex(m => m.type === 'morph'), iS = off.findIndex(m => m.type === 'set' && k in m.values);
+    ok(iM >= 0 && iS > iM, 'turning morph off sent ' + off.map(m => m.type).join(', ') + ': the set must follow the morph setting, or the bridge refuses it');
+    ok(t.sent.every(m => ENG.checkMessage(m, rows) === null), 'a message failed the schema: ' + JSON.stringify(t.sent.find(m => ENG.checkMessage(m, rows) !== null)));
+    ok(ENG.checkMessage({ type: 'corner', seq: 1, index: 4, values: {} }, rows) !== null && ENG.checkMessage({ type: 'corner', seq: 1, index: 0, values: { [by[Object.keys(by).find(x => by[x].target === 'rack')].key]: .5 } }, rows) !== null,
+      'the schema took a corner past D, or one naming a rack row');
+  };
   T.determinism = () => {
     const run = seed => {
       const { e, d } = fresh(seed);
@@ -1108,6 +1152,13 @@ const PLANTS = [
   ['bridge', 'device', 'if (loadAt !== null && s.ack >= loadAt && s.params && everyRow(s.params)) { loadAt = null; adopt(s.params, s.ack); return; }', ''],
   ['observe', 'stub', 'E.observe = function () {', 'E.observe = function () { refused++;'],
   ['history', 'device', 'var b = cur.before; cur = p;', 'var b = cur.after; cur = p;'],
+  // GUI-59: a resolved value goes as a set; no corner goes; a stale frame's corner is adopted; morph off's sets go before it; the replay hosts nothing; the save never settles
+  ['morphbridge', 'device', "if (HOST && st.morphOn && by[k].class !== 'D' && (by[k].target || 'engine') === 'engine') return;", ''],
+  ['morphbridge', 'device', 'if (HOST && loaded) { syncCorners(); syncPins(); }', ''],
+  ['morphbridge', 'device', "r = by[k]; if (!r || r.class === 'D' || (cornerSeq[c][k] !== undefined && ack < cornerSeq[c][k])) continue;", "r = by[k]; if (!r || r.class === 'D') continue;"],
+  ['morphbridge', 'device', "(HOST ? ['morph', 'set', 'rack', 'midi'] : ['set', 'morph', 'rack', 'midi'])", "['set', 'morph', 'rack', 'midi']"],
+  ['morphbridge', 'stub', 'sides: BRIDGE_SIDES, replay: true, morphHost: true,', 'sides: BRIDGE_SIDES, replay: true,'],
+  ['morphbridge', 'device', 'if (back || saving.wait > 30) {', 'if (false) {'],
   ['determinism', 'device', "mulberry32(hash32(r.key) ^ (s * 2654435761 >>> 0))", "mulberry32(hash32(r.key) ^ (s * 2654435761 >>> 0) ^ (root.__n = (root.__n | 0) + 1))"],
   // The whole destination test goes: the engine's pv test alone already refuses a stepped engine row, so removing only
   // the step test would leave this plant blind.

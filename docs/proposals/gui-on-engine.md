@@ -34,6 +34,25 @@ The page's existing transport (`docs/design/gui3/engine-stub.js`, `GUI3Engine.TR
 - `preset {seq, index}`.
 - `plugin {seq, voices}`: the test plug-in's own Voices setting, which sits outside §5. The page gives it one small control.
 
+**The morph's messages** (B636, B639; the page's side is GUI-59). The plug-in hosts the morph and plays the clean room's resolver, so while morph is on the page sends no morphing row as a `set` (the resolver is its only source, IF-12, and the bridge refuses and counts such a set). Instead:
+- `corner {seq, index, values: {key: v}}`: values written into one corner (0 to 3), by the same rules as a `set`. Partial is fine: the page sends only what changed.
+- `save {seq, index}`: MO-25's Save current sound, from the resolver's own reads. The corner comes back in the frames.
+- `waypoints {seq, key, points: [{x, y, v}, ...]}`: one key's whole list, replacing the last; `[]` clears it (MO-21).
+- `waypointLaw {seq, law: "tps" | "tin", clamp}`: the patch's waypoint law and its clamp (MO-21).
+- `lock {seq, key, offsets: [dB, dC, dD] | null}`: a key's region lock (MO-24). The page doesn't send it yet: a lock "as is" needs `lock_as_is`'s offsets, and there is no read for them (GN-55).
+- `want` gains `morph: bool`. The page sets it on every page whenever the plug-in hosts the morph.
+
+**The frame's `morph` member,** with `want.morph`.
+- **Every frame:** the position `x, y`, `dropped` (refused edits), `unknown` (events this build doesn't know), `levels: [osc1, osc2, sub, noise]` (each source's heard morph level, null where the engine has none) and `counters: {refusedWaypoints, refusedLocks, droppedInputs, droppedEvents}`.
+- **Only when they change:**
+  - D.2's `settings`, by key in v;
+  - `modes` and `counts`, each whole;
+  - each corner's changed rows, as `corners: [{key: v}, ...]` in corner order;
+  - the corners' `ratios` texts;
+  - what the engine holds, as `heard` and its `texts`;
+  - the `waypoints`, the `waypointLaw` and the `locks`, each whole.
+- The page adopts what differs from what it last sent, skipping a value whose newer send the frame's `ack` hasn't reached, as it does for params.
+
 **Every `seq` is acknowledged:** applied, or held and dropped. None is ever an error. The stub throws on `morph`, `position`, `modes`, `rack` and `midi` when nothing stands behind them; the bridge acknowledges and drops them instead.
 
 **Snapshots to the page come in two parts.** Every 1/30 s a frame carries `ack` (the last `seq` applied: ADR-319's mirror and confirm) and `observe`. `params`, `events` and `presets: {names, index}` ride only when something changed. `state` rides only after a load or a save, never per frame: the stub's SyncTransport puts saveState in every snapshot, and the bridge mustn't copy that.
