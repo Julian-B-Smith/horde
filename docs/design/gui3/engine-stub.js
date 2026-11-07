@@ -280,15 +280,18 @@
        in:  window.hordeNativeSnapshot(obj), called by the bridge. Every frame (1/30 s) carries `ack` and `observe`; `params`,
             `events`, `presets` and `plugin` ride only when they changed, and `state` only after a load or a save. A frame
             leaves out what didn't change, so the transport keeps the last of each and hands the adapter whole snapshots.
-     The engine's side has no morph resolver and no device side (rack, MIDI module): `sides` says so, and the page draws
-     the controls those sides would serve as not in this engine yet. The bridge acknowledges every seq, applied or held.
+     The plug-in hosts the morph and plays the clean room's resolver (B636, B639), so `sides.resolver` is true and `morphHost`
+     tells the adapter to send corners rather than resolved values (GUI-59). It has no device side (rack, MIDI module): `sides`
+     says so, and the page draws those controls as not in this engine yet. The bridge acknowledges every seq, applied or held.
      `decode` is the one place the wire's shape becomes the page's, so the replay below runs exactly the plug-in's path. */
-  var NO_SIDES = { engine: true, resolver: false, device: false };
+  var BRIDGE_SIDES = { engine: true, resolver: true, device: false };
   /* The schema both sides signed (section 3): each message type and the fields it carries. checkMessage answers null for a
      well-formed message, or why not. A `set` names engine rows only (rule 2: the page sends the others as their own types),
      and with `rows` given, only keys among them that aren't reserved (rule 1's "never sent blind", on the page's side too). */
   var MESSAGES = { set: ['values'], gesture: ['key', 'phase'], morph: ['settings'], position: ['x', 'y'], modes: ['modes', 'counts'],
     rack: ['values'], midi: ['values'], clear: ['id'], want: ['osc', 'members', 'cycles'], preset: ['index'],
+    // GUI-59, the plug-in's morph (B636, B639): a corner's values, MO-25's save, MO-21's waypoints and their law, MO-24's lock
+    corner: ['index', 'values'], save: ['index'], waypoints: ['key', 'points'], waypointLaw: ['law', 'clamp'], lock: ['key', 'offsets'],
     hello: ['manifest_hash'] };   // hello: once at load, so the bridge answers with everything (presets, plugin, params) and compares the hash
   function checkMessage(m, rows) {
     if (!m || typeof m !== 'object') return 'not a message';
@@ -296,11 +299,12 @@
     var need = MESSAGES[m.type]; if (!need) return 'an unknown message type: ' + m.type;
     for (var i = 0; i < need.length; i++) if (!(need[i] in m)) return m.type + ' without ' + need[i];
     if (m.type === 'gesture' && m.phase !== 'begin' && m.phase !== 'end') return 'a gesture phase ' + m.phase;
-    if (m.type === 'set') {
+    if ((m.type === 'corner' || m.type === 'save') && !(m.index === 0 || m.index === 1 || m.index === 2 || m.index === 3)) return m.type + ' for a corner ' + m.index + ', not 0 to 3';
+    if (m.type === 'set' || m.type === 'corner') {   // a corner names engine rows by the same rules as a set (the bridge's `corner` case)
       var ok = rows ? rows.reduce(function (o, r) { if (!r.reserved) o[r.key] = 1; return o; }, {}) : null;
       for (var k in m.values) {
-        if (ok && !ok[k]) return 'a set naming ' + k + ', not one of the engine\u2019s rows';
-        if (typeof m.values[k] !== 'number' || m.values[k] !== m.values[k]) return 'a set with a value for ' + k + ' that isn\u2019t a number';
+        if (ok && !ok[k]) return 'a ' + m.type + ' naming ' + k + ', not one of the engine\u2019s rows';
+        if (typeof m.values[k] !== 'number' || m.values[k] !== m.values[k]) return 'a ' + m.type + ' with a value for ' + k + ' that isn\u2019t a number';
       }
     }
     return null;
@@ -324,12 +328,13 @@
   }
   /* Keeps the last of each part a frame may leave out. */
   function Merger() {
-    var last = { ack: 0, params: {}, events: [], observe: null, state: null, presets: null, plugin: null, hello: null, mismatch: null, refused: null, resolver: null, device: null };
+    var last = { ack: 0, params: {}, events: [], observe: null, state: null, presets: null, plugin: null, hello: null, mismatch: null, refused: null, resolver: null, device: null, morph: null };
     return function (f) {
       // hello: the bridge's answer to ours, { build, manifest_hash }; mismatch: { expected, got, keys } or null, so null is kept as said
       last = { ack: f.ack === undefined ? last.ack : f.ack, params: f.params || {}, events: f.events || [], observe: f.observe ? decode(f.observe) : last.observe,
         state: f.state === undefined ? last.state : f.state, presets: f.presets || last.presets, plugin: f.plugin || last.plugin,
-        hello: f.hello || last.hello, mismatch: 'mismatch' in f ? f.mismatch : last.mismatch, refused: f.refused || last.refused, resolver: null, device: null };
+        hello: f.hello || last.hello, mismatch: 'mismatch' in f ? f.mismatch : last.mismatch, refused: f.refused || last.refused, resolver: null, device: null,
+        morph: f.morph || null };   // GUI-59: a frame's morph member is mostly changes, so it isn't kept: the adapter applies each one
       return last;
     };
   }
@@ -338,7 +343,7 @@
     var subs = [], merge = Merger(), cur = merge({});
     w.hordeNativeSnapshot = function (f) { cur = merge(f || {}); subs.forEach(function (fn) { fn(cur); }); };
     return {
-      sides: NO_SIDES, native: true,
+      sides: BRIDGE_SIDES, native: true, morphHost: true,
       send: function (m) { guard(m, rows); w.hordeNativeSend(JSON.stringify(m)); },
       onSnapshot: function (fn) { subs.push(fn); fn(cur); }
     };
@@ -352,7 +357,9 @@
     var subs = [], merge = Merger(), i = 0, at = null, ack = 0, sent = [], cur = merge(frames[0] || {});
     function publish(f) { var g = {}; for (var k in f) g[k] = f[k]; g.ack = ack; cur = merge(g); subs.forEach(function (fn) { fn(cur); }); }
     return {
-      sides: NO_SIDES, replay: true, sent: sent,
+      sides: BRIDGE_SIDES, replay: true, morphHost: true, sent: sent,
+      // a frame as if the bridge sent it now, with its own ack (so a test can send a stale one): the replay's frames carry no morph member
+      push: function (f) { cur = merge(f); subs.forEach(function (fn) { fn(cur); }); },
       send: function (m) { guard(m, opts.rows); sent.push(m); if (!opts.noAck) ack = m.seq; publish({}); },   // noAck: the seam check's plant
       onSnapshot: function (fn) { subs.push(fn); fn(cur); },
       tick: function (now) {

@@ -7310,6 +7310,21 @@
    "adr": "GUI-53",
    "clause": "the Map Mode spec reads per corner for 1.0 (the human approved the edit, 2026-11-06)",
    "note": "The edit carries ADR-371 MQ17 and GUI-51 r5 (PR #1426). FX device: the same."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "via": null,
+   "superseded_by": null,
+   "master_version": null,
+   "lab": null,
+   "id": "gui59-morph-bridge",
+   "adr": "GUI-59",
+   "state": "ruled",
+   "clause": "on the test plug-in the page sends each corner's changes as corner messages (never resolved sets while morph is on), Save current sound as save, waypoints and their law, and adopts the plug-in's morph state from each frame",
+   "shell": "docs/design/gui3/device.js: function syncCorners() {",
+   "note": "Built in the adapter and the bridge block (no master component: the Morph page's report is a line of words), as GUI-46's bridge rows are recorded. Region locks stay in the page (GN-55). FX device: none yet."
   }
  ],
  "not_design": [
@@ -8550,6 +8565,11 @@
   ],
   "GUI-55": [
    "GN-21"
+  ],
+  "GUI-59": [
+   "GN-34",
+   "GN-35",
+   "GN-55"
   ]
  },
  "audit_notes": [

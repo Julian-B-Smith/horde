@@ -12319,6 +12319,44 @@ The LCD's full custom-character budget wasn't raised with the human. If another 
 
 **FX device (ADR-254).** The same screens, so the same marks (GUI-23).
 
+## GUI-59 — DIRECTED by the lead: the page drives the test plug-in's morph: corners, Save current sound, waypoints and their law, and what the morph reports (B636, B639, GB34; IF-12, MO-21, MO-25; 2026-11-07)
+
+**Why.** The human installed build 8, which plays the builder's 1.0 morph (B639, #1444), and reported that morph "isn't working yet". The page never sent a corner, so the plug-in held the preset in all four corners, and a morph between identical corners sounds like nothing. On the plug-in the page also dimmed the morph switch and every morph control as not in this engine yet, which stopped being true with B636. The lead asked for the page's side (its nine items, 2026-11-06, and the additions of 2026-11-07), as the one thing between the human and an audible morph.
+
+**What the page does on the plug-in** (only there: the stub and its seam are unchanged).
+1. **Corners, never resolved values.** While morph is on, no morphing engine row goes as a `set`: the resolver is the only source of what it resolves (IF-12), and the bridge refuses and counts such a set. Every change to a corner's values goes as `corner {seq, index, values}`, carrying only the rows that differ from what that corner last sent. It doesn't matter what made the change: an edit, revert, Scatter, a reset, MO-12's Exempt, or undo and redo. With morph off, an edit of the audible corner still goes as a `set`, and its `corner` goes too.
+2. **Order.** On the plug-in the morph's settings go before the sets in the same send, so the sets that turning morph off allows arrive after it is off.
+3. **Save current sound** is `save {seq, index}`: MO-25 reads the resolver itself. The saved corner comes back in the frames, then becomes that corner's saved preset, and the save's undo step learns it, so redo restores it. A save that changed nothing settles after about a second of frames.
+4. **Waypoints and their law** go as `waypoints {seq, key, points}`, a key's whole list when it changed, and `waypointLaw {seq, law, clamp}`. The page's TIN·Δ is MO-21's `tin`.
+5. **`want`** asks for the `morph` member on every page whenever the plug-in hosts the morph. That way the page hears the plug-in's state before morph is turned on, as well as after.
+6. **Adopting the plug-in's state.** Each frame's `morph` member is applied where it differs from what the page last sent: the position (host automation moves the pad), D.2's settings, the modes and counts, each corner's rows, the waypoints and the law. A frame that hasn't yet seen one of the page's newer sends is skipped for that value, as params are (ADR-319 item 3). Adoption is never an undo step. After `hello` or a preset load, the corners a host's state restored replace the preset the load put in all four.
+7. **Nothing about the corners goes before hello's answer.** Otherwise the page's defaults would overwrite what the plug-in restored.
+8. **The position** is sent at most once a frame while the puck moves, and the last position always goes. When the plug-in's position moves without the page (host automation of `morph.x` and `morph.y`), the pad follows it. On the stub the device still follows the pad, as before.
+9. **The Morph page reports** the plug-in's morph in a line of words:
+   - each source's heard level from `levels` (osc 1, osc 2, sub, noise);
+   - the refused edits (`dropped`) and the unknown events;
+   - the resolver's four counters.
+   - The line turns to the bad style when any edit or event was refused.
+   - It says that region locks and corner names stay in the page for now.
+10. **The morph switch and the morph's rows are live on the plug-in.** Modulation, the FX rack and Arp stay dimmed.
+
+**Readings (the GUI session's).**
+- **Region locks stay in the page.** The page's lock offsets are the ownership stand-in's, and a lock made "as is" should take the offsets IF-12's `lock_as_is` gives. The bridge has no message to read those yet, so sending the stand-in's offsets would lock a region you aren't hearing. GN-55 asks for the read. The `lock` message is in the schema, ready.
+- **Corner names and saved presets stay in the page.** No message carries them yet (the lead's item 8).
+- **The fade is words, not a picture.** Drawing each source's fade on the page would be a new component, and the master has none (ADR-316). So the levels are printed, and a drawn fade is a question for the human.
+- **A host's state, once adopted, is undone like any other.** Undo to a node from before a host's state load sends that node's corners back, and the plug-in follows the page.
+
+**Tests.**
+- `gui3_seam_check`'s new `morphbridge` test runs on the replay. It covers corners sent and not sets, Scatter and its undo, the save coming back, a stale frame and its control, waypoints and their law, the order when morph turns off, and the schema. Six planted faults each turn it red.
+- `gui3_browser_check`'s bridge probe now requires the morph switch to be live on the plug-in, every `want` to ask for the morph, a click to send `morph.on`, a frame's position to hold (the pad must not push its own back), and the Morph page to show a frame's report. It used to require the switch disabled, which is no longer true. A plant that disables the switch again turns two lines red, and the shell as it was, with the pad always pushing its position, turns the position line red.
+
+**Engine impact.**
+- GN-34 narrows: on the plug-in, the corners, position, D.2's settings, modes, waypoints and their law live in the plug-in and save with it.
+- GN-35 is answered on the plug-in by MO-25, which reads the resolver.
+- GN-55 is new: a read of `lock_as_is`.
+
+**FX device (ADR-254).** None yet: it has no morph behind a bridge. When it has one, the same messages serve its corners.
+
 ## ADR-365 — RULED by the human: the 8 Hz blocker for FM free in pitch FM; item 7.8's table remade; spec round 58 (B621, B623; 2026-11-04)
 
 **Context.** FM free in pitch FM runs an accumulator that never restarts, while each of C.16's readings starts it at 0, so the estimate cannot see its mean and BL-19 cannot hold by the law alone (Q-TA-71: engine-free, 95 of its 144 one-member cases over 0.003, up to 0.046). ADR-363 sent this to a scratch trial of C.16's existing blocker, with clips for the human. Separately, item 7.8's reference R2 places FM free's modulator half a cycle from round 56's start, and 7.8 plays before its settings settle (Q-TA-77).
