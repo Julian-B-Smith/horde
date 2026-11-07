@@ -777,7 +777,7 @@ function morphBench() {
     h('div', { class: 'mw-top' }, h('div', { class: 'mw-left' }, pad, barBanner, barScale, barLock, blendNote),
       h('div', { class: 'mw-right' }, card('Selected row', 'CORNERS', [modeHost, insp]), crossCard, blendCard)),
     h('div', { class: 'mw-field' }, card('Find', 'FIELD', [find]), grid));
-  mw = { root, mounted: false, open: false, mount() {
+  mw = { root, crossCard, mounted: false, open: false, mount() {
     if (this.mounted) return; this.mounted = true;
     const M = H.Morph.state(S), E = H.Morph.engine, add0 = S.add;
     // A page's own control registered its key first, without the field's section. A continuous one is the same row with the same corners,
@@ -815,7 +815,8 @@ function morphBench() {
     this.blend = () => {
       const k = S.selected, r = k && ROW[k], law = LAWS[dev.morphSettings().law], ok = !!r && r.class === 'M' && r.law !== 'step' && law === 'blend' && dev.mode(k) === 'follow', held = !ok && !!r && dev.pins(k).length;
       blendNote.textContent = held ? r.label + ' has ' + held + (held === 1 ? ' waypoint' : ' waypoints') + ', dormant until BLEND.' : '';
-      blendNote.hidden = !held; blendCard.style.display = ok ? '' : 'none'; crossCard.style.display = ok ? 'none' : ''; pad.classList.toggle('bm-on', ok);
+      // GUI-60 (the human): Across the pad is hidden until a row is selected, since with none it held only "select a row" and read as an empty parameter list
+      blendNote.hidden = !held; blendCard.style.display = ok ? '' : 'none'; crossCard.style.display = ok || !r || !S.params[k] ? 'none' : ''; pad.classList.toggle('bm-on', ok);
       if (!ok) { if (bm) { bm.destroy(); bm = this.bm = null; blendHost.replaceChildren(); } return; }
       const row = bmRow(k, r), sig = k + '|' + row.corners.join() + '|' + JSON.stringify(row.pins), b = dev.blendSettings();
       if (!bm) { bmSig = sig; const box = h('div'); blendHost.replaceChildren(box); bm = this.bm = H.BlendMaps(box, { padHost: pad, row, laws: ['tps', 'tind'], law: b.law, clamp: b.clamp, onChange: e => {
@@ -2321,6 +2322,11 @@ CLOCK.checking = true;
   { const k = Object.keys(ROW).find(x => dev.canRoute(x)), e2 = { id: 'env2', name: 'ENV 2' }, n0 = dev.routes().length, first = dropMap(e2, k), n1 = dev.routes().length, again = dropMap(e2, k), n2 = dev.routes().length;
     if (first.ok) dev.undo(); dev.clearRedo();
     line(first.ok && !again.ok && n1 === n0 + 1 && n2 === n1 && dev.routes().length === n0, 'One wire (GN-20): a drag of ENV 2 onto ' + ROW[k].label + ' made ' + (n1 - n0) + ' route, and a second drag made ' + (n2 - n1) + '.'); }
+  // 4b3b. GUI-60: Across the pad is hidden while no row is selected. Control: a Structural or stepped row selected shows it (no law or mode hands those to the Blend map).
+  { const pg0 = page, sel0 = S.selected; selectPage('morph'); mw.mount(); const shown = () => mw.crossCard.style.display !== 'none';
+    S.selected = null; mw.blend(); const hiddenNone = !shown(); const k = Object.keys(S.params).find(x => ROW[x] && (ROW[x].class === 'S' || (ROW[x].class === 'M' && ROW[x].law === 'step'))); S.selected = k; mw.blend(); const shownRow = shown();
+    S.selected = sel0; mw.blend(); selectPage(pg0);
+    line(hiddenNone && shownRow, 'Across the pad (GUI-60): hidden with no row selected, and shown with ' + ROW[k].label + ' selected (control).'); }
   // 4b4. GUI-28, MO-11 to MO-13: a key's mode. Controls: Follow still blends, re-picking makes no step, a locked corner refuses Exempt whole, and undo takes the mark off.
   { const pg0 = page, keep = dev.history().past.length; setMorphOn(true); dev.setMorph({ x: .3, y: .3 }); dev.scatter(SEED); selectPage('morph'); mw.mount();
     const lawKept = keyModeState(dev.params().find(x => x.class === 'M').key).countActs;   // D.2 defaults to Quantum, where a key's count can't act
