@@ -19,4 +19,6 @@
 
 **Not done.** Building rulings 1, 3 and 4 goes through the master, then the shell, each in a PR with screenshots.
 
+**The lab's review pin** is off: every question is answered, and the design index's generator says the pin comes off at a ruling. It came off in the merge from main that rebuilt this PR.
+
 **Verify.** `./verify fast` on the commit this trace ships in.

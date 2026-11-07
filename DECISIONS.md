@@ -11908,7 +11908,7 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 - **Ruling 4's "selector or override" is one compact control.** It names the envelope the source follows, a pill reading "ENV 1", for example. It opens GUI-47's Override: give this source its own envelope, or go back to ENV 1. Either way it writes the source's existing Envelope row, as GUI-47 does. A plain ENV 1 to 4 selector would bypass GUI-47's rule that a source follows ENV 1 until you ask, so it isn't drawn.
 - **Height.** Ruling 1's waveform costs height on Main's 267 px tab. The fit is measured when it's built, and if it doesn't fit, the question goes back to the human before anything else is shrunk.
 
-**The lab.** It is ruled (GUI-57), with nothing open.
+**The lab.** It is ruled (GUI-57), with nothing open, and its review pin is off.
 
 **Engine impact.**
 - Ruling 3 relies on GN-16: the flow's wires follow the signal only once filter routing has rows.
