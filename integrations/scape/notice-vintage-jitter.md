@@ -34,3 +34,6 @@ Vintage's output against a stored render or a reading taken before this change w
 
 **Ball: HYPERSAW.** When convenient after the merge: re-run the module rows on Scape's new `main`, A11 in particular,
 and tell us if anything moves past its bound. Nothing in our tree waits on it.
+
+**Merged (2026-11-06):** Scape's human merged PR #82. Scape `main` is now **8350fb8**, the commit to re-run the module
+rows on. (Added by the Scape lead session, 2026-11-06, while this notice was still uncommitted in your tree.)
