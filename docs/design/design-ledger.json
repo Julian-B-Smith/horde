@@ -160,6 +160,10 @@
   {
    "version": "1794029674-ea43",
    "evidence": "docs/design/arp-face/README.md: what a random patch may be at low chaos, GUI-55, 2026-11-07"
+  },
+  {
+   "version": "1794078853-724a",
+   "evidence": "docs/design/arp-face/README.md: a moved envelope selector leans to osc 1's envelope, GUI-55 A2, 2026-11-07"
   }
  ],
  "vendoring": {
@@ -506,6 +510,10 @@
   "morph-questions-lab.html": {
    "status": "exploring",
    "note": "GB29. The morph’s eight open questions on the pad, ending in one poll; the answers go to the lead for the spec round (ADR-370, B631)."
+  },
+  "random-roles-lab.html": {
+   "status": "exploring",
+   "note": "B644 (the lead's). Every manifest row nested by PA-8's live-when table, where the human annotates how Random treats each one: roll (never, once per patch, per corner), where it unlocks on the chaos curve, the Random-page toggle that owns it, and the Discrete lock; transposition ladders and a seeded four-corner preview. The annotations come back as exported JSON for the Random page and the spec (ADR-374, GUI-55)."
   }
  },
  "not_labs": {
@@ -6594,17 +6602,17 @@
   {
    "id": "gui55-random-low-chaos",
    "adr": "GUI-55",
-   "clause": "what a random patch may be at low chaos: source switches, off sources untouched, rare simple blades, ENV 4's tight decay; A1: a source's envelope selector moves only at high chaos",
+   "clause": "what a random patch may be at low chaos: source switches, off sources untouched, rare simple blades, ENV 4's tight decay; A1: a source's envelope selector moves only at high chaos; A2: a moved envelope selector lands on osc 1's envelope most of the time",
    "lab": null,
    "component": "RandomPanel",
-   "master_version": "1794029674-ea43",
+   "master_version": "1794078853-724a",
    "bundle": "RandomPanel",
    "via": null,
    "shell": "docs/design/gui3.html: const got = H.RandomPanel.sources(cur,",
    "state": "in-shell",
    "superseded_by": null,
    "port_tab": "random-page",
-   "note": "Built 2026-11-07: master 1794029674-ea43 (RandomPanel's draw hints, sources() and prior) and the shell's randomPlan, with self-check 4c8b. 'Often maps it to pitch' waits on route draws. FX device: none."
+   "note": "Built 2026-11-07: master 1794029674-ea43 (RandomPanel's draw hints, sources() and prior) and the shell's randomPlan, with self-check 4c8b. A2 built 2026-11-07: master 1794078853-724a (drawRows' favour hint and prior.envOne, a 0.8 stand-in), self-check 4c8c. 'Often maps it to pitch' waits on route draws. FX device: none."
   },
   {
    "lab": "docs/design/osc-layout-lab.html",
@@ -6664,7 +6672,7 @@
    "master_version": null,
    "shell": null,
    "state": "ruled",
-   "note": "The one-control reading is the GUI session's, open to the human. FX device: none."
+   "note": "The one-control reading is ruled (GUI-57 A1, the human: \"A: one tag\"); sources don't share ENV 2 to 4 from the card. FX device: none."
   },
   {
    "lab": "docs/design/morph-rail-lab.html",
@@ -7325,6 +7333,21 @@
    "clause": "on the test plug-in the page sends each corner's changes as corner messages (never resolved sets while morph is on), Save current sound as save, waypoints and their law, and adopts the plug-in's morph state from each frame",
    "shell": "docs/design/gui3/device.js: function syncCorners() {",
    "note": "Built in the adapter and the bridge block (no master component: the Morph page's report is a line of words), as GUI-46's bridge rows are recorded. Region locks stay in the page (GN-55). FX device: none yet."
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "via": null,
+   "superseded_by": null,
+   "master_version": null,
+   "lab": null,
+   "id": "gui60-cross-hidden",
+   "adr": "GUI-60",
+   "state": "ruled",
+   "clause": "Across the pad is hidden until a row is selected",
+   "shell": "docs/design/gui3.html: crossCard.style.display = ok || !r || !S.params[k] ? 'none' : '';",
+   "note": "Shell-only: the card around the master's CrossSection, which is unchanged (as GUI-59's adapter rows are recorded). FX device: none."
   }
  ],
  "not_design": [
@@ -8582,7 +8605,8 @@
    "GN-34",
    "GN-35",
    "GN-55"
-  ]
+  ],
+  "GUI-60": "none: it changes what is drawn, not what is sent, saved or undone"
  },
  "audit_notes": [
   "[A] Counts: 33 design ADRs with 56 rows (ruled 31, of which 6 superseded and 7 legacy-only; wired 9; in-shell 7; vendored 4; in-master 4; unknown 1); 79 not_design. Every primary heading ADR-001..ADR-112 appears exactly once. Headings out of numeric order (ADR-052, ADR-053 before ADR-051; ADR-095, 094, 093, 092; ADR-091 A1-A4 after ADR-112 A3) were all covered. One non-ADR heading sits in range: 'NOTICE · Library standby (plugin-skeleton FOUNDATIONS)', line 661, not design and not listed.",

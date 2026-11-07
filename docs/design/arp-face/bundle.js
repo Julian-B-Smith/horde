@@ -1,4 +1,4 @@
-/* vendored from the horde Design System artifact, version 1794029674-ea43, 2026-11-07; do not edit, re-vendor */
+/* vendored from the horde Design System artifact, version 1794078853-724a, 2026-11-07; do not edit, re-vendor */
 /* @ds-bundle: {"format":4,"namespace":"Horde","components":[{"name":"Knob"},{"name":"Slider"},{"name":"MapControl"},{"name":"XYPad"},{"name":"CornerChip"},{"name":"ScreenScheme"},{"name":"SourceStrip"},{"name":"ModMatrixGrid"},{"name":"RouteRow"},{"name":"ModLedger"},{"name":"TraceLanes"},{"name":"CompactWires"},{"name":"HostedMacroRows"},{"name":"ModCardHeader"},{"name":"LfoShapeEditor"},{"name":"EnvelopeEditor"},{"name":"TempoDivisions"},{"name":"CurvePlot"},{"name":"OrbitalCard"},{"name":"MidiTrackers"},{"name":"GateLanes"},{"name":"EventLanes"},{"name":"SmoothingLanes"},{"name":"ShClockCard"},{"name":"OwnershipTier"},{"name":"QuantumPad"},{"name":"PadBars"},{"name":"CrossSection"},{"name":"MorphGrid"},{"name":"FindPane"},{"name":"MorphInspector"},{"name":"KindLegend"},{"name":"MorphMode"},{"name":"NameField"},{"name":"SteppedControl"},{"name":"Stepper"},{"name":"Cohesion"},{"name":"FxRack"},{"name":"FxMatrix"},{"name":"FxPanel"},{"name":"FxCables"},{"name":"GainStaging"},{"name":"ChainLine"},{"name":"BlendMaps"},{"name":"PageNav"},{"name":"SectionHeader"},{"name":"ChannelStrip"},{"name":"Companion"},{"name":"SourceChip"},{"name":"SourceRows"},{"name":"RoutesBySource"},{"name":"Cluster"},{"name":"Lens"},{"name":"Fold"},{"name":"PageView"},{"name":"ModTiers"},{"name":"MacroRow"},{"name":"ModBank"},{"name":"ModPage"},{"name":"UndoLine"},{"name":"MacroFace"},{"name":"PresetBar"},{"name":"Deck"},{"name":"MacroCard"},{"name":"ParamPicker"},{"name":"HistoryRail"},{"name":"PicturePicker"},{"name":"AssignXY"},{"name":"Specimen"}]} */
 /* horde house reference behaviours (vanilla JS, no React, no network).
    The morph knob and slider follow the human's HORDE Morph Knob Spec and HORDE Map Mode Spec
@@ -9164,18 +9164,21 @@ window.Horde.MainStage = {
     lean: function (c) { return 1 - c; },                   // how hard a leaning row is pulled toward its low end and its first options (rule 4)
     tight: .3,                                              // ENV 4's decay centre in travel: about 65 ms on its 5 ms to 30 s log law (rule 5)
     envFrom: .7,                                            // where "moderate" chaos ends: below it a source's envelope selector never moves (A1)
-    env: function (c) { return c <= PRIOR.envFrom ? 0 : Math.min(.5, .5 * (c - PRIOR.envFrom) / (1 - PRIOR.envFrom)); }   // the chance it moves, rising to a cap of .5 ("maybe still bounded", A1)
+    env: function (c) { return c <= PRIOR.envFrom ? 0 : Math.min(.5, .5 * (c - PRIOR.envFrom) / (1 - PRIOR.envFrom)); },   // the chance it moves, rising to a cap of .5 ("maybe still bounded", A1)
+    envOne: .8                                              // when a selector does move, the chance it lands on osc 1's envelope ("heavily bias", A2); the rest is shared evenly
   };
-  /* rows: [{key, n (steps, 0 = continuous), home 0..1, p?, lean?, centre?}]. Returns {key: value} for the rows drawn.
+  /* rows: [{key, n (steps, 0 = continuous), home 0..1, p?, lean?, centre?, favour?}]. Returns {key: value} for the rows drawn.
      GUI-55's hints: `p` draws a two-way switch fresh, on with that chance; `lean` pulls a row toward its low end, or a stepped row toward its first
-     options, harder at low Chaos (a leaning stepped row may stay where it is); `centre` replaces the home a continuous row is drawn around.
+     options, harder at low Chaos (a leaning stepped row may stay where it is); `centre` replaces the home a continuous row is drawn around;
+     `favour` (A2) is a stepped row's option index that a draw lands on with PRIOR.envOne's chance, the other options sharing the rest evenly.
      Each row takes its three numbers from the stream whatever its hints, so a hint never shifts another row's draw. */
   function drawRows(rows, kind, chaos, amount, seed, click, level) { var r = H.Synth.rng((seed ^ hash(level + '/' + kind) ^ Math.imul(click, 2654435761)) | 0), out = {}, s = sigma(chaos);
     function gauss() { var u = 0; for (var i = 0; i < 6; i++) u += r(); return (u - 3) / .707; }
     rows.forEach(function (q) { var a = r(), g = gauss(), pick = r(), w = q.lean ? PRIOR.lean(chaos) : 0; if (a > amount || !(chaos > 0) && (q.p !== undefined || q.lean || q.centre !== undefined)) return;
       if (q.p !== undefined) out[q.key] = pick < q.p ? 1 : 0;
       else if (q.n > 1) { var st = q.n - 1;
-        if (w > 0) out[q.key] = Math.min(st, Math.floor(Math.pow(pick, 1 + 3 * w) * q.n)) / st;
+        if (q.favour !== undefined) { if (chaos > 0) { var F = PRIOR.envOne, o = pick < F ? q.favour : Math.min(st - 1, Math.floor((pick - F) / (1 - F) * st)); if (pick >= F && o >= q.favour) o++; out[q.key] = o / st; } }   // the same pick, so the stream is unchanged
+        else if (w > 0) out[q.key] = Math.min(st, Math.floor(Math.pow(pick, 1 + 3 * w) * q.n)) / st;
         else { var cur = Math.round(q.home * st), nx = Math.floor(pick * st); if (nx >= cur) nx++; if (chaos > 0) out[q.key] = nx / st; } }
       else out[q.key] = Math.max(0, Math.min(1, (q.centre !== undefined ? q.centre : q.home * (1 - w)) + g * s)); });
     return out; }
