@@ -160,6 +160,10 @@
   {
    "version": "1794029674-ea43",
    "evidence": "docs/design/arp-face/README.md: what a random patch may be at low chaos, GUI-55, 2026-11-07"
+  },
+  {
+   "version": "1794078853-724a",
+   "evidence": "docs/design/arp-face/README.md: a moved envelope selector leans to osc 1's envelope, GUI-55 A2, 2026-11-07"
   }
  ],
  "vendoring": {
@@ -6594,17 +6598,17 @@
   {
    "id": "gui55-random-low-chaos",
    "adr": "GUI-55",
-   "clause": "what a random patch may be at low chaos: source switches, off sources untouched, rare simple blades, ENV 4's tight decay; A1: a source's envelope selector moves only at high chaos",
+   "clause": "what a random patch may be at low chaos: source switches, off sources untouched, rare simple blades, ENV 4's tight decay; A1: a source's envelope selector moves only at high chaos; A2: a moved envelope selector lands on osc 1's envelope most of the time",
    "lab": null,
    "component": "RandomPanel",
-   "master_version": "1794029674-ea43",
+   "master_version": "1794078853-724a",
    "bundle": "RandomPanel",
    "via": null,
    "shell": "docs/design/gui3.html: const got = H.RandomPanel.sources(cur,",
    "state": "in-shell",
    "superseded_by": null,
    "port_tab": "random-page",
-   "note": "Built 2026-11-07: master 1794029674-ea43 (RandomPanel's draw hints, sources() and prior) and the shell's randomPlan, with self-check 4c8b. 'Often maps it to pitch' waits on route draws. FX device: none."
+   "note": "Built 2026-11-07: master 1794029674-ea43 (RandomPanel's draw hints, sources() and prior) and the shell's randomPlan, with self-check 4c8b. A2 built 2026-11-07: master 1794078853-724a (drawRows' favour hint and prior.envOne, a 0.8 stand-in), self-check 4c8c. 'Often maps it to pitch' waits on route draws. FX device: none."
   },
   {
    "lab": "docs/design/osc-layout-lab.html",

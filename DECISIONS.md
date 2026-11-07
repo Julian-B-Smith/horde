@@ -12025,6 +12025,31 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 
 **Engine impact.** GN-21, as above. **FX device (ADR-254).** None.
 
+### GUI-55 A2 — RULED by the human: a moved envelope selector leans hard toward osc 1's envelope (2026-11-07; the lead's ADR-374 A2)
+
+**The human, relayed by the lead:** "at lower and moderate chaos settings, oscillator volumes should stay on whatever envelope they're already attached to, and fully randomized patches should heavily bias toward attaching every osc volume to Osc 1."
+
+**What changes.**
+- **Low and moderate chaos:** unchanged from A1. A source's envelope selector never moves.
+- **When a selector does move** (above `prior.envFrom`, by `prior.env(c)`'s chance), it lands on osc 1's envelope with the chance `prior.envOne`, and the other options share the rest evenly.
+- **`prior.envOne` is a stand-in of 0.8**, for the tuning session, beside A1's two.
+- **The master:** `drawRows` gains a `favour` hint (a stepped row's option index), drawn from the row's existing pick so no other row's draw shifts.
+
+**The GUI session's reading, for the lead to confirm.** "Attaching every osc volume to Osc 1" is read as osc 1's envelope:
+- osc 1's own selector favours ENV 1;
+- the other sources favour whatever osc 1 holds after the same draw.
+
+Osc 1 is drawn first, so the other sources can follow it. This is the lead's ENV 1 except in the rare draw where osc 1's own selector moved.
+
+**Tests.** Self-check 4c8c checks three things:
+- a favoured draw lands on the favoured option in at least 70 % of 400 draws;
+- **control:** the same draws with no favour do not;
+- after a Chaos 1 patch draw, the sources' selectors sit on osc 1's envelope at least 80 % of the time.
+
+A plant of an even weight (0.25) turned it red: 29 % against 37 %, then 54 %.
+
+**Engine impact.** GN-21, as above. **FX device (ADR-254).** None: these are the instrument's sources.
+
 ## GUI-41 — DIRECTED by the human: FX patching, wires dragged both ways, every source its own input, and no loop at rest (GB21; ADR-201; supersedes GUI-36; 2026-11-05)
 
 **The human, 2026-11-05:** "I would like to make some changes to the mock FX flow. I want to be able to drag wires between modules in both directions, with forward on top and backward on the bottom (an algorithm will need to block feedback in 1.0 at all the morph positions except for brief crossfade overlaps; I believe there is already a lab open that works this out), and all the oscs and filters need to be individually exposed on the interface because they can each independently feed into modules."
