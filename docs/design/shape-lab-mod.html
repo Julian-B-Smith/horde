@@ -166,10 +166,18 @@
          second over the last minute, any row heard on the test tone (solo).
        - M3: two corners of different LFO kinds, MIX (blend by weight) or
          SWITCH (MO-7's seeded pick, MO-8's latch, the morph glide).
+       - 6b (the human, reviewing round 6): "build both, then decide": sin and
+         cos about the OTHER bodies' centre of mass and of the HEADING, each
+         its own scope rows and tone, with each row's largest one-sample jump;
+         and "auto-kick a stopped field": with the thermostat on, a field at
+         or below its 10⁻⁹ skip threshold gets KICK's kick from its own seeded
+         stream. M3 was ruled SWITCH for 1.0; its bench stays as the record.
      r6SelfCheck (pure) covers sin/cos against the positions, accel against
      the force from scratch, the ceilings, the shrinking and the thermostat,
      the scope row = the destination, MIX against its rule, SWITCH's exactness,
-     boundary, determinism and glide, each with a control that must fire.
+     boundary, determinism and glide, the two other angle references against
+     their definitions, and the auto-kick (fires, settles, seeded), each with a
+     control that must fire.
 
      L0026: all state above all wiring. No Math.random (mulberry32 only, SPEC
      §5.7), except the must-fail plants of rounds 4, 5 and 6 in the UI section,
@@ -400,7 +408,7 @@
   /* ============ ROUND 6 (B126 reopened, M3) — the same chrome ============ */
   .r6 { display:grid; grid-template-columns:minmax(0,.8fr) minmax(0,1.4fr); gap:10px; align-items:start; margin-top:10px; }
   @media (max-width:1180px) { .r6 { grid-template-columns:1fr; } }
-  #o6FieldC { height:230px; margin-bottom:6px; } #o6C { height:470px; cursor:pointer; } #m3C { height:300px; }
+  #o6FieldC { height:230px; margin-bottom:6px; } #o6C { height:680px; cursor:pointer; } #m3C { height:300px; }
   .audit.busy { opacity:.6; }
   #ttRows .cap, #impRows .cap, #arpRows .cap { margin-top:8px; }
   #ttRows input[type=number] { width:84px; }
@@ -1028,7 +1036,11 @@ puts two LFO kinds in corners A and B and morphs between them by <b>MIX</b> (bot
       an orbit, a jump. <b>sin</b> and <b>cos</b> are the same circle without the seam, and their range does not depend on
       how far the body is from the centre, so they keep it while x and y shrink. Watch the field picture: the ray is the
       angle the rows read. <b>The centre is their weak point.</b> A body passing close to it turns its angle by up to half a
-      turn in a step, and sin and cos jump there (see the self-check and finding 3).</div>
+      turn in a step, and sin and cos jump there. Round 6b adds two other references, each with its own rows: about the
+      <b>others' centre of mass</b> (a cross on the field), and the <b>heading</b> (an arrow along the velocity). <b>angle about</b>
+      switches the tone between the three, and every row prints its <b>largest one-sample jump over the last 10 s</b>, in
+      marker colour past 0.1, measured on the raw output before the 5 ms smoothing (the smoothing turns a flip into a 5 ms
+      swoop, still heard, that a per-sample measure would miss). Finding 3 has the self-check's figures.</div>
   </div>
 </div>
 
@@ -1066,13 +1078,18 @@ puts two LFO kinds in corners A and B and morphs between them by <b>MIX</b> (bot
         range was 0.034 against 0.24 before, and speed's was 0.002 (a circular orbit at a held pace has a constant speed).
         sin and cos stayed at about 2.0 throughout. So for a field that has collapsed, sin and cos are the only position
         outputs with their full range left.</li>
-      <li><b>The centre is where the angle breaks down.</b> The angle is taken about the field's centre. A body that passes
-        near the centre turns its angle by up to half a turn in one step, and sin and cos jump there (measured largest
-        one-sample steps over 10 s: sun 0.43, figure-eight 1.73, four-body chaos 1.75; binary, which circles the centre,
-        0.02). When drag has pulled a body into the centre, its angle is numerical dust and sin and cos chatter. Two
-        readings the human could pick from, neither built: the angle about the <b>centre of mass of the other bodies</b>
-        (what the body actually orbits), or sin and cos of the <b>heading</b> (the velocity's direction, which never sees
-        the centre but jumps at a wall bounce).</li>
+      <li><b>The centre is where the angle breaks down; round 6b builds both alternatives</b> (the human: "build both, then
+        decide"). Each has its own sin and cos rows, and <b>angle about</b> switches the tone between the three. Largest
+        one-sample jump of sin or cos over 10 s, bodies 1 to 4, <b>centre / others' COM / heading</b>: binary 0.023 / 0.023
+        / 0.014; sun 0.43 / 0.54 / 1.99; figure-eight 1.73 / 1.73 / 0.006; four-body chaos 1.75 / 1.75 / 1.99. Two
+        findings. (1) <b>Under the COM lock the others' COM gives the same angle as the centre</b>, exactly: the lock holds
+        the whole field's COM at the centre, and the others' COM then lies on the line through the body and the centre,
+        on the far side, so the direction is the same. It differs only where the lock is off (sun, whose pinned sun turns
+        it off), and there it is worse. (2) <b>The heading never sees the centre</b>, so figure-eight goes from 1.73 to
+        0.006, but it jumps when a wall reflects a velocity component (sun: all six large jumps were at a wall) and when a
+        body nearly stops and turns back (chaos: 26 of its 29 large jumps were away from the walls, the worst, 1.94, at a
+        speed of 0.066). Not built, a third candidate: the angle about the <b>nearest body</b>, which is what a slingshot
+        actually turns around.</li>
       <li><b>Which sin and cos?</b> ADR-165 A1 ratified "sin/cos observables" for <b>Wrap</b>: sin and cos of each
         <b>position</b> on the torus, so a body crossing the seam does not jump (round 62's M4 (c)). Today's ask is sin
         and cos of the <b>angle</b>. They are different sources, and this round builds only the angle's. Are both wanted?
@@ -1082,10 +1099,12 @@ puts two LFO kinds in corners A and B and morphs between them by <b>MIX</b> (bot
         accel reads low there. Per-body ceilings are the alternative.</li>
       <li><b>The thermostat's offset</b> (B126's finding, still open): against drag it settles at v* ÷ √(1 + 2τ·3·drag), not
         v*. At τ 0.5 s and drag 0.3 that is 27 % low. The readout prints both numbers.</li>
-      <li><b>The thermostat cannot restart a field at rest.</b> The reference's guard skips a field whose mean speed is
-        below 10⁻⁹ (λ multiplies, so a field at rest stays at rest). Measured on this page: after drag had run binary down
-        to a mean speed of 10⁻¹¹, switching the thermostat on changed nothing until a KICK. If the thermostat is on, should
-        it also refuse to let the field die (a floor), or is that the KICK's job?</li>
+      <li><b>Auto-kick (round 6b, the human: "auto-kick a stopped field").</b> The reference's thermostat skips a field whose
+        mean speed is at or below 10⁻⁹ (λ multiplies, so a field at rest stays at rest; round 6 measured that on this
+        page). With the thermostat on, such a field now gets KICK's kick (its magnitude and body; the first free body if
+        that one is pinned) by itself, its direction drawn from the auto-kick's own seeded stream, so a hand KICK never
+        moves the next auto-kick. KICK stays. The readout counts the auto-kicks. With the thermostat off, nothing kicks:
+        a field run down by drag stays down, as before.</li>
       <li><b>M3, by ear.</b> MIX blends two control signals (not two sounds), so ADR-377's "no crossfades" does not decide
         it. SWITCH is ADR-377's structure rule applied to a modulator. A SWITCH glide longer than a few ms is a crossfade
         of control signals: is it wanted, or should the kind flip outright (MS-27's reading)?</li>
@@ -1373,10 +1392,13 @@ function makeKuro(sr, cfg, drawn) {
    (ADR-375 A1: the band is not kept, the cushion is after 1.0). */
 const ORB_DT = 1 / 480, ORB_MAXV = 3.0, MAXB = 8, ORB_TRL = 240;
 const ORB_EDGES = ['reflect', 'wrap', 'open'];
-/* Per body: x, y, speed, near, angle, accel, sin, cos (the SOURCES order, ORB_OBS).
+/* Per body: x, y, speed, near, angle, accel, sin, cos, then round 6b's two other
+   angle references as sin/cos pairs: about the OTHER bodies' centre of mass (8, 9)
+   and the HEADING, the velocity's direction (10, 11). The SOURCES order, ORB_OBS.
    Angle (4) is the only one never smoothed: a one-pole would sweep through 0.5
-   at every wrap. Sin and cos are smooth by construction, so they ARE smoothed. */
-const ORB_NO = 8, ORB_ANGLE = 4;
+   at every wrap. The sin/cos pairs have no seam, so they ARE smoothed. */
+const ORB_NO = 12, ORB_ANGLE = 4;
+const ORB_AUTO_V = 1e-9;   // the reference thermostat's skip threshold (:358), and so the auto-kick's trigger
 const ORB_CEIL_SEC = 30;   // MB-7: the measuring window, from home at time × 1
 /* Round UP to two significant figures (MB-7), so the ceiling is never below
    the measured peak and at most ~10 % above it. */
@@ -1452,6 +1474,12 @@ class OrbitalField {
        reproducible from (seed, kick count). Offset from the add-body stream
        so the two never share draws. */
     this.kickRng = mulberry32(((cfg.seed | 0) ^ 0x5EED) >>> 0); this.kicks = 0;
+    /* ROUND 6b: the AUTO-KICK. Its own seeded stream (seed ^ a fixed word), apart
+       from KICK's, so a hand KICK never moves which way the next auto-kick goes.
+       It reads KICK's magnitude and body from the live patch object (cfg is S.orb
+       itself when the page builds the field). autoOff is the self-check's control. */
+    this.cfg = cfg; this.autoRng = mulberry32(((cfg.seed | 0) ^ 0xA070C1C) >>> 0);
+    this.autoKicks = 0; this.autoAt = -1; this.autoOff = false;
     this.tr = new Float32Array(MAXB * 2 * ORB_TRL); this.trw = 0; this.trn = 0; this.trDec = 0;
     this.observe(); this.prime();
   }
@@ -1523,7 +1551,14 @@ class OrbitalField {
     /* The reference's place for it (:423): after every body's damping, before the
        clamp. Field-level, so it needs the whole damping pass first. Off, this
        line is the only difference from round 2's step, and it is skipped. */
-    if (P.thermoOn) this.thermostat(dt);
+    /* ROUND 6b (the human, 2026-11-06: "auto-kick a stopped field"): with the
+       thermostat on, a field below the thermostat's own skip threshold, which the
+       thermostat can never restart (λ multiplies), gets KICK's kick, drawn from the
+       auto-kick's seeded stream, then the thermostat takes it to its pace. */
+    if (P.thermoOn) {
+      if (!this.autoOff && this.meanSpeed() <= ORB_AUTO_V) this.autoKick();
+      this.thermostat(dt);
+    }
     for (const b of nodes) {
       if (b.pinned) continue;
       if (b.vx * b.vx + b.vy * b.vy > ORB_MAXV * ORB_MAXV) { const s = Math.hypot(b.vx, b.vy); b.vx *= ORB_MAXV / s; b.vy *= ORB_MAXV / s; }
@@ -1548,6 +1583,8 @@ class OrbitalField {
   observe() {
     const nodes = this.nodes, n = nodes.length, r = this.raw, e2 = this.P.eps * this.P.eps;
     const preset = this.P.scale === 'preset', C = this.ceil, vS = preset ? C.S : ORB_MAXV;
+    let tm = 0, tx = 0, ty = 0;   // round 6b: the whole field's mass moments, for each body's "others' COM"
+    for (let i = 0; i < n; i++) { const b = nodes[i]; tm += b.m; tx += b.m * b.x; ty += b.m * b.y; }
     let M = 0, K = 0, cx = 0, cy = 0;
     for (let i = 0; i < n; i++) {
       const b = nodes[i], o = i * ORB_NO;
@@ -1564,6 +1601,14 @@ class OrbitalField {
          angle's circle with no seam, ±1 at ANY orbit radius. */
       r[o + 5] = b.pinned ? 0 : Math.min(1, Math.hypot(b.ax, b.ay) / C.A);
       r[o + 6] = Math.sin(th); r[o + 7] = Math.cos(th);
+      /* ROUND 6b. (a) About the centre of mass of the OTHER bodies (the field's
+         moments minus this body's; the field centre when it is alone). Plain
+         positions, no minimum image, so in WRAP it is a coordinate fact, not an
+         orbit. (b) The HEADING, the velocity's direction, y up (§3.1's heading,
+         which reads 0° at speed 0: sin 0, cos 1). */
+      const mo = tm - b.m, ox = mo > 0 ? (tx - b.m * b.x) / mo : 0.5, oy = mo > 0 ? (ty - b.m * b.y) / mo : 0.5;
+      const tc = Math.atan2(oy - b.y, b.x - ox), sp = Math.hypot(b.vx, b.vy), thd = sp > 0 ? Math.atan2(-b.vy, b.vx) : 0;
+      r[o + 8] = Math.sin(tc); r[o + 9] = Math.cos(tc); r[o + 10] = Math.sin(thd); r[o + 11] = Math.cos(thd);
       M += b.m; K += 0.5 * b.m * (b.vx * b.vx + b.vy * b.vy); cx += b.m * b.x; cy += b.m * b.y;
     }
     if (!(M > 0)) { this.fraw[0] = 0; this.fraw[1] = 0; return; }
@@ -1607,6 +1652,15 @@ class OrbitalField {
     const b = this.nodes[bi]; if (!b || b.pinned) return;
     const th = TAU * this.kickRng(); this.kicks++;
     b.vx += mag * Math.cos(th); b.vy -= mag * Math.sin(th);   // heading 0 = +x, 90° = up (§3.2)
+  }
+  /* KICK's kick (magnitude, body, direction law) with the direction from the
+     auto stream. A pinned kick body cannot move, so the first free body takes it. */
+  autoKick() {
+    const C = this.cfg || {}, mag = C.kick > 0 ? C.kick : 0;
+    let bi = C.kickBody | 0; if (!this.nodes[bi] || this.nodes[bi].pinned) bi = this.nodes.findIndex(b => !b.pinned);
+    const b = this.nodes[bi]; if (!b || !(mag > 0)) return;
+    const th = TAU * this.autoRng(); this.autoKicks++; this.autoAt = this.steps;
+    b.vx += mag * Math.cos(th); b.vy -= mag * Math.sin(th);
   }
   energyTotal() {   // the reference's energy() (:451-460): the HUD's health check
     let K = 0, U = 0; const nodes = this.nodes;
@@ -1706,8 +1760,9 @@ for (let i = 0; i < MAXK; i++) defSrc('kuro.v' + (i + 1), 'voice ' + (i + 1), 'K
 defSrc('kuro.R', 'coherence R', 'KURO', false, c => c.kuro.R);
 /* ROUND 6 appends accel, sin and cos AFTER round 2's five, so no stored id
    moves. sin and cos are the only bipolar ORBITAL rows (±1 natively). */
-const ORB_OBS = ['x', 'y', 'speed', 'near', 'angle', 'accel', 'sin', 'cos'];
-const ORB_OBS_NAME = ['x', 'y', 'speed', 'near', 'angle', 'accel', 'sin(angle)', 'cos(angle)'];
+const ORB_OBS = ['x', 'y', 'speed', 'near', 'angle', 'accel', 'sin', 'cos', 'sinC', 'cosC', 'sinH', 'cosH'];
+const ORB_OBS_NAME = ['x', 'y', 'speed', 'near', 'angle', 'accel', 'sin(angle)', 'cos(angle)',
+  'sin(angle about others\' COM)', 'cos(angle about others\' COM)', 'sin(heading)', 'cos(heading)'];
 for (let b = 0; b < 4; b++) for (let q = 0; q < ORB_NO; q++)
   defSrc('orb.b' + (b + 1) + '.' + ORB_OBS[q], 'body ' + (b + 1) + ' ' + ORB_OBS_NAME[q], 'ORBITAL', q >= 6, c => c.orb.obs(b, q));
 defSrc('orb.energy', 'field energy', 'ORBITAL', false, c => c.orb.fsm[0]);
@@ -2877,43 +2932,71 @@ ModLabCore.ttSelfCheck = ttSelfCheck; ModLabCore.History = History; ModLabCore.T
    allowance), and at glide 0 it is a flip. MO-7's cohesion is left out: with
    one key there is nothing to cohere with. */
 const SC_OBS = Object.freeze([   // [ORBITAL observable (or '=' + a field source id), label, bipolar]
-  ['angle', 'angle (raw)', false], ['sin', 'sin(angle)', true], ['cos', 'cos(angle)', true],
+  ['angle', 'angle (raw)', false], ['sin', 'sin · centre', true], ['cos', 'cos · centre', true],
+  /* round 6b: the two other references, each its own pair of rows (the human: "build both, then decide") */
+  ['sinC', 'sin · others\' COM', true], ['cosC', 'cos · others\' COM', true],
+  ['sinH', 'sin · heading', true], ['cosH', 'cos · heading', true],
   ['x', 'x', false], ['y', 'y', false], ['speed', 'speed', false], ['accel', 'accel', false],
   ['=orb.energy', 'field energy', false],
 ]);
 const SC_TR = SC_OBS.length, SC_N = 2048, SC_DEC = 128;   // 2048 points every 128 samples ≈ 5.5 s at 48 kHz
 const SC_RN = 60;                                        // range history: one peak-to-peak per second, the last minute
+const SC_REFS = Object.freeze([['CENTRE', 1], ['OTHERS\' COM', 3], ['HEADING', 5]]);   // the angle references → their sin row
 const scSrcId = (t, body) => { const o = SC_OBS[t][0]; return o[0] === '=' ? o.slice(1) : 'orb.b' + (body + 1) + '.' + o; };
 /* The scope's history: written by the render, read by the painter and the
-   self-check. Preallocated; a row reads through SOURCES like any route. */
+   self-check. Preallocated; a row reads through SOURCES like any route. The
+   JUMP is the exception, on purpose: it is measured every sample on the RAW
+   observable, before the output smoothing, because a 5 ms one-pole turns a
+   half-turn flip of 2.0 into steps of about 0.01 per sample, which hides the
+   flip from a per-sample measure while the ear still hears a 5 ms swoop. The
+   raw figure is the self-check's, and it does not depend on the sample rate
+   (an observable changes once per physics step and holds in between). */
 class OrbScope {
   constructor(sr) {
     this.sr = sr; this.src = new Int32Array(SC_TR).fill(-1);
     this.a = new Float64Array(SC_TR * SC_N); this.w = 0; this.n = 0; this.dec = 0;
     this.lo = new Float64Array(SC_TR).fill(Infinity); this.hi = new Float64Array(SC_TR).fill(-Infinity);
     this.pp = new Float64Array(SC_TR * SC_RN); this.pw = 0; this.pn = 0; this.sec = 0;
+    this.prev = new Float64Array(SC_TR).fill(NaN); this.jc = new Float64Array(SC_TR); this.jr = new Float64Array(SC_TR * SC_RN);
+    this.q = new Int32Array(SC_TR).fill(-1); this.body = 0;   // each row's raw observable index (-1: the field's energy)
     this.tap = null; this.tapN = 0;   // the self-check's probe: the HEARD row's value, every sample
   }
-  compile(S) { for (let t = 0; t < SC_TR; t++) { const x = SX[scSrcId(t, S.o6 ? S.o6.body | 0 : 0)]; this.src[t] = x === undefined ? -1 : x; } }
-  clearRange() { this.lo.fill(Infinity); this.hi.fill(-Infinity); this.pn = 0; this.pw = 0; this.sec = 0; }
+  compile(S) {
+    this.body = S.o6 ? S.o6.body | 0 : 0;
+    for (let t = 0; t < SC_TR; t++) { const x = SX[scSrcId(t, this.body)]; this.src[t] = x === undefined ? -1 : x; this.q[t] = ORB_OBS.indexOf(SC_OBS[t][0]); }
+    this.prev.fill(NaN);
+  }
+  clearRange() { this.lo.fill(Infinity); this.hi.fill(-Infinity); this.pn = 0; this.pw = 0; this.sec = 0; this.prev.fill(NaN); this.jc.fill(0); }
   log(c) {
-    if (++this.dec >= SC_DEC) {
-      this.dec = 0; const w = this.w;
-      for (let t = 0; t < SC_TR; t++) {
-        const v = this.src[t] < 0 ? 0 : SOURCES[this.src[t]].read(c);
-        this.a[t * SC_N + w] = v; if (v < this.lo[t]) this.lo[t] = v; if (v > this.hi[t]) this.hi[t] = v;
-      }
-      this.w = (w + 1) % SC_N; if (this.n < SC_N) this.n++;
+    const lg = ++this.dec >= SC_DEC, w = this.w, O = c.orb, ob = this.body < O.nodes.length ? this.body * ORB_NO : -1;
+    if (lg) this.dec = 0;
+    for (let t = 0; t < SC_TR; t++) {
+      const v = this.src[t] < 0 ? 0 : SOURCES[this.src[t]].read(c), q = this.q[t];
+      const rv = q < 0 ? O.fraw[0] : ob < 0 ? 0 : O.raw[ob + q], p = this.prev[t];
+      if (p === p) { const j = Math.abs(rv - p); if (j > this.jc[t]) this.jc[t] = j; }
+      this.prev[t] = rv;
+      if (v < this.lo[t]) this.lo[t] = v; if (v > this.hi[t]) this.hi[t] = v;
+      if (lg) this.a[t * SC_N + w] = v;
     }
-    if (++this.sec >= this.sr) {   // one second of SAMPLES (never wall time): bank each row's peak-to-peak
+    if (lg) { this.w = (w + 1) % SC_N; if (this.n < SC_N) this.n++; }
+    if (++this.sec >= this.sr) {   // one second of SAMPLES (never wall time): bank each row's range and largest jump
       this.sec = 0;
-      for (let t = 0; t < SC_TR; t++) { this.pp[t * SC_RN + this.pw] = this.hi[t] >= this.lo[t] ? this.hi[t] - this.lo[t] : 0; }
-      this.lo.fill(Infinity); this.hi.fill(-Infinity);
+      for (let t = 0; t < SC_TR; t++) {
+        this.pp[t * SC_RN + this.pw] = this.hi[t] >= this.lo[t] ? this.hi[t] - this.lo[t] : 0;
+        this.jr[t * SC_RN + this.pw] = this.jc[t];
+      }
+      this.lo.fill(Infinity); this.hi.fill(-Infinity); this.jc.fill(0);
       this.pw = (this.pw + 1) % SC_RN; if (this.pn < SC_RN) this.pn++;
     }
   }
   /* Row t's peak-to-peak `ago` whole seconds back (0 = the last full second); NaN before it exists. */
   ppAgo(t, ago) { return ago < this.pn ? this.pp[t * SC_RN + (this.pw - 1 - ago + SC_RN) % SC_RN] : NaN; }
+  /* Row t's largest one-sample jump over the last `secs` full seconds; NaN before the first. */
+  jumpOver(t, secs) {
+    if (!this.pn) return NaN; let m = 0;
+    for (let k = 0; k < Math.min(secs, this.pn); k++) m = Math.max(m, this.jr[t * SC_RN + (this.pw - 1 - k + SC_RN) % SC_RN]);
+    return m;
+  }
 }
 
 const M3_KINDS = ['SINE', 'S&H', 'RANDOM LIN', 'DRAWN'];
@@ -3144,7 +3227,83 @@ function r6SelfCheck(S0, plant) {
       t99: g.t99, want99, ok: a.neither === 0 && mixed.neither > 0 && placed && a.flipsAt.join() === b.flipsAt.join()
         && !!(pa && pb && pa.flipsAt.join() !== pb.flipsAt.join()) && Math.abs(g.t99 / want99 - 1) < 0.05 };
   }
-  R.ok = R.sc.ok && R.acc.ok && R.th.ok && R.lane.ok && R.mix.ok && R.sw.ok;
+  /* G. ROUND 6b, THE TWO OTHER ANGLE REFERENCES. Each against its own definition
+     computed from a twin's state, by a different route: the others' COM summed
+     body by body (the source subtracts this body from the field's moments), and
+     the heading from the velocity components. Bodies within 10⁻⁶ of their
+     reference point are skipped (a direction there is rounding). Controls: the
+     others'-COM pair against the FIELD-CENTRE direction on sun, where the pinned
+     sun pulls the others' COM off the centre (under the COM lock the two are the
+     same direction, see the findings); the heading pair against the position's
+     direction. THE JUMPS, measured and not gated: each reference's largest
+     one-sample step of its sin or cos over 10 s, bodies 1 to 4, per preset. */
+  { let dC = 0, cC = 0, dH = 0, cH = 0; const jumps = [];
+    for (const name of ['binary', 'sun', 'figure8', 'chaos']) {
+      const F = new OrbitalField(sr, cfgOf(name)), T = new OrbitalField(sr, cfgOf(name)), c = { orb: F }, nb = Math.min(4, F.nodes.length);
+      const prev = new Float64Array(4 * 6).fill(NaN), J = [0, 0, 0];
+      for (let i = 0; i < 10 * sr; i++) {
+        F.advance(); T.advance();
+        for (let b = 0; b < nb; b++) {
+          const q = T.nodes[b];
+          let m = 0, sx = 0, sy = 0; for (let j = 0; j < T.nodes.length; j++) if (j !== b) { const o = T.nodes[j]; m += o.m; sx += o.m * o.x; sy += o.m * o.y; }
+          const ox = m > 0 ? sx / m : 0.5, oy = m > 0 ? sy / m : 0.5, dx = q.x - ox, dy = oy - q.y, r = Math.hypot(dx, dy);
+          const v6 = [row(b, 'sin').read(c), row(b, 'cos').read(c), row(b, 'sinC').read(c), row(b, 'cosC').read(c), row(b, 'sinH').read(c), row(b, 'cosH').read(c)];
+          if (r > 1e-6) {
+            dC = Math.max(dC, Math.abs(v6[2] - dy / r), Math.abs(v6[3] - dx / r));
+            if (name === 'sun') { const ex = q.x - 0.5, ey = 0.5 - q.y, er = Math.hypot(ex, ey); if (er > 1e-6) cC = Math.max(cC, Math.abs(v6[2] - ey / er), Math.abs(v6[3] - ex / er)); }
+          }
+          const sp = Math.hypot(q.vx, q.vy);
+          if (sp > 1e-6) {
+            dH = Math.max(dH, Math.abs(v6[4] + q.vy / sp), Math.abs(v6[5] - q.vx / sp));
+            cH = Math.max(cH, Math.abs(v6[4] - v6[0]), Math.abs(v6[5] - v6[1]));
+          }
+          for (let k = 0; k < 6; k++) { const p = prev[b * 6 + k]; if (p === p) J[k >> 1] = Math.max(J[k >> 1], Math.abs(v6[k] - p)); prev[b * 6 + k] = v6[k]; }
+        }
+      }
+      jumps.push({ name, centre: J[0], com: J[1], heading: J[2] });
+    }
+    R.ang = { dC, cC, dH, cH, jumps, ok: dC < 1e-9 && cC > 1e-3 && dH < 1e-12 && cH > 0.5 };
+  }
+  /* H. ROUND 6b, THE AUTO-KICK. Binary at drag 1 runs down for 30 s with the
+     thermostat off (precondition: mean |v| ≤ 10⁻⁹, a field the thermostat alone
+     cannot restart). Then the thermostat goes on: within one step the field is
+     kicked, and over the last 3 s of 10 it holds v* ÷ √(1 + 2τ·3·drag) within 3 %.
+     Control: the same with the auto-kick held off stays at rest. Seeded: two runs
+     end in the same state; with the plant as its stream they must not. */
+  { const run = (off, rnd) => {
+      const F = new OrbitalField(sr, cfgOf('binary', { damp: 1 })); F.autoOff = !!off; if (rnd) F.autoRng = rnd;
+      for (let i = 0; i < 30 * sr; i++) F.advance();
+      const dead = F.meanSpeed(), k0 = F.steps; F.P.thermoOn = true;
+      let v = 0, nv = 0, firstAt = -1;
+      for (let i = 0; i < 10 * sr; i++) { F.advance(); if (firstAt < 0 && F.autoKicks) firstAt = F.autoAt - k0; if (i >= 7 * sr) { v += F.meanSpeed(); nv++; } }
+      return { dead, kicks: F.autoKicks, firstAt, last: v / nv, end: F.nodes.map(b => b.x + ',' + b.y).join(';') };
+    };
+    const a = run(false), b = run(false), held = run(true), want = 0.5 / Math.sqrt(1 + 2 * 0.5 * 3 * 1);
+    const pa = plant ? run(false, () => plant()) : null, pb = plant ? run(false, () => plant()) : null;
+    R.auto = { dead: a.dead, kicks: a.kicks, firstAt: a.firstAt, last: a.last, want, heldLast: held.last, same: a.end === b.end,
+      plant: pa && pb ? pa.end !== pb.end : null,
+      ok: a.dead <= ORB_AUTO_V && a.kicks >= 1 && a.firstAt >= 0 && a.firstAt <= 1 && Math.abs(a.last / want - 1) < 0.03
+        && held.last <= ORB_AUTO_V && a.end === b.end && !!(pa && pb && pa.end !== pb.end) };
+  }
+  /* I. ROUND 6b, THE SCOPE'S JUMP FIGURE. A full core on figure-eight, scope on body
+     3 (the one that crosses the centre), the page's 5 ms smoothing: the row's
+     "jump 10 s" against a twin field's raw sin, max |Δ| per sample over the same
+     10 s. Control: the same max taken on the SMOOTHED row must come out far
+     smaller, which is why the figure is taken raw. */
+  { const St = quietTriggers(JSON.parse(JSON.stringify(S0)));
+    St.act.on = St.act.on.map(() => 0); St.routes[0].src = 'off'; St.routes[1].src = 'off'; St.lfo.depth = 0;
+    St.orb = cfgOf('figure8', { smooth: 0.005 }); St.o6 = { on: 0, body: 2, listen: 1, dest: 0, depth: 0.5 }; St.m3.on = 0;
+    const n = 10 * sr, c = new ModLabCore(sr, St), T = new OrbitalField(sr, St.orb), Lb = new Float32Array(240), Rb = new Float32Array(240);
+    let want = 0, sm = 0, pr = NaN, ps = NaN;
+    for (let i = 0; i < n; i += 240) {
+      c.render(Lb, Rb, 240);
+      for (let k = 0; k < 240; k++) { T.advance(); const r = T.raw[2 * ORB_NO + 6], q = T.obs(2, 6);
+        if (pr === pr) { want = Math.max(want, Math.abs(r - pr)); sm = Math.max(sm, Math.abs(q - ps)); } pr = r; ps = q; }
+    }
+    const got = c.sc6.jumpOver(1, 10);
+    R.jump = { got, want, smoothed: sm, ok: got === want && want > 0.5 && sm < 0.5 * want };
+  }
+  R.ok = R.sc.ok && R.acc.ok && R.th.ok && R.lane.ok && R.mix.ok && R.sw.ok && R.ang.ok && R.auto.ok && R.jump.ok;
   return R;
 }
 
@@ -4003,14 +4162,23 @@ function paintOrb(id, fieldOnly) {
     g.fillRect(X(O.obs(i, 0)) - v, Y(1) + 2 * v, 2 * v, 7 * v);
     g.fillRect(X(0) - 9 * v, Y(1 - O.obs(i, 1)) - v, 7 * v, 2 * v);
   }
-  if (fieldOnly) {   // the angle the scope reads: centre → body, and the unit circle its sin and cos run on
-    const bi = S.o6.body | 0, b = O.nodes[bi];
+  if (fieldOnly) {   // the angle the heard reference reads, drawn from where it is measured; the small circle is its sin/cos
+    const bi = S.o6.body | 0, b = O.nodes[bi], ref = o6Ref();
     if (b) {
+      let ox = 0.5, oy = 0.5, ex = b.x, ey = b.y, si = 6;
+      if (ref === 1) {   // the others' centre of mass, marked with a cross
+        let m = 0, sx = 0, sy = 0; for (let j = 0; j < nb; j++) if (j !== bi) { const q = O.nodes[j]; m += q.m; sx += q.m * q.x; sy += q.m * q.y; }
+        if (m > 0) { ox = sx / m; oy = sy / m; } si = 8;
+        g.strokeStyle = TOK('--scr-meter'); g.lineWidth = 1.5 * v; g.beginPath();
+        g.moveTo(X(ox) - 5 * v, Y(oy) - 5 * v); g.lineTo(X(ox) + 5 * v, Y(oy) + 5 * v); g.moveTo(X(ox) + 5 * v, Y(oy) - 5 * v); g.lineTo(X(ox) - 5 * v, Y(oy) + 5 * v); g.stroke();
+      } else if (ref === 2) {   // the heading: an arrow along the velocity from the body
+        const sp = Math.hypot(b.vx, b.vy) || 1; ox = b.x; oy = b.y; ex = b.x + 0.12 * b.vx / sp; ey = b.y + 0.12 * b.vy / sp; si = 10;
+      }
       g.strokeStyle = TOK('--scr-meter'); g.lineWidth = 1.5 * v; g.setLineDash([4 * v, 3 * v]);
-      g.beginPath(); g.moveTo(X(0.5), Y(0.5)); g.lineTo(X(b.x), Y(b.y)); g.stroke(); g.setLineDash([]);
-      const rr = 16 * v, an = O.obs(bi, ORB_ANGLE) * TAU;
-      g.strokeStyle = TOKA('--scr-meter', 0.5); g.beginPath(); g.arc(X(0.5), Y(0.5), rr, 0, TAU); g.stroke();
-      g.fillStyle = TOK('--scr-meter'); g.beginPath(); g.arc(X(0.5) + rr * Math.cos(an), Y(0.5) - rr * Math.sin(an), 3 * v, 0, TAU); g.fill();
+      g.beginPath(); g.moveTo(X(ox), Y(oy)); g.lineTo(X(ex), Y(ey)); g.stroke(); g.setLineDash([]);
+      const rr = 16 * v, cx0 = X(0.5), cy0 = Y(0.5), sv = ref < 0 ? 0 : O.obs(bi, si), cv0 = ref < 0 ? 1 : O.obs(bi, si + 1);
+      g.strokeStyle = TOKA('--scr-meter', 0.5); g.beginPath(); g.arc(cx0, cy0, rr, 0, TAU); g.stroke();
+      g.fillStyle = TOK('--scr-meter'); g.beginPath(); g.arc(cx0 + rr * cv0, cy0 - rr * sv, 3 * v, 0, TAU); g.fill();
     }
   }
   g.restore();
@@ -4941,6 +5109,9 @@ function buildO6() {
   pillRow(host, 'scale', ['PER PRESET', 'CLAMP (§4)'], () => S.orb.scale === 'clamp' ? 1 : 0,
     i => { live('scale', i ? 'clamp' : 'preset'); core.orb.observe(); core.orb.prime(); });
   pillRow(host, 'body', ['1', '2', '3', '4'], () => S.o6.body | 0, i => { S.o6.body = i; core.compileRoutes(); core.sc6.clearRange(); });
+  /* Round 6b: the three angle references, one pill each, for A/B by ear. A pill
+     points HEAR at that reference's sin row (soloed, as clicking the row does). */
+  pillRow(host, 'angle about', SC_REFS.map(r => r[0]), () => o6Ref(), i => { S.o6.listen = SC_REFS[i][1]; soloHear('o6'); });
   selectRow(host, 'hear row', SC_OBS.map(o => o[1]), () => S.o6.listen | 0, i => { S.o6.listen = i; });
   pillRow(host, 'hear', ['OFF', 'ON (solo)'], () => S.o6.on ? 1 : 0, i => { if (i) soloHear('o6'); else S.o6.on = 0; });
   pillRow(host, 'dest', ['CUTOFF', 'PITCH'], () => S.o6.dest | 0, i => { S.o6.dest = i; });
@@ -4954,6 +5125,9 @@ function buildO6() {
     S.o6.listen = t; soloHear('o6'); onEdit();
   });
 }
+/* Which angle reference the heard row belongs to: 0 centre (rows 0-2), 1 the
+   others' COM (3-4), 2 the heading (5-6), -1 for any other row. */
+function o6Ref() { const t = S.o6.listen | 0; return t <= 2 ? 0 : t <= 4 ? 1 : t <= 6 ? 2 : -1; }
 function paintO6() {
   paintOrb('o6FieldC', true);
   const cv = $('o6C'), G = ground(cv); if (!G) return;
@@ -4985,11 +5159,14 @@ function paintO6() {
       const p = C.ppAgo(t, SC_RN - 1 - j); if (!(p === p)) continue;
       const hh = Math.min(1, p / full) * (bot - top); g.fillRect(sx0 + j * bw, bot - hh, Math.max(v, bw - v), Math.max(v * 0.6, hh));
     }
-    const now = C.ppAgo(t, 0), ago = C.ppAgo(t, 30), f = x => x === x ? x.toFixed(x < 0.001 && x > 0 ? 6 : 3) : '—';
+    const now = C.ppAgo(t, 0), ago = C.ppAgo(t, 30), jmp = C.jumpOver(t, 10), f = x => x === x ? x.toFixed(x < 0.001 && x > 0 ? 6 : 3) : '—';
     g.fillStyle = heard ? TOK('--scr-meter') : TOKA('--scr-grid', 0.95);
     g.fillText((heard ? '▶ ' : '') + SC_OBS[t][1] + (bip ? '  ±1' : '  0..1'), x0 + 2 * v, t * bh + 10 * v);
     g.textAlign = 'right';
-    g.fillText('range ' + f(now) + '  ·  30 s ago ' + f(ago), x1, t * bh + 10 * v);
+    /* round 6b: the largest one-sample jump over the last 10 s, raw (before smoothing), the figure the self-check measures; marker colour past 0.1 */
+    g.fillText('range ' + f(now) + '  ·  30 s ago ' + f(ago) + '  ·  ', x1 - 92 * v, t * bh + 10 * v);
+    g.fillStyle = jmp > 0.1 ? TOK('--scr-marker') : heard ? TOK('--scr-meter') : TOKA('--scr-grid', 0.95);
+    g.fillText('jump 10 s ' + f(jmp), x1, t * bh + 10 * v);
     g.textAlign = 'left';
   }
   if (!ac) { g.fillStyle = TOK('--scr-marker'); g.fillText('POWER (or click a row): the scope is the render\'s own log', x0 + 2 * v, h / 2); }
@@ -5000,7 +5177,8 @@ function paintO6() {
     + ', accel ÷ ' + Cl.A.toPrecision(2) + ' (ADR-165 A1, per preset, either way). '
     + (P.thermoOn ? 'Thermostat <b>on</b>: v* ' + P.thermoV.toFixed(2) + ', τ ' + P.thermoTau.toFixed(2) + ' s; against drag ' + d.toFixed(2)
         + ' it settles near <b>' + want.toFixed(3) + '</b> (v* ÷ √(1 + 2τ·3·drag), B126). '
-        + (O.meanSpeed() <= 1e-9 ? '<b>The field is at rest, and the thermostat cannot start it: KICK or RESET.</b> ' : '')
+        + (O.autoKicks ? '<b>Auto-kicks: ' + O.autoKicks + '</b>, the last at t ' + (O.autoAt * ORB_DT).toFixed(1) + ' s (the field had stopped; KICK\'s kick, from its own seeded stream). '
+          : 'Auto-kick armed: if the field stops (mean |v| ≤ 10⁻⁹), it gets KICK\'s kick. ')
       : 'Thermostat <b>off</b>: with drag above 0, the field runs down. ')
     + (S.o6.on ? 'Hearing body ' + ((S.o6.body | 0) + 1) + ' <b>' + SC_OBS[S.o6.listen | 0][1] + '</b> → ' + ['CUTOFF', 'PITCH'][S.o6.dest | 0] + ' × ' + S.o6.depth.toFixed(2) + ' (solo).'
       : 'Not heard: click a row on the scope.'));
@@ -5101,7 +5279,17 @@ function auditRound6() {
       + R.sw.ctlNeither + ' ' + fire(R.sw.ctlNeither > 0) + '); flips at ' + R.sw.flips.map(c3).join(' and ') + ', the closed form '
       + c3(R.sw.B.up) + ' up and ' + c3(R.sw.B.down) + ' down ' + yes(R.sw.placed) + '; seeded twice, the same ' + yes(R.sw.same)
       + '; Math.random as the pick\'s draw, two runs ' + (R.sw.plant === null ? '<b>not run</b>' : R.sw.plant ? 'differ (fires)' : '<b>agree: DID NOT FIRE</b>')
-      + '; a 50 ms glide reaches 99 % in ' + R.sw.t99 + ' samples (ln 100 × 50 ms = ' + R.sw.want99.toFixed(0) + ')'
+      + '; a 50 ms glide reaches 99 % in ' + R.sw.t99 + ' samples (ln 100 × 50 ms = ' + R.sw.want99.toFixed(0) + '). '
+      + '<b>Round 6b, the other angle references</b>: about the others\' COM against its own sum, max|Δ| <b>' + e(R.ang.dC) + '</b> (control, against the field centre on sun: '
+      + c3(R.ang.cC) + ' ' + fire(R.ang.cC > 1e-3) + '); the heading against the velocity, <b>' + e(R.ang.dH) + '</b> (control, against the position\'s direction: '
+      + c3(R.ang.cH) + ' ' + fire(R.ang.cH > 0.5) + '). <b>Largest one-sample jump of sin or cos over 10 s</b>, centre / others\' COM / heading: '
+      + R.ang.jumps.map(j => j.name + ' ' + c3(j.centre) + ' / ' + c3(j.com) + ' / ' + c3(j.heading)).join(', ') + ' (measured, not gated). '
+      + '<b>Auto-kick</b>: binary run down by drag 1 to mean |v| ' + e(R.auto.dead) + ', thermostat on: kicked ' + R.auto.kicks + '× at step ' + R.auto.firstAt
+      + ', then ' + c3(R.auto.last) + ' against ' + c3(R.auto.want) + ' predicted (control, auto-kick held off: ' + e(R.auto.heldLast) + ', '
+      + fire(R.auto.heldLast <= ORB_AUTO_V) + '); seeded twice, the same ' + yes(R.auto.same) + '; Math.random as its stream, two runs '
+      + (R.auto.plant === null ? '<b>not run</b>' : R.auto.plant ? 'differ (fires)' : '<b>agree: DID NOT FIRE</b>')
+      + '. <b>The scope\'s jump figure</b> (figure-eight, body 3, 5 ms smoothing): ' + c3(R.jump.got) + ' against the raw sin\'s ' + c3(R.jump.want)
+      + ' ' + yes(R.jump.got === R.jump.want) + ' (control, measured on the smoothed row: ' + c3(R.jump.smoothed) + ' ' + fire(R.jump.smoothed < 0.5 * R.jump.want) + ')'
       + (R.ok ? ' · <b>all pass</b>' : ' · <b>FAILED</b>');
   } catch (err) { box.classList.add('bad'); box.textContent = 'round-6 self-check threw: ' + String((err && err.message) || err); }
   box.classList.remove('busy');
@@ -5114,7 +5302,7 @@ function scheduleAudit6() {
   if (audit6T) clearTimeout(audit6T);
   audit6T = setTimeout(() => {
     audit6T = 0; const b = $('audit6');
-    if (b) { b.classList.add('busy'); b.textContent = 'round-6 self-check: running (about half a second; the page holds still meanwhile) …'; }
+    if (b) { b.classList.add('busy'); b.textContent = 'round-6 self-check: running (one to two seconds; the page holds still meanwhile) …'; }
     setTimeout(auditRound6, 40);   // one frame for the BUSY line to paint before the work blocks
   }, 500);
 }
