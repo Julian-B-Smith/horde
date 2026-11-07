@@ -484,8 +484,9 @@
    "note": "Retired by the human, 2026-11-05, through the Labs facilitator (ADR-369): done: Randomize has its own top button (GUI-25), in the shell."
   },
   "osc-layout-lab.html": {
-   "status": "exploring",
-   "note": "GB19. Three candidates each for an oscillator's mini view on Main, its expanded page, and the Osc dashboard with both filters (MOCK). Waiting on the human."
+   "status": "ruled",
+   "adr": "GUI-57",
+   "note": "GB19. The human answered all four (2026-11-06, through the Labs facilitator): M3 with the summed waveform under the blade view on Main, P1 tiers as built, D3 signal flow on the dashboard, and a card's envelope as a small control. Nothing open."
   },
   "envelope-workshop-lab.html": {
    "status": "ruled",
@@ -6586,6 +6587,66 @@
    "master_version": null
   },
   {
+   "lab": "docs/design/osc-layout-lab.html",
+   "via": null,
+   "superseded_by": null,
+   "port_tab": null,
+   "adr": "GUI-57",
+   "id": "gui57-main-tab-m3",
+   "clause": "ruling 1: Main's oscillator tab is M3 (ring and waveform left, one part at a time right) with the summed waveform under the blade view",
+   "component": "Deck",
+   "bundle": null,
+   "master_version": null,
+   "shell": null,
+   "state": "ruled",
+   "note": "To build: the Deck tab's layout in the master, then the shell; the waveform is GUI-49's. Its height on the 267 px tab is measured when built. FX device: none."
+  },
+  {
+   "lab": "docs/design/osc-layout-lab.html",
+   "via": null,
+   "superseded_by": null,
+   "port_tab": null,
+   "adr": "GUI-57",
+   "id": "gui57-osc-page-p1",
+   "clause": "ruling 2: the Osc page keeps GUI-30's tiers (Face, All, +Adv); named groups declined for now",
+   "component": "PageView",
+   "bundle": "PageView",
+   "master_version": "1793909482-958b",
+   "shell": "docs/design/gui3.html: function paramPage(pg, el)",
+   "state": "in-shell",
+   "note": "As built: nothing changes. FX device: a module's section tiers may borrow it."
+  },
+  {
+   "lab": "docs/design/osc-layout-lab.html",
+   "via": null,
+   "superseded_by": null,
+   "port_tab": null,
+   "adr": "GUI-57",
+   "id": "gui57-dashboard-signal-flow",
+   "clause": "ruling 3: the Osc dashboard is the signal flow, four sources in a column wired into the two filters",
+   "component": null,
+   "bundle": null,
+   "master_version": null,
+   "shell": null,
+   "state": "ruled",
+   "note": "The wires are a drawing until GN-16; the filters wait on Weir's manifest. FX device: none."
+  },
+  {
+   "lab": "docs/design/osc-layout-lab.html",
+   "via": null,
+   "superseded_by": null,
+   "port_tab": null,
+   "adr": "GUI-57",
+   "id": "gui57-card-envelope-control",
+   "clause": "ruling 4: a dashboard card's envelope becomes a small control naming the envelope it follows and opening GUI-47's Override; the card gains a control row",
+   "component": null,
+   "bundle": null,
+   "master_version": null,
+   "shell": null,
+   "state": "ruled",
+   "note": "The one-control reading is the GUI session's, open to the human. FX device: none."
+  },
+  {
    "lab": "docs/design/morph-rail-lab.html",
    "via": null,
    "superseded_by": null,
@@ -8291,6 +8352,9 @@
   ],
   "GUI-56": [
    "GN-31"
+  ],
+  "GUI-57": [
+   "GN-16"
   ]
  },
  "audit_notes": [
