@@ -2,6 +2,8 @@
 
 > **Origin.** horde lead session, 2026-11-06. The human, by poll: "Write the mod spec round". Drafted by an agent the lead dispatched, from the ruled draft `docs/proposals/modulation-spec-draft.md` (#1424) and ADR-371 (and A1), ADR-372, ADR-375 (and A1), ADR-377 and ADR-378 (the travel stage), with ADR-266, ADR-330, ADR-342, ADR-349 and ADR-374 where they bear. **Revised the same day** after a critic's review of `d8693366` ("rework") and the human's answers to the open questions (to be recorded as ADR-379), on top of round 61 (`origin/b631-round-61` at `7acea9c6`, merged into this branch). ROADMAP B633, B637.
 
+**Second critic pass (approved with notes) and ADR-379 A1, same day.** Merged round 61's `5f8315b6` (MO-22's escaped bars) and applied the notes and the human's three further answers; see §11.
+
 **Status: DRAFT for the lead.** The round adds **Appendix E** to `specs/SPEC-ENGINE.md` and touches the body where modulation crosses the engine and the resolver. Two items stay **[OPEN]**, each decided by a lab that is testing it. Every **[Xn]** is built as written until ruled.
 
 ## 1. What the round adds
@@ -156,16 +158,21 @@ BD-8 stage 9 reopens those stages for those additions only.
 | X69 | envelope mode falls to s = 0 along osc 1's governing release | falling to y = 0 would leave unipolar routes half on |
 | X70 | one seed per LFO | a patch seed ties the LFOs' randomness |
 | X71 | Kuramoto details (Drawn from a chosen LFO, global, retrigger after silence, exact 2π) | — |
-| X72 | the new modulators' M settings are host parameters | no automation of gravity or the walk |
+| X72 | the new modulators' rate-like settings only are host parameters (`kuro.rate`, `kuro.retrig`, `orb.timeScale`, the 2-D random's clock, rate and division), limited as the LFOs' are | every M setting would put ORBITAL's eight masses on the host's list |
 | X73 | ORBITAL details (one global field; resets; Kick on the card; v* 0.5, τ 0.5 s; scales measured per preset, a user field at the maxima) | per-voice fields: an orbit per note, at 16× the CPU |
 | X74 | the 2-D random's details (Spring default, Lag kept, a pad is two Control routes, rows unipolar) | dropping Lag aligns it with the LFOs' travel set |
 | X75 | MPE bend range 48 st until B504 | 2 or 12 st makes a small slide a large move |
 | X76 | each route weight its own one-pole at `morph.glide`, none at a landing | glided weights would smear routes on a source's landing |
 | X77 | a Control route always takes the outside path | Control on the engine path would need ends and W per sample |
-| X78 | the four source levels and the noise cutoff join PA-4 (rate A) | without them, an envelope into a level would be a 1,500 Hz staircase on fast attacks |
 | X79 | Save under a position route stores the unglided target at the unmodulated position | storing the heard value would bake an LFO's sweep into the corner |
 | X80 | `mod` lives in the shell's document | inside IF-4, the engine's state would change version for data it never reads |
-| X81 | a quantized route always takes the outside path | snapping is control-rate by nature (hysteresis, minimum step time) |
+| X81 | a quantized route always takes the outside path; Quantize on in any corner sends every instance into that key outside | snapping is control-rate by nature (hysteresis, minimum step time) |
+| X82 | an Exempt key's routes are corner A's | blending the corners' routes would modulate a key the morph holds still |
+| X83 | Kuramoto's Drawn plays Sine when the chosen LFO is not drawn | refusing would silence a patch when an LFO's kind is changed |
+| X84 | several 2-D random note triggers on one tick are one | each note of a strummed chord would jump the point separately |
+| X85 | the per-note-to-shared setting is device-level, outside every patch | per patch, a preset could forbid what the player allows |
+| X86 | its default is Allow (the newest note) | — |
+| X87 | under Refuse, a loaded patch's routes of that kind are muted and named, not deleted | deleting would lose them when the setting is switched back |
 
 ## 6. Where the draft was overtaken by later rulings
 
@@ -200,7 +207,7 @@ BD-8 stage 9 reopens those stages for those additions only.
 ## 8. The structure file
 
 `engine2/structure/engine-structure.json`'s `spec.blob` is updated. It already has a `modulation` item with edges to `morph_resolver`, `parameters` and `voice`. Proposed, not added:
-- child items: `modulation.sources`, `modulation.matrix`, `modulation.lfo`, `modulation.kuramoto`, `modulation.orbital`, `modulation.xy_random` and `modulation.loops`, plus, in the engine, `voice.lfo` (the per-note LFOs) and `voice.route_terms` (the engine path);
+- child items: `modulation.sources`, `modulation.matrix`, `modulation.lfo`, `modulation.kuramoto`, `modulation.orbital`, `modulation.xy_random` and `modulation.loops`. **The separate `voice.lfo` proposal is withdrawn** (critic 2d): the per-note LFOs and the engine path's closed form are the same code as `modulation.lfo` and the matrix's closed form (LF-1, MS-41), so the engine's use is an edge, `voice->modulation.lfo`, not a second block;
 - edges:
   - `transport->modulation`;
   - `host->modulation`;
@@ -223,3 +230,57 @@ BD-8 stage 9 reopens those stages for those additions only.
 ## 10. After 1.0 (named, not built)
 
 Note-on randoms; the trigger timer, its impulses and every trigger source; the MIDI gate and trigger; S&H's sample-on-trigger and the S&H mode on ORBITAL's mappings; ORBITAL's edge cushion; rails; the silent spring; a stepped destination kind; envelopes beyond ENV 1 to ENV 4; waypoints and region locks on a modulator's keys; ORBITAL per-voice fields, grab and throw, persistence, distance scale and pair distances.
+
+## 11. The second pass (ADR-379 A1 and the critic's notes)
+
+**The human's rulings (ADR-379 A1), and where written.**
+1. **PA-4's audio-rate destinations, ruled (X78 retired).**
+   - The four source levels and the noise filter's `cutoff`.
+   - The blades' `position` and `width`, on both blades of both oscillators (rate column C → A; `params.json` and `shell-data.js` regenerated).
+   - Forward in PA-4: the voice filters' cutoff and resonance, when RC-1 builds them.
+   - PF-2 notes it must be re-measured with the larger set.
+2. **A per-note source on a shared destination reads the newest note** (MS-46), and the page warns. MS-8's column is now **scope** (`per-note` or `global`), and MS-12 lists each destination kind's scope (`per-voice` or `shared`). The warning derives from these two columns.
+3. **A device setting can refuse such routes** (MS-47): `device.perNoteToShared`, Allow or Refuse. It is device-level and saved outside the patch [X85]; its default is Allow [X86]. Under Refuse, existing routes of that kind are muted and named, not deleted [X87].
+
+**The critic's notes, and where fixed.**
+- 2a: MS-20's A counts outside-path instances only; engine-path terms are added in the engine, once.
+- 2b: MS-41 chooses the path per corner instance; Quantize on in any corner sends all of a key's instances outside.
+- 2c: MS-42 states the starting values. Envelopes and swarm observables take the last published value or their rest value. A per-note LFO starts from the same LFO code run once at phase 0.
+- 2d: MS-41 says the closed form is the same code in both places. The `voice.lfo` proposal is withdrawn (§8).
+- 2e: MS-43: a per-note LFO's settings are held from the boundary, never glided or ramped.
+- 2f: IF-3 publishes each per-note LFO's output.
+- 2g: MS-46.
+- MS-41 adds that no engine-path route closes a loop within a sample.
+- Item 39.1 (b) drops the Nyquist clause, which could not fail.
+- MS-28's corner-A routes are tagged [X82].
+
+**Nits fixed.**
+- MS-13 cites ADR-340 r7 and the Map Mode spec for depth 0.25.
+- MB-3: only the mass smoothing and event timing depend on the rate.
+- MK-4: Drawn falls back to Sine [X83].
+- MR-6: tagged [X84].
+- RC-11.1 lists every way the modulation system reaches the engine.
+- IF-13: offsets addressed by note id, as PA-2 does.
+- X72: rate-like host parameters only.
+
+**New items.** 36.21 covers the newest note and the device setting. Item 36.13 now also checks starting values.
+
+**For the GUI session (ENGINE-NEEDS or GUI rows; the lead routes them):**
+- **The newest-note warning** (MS-46): shown when a route from a `per-note` source to a `shared` destination is made, naming both, and derived from MS-8's scope column and MS-12's scope list.
+- **The device setting's home** (MS-47): where "Per-note sources on shared destinations: Allow / Refuse" lives in the device's settings.
+- **The muted-and-named notice** when Refuse meets a loaded patch.
+
+**For the lead to record:** ADR-379 A1 (the three rulings above; the text cites "ADR-379 A1"). PA-4's growth and the five further rate changes (the blades' `position` and `width`) join the DECISIONS line for the engine change in §7.
+
+## 12. ADR-379 A2 (the reopened labs), same commit
+
+- **M3 closed: switch.** LF-8. An LFO whose corners differ in kind resolves `lfoN.kind` as a Structural key (its pick and latch) and crosses between kinds over PA-5's 5 ms at the flip. Capturing an in-between shape as its own pattern is in the after-1.0 note. Item 37.2 checks it.
+- **M4, first half, closed: the sine and cosine of each body's angle join** (34 sources). MB-6 and MB-9 are updated, MS-8 gains a row, and item 38.2 checks sin² + cos². [X88]: both are (1 ± …)/2 of the unsmoothed angle, and new routes start bipolar.
+- **[OPEN M4], narrowed:** which centre the angle is measured about.
+  - (a) The field centre, as written. A body circling off-centre wobbles unevenly.
+  - (b) The other bodies' centre of mass. A body turns evenly around its partner.
+  - (c) The direction of travel. The angle swings hardest at a slingshot.
+
+  The lab builds them for the human's ear. **This is the only [OPEN] left in the round.**
+- **The thermostat auto-kicks a stopped field.** MB-2. With the thermostat on, where the free bodies' mean speed is below 10⁻⁹ (the reference's skip threshold, [X89]), every free body gets speed v*. Body j's direction is 2π·u, with u being draw k of `mod/orbital/autokick/<j>` at `orb.seed`, and k counting restarts since reset [X90]. Item 38.2 checks it. Orbit size is not part of this ruling.
+- **For the lead to record:** ADR-379 A2 (these three).
