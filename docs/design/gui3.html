@@ -777,9 +777,10 @@ function morphBench() {
     h('div', { class: 'mw-top' }, h('div', { class: 'mw-left' }, pad, barBanner, barScale, barLock, blendNote),
       h('div', { class: 'mw-right' }, card('Selected row', 'CORNERS', [modeHost, insp]), crossCard, blendCard)),
     h('div', { class: 'mw-field' }, card('Find', 'FIELD', [find]), grid));
-  mw = { root, mounted: false, open: false, mount() {
+  mw = { root, crossCard, mounted: false, open: false, mount() {
     if (this.mounted) return; this.mounted = true;
     const M = H.Morph.state(S), E = H.Morph.engine, add0 = S.add;
+    M.mode = LAWS[dev.morphSettings().law];   // the master's state starts in 'blend'; D.2's law (Quantum by default) is the truth, before anything is drawn from it
     // A page's own control registered its key first, without the field's section. A continuous one is the same row with the same corners,
     // so it takes the section and the views share it. A stepped one holds 0..1 where the field's cells hold an option's index, so the field's row replaces it.
     const rows = dev.params().filter(r => r.class !== 'D').map(fieldRow).map(f => { const o = S.params[f.key]; if (o && f.kind === 'c') { o.section = f.section; o.group = f.group; o.path = o.path || f.path; return o; } if (o) { S.params[f.key] = f; S.saved[f.key] = f.vals.slice(); } return f; });
@@ -815,7 +816,8 @@ function morphBench() {
     this.blend = () => {
       const k = S.selected, r = k && ROW[k], law = LAWS[dev.morphSettings().law], ok = !!r && r.class === 'M' && r.law !== 'step' && law === 'blend' && dev.mode(k) === 'follow', held = !ok && !!r && dev.pins(k).length;
       blendNote.textContent = held ? r.label + ' has ' + held + (held === 1 ? ' waypoint' : ' waypoints') + ', dormant until BLEND.' : '';
-      blendNote.hidden = !held; blendCard.style.display = ok ? '' : 'none'; crossCard.style.display = ok ? 'none' : ''; pad.classList.toggle('bm-on', ok);
+      // GUI-60 (the human): Across the pad is hidden until a row is selected, since with none it held only "select a row" and read as an empty parameter list
+      blendNote.hidden = !held; blendCard.style.display = ok ? '' : 'none'; crossCard.style.display = ok || !r || !S.params[k] ? 'none' : ''; pad.classList.toggle('bm-on', ok);
       if (!ok) { if (bm) { bm.destroy(); bm = this.bm = null; blendHost.replaceChildren(); } return; }
       const row = bmRow(k, r), sig = k + '|' + row.corners.join() + '|' + JSON.stringify(row.pins), b = dev.blendSettings();
       if (!bm) { bmSig = sig; const box = h('div'); blendHost.replaceChildren(box); bm = this.bm = H.BlendMaps(box, { padHost: pad, row, laws: ['tps', 'tind'], law: b.law, clamp: b.clamp, onChange: e => {
@@ -830,7 +832,9 @@ function morphBench() {
     let lastLaw = null;
     views.push({ page: 'morph', update: () => {
       const ms = dev.morphSettings(), law = LAWS[ms.law];
-      if (law !== lastLaw) { lastLaw = law; if (M.mode !== law) { M.mode = law; M.trace = []; } }
+      // S.emit: the master's QuantumBanner redraws only on an emit, so without it the banner kept the master's 'blend' while D.2 said Quantum
+      // (the human's build 9 report, 2026-11-07: hidden on the lab page because its self-checks emit; the plug-in runs none)
+      if (law !== lastLaw) { lastLaw = law; if (M.mode !== law) { M.mode = law; M.trace = []; S.emit(); } }
       else if (M.mode !== law) { lastLaw = M.mode; dev.setMorphLaw(LAWS.indexOf(M.mode), 'Morph law: ' + M.mode); }
       pad.classList.toggle('no-row', !S.selected || !S.params[S.selected]); this.mode.render(); this.blend();
       root.classList.toggle('exempt-row', !!S.selected && dev.mode(S.selected) === 'exempt');   // GUI-21, MO-12: an Exempt row has no regions to see, drag or lock
@@ -2325,6 +2329,17 @@ CLOCK.checking = true;
   { const k = Object.keys(ROW).find(x => dev.canRoute(x)), e2 = { id: 'env2', name: 'ENV 2' }, n0 = dev.routes().length, first = dropMap(e2, k), n1 = dev.routes().length, again = dropMap(e2, k), n2 = dev.routes().length;
     if (first.ok) dev.undo(); dev.clearRedo();
     line(first.ok && !again.ok && n1 === n0 + 1 && n2 === n1 && dev.routes().length === n0, 'One wire (GN-20): a drag of ENV 2 onto ' + ROW[k].label + ' made ' + (n1 - n0) + ' route, and a second drag made ' + (n2 - n1) + '.'); }
+  // 4b3b. GUI-60: Across the pad is hidden while no row is selected. Control: a Structural or stepped row selected shows it (no law or mode hands those to the Blend map).
+  { const pg0 = page, sel0 = S.selected; selectPage('morph'); mw.mount(); const shown = () => mw.crossCard.style.display !== 'none';
+    S.selected = null; mw.blend(); const hiddenNone = !shown(); const k = Object.keys(S.params).find(x => ROW[x] && (ROW[x].class === 'S' || (ROW[x].class === 'M' && ROW[x].law === 'step'))); S.selected = k; mw.blend(); const shownRow = shown();
+    S.selected = sel0; mw.blend(); selectPage(pg0);
+    line(hiddenNone && shownRow, 'Across the pad (GUI-60): hidden with no row selected, and shown with ' + ROW[k].label + ' selected (control).'); }
+  // 4b3c. The Morph page's banner says the law D.2 holds, through a law change from outside the banner (the plug-in's frame, undo). Control: the change is seen both ways, Blend and back.
+  { const pg0 = page, keep = dev.history().past.length, law0 = dev.morphSettings().law, tick = () => { for (const v of views) if (v.page === page || v.page === '*') v.update(); };
+    selectPage('morph'); mw.mount(); const says = () => { const sp = [...document.querySelectorAll('#page-morph .hm-banner .hm-bn-say > span')].find(x => x.style.visibility === 'visible'); return sp ? sp.dataset.m : null; };
+    dev.setMorphLaw(0, 'self-check'); tick(); const blend = says(); dev.setMorphLaw(1, 'self-check'); tick(); const quantum = says();
+    dev.setMorphLaw(law0, 'self-check'); tick(); while (dev.history().past.length > keep) dev.undo(); dev.clearRedo(); tick(); selectPage(pg0);
+    line(blend === 'blend' && quantum === 'quantum', 'The Morph banner follows D.2\u2019s law (the human\u2019s build 9 report): it says ' + blend + ' after the law is set to Blend and ' + quantum + ' after Quantum (control: both directions).'); }
   // 4b4. GUI-28, MO-11 to MO-13: a key's mode. Controls: Follow still blends, re-picking makes no step, a locked corner refuses Exempt whole, and undo takes the mark off.
   { const pg0 = page, keep = dev.history().past.length; setMorphOn(true); dev.setMorph({ x: .3, y: .3 }); dev.scatter(SEED); selectPage('morph'); mw.mount();
     const lawKept = keyModeState(dev.params().find(x => x.class === 'M').key).countActs;   // D.2 defaults to Quantum, where a key's count can't act
