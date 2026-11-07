@@ -125,9 +125,10 @@ endforeach()
 # The smoke test's must-fail builds, bare CLAPs never installed. They keep the AppKit window whatever
 # HORDE_PREVIEW_WEBVIEW says, so every build compiles the fallback and it can't rot unseen.
 #   preview-plant        the routes removed, the retired Voices limit of 4 put back, pitch bends dropped, the output tap
-#                        frozen after its first block, and a state chunk that forgets the morph (B636)
+#                        frozen after its first block, a state chunk that forgets the morph (B636), and the
+#                        resolver's morph levels dropped, so no source fades (B639)
 #   preview-plant-map    the bridge's key map shifted one row, and the output tap hearing silence
-#   preview-plant-morph  the pad's position messages dropped (B636), alone: every other plant here changes something
+#   preview-plant-morph  the pad's position dropped, from the host or the page (B636, B639), alone: every other plant here changes something
 #                        the morph's checks also read, which would let its control fail for the wrong reason
 foreach(plant preview-plant preview-plant-map preview-plant-morph)
   add_library(${plant} MODULE preview_plugin.cpp bridge_core.cpp morph_core.cpp preview_gui.mm preview_entry.cpp)
@@ -138,11 +139,12 @@ foreach(plant preview-plant preview-plant-map preview-plant-morph)
   set_target_properties(${plant} PROPERTIES PREFIX "" SUFFIX ".clap")
 endforeach()
 target_compile_definitions(preview-plant PRIVATE HORDE_PREVIEW_PLANT_NO_ROUTES HORDE_PREVIEW_PLANT_VOICE_CAP
-                           HORDE_PREVIEW_PLANT_DROP_BEND HORDE_PREVIEW_PLANT_FROZEN_TAP HORDE_PREVIEW_PLANT_STATE_NO_MORPH)
+                           HORDE_PREVIEW_PLANT_DROP_BEND HORDE_PREVIEW_PLANT_FROZEN_TAP HORDE_PREVIEW_PLANT_STATE_NO_MORPH
+                           HORDE_PREVIEW_PLANT_DROP_LEVEL)
 target_compile_definitions(preview-plant-map PRIVATE HORDE_PREVIEW_PLANT_KEYMAP_SHIFT HORDE_PREVIEW_PLANT_SILENT_TAP)
 target_compile_definitions(preview-plant-morph PRIVATE HORDE_PREVIEW_PLANT_DROP_POSITION)
 
-add_executable(preview-smoke smoke.cpp)
+add_executable(preview-smoke smoke.cpp morph_core.cpp)
 add_dependencies(preview-smoke bank_embedded)
 target_include_directories(preview-smoke PRIVATE ${CMAKE_BINARY_DIR}/generated ${CMAKE_CURRENT_SOURCE_DIR} ${HORDE_REPO_ROOT}/h2)
 target_link_libraries(preview-smoke PRIVATE clap horde_engine2_bank)

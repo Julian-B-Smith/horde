@@ -132,6 +132,22 @@ int main() {
     check(parse_message("{\"type\":\"corner\",\"seq\":17,\"index\":4,\"values\":{}}", keys).index == -1, "control: a corner past D names none");
     const Message save = parse_message("{\"type\":\"save\",\"seq\":18,\"index\":3}", keys);
     check(save.kind == Kind::Save && save.index == 3, "save: Save current sound names its corner (MO-25)");
+    // B639: MO-21's list, its law and MO-24's lock
+    const Message pins = parse_message("{\"type\":\"waypoints\",\"seq\":21,\"key\":\"env1.decay\",\"points\":[{\"x\":0.5,\"y\":0.25,\"v\":0.75},{\"x\":0.25,\"y\":0.5,\"v\":1.5}]}", keys);
+    check(pins.kind == Kind::Waypoints && pins.readable && pins.key == keys.find("env1.decay") && pins.points.size() == 2 && pins.points[1].v == 1.5,
+          "waypoints: one key's list, in order, as sent (the resolver clamps and judges it, MO-21)");
+    check(!parse_message("{\"type\":\"waypoints\",\"seq\":22,\"key\":\"env1.decay\",\"points\":[{\"x\":0.5,\"y\":0.25}]}", keys).readable,
+          "control: a waypoint without its value makes the list unreadable, so nothing acts");
+    const Message clear = parse_message("{\"type\":\"waypoints\",\"seq\":23,\"key\":\"env1.decay\",\"points\":[]}", keys);
+    check(clear.readable && clear.points.empty(), "an empty list is readable: it clears the key's waypoints");
+    const Message law = parse_message("{\"type\":\"waypointLaw\",\"seq\":24,\"law\":\"tin\",\"clamp\":false}", keys);
+    check(law.kind == Kind::WaypointLaw && law.readable && law.law == horde::WaypointLaw::Tin && !law.clamp, "waypointLaw: TIN, Clamp off");
+    check(!parse_message("{\"type\":\"waypointLaw\",\"seq\":25,\"law\":\"spline\",\"clamp\":true}", keys).readable, "control: a law MO-21 lacks is unreadable");
+    const Message lock = parse_message("{\"type\":\"lock\",\"seq\":26,\"key\":\"osc1.ratios\",\"offsets\":[0.5,-1,2]}", keys);
+    check(lock.kind == Kind::Lock && lock.key == kRatiosKey[0] && lock.has_offsets && lock.offsets[1] == -1, "lock: a key's three offsets, a ratios text's included");
+    const Message unlock = parse_message("{\"type\":\"lock\",\"seq\":27,\"key\":\"out.level\",\"offsets\":null}", keys);
+    check(unlock.readable && !unlock.has_offsets, "lock: null offsets is no lock");
+    check(!parse_message("{\"type\":\"lock\",\"seq\":28,\"key\":\"out.level\",\"offsets\":[1,2]}", keys).readable, "control: two offsets aren't a lock");
     const Message want = parse_message("{\"type\":\"want\",\"seq\":19,\"morph\":true}", keys);
     check(want.want.morph && !parse_message("{\"type\":\"want\",\"seq\":20}", keys).want.morph, "want.morph asks for the morph member; a want without it doesn't");
   }
@@ -185,6 +201,14 @@ int main() {
     f.sets = &sets;
     const std::string full = morph_json(f);
     check(has(full, "\"corners\":[{},{\"out.level\":0.5},{},{}]"), "a changed corner rides in its own place among four");
+    const double levels[4] = {1, 0.5, 0, NAN};
+    horde::ResolverCounters counters;
+    counters.refused_waypoints = 2;
+    f.levels = levels;
+    f.counters = &counters;
+    const std::string with_levels = morph_json(f);
+    check(has(with_levels, "\"levels\":[1,0.5,0,null]") && has(with_levels, "\"counters\":{\"refusedWaypoints\":2,\"refusedLocks\":0"),
+          "the heard levels ride per source (an engine without them reads null), and the resolver's counters");
     check(has(full, "\"sets\":[{\"group\":\"osc1/kernel\",\"voice\":2,\"settings\":[{\"id\":0,\"target\":0.25,\"heard\":0.5},{\"id\":1,\"target\":0.75,\"heard\":0.5}]}]"),
           "a heard set carries each setting's id, target and heard weight (IF-10)");
   }
@@ -288,11 +312,28 @@ int main() {
     SavedState mback;
     const bool read = read_state(mtext, mback);
     const auto& mb = mback.morph;
-    check(has(mtext, "horde-engine-preview 3\n") && read && mback.values.size() == 1 && mb.x == 0.1 + 0.2 && mb.y == 1 && mb.settings.size() == 2 &&
+    check(has(mtext, "horde-engine-preview 4\n") && read && mback.values.size() == 1 && mb.x == 0.1 + 0.2 && mb.y == 1 && mb.settings.size() == 2 &&
               mb.settings[1].second == 0.123456789 && mb.corners.size() == 2 && mb.corners[1].corner == 3 && mb.corners[1].id == 8 &&
               mb.corners[1].v == 0.1 + 0.7 && mb.texts.size() == 1 && mb.texts[0].text == morphed.morph.texts[0].text && mb.modes.size() == 2 &&
               mb.modes[0].choice == (KeyChoice{horde::KeyMode::Quantum, horde::KeyCount::Two}) && mb.modes[1].id == horde::kRatiosKeyId[1],
-          "the morph's corners, position, settings, texts and modes round-trip exactly (version 3)");
+          "the morph's corners, position, settings, texts and modes round-trip exactly (version 4)");
+    SavedState pinned = morphed;
+    pinned.morph.waypoints = {{3, {{0.5, 0.25, 0.1 + 0.2}, {0.75, 0.75, 1}}}, {8, {{0.25, 0.5, 0}}}};
+    pinned.morph.law = horde::WaypointLaw::Tin;
+    pinned.morph.clamp = false;
+    pinned.morph.locks = {{3, {0.5, -0.25, 1e-3 + 0.5}}, {horde::kRatiosKeyId[0], {0, 0, 0}}};
+    const std::string ptext = write_state(pinned);
+    SavedState pback;
+    const auto& pb = pback.morph;
+    check(read_state(ptext, pback) && pb.waypoints.size() == 2 && pb.waypoints[0].points.size() == 2 && pb.waypoints[0].points[0].v == 0.1 + 0.2 &&
+              pb.waypoints[1].id == 8 && pb.law == horde::WaypointLaw::Tin && !pb.clamp && pb.locks.size() == 2 &&
+              pb.locks[0].offsets[2] == 1e-3 + 0.5 && pb.locks[1].id == horde::kRatiosKeyId[0],
+          "version 4: each key's waypoints in order, the law and its clamp, and the locks round-trip exactly");
+    std::printf("     the waypoints and locks add %zu bytes\n", ptext.size() - mtext.size());
+    SavedState v3;
+    check(read_state("horde-engine-preview 3\npreset 5\nmorph position 0.5 0.5\n", v3) && v3.morph.x == 0.5 && v3.morph.waypoints.empty() &&
+              v3.morph.law == horde::WaypointLaw::Tps && v3.morph.clamp,
+          "a version-3 chunk still loads, with no waypoints or locks and the default law");
     std::string cut = mtext;
     const std::size_t line = cut.find("morph corner 3");
     cut.erase(line, cut.find('\n', line) - line + 1);

@@ -180,14 +180,29 @@ void web_window(const clap_plugin_t* plugin, const clap_plugin_params_t* params,
   page_send(wk, "{type: 'want', seq: 9010, osc: [1, 2], members: true, cycles: false, morph: true}");
   page_send(wk, "{type: 'corner', seq: 9011, index: 1, values: {'osc1.detune': 0.9}}");
   page_send(wk, "{type: 'morph', seq: 9012, settings: {'morph.on': 1, 'morph.law': 0, 'morph.glide': 0}}");
+  host_heard.clear();
   page_send(wk, "{type: 'position', seq: 9013, x: 1, y: 0}");
   pump(0.2);
-  check(run(wk, "return String(__shot.last.ack < 9013 && __heard['osc1.detune'] !== 0.9);") == "true",
-        "control: before a block runs, the morph's messages are neither acknowledged nor heard");
+  check(run(wk, "return String(__shot.last.ack < 9013 && __heard['osc1.detune'] !== 0.9);") == "true" && host_heard.empty(),
+        "control: before a block runs, the morph's messages are neither acknowledged nor heard, by the page or the host");
   block(plugin, false);
   check(wait_for(wk, "__shot.last.ack >= 9013 && __shot.last.morph && __shot.last.morph.x === 1 && __shot.last.morph.y === 0", 3),
         "the page's morph messages are acknowledged, and its frames carry the pad's position");
   check(wait_for(wk, "__heard['osc1.detune'] === 0.9", 3), "with the pad on corner B, the engine holds B's value, and the page hears it");
+  // B639: the pad's position is the host parameters morph.x and morph.y (IF-11), so a pad touch reaches the host as a
+  // gesture on each, as any page touch does.
+  {
+    const clap_id px = param_by_name(plugin, params, "morph.x"), py = param_by_name(plugin, params, "morph.y");
+    std::vector<std::uint16_t> on_x, on_y;
+    for (const auto& [type, id] : host_heard) {
+      if (id == px) on_x.push_back(type);
+      if (id == py) on_y.push_back(type);
+    }
+    const std::vector<std::uint16_t> touch = {CLAP_EVENT_PARAM_GESTURE_BEGIN, CLAP_EVENT_PARAM_VALUE, CLAP_EVENT_PARAM_GESTURE_END};
+    double hx = -1;
+    params->get_value(plugin, px, &hx);
+    check(px != CLAP_INVALID_ID && on_x == touch && on_y == touch && hx == 1, "a pad touch from the page reaches the host as a gesture on morph.x and on morph.y");
+  }
   page_send(wk, "{type: 'morph', seq: 9014, settings: {'morph.on': 0}}");
   page_send(wk, "{type: 'want', seq: 9015, osc: [1, 2], members: true, cycles: false}");
   block(plugin, false);

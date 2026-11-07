@@ -27,6 +27,7 @@
 #include "bridge_ext.h"
 #include "flush_to_zero.h"
 #include "horde_engine.h"
+#include "morph_core.h"
 
 namespace {
 
@@ -451,7 +452,9 @@ std::vector<std::string> audit_host(const clap_plugin_t* plugin, const clap_plug
   std::vector<std::string> failed;
   passed = 0;
   bridge->frame(plugin);
-  const std::uint32_t n = params->count(plugin);
+  // The engine rows only: Preset is first, and morph.x and morph.y (last, B639) reach the resolver, never the engine,
+  // so their own check holds them (host_xy).
+  const std::uint32_t n = params->count(plugin) - 2;
   for (std::uint32_t i = 1; i < n; ++i) {
     clap_param_info_t info{}, target{};
     params->get_info(plugin, i, &info);
@@ -534,6 +537,9 @@ void morph_reset(const clap_plugin_t* plugin, const preview_bridge_ext* bridge, 
   post(plugin, bridge, seq, "\"type\":\"morph\",\"settings\":{\"morph.on\":0,\"morph.audible\":0,\"morph.law\":0.5,\"morph.glide\":0.04}");
   post(plugin, bridge, seq, "\"type\":\"position\",\"x\":0,\"y\":0");
   post(plugin, bridge, seq, "\"type\":\"modes\",\"modes\":{},\"counts\":{}");
+  post(plugin, bridge, seq, "\"type\":\"waypoints\",\"key\":\"osc1.detune\",\"points\":[]");
+  post(plugin, bridge, seq, "\"type\":\"lock\",\"key\":\"osc1.baseWave\",\"offsets\":null");
+  post(plugin, bridge, seq, "\"type\":\"waypointLaw\",\"law\":\"tps\",\"clamp\":true");
 }
 std::string num17(double v) {
   char b[40];
@@ -660,17 +666,166 @@ bool load_from(Loaded& p, const std::string& text) {
 }
 // A four-corner patch through the state: set up at (0.25, 0.75) under Blend, saved, another preset played, loaded back.
 // Returns the engine's osc1.detune after the load (the corners, the settings and the position all decide it); `before`
-// is what it read before the save, `chunk` the saved text.
-double through_state(Loaded& p, const preview_bridge_ext* bridge, long long& seq, int preset, int other, double* before, std::string* chunk) {
+// is what it read before the save, `chunk` the saved text. With `pins` (B639) osc1.detune also holds a waypoint at the
+// pad's centre and the law is TIN with Clamp off, and osc1.baseWave a region lock: version 4's state.
+constexpr double kPin = 0.9375;   // dyadic, like the corners
+double through_state(Loaded& p, const preview_bridge_ext* bridge, long long& seq, int preset, int other, double* before, std::string* chunk,
+                     bool pins = false) {
   *before = blend_at(p, bridge, seq, preset, 0.25, 0.75);
   post(p.plugin, bridge, seq, "\"type\":\"modes\",\"modes\":{\"osc1.baseWave\":\"quantum\"},\"counts\":{\"out.level\":2}");
+  if (pins) {
+    post(p.plugin, bridge, seq, "\"type\":\"waypoints\",\"key\":\"osc1.detune\",\"points\":[{\"x\":0.5,\"y\":0.5,\"v\":" + num17(kPin) + "}]");
+    post(p.plugin, bridge, seq, "\"type\":\"waypointLaw\",\"law\":\"tin\",\"clamp\":false");
+    post(p.plugin, bridge, seq, "\"type\":\"lock\",\"key\":\"osc1.baseWave\",\"offsets\":[0.5,-0.25,0.125]");
+  }
   blocks_of(p.plugin, 1, 256);
+  if (pins) *before = bridge->engine_v(p.plugin, horde::find_param("osc1.detune")->id);
   if (!save_to(p, *chunk)) return NAN;
   morph_reset(p.plugin, bridge, seq);
   fresh(p, other);
   blocks_of(p.plugin, 1, 256);
   if (!load_from(p, *chunk)) return NAN;
   return bridge->engine_v(p.plugin, horde::find_param("osc1.detune")->id);
+}
+
+// The id of the host parameter named `name` (morph.x, morph.y), or CLAP_INVALID_ID.
+clap_id host_id(const Loaded& p, const char* name) {
+  clap_param_info_t info{};
+  for (std::uint32_t i = 0; i < p.params->count(p.plugin); ++i)
+    if (p.params->get_info(p.plugin, i, &info) && !std::strcmp(info.name, name)) return info.id;
+  return CLAP_INVALID_ID;
+}
+// The test corners under Blend, no glide, the pad left at A, then morph.x and morph.y set as host parameter events, the
+// way automation arrives (B639); returns the engine's osc1.detune after one block.
+double host_xy(Loaded& p, const preview_bridge_ext* bridge, long long& seq, int preset, double x, double y) {
+  morph_reset(p.plugin, bridge, seq);
+  fresh(p, preset);
+  post_corners(p.plugin, bridge, seq, test_corners());
+  post(p.plugin, bridge, seq, "\"type\":\"morph\",\"settings\":{\"morph.glide\":0,\"morph.law\":0,\"morph.on\":1}");
+  blocks_of(p.plugin, 1, 256);
+  float l[256], r[256];
+  Events e;
+  e.param(host_id(p, "morph.x"), x);
+  e.param(host_id(p, "morph.y"), y);
+  process(p.plugin, e, l, r, 256);
+  return bridge->engine_v(p.plugin, horde::find_param("osc1.detune")->id);
+}
+// The test corners under Blend at the pad's centre with the waypoint list `points` (JSON) on osc1.detune; its value.
+double pinned(Loaded& p, const preview_bridge_ext* bridge, long long& seq, int preset, const std::string& points) {
+  morph_reset(p.plugin, bridge, seq);
+  fresh(p, preset);
+  post_corners(p.plugin, bridge, seq, test_corners());
+  post(p.plugin, bridge, seq, "\"type\":\"morph\",\"settings\":{\"morph.glide\":0,\"morph.law\":0,\"morph.on\":1}");
+  post(p.plugin, bridge, seq, "\"type\":\"waypoints\",\"key\":\"osc1.detune\",\"points\":" + points);
+  post(p.plugin, bridge, seq, "\"type\":\"position\",\"x\":0.5,\"y\":0.5");
+  blocks_of(p.plugin, 1, 256);
+  return bridge->engine_v(p.plugin, horde::find_param("osc1.detune")->id);
+}
+
+// ---- MO-26's fade, through the plug-in and, independently, offline (B639) -------------------------------------------
+// Osc 1 on in corner A only, under Blend, the pad walking from A to B over kFadeBlocks blocks while one note sounds. The
+// offline side is a fresh engine and resolver of the same build, driven as the clean room's own shell drives them (item
+// 35's shell_of): the preset, its polyphony capped as the plug-in caps it, the same corners, settings and positions at
+// the same samples, one control interval at a time, the resolver's events after the note at a shared sample.
+constexpr int kFadeBlocks = 40;
+constexpr std::uint32_t kFadeBlock = 512;
+double fade_x(int b) { return double(b) / kFadeBlocks; }
+struct Fade { std::vector<float> out; std::vector<double> levels; };
+double first_level(const std::string& morph) {
+  const std::size_t at = morph.find("\"levels\":[");
+  return at == std::string::npos ? NAN : std::strtod(morph.c_str() + at + 10, nullptr);
+}
+Fade fade_plugin(Loaded& p, const preview_bridge_ext* bridge, long long& seq, int preset) {
+  morph_reset(p.plugin, bridge, seq);
+  fresh(p, preset);
+  for (int k = 1; k < 4; ++k) post(p.plugin, bridge, seq, "\"type\":\"corner\",\"index\":" + std::to_string(k) + ",\"values\":{\"osc1.on\":0}");
+  post(p.plugin, bridge, seq, "\"type\":\"morph\",\"settings\":{\"morph.law\":0,\"morph.on\":1}");
+  post(p.plugin, bridge, seq, "\"type\":\"want\",\"osc\":[],\"members\":false,\"morph\":true");
+  Fade f;
+  f.out.resize(2 * kFadeBlocks * kFadeBlock);
+  std::vector<float> l(kFadeBlock), r(kFadeBlock);
+  for (int b = 0; b < kFadeBlocks; ++b) {
+    if (b > 0) post(p.plugin, bridge, seq, "\"type\":\"position\",\"x\":" + num17(fade_x(b)) + ",\"y\":0");
+    Events e;
+    if (b == 0) e.note(true, 0, 9200, 60, 0.8);
+    process(p.plugin, e, l.data(), r.data(), kFadeBlock);
+    for (std::uint32_t i = 0; i < kFadeBlock; ++i) f.out[2 * (b * kFadeBlock + i)] = l[i], f.out[2 * (b * kFadeBlock + i) + 1] = r[i];
+    f.levels.push_back(first_level(morph_of(bridge->frame(p.plugin))));
+  }
+  Events off;
+  off.note(false, 0, 9200, 60, 0);
+  process(p.plugin, off, l.data(), r.data(), kFadeBlock);
+  blocks_of(p.plugin, 200);
+  post(p.plugin, bridge, seq, "\"type\":\"want\",\"osc\":[1,2],\"members\":false");
+  morph_reset(p.plugin, bridge, seq);
+  blocks_of(p.plugin, 1, 256);
+  return f;
+}
+std::vector<float> fade_offline(int preset) {
+  std::vector<float> out(2 * kFadeBlocks * kFadeBlock);
+  auto e = horde::make_engine();
+  auto res = horde::make_morph_resolver();
+  if (!e || !res || !e->prepare(44100, int(kFadeBlock)) || !e->load_state(kBank[preset].state).ok || !res->prepare(44100)) return {};
+  const horde::ParamInfo* poly = horde::find_param("voice.polyphony");
+  if (poly->lo + std::round(e->param_v(poly->id) * double(poly->steps - 1)) > 8) {   // the plug-in's own cap (preview_plugin.cpp)
+    horde::Event cap;
+    cap.type = horde::EventType::Param;
+    cap.param_id = poly->id;
+    cap.value = v_of_count(*poly, 8);
+    e->flush(&cap, 1);
+  }
+  std::vector<double> by_id(horde::manifest_id_span(), 0.0);
+  for (std::size_t i = 0; i < horde::manifest_size(); ++i) by_id[horde::manifest_param(i).id] = e->param_v(horde::manifest_param(i).id);
+  const std::string t0 = e->ratios(0), t1 = e->ratios(1);
+  res->set_corner(0, by_id.data(), t0.c_str(), t1.c_str(), 0);
+  by_id[horde::find_param("osc1.on")->id] = 0;
+  for (int k = 1; k < 4; ++k) res->set_corner(k, by_id.data(), t0.c_str(), t1.c_str(), 0);
+  double v[preview::morph::kSettings];
+  for (int i = 0; i < preview::morph::kSettings; ++i) v[i] = preview::morph::default_v(i);
+  v[preview::morph::kLaw] = 0;
+  v[preview::morph::kOn] = 1;
+  res->set_settings(preview::morph::decode(v), 0);
+  res->set_position(0, 0, 0);
+  const std::uint64_t ci = 29;   // PA-3 at 44.1 kHz: round(44100 / 1500)
+  std::vector<horde::MorphEvent> got(4096);
+  std::vector<horde::Event> events;
+  std::uint64_t clock = 0;
+  horde2::underFlushToZero([&] {
+    for (int b = 0; b < kFadeBlocks; ++b) {
+      if (b > 0) res->set_position(fade_x(b), 0, clock);
+      for (std::uint32_t pos = 0; pos < kFadeBlock;) {
+        const std::uint32_t span = std::uint32_t(std::min<std::uint64_t>(kFadeBlock - pos, ci - clock % ci));
+        events.clear();
+        if (b == 0 && pos == 0) {
+          horde::Event on;
+          on.type = horde::EventType::NoteOn;
+          on.note_id = 9200, on.channel = 0, on.key = 60, on.value = 0.8;
+          events.push_back(on);
+        }
+        const std::size_t n = res->process(span, got.data(), got.size());
+        for (std::size_t i = 0; i < n; ++i) {
+          const horde::MorphEvent& m = got[i];
+          horde::Event ev;
+          ev.sample = std::uint32_t(m.sample - clock);
+          if (m.kind == horde::MorphEvent::Kind::Param) ev.type = horde::EventType::Param, ev.param_id = m.param_id, ev.value = m.value, ev.landing = m.landing;
+          else if (m.kind == horde::MorphEvent::Kind::Level) ev.type = horde::EventType::MorphLevel, ev.integer = m.source, ev.value = m.value;
+          else if (m.kind == horde::MorphEvent::Kind::Ratios) { e->set_ratios(m.osc, m.text); continue; }   // at the span's start: its boundary
+          else continue;
+          events.push_back(ev);
+        }
+        float l[kFadeBlock], r[kFadeBlock];
+        e->process(events.data(), events.size(), nullptr, 0, l, r, int(span));
+        for (std::uint32_t i = 0; i < span; ++i) {
+          const std::size_t at = std::size_t(b) * kFadeBlock + pos + i;
+          out[2 * at] = std::isfinite(l[i]) ? l[i] : 0.0f;
+          out[2 * at + 1] = std::isfinite(r[i]) ? r[i] : 0.0f;
+        }
+        pos += span;
+        clock += span;
+      }
+    }
+  });
+  return out;
 }
 
 int find_preset(const char* name) {
@@ -699,7 +854,15 @@ int main(int argc, char** argv) {
   int engine_rows = 0;
   for (std::size_t i = 0; i < horde::manifest_size(); ++i) engine_rows += horde::manifest_param(i).reserved ? 0 : 1;
   // B632 (ADR-370): every engine row is a host parameter, past Live's 64, whose panel then fills from the window.
-  check(int(n_params) == 1 + engine_rows, "every non-reserved engine row is a host parameter, plus Preset (" + std::to_string(1 + engine_rows) + ")");
+  // B639 (IF-11): and the morph's position, morph.x and morph.y, last.
+  check(int(n_params) == 1 + engine_rows + 2, "every non-reserved engine row is a host parameter, plus Preset and morph.x and morph.y (" + std::to_string(1 + engine_rows + 2) + ")");
+  {
+    clap_param_info_t xi{}, yi{};
+    check(p.params->get_info(p.plugin, std::uint32_t(1 + engine_rows), &xi) && p.params->get_info(p.plugin, std::uint32_t(2 + engine_rows), &yi) &&
+              !std::strcmp(xi.name, "morph.x") && !std::strcmp(yi.name, "morph.y") && xi.min_value == 0 && xi.max_value == 1 && xi.default_value == 0 &&
+              yi.default_value == 0 && !(xi.flags & CLAP_PARAM_IS_STEPPED),
+          "morph.x and morph.y come last, 0 to 1, default 0, continuous (D.2)");
+  }
   {
     bool same = true;
     clap_param_info_t row_info{};
@@ -1103,6 +1266,10 @@ int main(int argc, char** argv) {
     long long mseq = 30000;
     const Corners corners = test_corners();
     const int preset = presets[0];
+    // The fade's offline side plays no routes and no glide (one note), so it takes a smoke preset without routes.
+    int fade_preset = -1;
+    for (int i : presets)
+      if (fade_preset < 0 && i >= 0 && kBank[i].n_routes == 0) fade_preset = i;
 
     // Morph off is the plug-in as it was: corners B to D and the position are silent and frozen (D.2, ADR-319).
     {
@@ -1148,34 +1315,49 @@ int main(int argc, char** argv) {
       check(moved == mo9(corners.detune, 0.5, 0.25) && moved != got, "and moving it again follows the pad (0.5, 0.25)");
     }
 
-    // IF-10's heard sets reach the frame: mid-pad under Blend, osc 1's kernel (its base wave apart in every corner)
-    // sounds as a set of several settings; at an exact corner, as one. This resolver still emits setting sets under
-    // Blend (round 61 / ADR-377 will retire them); the bridge forwards whatever it emits, and reports what is heard.
+    // MO-26 (B639): a source on in corner A only fades as the pad walks to B. The frame's heard level falls, and the
+    // output is bit-identical to an engine and resolver driven offline by the same inputs (fade_offline).
+    if (fade_preset >= 0) {
+      const Fade heard = fade_plugin(p, bridge, mseq, fade_preset);
+      const std::vector<float> offline_fade = fade_offline(fade_preset);
+      const double start = heard.levels.front(), middle = heard.levels[kFadeBlocks / 2], end = heard.levels.back();
+      std::printf("     osc 1's heard level as the pad walks A to B: %.6f, %.6f at the middle, %.6f at the end (%s)\n", start, middle, end, kBank[fade_preset].name);
+      check(start > middle && middle > end, "a source on in corner A only fades as the pad moves away: the frame's heard level falls (IF-10, MO-26)");
+      const std::size_t at = first_difference(heard.out, offline_fade);
+      check(!offline_fade.empty() && at == heard.out.size() && peak(heard.out) > 0,
+            "and the output is bit-identical to the engine and resolver driven offline by the same inputs" + (at == heard.out.size() ? std::string() : " (first difference at value " + std::to_string(at) + ")"));
+      check(first_difference(heard.out, fade_plugin(p, bridge, mseq, presets[1] == fade_preset ? presets[0] : presets[1]).out) != heard.out.size(),
+            "control: another preset's fade reads as different");
+    } else {
+      check(false, "none of the smoke presets is free of routes: the fade's offline reference has no preset to play");
+    }
+
+    // B639: morph.x and morph.y are host parameters (IF-11); host events move the resolution as the page's pad does.
     {
-      const auto kernel_settings = [&](double x, double y) {
-        (void)blend_at(p, bridge, mseq, preset, x, y);
-        post(p.plugin, bridge, mseq, "\"type\":\"want\",\"osc\":[],\"members\":false,\"morph\":true");
-        float l[256], r[256];
-        Events on;
-        on.note(true, 0, 9100, 60, 0.8);
-        process(p.plugin, on, l, r, 256);
-        blocks_of(p.plugin, 4, 256);
-        const std::string m = morph_of(bridge->frame(p.plugin));
-        const std::size_t at = m.find("{\"group\":\"osc1/kernel\"");
-        int n = 0;
-        if (at != std::string::npos)
-          for (std::size_t i = m.find("{\"id\":", at); i != std::string::npos && i < m.find("]}", at); i = m.find("{\"id\":", i + 1)) ++n;
-        Events off;
-        off.note(false, 0, 9100, 60, 0);
-        process(p.plugin, off, l, r, 256);
-        blocks_of(p.plugin, 200);
-        post(p.plugin, bridge, mseq, "\"type\":\"want\",\"osc\":[1,2],\"members\":false");
-        return n;
-      };
-      const int mid = kernel_settings(0.5, 0.5), corner = kernel_settings(1, 0);
-      std::printf("     osc1/kernel's heard set: %d settings mid-pad under Blend, %d at corner B\n", mid, corner);
-      check(mid >= 2, "mid-pad under Blend, the frame's heard sets show osc 1's kernel sounding several settings (IF-10)");
-      check(corner == 1, "control: at an exact corner it sounds one");
+      const clap_id x = host_id(p, "morph.x"), y = host_id(p, "morph.y");
+      const double got = host_xy(p, bridge, mseq, preset, 0.25, 0.75);
+      double hx = NAN, hy = NAN;
+      p.params->get_value(p.plugin, x, &hx);
+      p.params->get_value(p.plugin, y, &hy);
+      check(x != CLAP_INVALID_ID && y != CLAP_INVALID_ID && got == mo9(corners.detune, 0.25, 0.75) && hx == 0.25 && hy == 0.75,
+            "morph.x and morph.y set as host parameters move the resolution to MO-9's blend there, and read back");
+      check(got != corners.detune[0], "control: the resolution left corner A");
+    }
+
+    // MO-21 to MO-23 (B639): a waypoint bends the blend at its position.
+    {
+      const double plain = pinned(p, bridge, mseq, preset, "[]");
+      const double bent = pinned(p, bridge, mseq, preset, "[{\"x\":0.5,\"y\":0.5,\"v\":" + num17(kPin) + "}]");
+      std::printf("     osc1.detune at the centre: %.17g plain, %.17g with a waypoint of %.17g there\n", plain, bent, kPin);
+      check(plain == mo9(corners.detune, 0.5, 0.5), "control: with no waypoints the centre is MO-9's blend");
+      check(bent != plain && std::fabs(bent - kPin) < std::fabs(plain - kPin), "a waypoint changes the blend at its position, toward its value");
+      std::string nine = "[";
+      for (int i = 0; i < 9; ++i) nine += std::string(i ? "," : "") + "{\"x\":" + num17(0.1 + 0.08 * i) + ",\"y\":0.5,\"v\":0.5}";
+      const double refused = pinned(p, bridge, mseq, preset, nine + "]");
+      post(p.plugin, bridge, mseq, "\"type\":\"want\",\"osc\":[],\"members\":false,\"morph\":true");
+      const std::string m = morph_of(send_until_acked(p.plugin, bridge, mseq, "\"type\":\"hello\""));
+      check(refused == plain && number_after(m, "refusedWaypoints") >= 1, "a list of nine is refused whole (MO-21): the blend stays, and the frame counts it");
+      post(p.plugin, bridge, mseq, "\"type\":\"want\",\"osc\":[1,2],\"members\":false");
     }
 
     // Reported, never gating: what the morph costs here. While it is on, spans are cut at every control interval (as
@@ -1264,7 +1446,7 @@ int main(int argc, char** argv) {
       std::string chunk;
       const double after = through_state(p, bridge, mseq, preset, presets[1], &before, &chunk);
       std::printf("     a four-corner state chunk (3 keys apart per corner, the morph on, 2 modes): %zu bytes\n", chunk.size());
-      check(has(chunk, "horde-engine-preview 3\n") && has(chunk, "morph position 0.25 0.75\n"), "the chunk carries the morph (version 3)");
+      check(has(chunk, "horde-engine-preview 4\n") && has(chunk, "morph position 0.25 0.75\n"), "the chunk carries the morph (version 4)");
       check(before == mo9(corners.detune, 0.25, 0.75), "control: before the save the engine holds the blend");
       check(after == before, "after another preset and a load, the engine holds the same blend: corners, settings and position came back");
       // A frame carries only what changed since the page last heard it; a hello is a LOAD and resends everything.
@@ -1279,6 +1461,23 @@ int main(int argc, char** argv) {
       fresh(p, preset);
       blocks_of(p.plugin, 1, 256);
       check(save_to(p, untouched) && has(untouched, "horde-engine-preview 2\n") && !has(untouched, "morph"), "a patch that never touched the morph saves the version-2 chunk");
+
+      // Version 4: waypoints, their law and a lock save and load back (B639).
+      double pinned_before = NAN;
+      std::string pinned_chunk;
+      const double pinned_after = through_state(p, bridge, mseq, preset, presets[1], &pinned_before, &pinned_chunk, true);
+      std::printf("     with a waypoint, the TIN law and a lock: %zu bytes\n", pinned_chunk.size());
+      check(has(pinned_chunk, "horde-engine-preview 4\n") && has(pinned_chunk, "morph waypoints ") && has(pinned_chunk, "morph waypointlaw tin 0\n") &&
+                has(pinned_chunk, "morph lock "),
+            "the version-4 chunk carries the waypoints, the law and the lock");
+      check(pinned_before != mo9(corners.detune, 0.25, 0.75), "control: before the save the waypoint bends the blend at the pad");
+      check(pinned_after == pinned_before, "after another preset and a load the engine holds the same bent blend: the waypoints and law came back");
+      post(p.plugin, bridge, mseq, "\"type\":\"want\",\"osc\":[],\"members\":false,\"morph\":true");
+      const std::string pm = morph_of(send_until_acked(p.plugin, bridge, mseq, "\"type\":\"hello\""));
+      check(has(pm, "\"waypoints\":{\"osc1.detune\":[[0.5,0.5,0.9375]]}") && has(pm, "\"waypointLaw\":{\"law\":\"tin\",\"clamp\":false}") &&
+                has(pm, "\"locks\":{\"osc1.baseWave\":[0.5,-0.25,0.125]}"),
+            "and the frame shows them");
+      post(p.plugin, bridge, mseq, "\"type\":\"want\",\"osc\":[1,2],\"members\":false");
       post(p.plugin, bridge, mseq, "\"type\":\"want\",\"osc\":[1,2],\"members\":false");
       morph_reset(p.plugin, bridge, mseq);
       blocks_of(p.plugin, 1, 256);
@@ -1328,6 +1527,15 @@ int main(int argc, char** argv) {
       const double after = through_state(plant, plant_bridge, plant_seq, presets[0], presets[1], &before, &chunk);
       check(before == mo9(test_corners().detune, 0.25, 0.75) && after != before,
             "control: a chunk that forgets the morph loads without it (the plant's morph worked before the save)");
+      int fade_preset = -1;
+      for (int i : presets)
+        if (fade_preset < 0 && i >= 0 && kBank[i].n_routes == 0) fade_preset = i;
+      if (fade_preset >= 0) {
+        const Fade dropped = fade_plugin(plant, plant_bridge, plant_seq, fade_preset);
+        const std::vector<float> offline_fade = fade_offline(fade_preset);
+        check(!(dropped.levels.back() < dropped.levels.front()) && first_difference(dropped.out, offline_fade) != dropped.out.size(),
+              "control: with the resolver's levels dropped, no level falls and the output misses the offline fade");
+      }
     }
     plant.plugin->stop_processing(plant.plugin);
     plant.plugin->deactivate(plant.plugin);
@@ -1365,6 +1573,8 @@ int main(int argc, char** argv) {
       const double got = blend_at(still, still_bridge, still_seq, presets[0], 0.25, 0.75);
       check(got == test_corners().detune[0] && got != mo9(test_corners().detune, 0.25, 0.75),
             "control: with position messages dropped, the pad moves nothing and the key stays at corner A's value");
+      const double hosted = host_xy(still, still_bridge, still_seq, presets[0], 0.25, 0.75);
+      check(hosted == test_corners().detune[0], "control: and morph.x and morph.y set by the host move nothing either");
     }
     still.plugin->stop_processing(still.plugin);
     still.plugin->deactivate(still.plugin);

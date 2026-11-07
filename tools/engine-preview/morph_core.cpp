@@ -139,6 +139,15 @@ void write_lines(const State& s, std::string& text) {
   for (const auto& t : s.texts) text += "morph ratios " + std::to_string(t.corner) + ' ' + std::to_string(t.osc) + ' ' + escaped(t.text) + '\n';
   for (const auto& m : s.modes)
     text += "morph mode " + std::to_string(m.id) + ' ' + mode_name(m.choice.mode) + ' ' + std::to_string(count_number(m.choice.count)) + '\n';
+  for (const auto& p : s.waypoints) {
+    text += "morph waypoints " + std::to_string(p.id) + ' ' + std::to_string(p.points.size());
+    for (const auto& w : p.points) text += ' ' + num(w.x) + ' ' + num(w.y) + ' ' + num(w.v);
+    text += '\n';
+  }
+  if (s.law != horde::WaypointLaw::Tps || !s.clamp)
+    text += std::string("morph waypointlaw ") + (s.law == horde::WaypointLaw::Tin ? "tin" : "tps") + ' ' + (s.clamp ? '1' : '0') + '\n';
+  for (const auto& l : s.locks)
+    text += "morph lock " + std::to_string(l.id) + ' ' + num(l.offsets[0]) + ' ' + num(l.offsets[1]) + ' ' + num(l.offsets[2]) + '\n';
 }
 
 bool read_line(std::string_view line, State& s) {
@@ -147,7 +156,7 @@ bool read_line(std::string_view line, State& s) {
   char key[64] = {}, mode[16] = {};
   int corner = 0, osc = 0, count = 0, used = 0;
   unsigned id = 0;
-  double a = 0, b = 0;
+  double a = 0, b = 0, c3 = 0;
   if (std::sscanf(l.c_str(), "morph setting %63s %lf", key, &a) == 2) {
     const int i = find_setting(key);
     if (i >= 0 && std::isfinite(a)) s.settings.emplace_back(i, std::fmin(1.0, std::fmax(0.0, a)));
@@ -159,6 +168,24 @@ bool read_line(std::string_view line, State& s) {
     std::string text;
     if (corner >= 0 && corner < 4 && (osc == 0 || osc == 1) && unescaped(std::string_view(l).substr(std::size_t(used)), text))
       s.texts.push_back({corner, osc, text});
+  } else if (std::sscanf(l.c_str(), "morph waypoints %u %d %n", &id, &count, &used) == 2 && used > 0) {
+    // n triples follow; a line whose numbers don't all read is dropped whole, as MO-21 refuses a list whole
+    State::Pins p{id, {}};
+    const char* at = l.c_str() + used;
+    bool ok = count >= 0 && count <= 1024;
+    for (int i = 0; ok && i < count; ++i) {
+      horde::Waypoint w;
+      int n = 0;
+      ok = std::sscanf(at, "%lf %lf %lf %n", &w.x, &w.y, &w.v, &n) == 3 && std::isfinite(w.x) && std::isfinite(w.y) && std::isfinite(w.v);
+      at += n;
+      p.points.push_back(w);
+    }
+    if (ok && !p.points.empty()) s.waypoints.push_back(std::move(p));
+  } else if (std::sscanf(l.c_str(), "morph waypointlaw %15s %d", mode, &count) == 2) {
+    s.law = std::string_view(mode) == "tin" ? horde::WaypointLaw::Tin : horde::WaypointLaw::Tps;
+    s.clamp = count != 0;
+  } else if (std::sscanf(l.c_str(), "morph lock %u %lf %lf %lf", &id, &a, &b, &c3) == 4) {
+    if (std::isfinite(a) && std::isfinite(b) && std::isfinite(c3)) s.locks.push_back({id, {a, b, c3}});
   } else if (std::sscanf(l.c_str(), "morph mode %u %15s %d", &id, mode, &count) == 3) {
     KeyChoice c;
     if (mode_of(mode, c.mode)) {

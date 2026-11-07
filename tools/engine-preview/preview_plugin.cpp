@@ -72,6 +72,11 @@ constexpr std::uint32_t kEditQueue = 4096;
 constexpr int kNoteRing = 128;
 constexpr std::uint64_t kScopeRing = 8192, kScopeWindow = 2048, kScopeStep = 16;   // a power of two; 128 points a frame          // recent note-ons, by note id, for the page's notes (a power of two)
 constexpr const char* kDefaultPreset = "Trance jitter";
+// Round 61's D.2 rows morph.x and morph.y, host parameters by IF-11 (B639). IF-11 gives the morph's host parameters
+// explicit ids from a lockfile; none is committed yet, so these are the plug-in's own, in a block of its own beside
+// Preset's: above every engine id (each engine source owns a range below 0x6000) and below IF-11's 0xB00000.
+constexpr clap_id kMorphXId = 0xA00001, kMorphYId = 0xA00002;
+constexpr int kMaxPoints = 65;   // one key's waypoints as the page sends them: past MO-21's 8 the resolver refuses the list
 // The morph (B636). Events one span may carry: spans are cut at every control interval while the morph moves, so one
 // boundary's worth (every key and set) fits many times over. A resolver drop past this is counted, never silent.
 constexpr std::size_t kMorphEvents = 4096;
@@ -173,6 +178,9 @@ struct Slot {
   char heard_text[2][kTextBytes] = {};              // the texts the engine holds now (IF-4: a set's heaviest setting's)
   std::vector<horde::MorphEvent> morph_out;         // kMorphEvents, the resolver's output for one span
   std::vector<double> initial;                      // per manifest row, the engine's v once built: `heard` at the swap
+  horde::Waypoint points[kMaxPoints];               // a Waypoints edit's list, gathered from its Point edits
+  std::uint32_t points_id = 0;
+  int points_want = -1, points_have = 0;
 };
 
 // One preset's cost in this session. Written by the audio thread alone, read by the main thread for the log, so
@@ -187,16 +195,18 @@ struct Stats {
 // own gesture when `bracket` is set (a window edit, or a page set with no page gesture open). Begin and End: a page
 // gesture on a host row. Ack: every page message ends with one, so the seq it carries is published only after all
 // that message's entries are applied.
-// The morph's kinds (B636): Setting (id: a D.2 index, value: its v), Position (value, y), KeyMode (id: a manifest id
-// or kRatiosKeyId, mode, count), Corner (corner, id, value in v) and Save (corner).
+// The morph's kinds (B636): Setting (id: a D.2 index, value: its v), KeyMode (id: a manifest id or kRatiosKeyId, mode,
+// count), Corner (corner, id, value in v) and Save (corner). B639's: Waypoints (id, corner: the point count) followed by
+// that many Point (value, y, z: x, y and v), WaypointLaw (corner: 1 for TIN, value: 1 for Clamp on) and Lock (id, corner:
+// 1 for a lock, value, y, z: its offsets). The position is no kind of its own: it is two host parameters (B639).
 struct Edit {
-  enum Kind : std::uint8_t { Value, Begin, End, Ack, Setting, Position, KeyMode, Corner, Save };
+  enum Kind : std::uint8_t { Value, Begin, End, Ack, Setting, KeyMode, Corner, Save, Waypoints, Point, WaypointLaw, Lock };
   Kind kind = Value;
   bool bracket = true;
   clap_id id = 0;
   double value = 0;
   std::int64_t seq = 0;
-  double y = 0;
+  double y = 0, z = 0;
   int corner = 0;
   horde::KeyMode mode = horde::KeyMode::Follow;
   horde::KeyCount count = horde::KeyCount::AsMorph;
@@ -232,6 +242,8 @@ struct HeardTexts { char t[2][kTextBytes] = {}; };
 struct HeardSets {
   int n = 0;
   preview::bridge::HeardGroup group[kSetGroupCount];
+  double levels[horde::kSources] = {1, 1, 1, 1};   // IF-10's heard morph level per source (MO-26)
+  horde::ResolverCounters counters{};
 };
 
 // What the page's session needs between frames. Main thread only.
@@ -268,6 +280,8 @@ struct Session {
   double sent_settings[kSettings] = {};
   bool sent_settings_ok = false, modes_due = true;
   std::int64_t modes_after = 0;
+  bool pins_due = true;            // waypoints, their law and the locks: echoed once applied, as the modes are
+  std::int64_t pins_after = 0;
   std::vector<double> sent_corner;               // 4 x manifest rows
   std::vector<double> sent_heard;                // per manifest row
   std::string sent_texts[4][2], sent_heard_text[2];
@@ -370,6 +384,14 @@ struct Plugin {
   std::atomic<double> morph_v[kSettings];           // D.2, v
   std::atomic<double> pos_x{0}, pos_y{0};           // D.2's position (morph.x, morph.y once round 61 lands)
   std::vector<preview::morph::KeyChoice> modes;     // main thread: manifest rows, then osc1.ratios, osc2.ratios
+  // MO-21 and MO-24 (B639), the main thread's, as the page sent them, keyed like `modes`. Page choices, never host
+  // parameters. The resolver judges each list and lock and counts what it refuses (`morph.counters`); this copy is what
+  // was sent, which is what a save keeps and a load sends again.
+  std::vector<std::vector<horde::Waypoint>> waypoints;
+  horde::WaypointLaw waypoint_law = horde::WaypointLaw::Tps;
+  bool waypoint_clamp = true;
+  std::vector<std::array<double, 3>> lock_offsets;
+  std::vector<bool> locked;
   std::vector<std::array<std::string, 2>> preset_text;   // main thread: per preset, its ratios texts as it loads
   // What the engine holds, for frames and Save current sound: written by the audio thread from every Param it sends.
   std::unique_ptr<std::atomic<double>[]> heard;     // per manifest row, v
@@ -476,6 +498,12 @@ void build_morph(Plugin& s, Slot& slot, int preset, bool keep_shadow) {
     const std::uint32_t id = k < t.all.size() ? t.all[k]->id : horde::kRatiosKeyId[k - t.all.size()];
     slot.resolver->set_key(id, s.modes[k].mode, s.modes[k].count, 0);
   }
+  for (std::size_t k = 0; k < s.waypoints.size(); ++k) {
+    const std::uint32_t id = k < t.all.size() ? t.all[k]->id : horde::kRatiosKeyId[k - t.all.size()];
+    if (!s.waypoints[k].empty()) slot.resolver->set_waypoints(id, s.waypoints[k].data(), int(s.waypoints[k].size()), 0);
+    if (s.locked[k]) slot.resolver->set_lock(id, s.lock_offsets[k].data(), 0);
+  }
+  slot.resolver->set_waypoint_law(s.waypoint_law, s.waypoint_clamp, 0);
   slot.resolver->set_position(s.pos_x.load(std::memory_order_relaxed), s.pos_y.load(std::memory_order_relaxed), 0);
 }
 
@@ -580,9 +608,17 @@ std::atomic<double>& corner_at(Plugin& s, int corner, std::size_t m) { return s.
 // IF-12 routes such an edit to the corners (ADR-109), but how it splits across them isn't in the spec yet, so this
 // plug-in doesn't guess (README); corner edits arrive as the page's `corner` message instead. While the morph is off
 // the edit also lands in the audible corner, which is the sound being edited (D.2's morph.audible).
-bool set_param(Plugin& s, clap_id id, double value) {
+void set_position(Plugin& s, double x, double y, std::uint32_t sample);
+
+bool set_param(Plugin& s, clap_id id, double value, std::uint32_t sample = 0) {
   if (id == kPresetId) {
     s.wanted_preset.store(std::clamp(int(std::lround(value)), 0, kBankSize - 1), std::memory_order_relaxed);
+    return true;
+  }
+  if (id == kMorphXId || id == kMorphYId) {   // the pad's position: the resolver's, never the engine's (IF-11, IF-12)
+    if (!std::isfinite(value)) return false;
+    const double v = std::clamp(value, 0.0, 1.0);
+    set_position(s, id == kMorphXId ? v : s.pos_x.load(std::memory_order_relaxed), id == kMorphYId ? v : s.pos_y.load(std::memory_order_relaxed), sample);
     return true;
   }
   const int m = manifest_index(id);
@@ -607,7 +643,7 @@ bool set_param(Plugin& s, clap_id id, double value) {
 }
 
 bool host_parameter(clap_id id) {
-  if (id == kPresetId) return true;
+  if (id == kPresetId || id == kMorphXId || id == kMorphYId) return true;
   const int m = manifest_index(id);
   return m >= 0 && rows().host_of[std::size_t(m)] >= 0;
 }
@@ -620,13 +656,17 @@ void push_gesture(const clap_output_events_t* out, clap_id id, bool begin) {
 }
 
 // ---- the morph system on the audio thread (B636) -------------------------------------------------------------------
-// The one way a position reaches the morph. Today only the page's `position` message calls it (through the edit
-// queue); when round 61 (#1431) merges, morph.x and morph.y become host parameters and their host events call it too,
-// from set_param, at the event's sample. Audio thread, or the main thread while no slot is live.
-void set_position(Plugin& s, double x, double y) {
+// The one way a position reaches the morph: the host parameters morph.x and morph.y (B639, IF-11), which the page's
+// `position` message sets too, as a touch, through set_param. `sample` is the event's offset in the span the resolver
+// is about to process, so the position takes effect at the first boundary at or after it (MO-3). Audio thread, or
+// whichever thread flushes.
+void set_position(Plugin& s, double x, double y, std::uint32_t sample) {
+#ifdef HORDE_PREVIEW_PLANT_DROP_POSITION   // smoke.cpp's must-fail build: the pad moves nothing, from the host or the page
+  return;
+#endif
   s.pos_x.store(x, std::memory_order_relaxed);
   s.pos_y.store(y, std::memory_order_relaxed);
-  if (s.live && s.live->resolver) s.live->resolver->set_position(x, y, s.live->resolver->clock());
+  if (s.live && s.live->resolver) s.live->resolver->set_position(x, y, s.live->resolver->clock() + sample);
 }
 
 // A corner as IF-12's array by manifest id, from the atomics. Into the slot's own buffer: nothing allocates.
@@ -635,14 +675,37 @@ void fill_corner(Plugin& s, Slot& slot, int c) {
   for (std::size_t m = 0; m < t.all.size(); ++m) slot.by_id[t.all[m]->id] = corner_at(s, c, m).load(std::memory_order_relaxed);
 }
 
-// MO-25, Save current sound into corner `c`: what the engine holds now, which IF-4 makes the heard sound's values (a
-// Morphable key's glided value as last sent, a blending group's heaviest setting), and the texts it holds. Device keys
-// are not written. The engine's stored values are read between process calls, on the thread that processes.
+// MO-25, Save current sound into corner `c`, from the resolver's own reads (IF-12), between process calls on the thread
+// that processes: each key's resolved value (a Morphable value as last emitted, glided), each text, and for a source
+// fading (MO-26) the level g last sent, baked into its level key: the v whose gain, by the key's dB law, is the heard
+// gain times g; or, where that falls below the law's floor, the source stored off with its level key at the heard gain
+// (ADR-377 A2). Device keys aren't written. No macros or X/Y intents exist here yet, so there are no offsets to bake.
+constexpr const char* kSwitch[horde::kSources] = {"osc1.on", "osc2.on", "sub.on", "noise.on"};
+constexpr const char* kLevelKey[horde::kSources] = {"mix.osc1", "mix.osc2", "mix.sub", "mix.noise"};
 void save_sound(Plugin& s, Slot& slot, int c) {
   const Rows& t = rows();
-  for (std::size_t m = 0; m < t.all.size(); ++m)
-    if (morph_resolves(*t.all[m])) corner_at(s, c, m).store(slot.engine->param_v(t.all[m]->id), std::memory_order_relaxed);
-  std::memcpy(slot.text[c], slot.heard_text, sizeof slot.heard_text);
+  if (!slot.resolver) return;
+  for (std::size_t m = 0; m < t.all.size(); ++m) {
+    double v = 0;
+    if (morph_resolves(*t.all[m]) && slot.resolver->resolved_value(t.all[m]->id, v)) corner_at(s, c, m).store(v, std::memory_order_relaxed);
+  }
+  for (int src = 0; src < horde::kSources; ++src) {
+    const double g = slot.resolver->level_sent(src);
+    static const horde::ParamInfo* level_row[horde::kSources] = {};
+    static const horde::ParamInfo* switch_row[horde::kSources] = {};
+    if (!level_row[src]) level_row[src] = horde::find_param(kLevelKey[src]), switch_row[src] = horde::find_param(kSwitch[src]);
+    if (!(g < 1) || !level_row[src] || !switch_row[src] || level_row[src]->law != horde::Law::Db) continue;
+    const int lm = manifest_index(level_row[src]->id), sm = manifest_index(switch_row[src]->id);
+    const double heard = corner_at(s, c, std::size_t(lm)).load(std::memory_order_relaxed);
+    const horde::ParamInfo& row = *level_row[src];
+    const double db = heard > 0 && g > 0 ? horde::value_of(row, heard) + 20 * std::log10(g) : -INFINITY;
+    if (db >= row.lo) corner_at(s, c, std::size_t(lm)).store((db - row.lo) / (row.hi - row.lo), std::memory_order_relaxed);
+    else corner_at(s, c, std::size_t(sm)).store(0, std::memory_order_relaxed);   // off is the switch's option 0 (5.2)
+  }
+  for (int o = 0; o < 2; ++o) {
+    const char* text = slot.resolver->resolved_ratios(o);
+    std::snprintf(slot.text[c][o], kTextBytes, "%s", text ? text : slot.heard_text[o]);
+  }
   CornerTexts texts;
   std::memcpy(texts.t, slot.text, sizeof texts.t);
   s.corner_texts.write(texts);
@@ -662,8 +725,28 @@ bool apply_morph_edit(Plugin& s, const Edit& edit) {
         slot->settings_dirty = true;
       }
       return false;
-    case Edit::Position:
-      set_position(s, edit.value, edit.y);
+    case Edit::Waypoints:
+      if (!slot) return false;
+      slot->points_id = edit.id;
+      slot->points_want = std::min(edit.corner, kMaxPoints);
+      slot->points_have = 0;
+      if (slot->points_want == 0 && slot->resolver) slot->resolver->set_waypoints(edit.id, slot->points, 0, slot->resolver->clock());
+      return false;
+    case Edit::Point:
+      if (!slot || slot->points_have >= slot->points_want) return false;
+      slot->points[slot->points_have++] = {edit.value, edit.y, edit.z};
+      if (slot->points_have == slot->points_want && slot->resolver)
+        slot->resolver->set_waypoints(slot->points_id, slot->points, slot->points_have, slot->resolver->clock());
+      return false;
+    case Edit::WaypointLaw:
+      if (slot && slot->resolver)
+        slot->resolver->set_waypoint_law(edit.corner ? horde::WaypointLaw::Tin : horde::WaypointLaw::Tps, edit.value != 0, slot->resolver->clock());
+      return false;
+    case Edit::Lock:
+      if (slot && slot->resolver) {
+        const double offsets[3] = {edit.value, edit.y, edit.z};
+        slot->resolver->set_lock(edit.id, edit.corner ? offsets : nullptr, slot->resolver->clock());
+      }
       return false;
     case Edit::KeyMode:
       if (slot && slot->resolver) slot->resolver->set_key(edit.id, edit.mode, edit.count, slot->resolver->clock());
@@ -987,7 +1070,7 @@ void translate(Plugin& s, const clap_event_header_t* h, std::uint32_t sample) {
       if (e.expression == horde::ExpressionKind::Tuning) pitch_tuning(s, e.note_id, e.value);
     } else if (h->type == CLAP_EVENT_PARAM_VALUE) {
       const auto* p = reinterpret_cast<const clap_event_param_value_t*>(h);
-      set_param(s, p->param_id, p->value);
+      set_param(s, p->param_id, p->value, sample);
     } else if (h->type == CLAP_EVENT_MIDI) {
       const auto* m = reinterpret_cast<const clap_event_midi_t*>(h);
       const int status = m->data[0] & 0xF0, channel = m->data[0] & 0x0F, d1 = m->data[1], d2 = m->data[2];
@@ -1087,6 +1170,7 @@ std::size_t morph_to_events(Plugin& s, Slot& slot, std::size_t n, std::uint64_t 
       e.sample = at;
       e.param_id = ev.param_id;
       e.value = ev.value;
+      e.landing = ev.landing;   // MO-26 (4): a source coming back on takes its values outright
       s.morph_events.push_back(e);
       const int m = manifest_index(ev.param_id);
       if (m >= 0) {
@@ -1098,6 +1182,15 @@ std::size_t morph_to_events(Plugin& s, Slot& slot, std::size_t n, std::uint64_t 
           s.rescan_pending.store(true, std::memory_order_relaxed);
         }
       }
+    } else if (ev.kind == horde::MorphEvent::Kind::Level) {
+#ifndef HORDE_PREVIEW_PLANT_DROP_LEVEL   // smoke.cpp's must-fail build: no source ever fades
+      horde::Event e;   // MO-26's morph level g of a source: an input of the engine, never a row (IF-12)
+      e.type = horde::EventType::MorphLevel;
+      e.sample = at;
+      e.integer = ev.source;
+      e.value = ev.value;
+      s.morph_events.push_back(e);
+#endif
     } else if (ev.kind == horde::MorphEvent::Kind::Ratios) {
       if (n_texts < std::size_t(kMaxTexts) && ev.text) texts[n_texts++] = {at, ev.osc, ev.text};
     } else if (ev.kind == horde::MorphEvent::Kind::Set && ev.set) {
@@ -1262,6 +1355,9 @@ void publish_heard_sets(Plugin& s, Slot& slot) {
       h.heard[k] = s.heard_scratch.setting[k].heard;
     }
   }
+  // IF-10's heard morph level per source (MO-26), and what the resolver refused or dropped (B639)
+  for (int src = 0; src < horde::kSources; ++src) out.levels[src] = slot.engine->observe_morph_level(src);
+  if (slot.resolver) out.counters = slot.resolver->counters();
   s.heard_sets.write(out);
 }
 
@@ -1323,6 +1419,7 @@ clap_process_status plugin_process(const clap_plugin_t* p, const clap_process_t*
     std::fill_n(right, frames, 0.0f);
     skip_morph(s, *s.live, frames);
     s.live->engine->skip(frames);
+    if (s.live->resolver && s.want_morph.load(std::memory_order_relaxed)) publish_heard_sets(s, *s.live);
     tap(s, left, right, frames);
     s.engine_silent.store(true, std::memory_order_relaxed);
     if (s.out_peak_reset.exchange(false, std::memory_order_relaxed)) {   // silence reads as silence, not the last loud frame
@@ -1462,6 +1559,9 @@ bool plugin_init(const clap_plugin_t* p) {
   for (std::size_t m = 0; m < t.all.size(); ++m) s.heard[m].store(t.default_v[m], std::memory_order_relaxed);
   for (int i = 0; i < kSettings; ++i) s.morph_v[i].store(preview::morph::default_v(i), std::memory_order_relaxed);
   s.modes.assign(t.all.size() + 2, preview::morph::KeyChoice{});
+  s.waypoints.assign(t.all.size() + 2, {});
+  s.lock_offsets.assign(t.all.size() + 2, {});
+  s.locked.assign(t.all.size() + 2, false);
   s.session.sent_corner.assign(4 * t.all.size(), NAN);
   s.session.sent_heard.assign(t.all.size(), NAN);
   s.session.sent.assign(t.all.size(), NAN);
@@ -1488,12 +1588,22 @@ void plugin_reset(const clap_plugin_t* p) {
 }
 
 // ---- params ----------------------------------------------------------------------------------------------------
-std::uint32_t params_count(const clap_plugin_t*) { return std::uint32_t(1 + rows().count); }
+// Preset, every engine row, then the morph's two (B639): last, so no earlier index moves.
+std::uint32_t params_count(const clap_plugin_t*) { return std::uint32_t(1 + rows().count + 2); }
 
 bool params_get_info(const clap_plugin_t*, std::uint32_t index, clap_param_info_t* info) {
-  if (index >= std::uint32_t(1 + rows().count)) return false;
+  if (index >= std::uint32_t(1 + rows().count + 2)) return false;
   std::memset(info, 0, sizeof *info);
   info->flags = CLAP_PARAM_IS_AUTOMATABLE;
+  if (index > std::uint32_t(rows().count)) {   // D.2's morph.x and morph.y: 0 to 1, lin, default 0 (round 61)
+    const bool x = index == std::uint32_t(rows().count) + 1;
+    info->id = x ? kMorphXId : kMorphYId;
+    std::snprintf(info->name, sizeof info->name, "%s", x ? "morph.x" : "morph.y");
+    info->min_value = 0;
+    info->max_value = 1;
+    info->default_value = 0;
+    return true;
+  }
   if (index == 0) {
     info->id = kPresetId;
     info->flags |= CLAP_PARAM_IS_STEPPED | CLAP_PARAM_IS_ENUM;
@@ -1518,6 +1628,7 @@ bool params_get_info(const clap_plugin_t*, std::uint32_t index, clap_param_info_
 bool params_get_value(const clap_plugin_t* p, clap_id id, double* out) {
   Plugin& s = *self(p);
   if (id == kPresetId) { *out = s.wanted_preset.load(std::memory_order_relaxed); return true; }
+  if (id == kMorphXId || id == kMorphYId) { *out = (id == kMorphXId ? s.pos_x : s.pos_y).load(std::memory_order_relaxed); return true; }
   const int m = manifest_index(id);
   if (m < 0 || rows().host_of[std::size_t(m)] < 0) return false;
   *out = v_to_host(*rows().all[std::size_t(m)], s.shadow[m].load(std::memory_order_relaxed));
@@ -1527,6 +1638,10 @@ bool params_get_value(const clap_plugin_t* p, clap_id id, double* out) {
 bool params_value_to_text(const clap_plugin_t*, clap_id id, double value, char* out, std::uint32_t size) {
   if (id == kPresetId) {
     std::snprintf(out, size, "%s", kBank[std::clamp(int(std::lround(value)), 0, kBankSize - 1)].name);
+    return true;
+  }
+  if (id == kMorphXId || id == kMorphYId) {
+    std::snprintf(out, size, "%.3g", value);
     return true;
   }
   const int m = manifest_index(id);
@@ -1639,6 +1754,13 @@ preview::morph::State morph_state(Plugin& s, int preset, const std::vector<doubl
     if (s.modes[k] == KeyChoice{}) continue;
     out.modes.push_back({k < t.all.size() ? t.all[k]->id : horde::kRatiosKeyId[k - t.all.size()], s.modes[k]});
   }
+  for (std::size_t k = 0; k < s.waypoints.size(); ++k) {   // MO-21 and MO-24 (B639): only keys that hold any
+    const std::uint32_t id = k < t.all.size() ? t.all[k]->id : horde::kRatiosKeyId[k - t.all.size()];
+    if (!s.waypoints[k].empty()) out.waypoints.push_back({id, s.waypoints[k]});
+    if (s.locked[k]) out.locks.push_back({id, {s.lock_offsets[k][0], s.lock_offsets[k][1], s.lock_offsets[k][2]}});
+  }
+  out.law = s.waypoint_law;
+  out.clamp = s.waypoint_clamp;
   return out;
 }
 
@@ -1700,7 +1822,26 @@ void load_morph(Plugin& s, int preset, const std::vector<double>& loaded, const 
     for (int o = 0; o < 2; ++o) std::snprintf(texts.t[c][o], kTextBytes, "%s", own[std::size_t(o)].c_str());
   for (const auto& text : in.texts) std::snprintf(texts.t[text.corner][text.osc], kTextBytes, "%s", text.text.c_str());
   s.corner_texts.write(texts);
+  // MO-21 and MO-24 (B639): none in a version 1 to 3 chunk
+  const auto index_of = [&](std::uint32_t id) {
+    return id == horde::kRatiosKeyId[0] ? int(t.all.size()) : id == horde::kRatiosKeyId[1] ? int(t.all.size()) + 1 : manifest_index(id);
+  };
+  for (auto& w : s.waypoints) w.clear();
+  std::fill(s.locked.begin(), s.locked.end(), false);
+  for (const auto& p : in.waypoints) {
+    const int k = index_of(p.id);
+    if (k >= 0) s.waypoints[std::size_t(k)].assign(p.points.begin(), p.points.begin() + std::min<std::ptrdiff_t>(std::ptrdiff_t(p.points.size()), kMaxPoints));
+  }
+  for (const auto& l : in.locks) {
+    const int k = index_of(l.id);
+    if (k < 0) continue;
+    s.locked[std::size_t(k)] = true;
+    s.lock_offsets[std::size_t(k)] = {l.offsets[0], l.offsets[1], l.offsets[2]};
+  }
+  s.waypoint_law = in.law;
+  s.waypoint_clamp = in.clamp;
   s.session.modes_due = true;
+  s.session.pins_due = true;
 }
 
 bool state_load(const clap_plugin_t* p, const clap_istream_t* stream) {
@@ -1786,6 +1927,8 @@ void resend_all(Plugin& s) {
   ss.sent_settings_ok = ss.sent_texts_ok = ss.sent_heard_text_ok = false;
   ss.modes_due = true;
   ss.modes_after = 0;
+  ss.pins_due = true;
+  ss.pins_after = 0;
 }
 
 // A new page in a new window: it knows nothing, and hasn't said hello.
@@ -1872,15 +2015,67 @@ void bridge_receive(Plugin& s, std::string_view json) {
       }
       break;
     case Kind::Position:
-#ifndef HORDE_PREVIEW_PLANT_DROP_POSITION   // smoke.cpp's must-fail build: the pad moves nothing
+      // A touch on the pad: it sets the host parameters morph.x and morph.y (B639), each as its own gesture unless the
+      // page holds one open, as any page touch does, so the host records the move and the panel shows it.
       if (m.has_position) {
-        Edit e;
-        e.kind = Edit::Position;
-        e.value = m.x;
-        e.y = m.y;
+        for (const auto& [id, v] : {std::pair<clap_id, double>{kMorphXId, m.x}, {kMorphYId, m.y}}) {
+          Edit e;
+          e.id = id;
+          e.value = v;
+          batch.push_back(e);
+        }
+      }
+      break;
+    case Kind::Waypoints:
+    case Kind::Lock: {
+      if (m.key == -1 || !m.readable) {
+        if (!m.readable) note_refused(ss.types, m.type + " (unreadable)", ss.refused_due);
+        break;
+      }
+      const std::size_t k = m.key == kRatiosKey[0] ? t.all.size() : m.key == kRatiosKey[1] ? t.all.size() + 1 : std::size_t(m.key);
+      const std::uint32_t id = k < t.all.size() ? t.all[k]->id : horde::kRatiosKeyId[k - t.all.size()];
+      Edit e;
+      e.id = id;
+      if (m.kind == Kind::Waypoints) {
+        const int n = std::min(int(m.points.size()), kMaxPoints);
+        s.waypoints[k].assign(m.points.begin(), m.points.begin() + n);
+        e.kind = Edit::Waypoints;
+        e.corner = n;
+        batch.push_back(e);
+        for (int i = 0; i < n; ++i) {
+          Edit p;
+          p.kind = Edit::Point;
+          p.value = m.points[std::size_t(i)].x, p.y = m.points[std::size_t(i)].y, p.z = m.points[std::size_t(i)].v;
+          batch.push_back(p);
+        }
+      } else {
+        s.locked[k] = m.has_offsets;
+        s.lock_offsets[k] = {m.offsets[0], m.offsets[1], m.offsets[2]};
+        e.kind = Edit::Lock;
+        e.corner = m.has_offsets ? 1 : 0;
+        e.value = m.offsets[0], e.y = m.offsets[1], e.z = m.offsets[2];
         batch.push_back(e);
       }
-#endif
+      ss.pins_due = true;
+      ss.pins_after = m.seq;
+      break;
+    }
+    case Kind::WaypointLaw:
+      if (!m.readable) {
+        note_refused(ss.types, "waypointLaw (unreadable)", ss.refused_due);
+        break;
+      }
+      {
+        s.waypoint_law = m.law;
+        s.waypoint_clamp = m.clamp;
+        Edit e;
+        e.kind = Edit::WaypointLaw;
+        e.corner = m.law == horde::WaypointLaw::Tin ? 1 : 0;
+        e.value = m.clamp ? 1 : 0;
+        batch.push_back(e);
+        ss.pins_due = true;
+        ss.pins_after = m.seq;
+      }
       break;
     case Kind::Modes: {
       // The whole menu: a key it doesn't name goes back to Follow at As the morph. Only changes reach the resolver.
@@ -2044,6 +2239,23 @@ std::string morph_member(Plugin& s, bool holding, std::int64_t acked) {
   const HeardSets sets = s.heard_sets.read();
   std::vector<HeardGroup> groups(sets.group, sets.group + sets.n);
   f.sets = &groups;
+  f.levels = sets.levels;
+  f.counters = &sets.counters;
+  // MO-21 and MO-24's state, whole, once the audio thread has applied what changed it (as the modes are)
+  std::vector<std::pair<std::string, std::vector<horde::Waypoint>>> waypoints;
+  std::vector<std::pair<std::string, std::array<double, 3>>> locks;
+  if (ss.pins_due && acked >= ss.pins_after) {
+    const auto key_of = [&](std::size_t k) -> std::string { return k < t.all.size() ? t.all[k]->key : k == t.all.size() ? "osc1.ratios" : "osc2.ratios"; };
+    for (std::size_t k = 0; k < s.waypoints.size(); ++k) {
+      if (!s.waypoints[k].empty()) waypoints.emplace_back(key_of(k), s.waypoints[k]);
+      if (s.locked[k]) locks.emplace_back(key_of(k), s.lock_offsets[k]);
+    }
+    f.waypoints = &waypoints;
+    f.locks = &locks;
+    f.law = &s.waypoint_law;
+    f.clamp = s.waypoint_clamp;
+    ss.pins_due = false;
+  }
   return morph_json(f);
 }
 
