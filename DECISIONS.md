@@ -12544,3 +12544,5 @@ The lead's mechanism, from the critic's review: the resolver holds the switch-of
 3. **The thermostat auto-kicks a stopped field** ("Auto-kick a stopped field").
 
 **Engine change (for the clean room).** Round 62 reverses RC-4 for per-note LFOs, which now run in the engine. It adds a Control input to PA-2, publishes VO-10's note counter, and widens PA-4's audio-rate destinations. Five manifest rows' rate changes from C to A, plus the blades' position and width; the manifest's hash is unchanged. PF-2 must be measured again.
+
+**ADR-379 A3 (the human, through the labs facilitator, 2026-11-06, ORBITAL round 6b).** The angle each body's sine and cosine are taken from is measured **about the field centre**, as first built. The other bodies' centre of mass and the direction of travel were heard and not chosen. The nearest-body option is not wanted for now. Nothing is left open before the modulation system's stage. The thermostat's auto-kick stands as ruled in A2.
