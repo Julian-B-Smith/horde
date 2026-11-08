@@ -24,6 +24,16 @@
      frame is a MOCK modulation, and L6's members are a mock spread, not the swarm's phases. The puck pad above the windows stands in for the Morph page's.
      The swarm's pictures on the left are grey stand-ins. Nothing here edits gui3*, arp-face/ or the master; a ruling goes through the chain (ADR-316).
 
+     ROUND 3 (the human, 2026-11-08). "I like all of these views. I'm thinking we should include some combination of them with a little clickable
+     signal on the viewer to switch between them. Could we also make the viewer an interactive XY like the scalpel was? Maybe up/down scrubs the frame
+     and left/right increases sync by default, with different options mappable or something?" So the lead glass is now THE VIEWER: a switch on the glass
+     (pips or a name, the bench picks which to show) steps through the six views, and a drag on it writes the oscillator's rows, BladeView's pattern
+     (GUI-30, B293-B299): relative (a grab moves nothing), up for a later frame, right for more sync, shift + horizontal for the third slot (Window), alt a
+     quarter as far, one undo step per gesture, arrow keys when focused. The legend pill on the glass opens the mapping: three slots, each any of the
+     nine continuous wt rows (CONTRACT section 2.1's table) with an invert, and Default. The view and the mapping are one choice for every viewer,
+     remembered per machine, never with a patch (as BladeView's are). The picture follows the rows: sync, window, asym and bend warp every frame
+     (a MOCK of WT-32 to WT-34's shapes), frame spread fans L6's members; the PM rows move the readout only.
+
      HOUSE RULES. No Math.random (seeded mulberry32). No clock: motion is a frame count (L.tick). No wheel listener (B301). Reduced motion starts Still. -->
 <html lang="en" data-theme="dark">
 <head>
@@ -108,6 +118,24 @@
   .pill { all: unset; cursor: pointer; padding: 1px 7px; border: 1px solid var(--ink); border-radius: var(--radius-capsule); font: 600 10px/1.5 var(--font-sans); }
   .pill[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
   .banner { padding: 6px 10px; border: 1px dashed var(--ink); border-radius: var(--radius); font-size: 12px; margin-bottom: 8px; }
+  /* THE VIEWER: the lead glass's switch, legend and readout are glass UI, so they take the glass's own ink (scr-physics and scr-grid), never the chassis' */
+  .vw { position: relative; }
+  .vw canvas { cursor: grab; touch-action: none; }
+  .vw canvas:active { cursor: grabbing; }
+  .vw canvas:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--scr-physics); }
+  .vw-sw { position: absolute; left: 6px; top: 5px; display: flex; align-items: center; gap: 4px; z-index: 2; }
+  .vw-sw button { all: unset; box-sizing: border-box; cursor: pointer; }
+  .vw-sw .pip { width: 9px; height: 9px; border-radius: 50%; border: 1.2px solid var(--scr-physics); }
+  .vw-sw .pip[aria-checked="true"] { background: var(--scr-physics); }
+  .vw-sw .pip:focus-visible, .vw-sw .nm:focus-visible, .vw-leg:focus-visible { outline: 1.5px solid var(--scr-physics); outline-offset: 2px; }
+  .vw-sw .nm, .vw-sw .cur { font: 700 9px/1 var(--font-mono); letter-spacing: .08em; color: var(--scr-physics); }
+  .vw-sw .nm { padding: 2px 5px; border: 1px solid var(--scr-physics); border-radius: 3px; }
+  .vw-sw .cur { color: var(--scr-grid); margin-left: 3px; }
+  .vw-leg { all: unset; box-sizing: border-box; cursor: pointer; position: absolute; right: 6px; bottom: 5px; z-index: 2; padding: 2px 6px; border: 1px solid var(--scr-grid); border-radius: 3px; background: var(--scr-ground); font: 600 9px/1.2 var(--font-mono); color: var(--scr-grid); letter-spacing: .04em; }
+  .mapbox { position: absolute; z-index: 25; width: 300px; padding: 8px; border: 1.5px solid var(--ink); border-radius: var(--radius); background: var(--panel); box-shadow: var(--shadow-hover); font-size: 11px; display: flex; flex-direction: column; gap: 6px; }
+  .mapbox .mr { display: grid; grid-template-columns: 62px 1fr auto; gap: 6px; align-items: center; }
+  .mapbox select { font: 500 11px/1.3 var(--font-sans); }
+  .mapbox .ft { display: flex; justify-content: space-between; align-items: center; }
   #say { min-height: 18px; font-size: 12px; }
   #selfcheck { font: 500 11px/1.4 var(--font-mono); white-space: pre-wrap; color: var(--hint); }
 </style>
@@ -126,12 +154,14 @@
     <div class="grp puck" id="bPuck"><span class="lbl">Puck</span><div class="hd-viz" id="padHost"><canvas class="padcv" aria-label="The puck: stands in for the Morph page's pad"></canvas></div><span class="note" style="max-width:16ch;line-height:1.3">stands in for the Morph page's pad</span></div>
     <div class="grp"><span class="lbl">Motion</span><span id="bMotion"></span></div>
     <div class="grp"><span class="lbl">Chassis</span><span id="bTheme"></span></div>
+    <div class="grp"><span class="lbl">Switch</span><span id="bSw"></span></div>
+    <div class="grp"><span class="lbl">Osc 1 sync in</span><span id="bSync"></span></div>
     <div class="grp"><span class="lbl">Screen</span><span id="bScr"></span></div>
   </div>
 
   <section class="card" aria-labelledby="q3">
-    <h2 id="q3">Q3 · How a wavetable looks (new)</h2>
-    <p class="note">The same Osc 1 page in six looks. The lead picture is the table the oscillator reads. With morph on, the four corner tables sit in a plain row under it, and each corner brightens as the puck nears it. Where those tiles go is Q1's question. Try each look under Motion, both chassis and a few screen schemes.</p>
+    <h2 id="q3">Q3 · The viewer: six views, switched on the glass, and an XY you drag (round 3)</h2>
+    <p class="note"><b>Switch views</b> with the pips (or the name, set by Switch above) at the glass's top left, or with the cards below. <b>Drag the glass:</b> up and down scrubs the frame, left and right sets the sync ratio, and Shift with left and right sets the window. Hold Option (Alt) to move a quarter as far. Each drag is one undo step. With the glass focused, the arrow keys do the same. <b>The pill at the bottom right</b> shows what each direction moves; click it to map any of the nine wavetable controls to each, or to invert one. The view and the mapping are one choice for every viewer, remembered on this machine. With morph on, the corner tables sit in a plain row under the viewer; where they go is Q1's question. Every shape here is a MOCK.</p>
     <div class="picker" id="pick3" role="group" aria-label="Q3 looks"></div>
     <p class="why note" id="why3"></p>
     <div class="win" id="win3" aria-label="horde window for Q3"></div>
@@ -198,7 +228,29 @@ const S = { x: .34, y: .42, osc: [
   { corners: ['PWM 50 → 5 %', 'Rolled #17', 'Triangle fold', 'Sine → saw'], frame: 10.4 }],
   pm: [[0, .22, 0], [.4, .1, 0], [0, .6, 0]], alg: 'custom', open: 0 };
 let reduce = false; try { reduce = matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
-const L = { morph: true, audible: 0, motion: !reduce, tick: 0 };
+const L = { morph: true, audible: 0, motion: !reduce, tick: 0, sw: 'pips', steps: 0 };
+// each oscillator's continuous wt rows (CONTRACT section 2.1). Lab defaults differ from the engine's in one place, said on the bench: osc 1's sync is on (x pitch) so the default drag is heard; the engine's default is off
+S.osc.forEach((o, i) => { o.wt = { frameSpread: 0, syncIn: i === 0 ? 'pitch' : 'off', sync: 2, syncHz: 880, window: 0, asym: 0, bend: 0 }; });
+const others = o => [0, 1, 2].filter(x => x !== o);
+const ROWS = {
+  frame: { label: 'Frame', min: 0, max: FR - 1, law: 'lin', fmt: v => (v + 1).toFixed(1), get: o => S.osc[o].frame, set: (o, v) => { S.osc[o].frame = v; } },
+  frameSpread: { label: 'Frame spread', min: -1, max: 1, law: 'lin', fmt: v => (v >= 0 ? '+' : '') + v.toFixed(2) },
+  sync: { label: 'Sync ratio', min: 1, max: 16, law: 'log', fmt: v => '×' + v.toFixed(2) },
+  syncHz: { label: 'Sync Hz', min: 20, max: 12000, law: 'log', fmt: v => Math.round(v) + ' Hz' },
+  window: { label: 'Window', min: 0, max: 1, law: 'lin', fmt: v => Math.round(v * 100) + ' %' },
+  asym: { label: 'Asym', min: -1, max: 1, law: 'lin', fmt: v => (v >= 0 ? '+' : '') + v.toFixed(2) },
+  bend: { label: 'Bend', min: -1, max: 1, law: 'lin', fmt: v => (v >= 0 ? '+' : '') + v.toFixed(2) },
+  pmA: { label: 'PM from the first other osc', min: 0, max: 10, law: 'pow', fmt: v => v.toFixed(2), get: o => S.pm[o][others(o)[0]] * 10, set: (o, v) => { S.pm[o][others(o)[0]] = v / 10; } },
+  pmB: { label: 'PM from the second other osc', min: 0, max: 10, law: 'pow', fmt: v => v.toFixed(2), get: o => S.pm[o][others(o)[1]] * 10, set: (o, v) => { S.pm[o][others(o)[1]] = v / 10; } } };
+Object.keys(ROWS).forEach(k => { const r = ROWS[k]; r.key = k; if (!r.get) { r.get = o => S.osc[o].wt[k]; r.set = (o, v) => { S.osc[o].wt[k] = v; }; } });
+const toN = (r, v) => r.law === 'log' ? Math.log(v / r.min) / Math.log(r.max / r.min) : r.law === 'pow' ? Math.sqrt((v - r.min) / (r.max - r.min)) : (v - r.min) / (r.max - r.min);
+const fromN = (r, n) => { n = Math.min(1, Math.max(0, n)); return r.law === 'log' ? r.min * Math.pow(r.max / r.min, n) : r.law === 'pow' ? r.min + (r.max - r.min) * n * n : r.min + (r.max - r.min) * n; };
+// the mapping: three slots, BladeView's (vertical, horizontal, shift + horizontal), each a row and an invert. One for every viewer, per machine
+const MAP_DEFAULT = { v: { row: 'frame', inv: false }, h: { row: 'sync', inv: false }, sh: { row: 'window', inv: false } };
+const SLOT = { v: '↕', h: '↔', sh: '⇧↔' };
+const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
+let MAP = (() => { try { const m = JSON.parse(store.get('horde-wtlab-xymap')); if (m && ['v', 'h', 'sh'].every(s => m[s] && ROWS[m[s].row])) return m; } catch (e) {} return JSON.parse(JSON.stringify(MAP_DEFAULT)); })();
+const saveMap = () => store.set('horde-wtlab-xymap', JSON.stringify(MAP));
 const weights = () => [(1 - S.x) * (1 - S.y), S.x * (1 - S.y), (1 - S.x) * S.y, S.x * S.y];
 // the blend is memoised on its inputs, so a still puck hands every look the same frames (and the sonogram's harmonics cache holds)
 const BL = [{}, {}, {}];
@@ -207,6 +259,14 @@ function blended(o) { const key = S.x + ',' + S.y + ',' + S.osc[o].corners.join(
 // what the oscillator reads: the blend at the puck with morph on, the audible corner's own table with morph off (MO-20, one-hot at morph.audible)
 const tableOf = o => L.morph ? blended(o) : table(S.osc[o].corners[L.audible]);
 function frameAt(fr, f) { const a = Math.floor(f), b = Math.min(FR - 1, a + 1), t = f - a, o = new Float32Array(N); for (let i = 0; i < N; i++) o[i] = fr[a][i] * (1 - t) + fr[b][i] * t; return o; }
+// what sync, window, asym and bend do to a cycle: a MOCK of WT-32 to WT-34's shapes, so the picture answers the drag. Identity at their defaults (checked)
+function syncRatio(o) { const w = S.osc[o].wt; return w.syncIn === 'off' ? 1 : w.syncIn === 'hz' ? Math.min(32, Math.max(1, w.syncHz / 220)) : w.sync; }
+function warp1(s, w, r) { const o = new Float32Array(N), a = .5 + .45 * w.asym, e = Math.pow(4, -w.bend);
+  for (let i = 0; i < N; i++) { let p = i / N; p = p < a ? p * .5 / a : .5 + (p - a) * .5 / (1 - a); p = Math.pow(p, e); const x = ((p * r) % 1) * N, i0 = Math.floor(x) % N, t = x - Math.floor(x); let v = s[i0] * (1 - t) + s[(i0 + 1) % N] * t;
+    if (w.window) v *= 1 - w.window + w.window * (.5 - .5 * Math.cos(TAU * i / N)); o[i] = v; } return o; }
+const WP = [{}, {}, {}];
+function warped(fr, o) { const w = S.osc[o].wt, r = syncRatio(o), k = [r, w.window, w.asym, w.bend].join(); if (WP[o].fr === fr && WP[o].k === k) return WP[o].out;
+  const out = r === 1 && !w.window && !w.asym && !w.bend ? fr : fr.map(s => warp1(s, w, r)); WP[o] = { fr, k, out }; return out; }
 // Motion: a MOCK LFO on the frame position and a phase that runs along the cycle; both are frame counts, never a clock
 const frameNow = o => Math.max(0, Math.min(FR - 1, S.osc[o].frame + (L.motion ? 3.2 * Math.sin(L.tick * .021 + o * 1.7) : 0)));
 const phaseNow = o => L.motion ? (L.tick * .0045 + o * .31) % 1 : .3;
@@ -234,7 +294,7 @@ const LOOKS = [
       g.lineWidth = V; for (let j = FR - 1; j >= 0; j--) { g.strokeStyle = K.c('physics', focus(j, f)); poly(g, N / 2, i => X(i * 2, j), i => Y(fr[j][i * 2], j)); g.stroke(); }
       const s = frameAt(fr, f); beam(K, 'value', sm ? 1.6 : 2.2, () => poly(g, N, i => X(i, f), i => Y(s[i], f)));
       const i = Math.floor(phaseNow(o) * (N - 1)); dot(K, X(i, f), Y(s[i], f), (sm ? 2 : 2.6) * V, 'marker');
-      if (!sm) label(K, 'FRAME ' + f.toFixed(1), W - 5 * V, 12 * V, 'right'); } },
+    } },
   { id: 'L2', name: 'Ridgeline', tag: 'new', why: 'The frames as solid ridges, back to front, each hiding what is behind it, like a terrain seen from the side. The read frame is drawn over them as a beam, and a marker line scans across with a dot where it crosses. Shapes read clearly even small.',
     draw(K, fr, f, o, sm) { const { g, W, H, V } = K; K.tube(); K.scan();
       const top = 4 * V, bot = H - 3 * V, amp = (bot - top) * (sm ? .5 : .46), base = j => top + amp + j * (bot - top - amp) / (FR - 1), X = i => 4 * V + i / (N - 1) * (W - 8 * V), Y = (v, j) => base(j) - (v * .5 + .5) * amp;
@@ -244,7 +304,7 @@ const LOOKS = [
       const s = frameAt(fr, f), p = phaseNow(o), ip = Math.floor(p * (N - 1));
       g.strokeStyle = K.c('marker', .3); g.lineWidth = V; g.beginPath(); g.moveTo(X(ip), 0); g.lineTo(X(ip), H); g.stroke();
       beam(K, 'value', sm ? 1.6 : 2.2, () => poly(g, N, i => X(i), i => Y(s[i], f))); dot(K, X(ip), Y(s[ip], f), (sm ? 2 : 2.6) * V, 'marker');
-      if (!sm) label(K, 'FRAME ' + f.toFixed(1), W - 5 * V, 12 * V, 'right'); } },
+    } },
   { id: 'L3', name: 'Turntable', tag: 'new', why: 'The table as a 3-D wire mesh that turns slowly on its stand, so you see it from changing angles. Frames run front to back, and faint cross lines join them. The read frame glows. It is the liveliest look and needs the most room.',
     draw(K, fr, f, o, sm) { const { g, W, H, V } = K; K.tube(); K.scan();
       const yaw = L.motion ? .55 * Math.sin(L.tick * .0075 + o) : .4, cy = Math.cos(yaw), sy = Math.sin(yaw), amp = H * (sm ? .17 : .15);
@@ -255,7 +315,7 @@ const LOOKS = [
       order.forEach(j => { const d = P(.5, zOf(j), 0)[2]; g.strokeStyle = K.c('physics', focus(j, f) * (.6 + .4 * (d + .7) / 1.4)); g.lineWidth = V; poly(g, N / 2, i => P(i * 2 / (N - 1), zOf(j), fr[j][i * 2])[0], i => P(i * 2 / (N - 1), zOf(j), fr[j][i * 2])[1]); g.stroke(); });
       const s = frameAt(fr, f), zf = f / (FR - 1); beam(K, 'value', sm ? 1.6 : 2.2, () => poly(g, N, i => P(i / (N - 1), zf, s[i])[0], i => P(i / (N - 1), zf, s[i])[1]));
       const ip = Math.floor(phaseNow(o) * (N - 1)), q = P(ip / (N - 1), zf, s[ip]); dot(K, q[0], q[1], (sm ? 2 : 2.6) * V, 'marker');
-      if (!sm) label(K, 'FRAME ' + f.toFixed(1), W - 5 * V, 12 * V, 'right'); } },
+    } },
   { id: 'L4', name: 'Sonogram', tag: 'new', why: 'What each frame sounds like: frames run left to right, harmonics bottom to top, and brightness is level, in the spectrum’s sunset colours. A bracket marks the read frame, and under it is the read cycle as a beam. It shows timbre rather than shape, and the frame sweeping through it is easy to follow.',
     draw(K, fr, f, o, sm) { const { g, W, H, V } = K; K.tube(); K.scan();
       const hm = harmOf(fr), HN = 32, hh = sm ? H - 2 * V : H * .6, cw = (W - 8 * V) / FR, ch = (hh - 4 * V) / HN;
@@ -264,7 +324,7 @@ const LOOKS = [
       if (!sm) { const s = frameAt(fr, f), y0 = hh + 3 * V, mid = (y0 + H - 3 * V) / 2, a = (H - 3 * V - y0) / 2 - 2 * V, X = i => 4 * V + i / (N - 1) * (W - 8 * V);
         g.strokeStyle = K.c('grid', .4); g.lineWidth = V; g.beginPath(); g.moveTo(0, mid); g.lineTo(W, mid); g.stroke();
         beam(K, 'value', 2, () => poly(g, N, X, i => mid - s[i] * a)); const ip = Math.floor(phaseNow(o) * (N - 1)); dot(K, X(ip), mid - s[ip] * a, 2.4 * V, 'marker');
-        label(K, 'FRAMES →', 6 * V, 12 * V); label(K, 'FRAME ' + f.toFixed(1), W - 5 * V, 12 * V, 'right'); } } },
+        label(K, 'FRAMES →', 6 * V, hh - 4 * V); } } },
   { id: 'L5', name: 'Polar rings', tag: 'new', why: 'Each frame wrapped into a ring, the first frame inside and the last outside, like tree rings. The read ring glows, and a spoke sweeps round it with a dot where they meet. It echoes the swarm’s ring on the left of the page, and it is compact.',
     draw(K, fr, f, o, sm) { const { g, W, H, V } = K; K.tube(); K.scan();
       const cx = W / 2, cyy = H / 2, ry = H * .46, rx = Math.min(W * .47, ry * (sm ? 1.6 : 2.3)), amp = .05, ang = i => i / N * TAU - Math.PI / 2;
@@ -273,21 +333,23 @@ const LOOKS = [
       const s = frameAt(fr, f), p = phaseNow(o), ip = Math.floor(p * (N - 1)), kf = .24 + .72 * f / (FR - 1);
       g.strokeStyle = K.c('grid', .4); g.lineWidth = V; g.beginPath(); g.moveTo(cx, cyy); g.lineTo(cx + Math.cos(ang(ip)) * rx * 1.02, cyy + Math.sin(ang(ip)) * ry * 1.02); g.stroke();
       beam(K, 'value', sm ? 1.6 : 2.2, () => ring(s, f)); dot(K, cx + Math.cos(ang(ip)) * rx * (kf + s[ip] * amp), cyy + Math.sin(ang(ip)) * ry * (kf + s[ip] * amp), (sm ? 2 : 2.6) * V, 'marker');
-      if (!sm) label(K, 'FRAME ' + f.toFixed(1), W - 5 * V, 12 * V, 'right'); } },
+    } },
   { id: 'L6', name: 'Swarm beams', tag: 'new', why: 'Horde is a swarm, so the read cycle is drawn as seven members, each slightly out of phase, with their sum glowing on top. A faint band behind them shows the table’s whole range over every frame. The members drift with Motion. It shows the sound’s shimmer rather than the table’s depth. The spread is a MOCK, not the swarm’s.',
     draw(K, fr, f, o, sm) { const { g, W, H, V } = K; K.tube(); K.scan();
       const mid = H / 2, a = H / 2 - 5 * V, X = i => 4 * V + i / (N - 1) * (W - 8 * V), lo = new Float32Array(N).fill(9), hi = new Float32Array(N).fill(-9);
       fr.forEach(s => { for (let i = 0; i < N; i++) { if (s[i] < lo[i]) lo[i] = s[i]; if (s[i] > hi[i]) hi[i] = s[i]; } });
       g.beginPath(); for (let i = 0; i < N; i++) g.lineTo(X(i), mid - hi[i] * a); for (let i = N - 1; i >= 0; i--) g.lineTo(X(i), mid - lo[i] * a); g.closePath(); g.fillStyle = K.c('grid', .1); g.fill();
       g.strokeStyle = K.c('grid', .35); g.lineWidth = V; g.beginPath(); g.moveTo(0, mid); g.lineTo(W, mid); g.stroke();
-      const s = frameAt(fr, f), M = 7, sum = new Float32Array(N);
-      for (let m = 0; m < M; m++) { const off = Math.round(((m - 3) / 3) * (.028 + (L.motion ? .02 * Math.sin(L.tick * .013 + m * 1.9 + o) : .01)) * N), ga = 1 + (L.motion ? .05 * Math.sin(L.tick * .017 + m * 2.3) : 0), mem = new Float32Array(N);
+      const M = 7, sum = new Float32Array(N), sp = S.osc[o].wt ? S.osc[o].wt.frameSpread : 0;
+      for (let m = 0; m < M; m++) { const s = frameAt(fr, Math.max(0, Math.min(FR - 1, f + sp * ((m - 3) / 3) * 5))), off = Math.round(((m - 3) / 3) * (.028 + (L.motion ? .02 * Math.sin(L.tick * .013 + m * 1.9 + o) : .01)) * N), ga = 1 + (L.motion ? .05 * Math.sin(L.tick * .017 + m * 2.3) : 0), mem = new Float32Array(N);
         for (let i = 0; i < N; i++) { mem[i] = s[(i + off + N) % N] * ga; sum[i] += mem[i] / M; }
         g.strokeStyle = K.c('physics', .42); g.lineWidth = 1.1 * V; poly(g, N / 2, i => X(i * 2), i => mid - mem[i * 2] * a); g.stroke(); }
       beam(K, 'value', sm ? 1.6 : 2.2, () => poly(g, N, X, i => mid - sum[i] * a)); const ip = Math.floor(phaseNow(o) * (N - 1)); dot(K, X(ip), mid - sum[ip] * a, (sm ? 2 : 2.6) * V, 'marker');
-      if (!sm) { label(K, '7 MEMBERS · MOCK SPREAD', 6 * V, 12 * V); label(K, 'FRAME ' + f.toFixed(1), W - 5 * V, 12 * V, 'right'); } } }
+      if (!sm) label(K, '7 MEMBERS · MOCK SPREAD', 6 * V, H - 5 * V); } }
 ];
-let look = 'L1';
+const SHORT = { L1: 'STACK', L2: 'RIDGES', L3: 'TURNTABLE', L4: 'SONOGRAM', L5: 'RINGS', L6: 'SWARM' };
+let look = (v => LOOKS.some(x => x.id === v) ? v : 'L1')(store.get('horde-wtlab-view'));
+function setLook(id) { look = id; store.set('horde-wtlab-view', id); }
 const LOOK = () => LOOKS.find(x => x.id === look);
 // the glasses under the lead picture: the read cycle, and its harmonics as the spectrum's bars
 function drawCycleGlass(c, s, o) { const K = kit(c), { g, W, H, V } = K; K.tube(); K.scan(); const mid = H / 2, a = H / 2 - 4 * V, X = i => 3 * V + i / (N - 1) * (W - 6 * V);
@@ -338,12 +400,55 @@ function leadPicture(parent, o, hgt, under) {
   const p = h('div', 'pane'), hd = h('div', 'ph'); hd.append(document.createTextNode('Osc ' + (o + 1) + ' · the table it reads'));
   if (L.morph) hd.append(h('span', 'h', 'blended at the puck · Linear'));
   else { hd.append(picker(o, L.audible, 'Osc ' + (o + 1)), h('span', 'h', 'morph off: corner ' + CORNER[L.audible] + '’s table plays')); }
-  const st = glass(hgt || 150); p.append(hd, st);
+  const st = glass(hgt || 150, 'vw'); p.append(hd, st); viewer(st, o);
   let cy = null, hm = null; if (under !== false) { const row = h('div', 'row'); row.style.cssText = 'align-items:stretch;margin-top:5px'; cy = glass(46); hm = glass(46); cy.style.flex = '1 1 0'; hm.style.flex = '0 0 34%'; row.append(cy, hm); p.append(row); }
   parent.append(p);
-  draws.push(() => { const fr = tableOf(o), f = frameNow(o); LOOK().draw(kit(st.cv), fr, f, o, false); if (cy) { const s = frameAt(fr, f); drawCycleGlass(cy.cv, s, o); drawHarmGlass(hm.cv, s); } });
+  draws.push(() => { const fr = warped(tableOf(o), o), f = frameNow(o), K = kit(st.cv); LOOK().draw(K, fr, f, o, false); readout(K, o, st.drag); if (cy) { const s = frameAt(fr, f); drawCycleGlass(cy.cv, s, o); drawHarmGlass(hm.cv, s); } });
   return p;
 }
+/* ===== THE VIEWER: the switch, the XY drag (BladeView's pattern) and the legend that opens the mapping ===== */
+function readout(K, o, drag) { const parts = [], moving = drag ? drag.moving : null;
+  ['v', 'h', 'sh'].forEach(sl => { const r = ROWS[MAP[sl].row]; if (moving ? moving.includes(sl) : sl !== 'sh' || r.key !== 'window' || S.osc[o].wt.window) parts.push(r.label.toUpperCase().replace('PM FROM THE ', 'PM ').replace(' OTHER OSC', '') + ' ' + r.fmt(r.get(o))); });
+  if (!moving && S.osc[o].wt.syncIn === 'off' && ['sync', 'syncHz'].some(k => ['v', 'h', 'sh'].some(sl => MAP[sl].row === k))) parts.push('SYNC OFF');
+  const t = parts.join('  ·  '); K.g.font = '600 ' + (9 * K.V) + 'px ' + MONO(); const w = K.g.measureText(t).width;
+  K.g.fillStyle = K.c('ground', .78 / K.sc.alpha); K.g.fillRect(K.W - w - 10 * K.V, 2 * K.V, w + 8 * K.V, 13 * K.V); label(K, t, K.W - 6 * K.V, 12 * K.V, 'right', moving ? 'physics' : 'grid'); }
+function viewer(st, o) {
+  const c = st.cv; c.tabIndex = 0; const legText = () => ['v', 'h', 'sh'].map(sl => SLOT[sl] + ' ' + ROWS[MAP[sl].row].label.replace('PM from the ', 'PM ').replace(' other osc', '')).join('   ');
+  c.setAttribute('aria-label', 'Osc ' + (o + 1) + ' table viewer, ' + LOOKS.find(x => x.id === look).name + '. Drag: ' + legText().replace(/↕/g, 'up and down,').replace(/⇧↔/g, 'shift and sideways,').replace(/↔/g, 'sideways,'));
+  // the switch: six pips, or the view's name that steps on a click (shift-click steps back)
+  const sw = h('div', 'vw-sw'); sw.setAttribute('role', 'radiogroup'); sw.setAttribute('aria-label', 'View');
+  if (L.sw === 'pips') { LOOKS.forEach(x => { const b = h('button', 'pip'); b.type = 'button'; b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', String(x.id === look)); b.setAttribute('aria-label', x.name); b.title = x.name; b.addEventListener('click', e => { e.stopPropagation(); setLook(x.id); say('View: ' + x.name); render(); }); sw.append(b); }); sw.append(h('span', 'cur', SHORT[look])); }
+  else { const b = h('button', 'nm', SHORT[look] + ' ▸'); b.type = 'button'; b.setAttribute('aria-label', 'View: ' + LOOKS.find(x => x.id === look).name + '. Click for the next, shift-click for the one before'); b.addEventListener('click', e => { e.stopPropagation(); const i = LOOKS.findIndex(x => x.id === look), n = LOOKS[(i + (e.shiftKey ? LOOKS.length - 1 : 1)) % LOOKS.length]; setLook(n.id); say('View: ' + n.name); render(); }); sw.append(b); }
+  const leg = h('button', 'vw-leg', legText()); leg.type = 'button'; leg.setAttribute('aria-haspopup', 'dialog'); leg.setAttribute('aria-label', 'What the drag moves: ' + legText() + '. Click to map');
+  leg.addEventListener('click', e => { e.stopPropagation(); mapBox(st); });
+  st.append(sw, leg);
+  // the drag: relative, from the values at the grab; 420 px crosses a row's range (BladeView's), alt a quarter as far; one undo step if anything moved
+  c.addEventListener('pointerdown', e => { if (e.button) return; e.preventDefault(); c.focus({ preventScroll: true }); try { c.setPointerCapture(e.pointerId); } catch (_) {}
+    const x0 = e.clientX, y0 = e.clientY, n0 = {}; ['v', 'h', 'sh'].forEach(sl => { const r = ROWS[MAP[sl].row]; n0[sl] = toN(r, r.get(o)); }); const before = JSON.stringify(snapRows(o));
+    st.drag = { moving: [] };
+    c.onpointermove = ev => { if (!ev.buttons) return; const k = (ev.altKey ? .25 : 1) / 420, dy = (y0 - ev.clientY) * k, dx = (ev.clientX - x0) * k, hs = ev.shiftKey ? 'sh' : 'h', rest = ev.shiftKey ? 'h' : 'sh';
+      const put = (sl, d) => { const r = ROWS[MAP[sl].row]; r.set(o, fromN(r, n0[sl] + (MAP[sl].inv ? -d : d))); };
+      put(rest, 0); put('v', dy); put(hs, dx); st.drag.moving = [dy ? 'v' : null, dx ? hs : null].filter(Boolean); paint(); };
+    c.onpointerup = () => { c.onpointermove = null; c.onpointerup = null; st.drag = null; if (JSON.stringify(snapRows(o)) !== before) { L.steps++; say('One undo step: ' + legText()); } paint(); }; });
+  c.addEventListener('keydown', e => { const d = { ArrowUp: ['v', 1], ArrowDown: ['v', -1], ArrowRight: [e.shiftKey ? 'sh' : 'h', 1], ArrowLeft: [e.shiftKey ? 'sh' : 'h', -1] }[e.key]; if (!d) return; e.preventDefault();
+    const r = ROWS[MAP[d[0]].row], step = (e.altKey ? .005 : .02) * d[1] * (MAP[d[0]].inv ? -1 : 1); r.set(o, fromN(r, toN(r, r.get(o)) + step)); L.steps++; paint(); });
+}
+const snapRows = o => Object.keys(ROWS).map(k => ROWS[k].get(o));
+// the mapping: three slots, each any continuous wt row and an invert, and Default. On the chassis, under the glass
+let mbox = null;
+function closeMap() { if (mbox) { mbox.remove(); mbox = null; } }
+document.addEventListener('pointerdown', e => { if (mbox && !mbox.contains(e.target) && !e.target.closest('.vw-leg')) closeMap(); }, true);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMap(); });
+function mapBox(st) { closeMap(); const win = st.closest('.win'), r = st.getBoundingClientRect(), wr = win.getBoundingClientRect(); mbox = h('div', 'mapbox'); mbox.setAttribute('role', 'dialog'); mbox.setAttribute('aria-label', 'What the drag moves');
+  mbox.append(Object.assign(h('b'), { textContent: 'What the drag moves' }), Object.assign(h('div', 'note'), { textContent: 'One mapping for every viewer, remembered on this machine, never saved with a patch.' }));
+  [['v', 'Up / down'], ['h', 'Sideways'], ['sh', 'Shift + side']].forEach(([sl, name]) => { const row = h('div', 'mr'), sel = h('select'); sel.setAttribute('aria-label', name);
+    Object.keys(ROWS).forEach(k => { const op = h('option', null, ROWS[k].label); op.value = k; if (MAP[sl].row === k) op.selected = true; sel.append(op); });
+    sel.addEventListener('change', () => { MAP[sl].row = sel.value; saveMap(); render(); mapBox(document.querySelector('#win3 .vw')); });
+    const inv = h('label'); const cb = h('input'); cb.type = 'checkbox'; cb.checked = MAP[sl].inv; cb.addEventListener('change', () => { MAP[sl].inv = cb.checked; saveMap(); render(); mapBox(document.querySelector('#win3 .vw')); }); inv.append(cb, document.createTextNode(' invert'));
+    row.append(Object.assign(h('span'), { textContent: SLOT[sl] + ' ' + name }), sel, inv); mbox.append(row); });
+  const ft = h('div', 'ft'), def = h('button', 'pill', 'Default'); def.type = 'button'; def.addEventListener('click', () => { MAP = JSON.parse(JSON.stringify(MAP_DEFAULT)); saveMap(); render(); say('Mapping back to its default: up and down Frame, sideways Sync ratio, shift Window'); });
+  ft.append(def, Object.assign(h('span', 'note'), { textContent: 'Esc closes' })); mbox.append(ft);
+  mbox.style.left = Math.max(4, Math.min(r.right - wr.left - 300, wr.width - 306)) + 'px'; mbox.style.top = Math.min(r.bottom - wr.top + 4, wr.height - 200) + 'px'; win.append(mbox); }
 // a corner's tile: chip and picker on the chassis, the corner's colour on its frame, its table on the glass
 function cornerTile(o, k, hgt, opts) {
   opts = opts || {}; const p = h('div', 'pane ctile'); p.style.setProperty('--ccol', 'var(' + CVAR[k] + ')'); p.style.borderColor = 'var(' + CVAR[k] + ')';
@@ -375,7 +480,7 @@ const Q1 = [
       draws.push(() => { const K = kit(big.cv); LOOK().draw(K, table(S.osc[0].corners[S.open]), frameNow(0), 0, false); }); } },
   { id: 'V3', name: 'Corners on the stack', tag: 'new', why: 'No separate area: the four corner tables sit as small cards at the four corners of the lead picture itself, where they are on the pad. Each shows its table and weight, and a click opens its menu. The page keeps its height for the controls below.',
     build(body) { leftStandIns(body); const r = h('div', 'right'); body.append(r); const lp = leadPicture(r, 0, 236); lp.style.position = 'relative';
-      [0, 1, 2, 3].forEach(k => { const c = h('div', 'pane ctile'); c.style.cssText = 'position:absolute;width:168px;padding:3px 5px;box-shadow:var(--shadow-rest);border-color:var(' + CVAR[k] + ');--ccol:var(' + CVAR[k] + ');' + (k < 2 ? 'top:26px;' : 'top:184px;') + (k % 2 ? 'right:12px;' : 'left:12px;'); const rw = h('div', 'row'); rw.append(chip(k), picker(0, k)); const mini = glass(26, 'cglass'), wb = h('div', 'row'); wb.append(weightBar(k), h('span', 'wt')); c.append(rw, mini, wb); lp.append(c); draws.push(() => { wb.lastChild.textContent = pct(weights()[k]); drawCornerGlass(mini.cv, 0, k); }); });
+      [0, 1, 2, 3].forEach(k => { const c = h('div', 'pane ctile'); c.style.cssText = 'position:absolute;width:168px;padding:3px 5px;box-shadow:var(--shadow-rest);border-color:var(' + CVAR[k] + ');--ccol:var(' + CVAR[k] + ');' + (k < 2 ? 'top:46px;' : 'top:150px;') + (k % 2 ? 'right:12px;' : 'left:12px;'); const rw = h('div', 'row'); rw.append(chip(k), picker(0, k)); const mini = glass(26, 'cglass'), wb = h('div', 'row'); wb.append(weightBar(k), h('span', 'wt')); c.append(rw, mini, wb); lp.append(c); draws.push(() => { wb.lastChild.textContent = pct(weights()[k]); drawCornerGlass(mini.cv, 0, k); }); });
       r.append(Object.assign(h('div', 'stand', 'the Osc section’s controls (Face / All / +Adv), the envelope, and the transformations follow here'), { style: 'flex:1 1 auto' })); } },
   { id: 'V4', name: 'Morph terrain', tag: 'retired', retired: true, why: 'Retired by your note (GUI-63): it was a morph grid, a 5 × 5 field of cycles across the pad, and the Morph page has the pad.' },
   { id: 'V5', name: 'Twelve on the Morph page', tag: 'the lead’s list', why: 'All twelve pickers on the Morph page, beside its own pad, an oscillator a row and a corner a column. Each Osc page shows only what it reads. The place to compare oscillators, and where Save current sound and capture already are.',
@@ -464,6 +569,8 @@ function bench() {
   pills($('bMorph'), [[false, 'Off'], [true, 'On']], L.morph, v => { L.morph = v; say('Morph ' + (v ? 'on: the four corner tables show' : 'off: one table, corner ' + CORNER[L.audible] + '’s')); render(); });
   pills($('bAudP'), [0, 1, 2, 3].map(i => [i, CORNER[i], HZ.glyph(i, 9, 'currentColor') + CORNER[i]]), L.audible, v => { L.audible = v; render(); });
   pills($('bMotion'), [[true, 'Live'], [false, 'Still']], L.motion, v => { L.motion = v; render(); });
+  pills($('bSw'), [['pips', 'Pips'], ['name', 'Name']], L.sw, v => { L.sw = v; render(); });
+  pills($('bSync'), [['off', 'Off'], ['pitch', '× pitch'], ['hz', 'Hz']], S.osc[0].wt.syncIn, v => { S.osc[0].wt.syncIn = v; say('Osc 1 sync in: ' + v + (v === 'off' ? ' (the engine’s default; the ratio is stored, and the readout says SYNC OFF)' : '')); render(); });
   const th = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
   pills($('bTheme'), [['light', 'Cream'], ['dark', 'Dark']], th, v => { document.documentElement.setAttribute('data-theme', v); render(); });
   $('bAud').style.display = L.morph ? 'none' : ''; $('bPuck').style.display = L.morph ? '' : 'none';
@@ -474,8 +581,8 @@ function bench() {
 let draws = [], v1 = 'V1', v2 = 'P1';
 function opts(host, list, cur, pick) { host.replaceChildren(); list.forEach(v => { const b = h('button', 'opt'); b.type = 'button'; b.setAttribute('aria-pressed', String(v.id === cur)); if (v.retired) b.setAttribute('aria-disabled', 'true'); b.append(h('i', null, v.id + (v.tag ? ' · ' + v.tag : '')), h('b', null, v.name)); b.addEventListener('click', () => { if (v.retired) { say(v.id + ' is retired: ' + v.why); return; } pick(v.id); }); host.append(b); }); }
 function render() {
-  closeMenu(); draws = []; bench();
-  opts($('pick3'), LOOKS, look, id => { look = id; render(); }); opts($('pick1'), Q1, v1, id => { v1 = id; render(); }); opts($('pick2'), Q2, v2, id => { v2 = id; render(); });
+  closeMenu(); closeMap(); draws = []; bench();
+  opts($('pick3'), LOOKS, look, id => { setLook(id); render(); }); opts($('pick1'), Q1, v1, id => { v1 = id; render(); }); opts($('pick2'), Q2, v2, id => { v2 = id; render(); });
   const a = Q1.find(v => v.id === v1), b = Q2.find(v => v.id === v2); $('why3').textContent = LOOK().why; $('why2').textContent = b.why;
   buildQ3();
   $('off1').replaceChildren(); $('pick1').style.display = '';
@@ -521,6 +628,27 @@ function selfcheck() {
   // Motion: live moves the picture; still holds it
   L.motion = true; paint(); const m0 = pix(lead()).join(); L.tick += 40; paint(); const m1 = pix(lead()).join(); L.motion = false; paint(); const s0 = pix(lead()).join(); L.tick += 40; paint(); const s1 = pix(lead()).join();
   ok(m0 !== m1 && s0 === s1, 'Motion live moves the picture over 40 frames; Still holds it (control)');
+  // ROUND 3, THE VIEWER. The warp is the identity at its defaults (control: sync x3 changes the frames)
+  { const w = S.osc[0].wt, kw = JSON.stringify(w); Object.assign(w, { syncIn: 'off', window: 0, asym: 0, bend: 0 }); const fr = tableOf(0), id = warped(fr, 0) === fr; Object.assign(w, { syncIn: 'pitch', sync: 3 }); const ch = !same(warped(fr, 0)[8], fr[8]); Object.assign(w, JSON.parse(kw)); ok(id && ch, 'the warp is the identity with sync off and window, asym and bend at 0 (control: sync ×3 changes the frames)'); }
+  // the drag, with real pointer events on Q3's viewer: BladeView's pattern
+  const keepMap = JSON.stringify(MAP), keepRows = snapRows(0), keepWt = JSON.stringify(S.osc[0].wt), keepFrame = S.osc[0].frame;
+  const vc = () => $('win3').querySelector('.vw canvas'), PE = (c, t, x, y, o) => c.dispatchEvent(new PointerEvent(t, Object.assign({ bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0, buttons: t === 'pointerup' ? 0 : 1, pointerId: 7 }, o || {})));
+  const drag = (dx, dy, o) => { const c = vc(), r = c.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2; PE(c, 'pointerdown', x, y, o); PE(c, 'pointermove', x + dx, y + dy, o); PE(c, 'pointerup', x + dx, y + dy, o); };
+  const reset = () => { S.osc[0].frame = 4; Object.assign(S.osc[0].wt, { syncIn: 'pitch', sync: 2, window: 0, asym: 0, bend: 0 }); };
+  MAP = JSON.parse(JSON.stringify(MAP_DEFAULT)); render(); reset(); let st0 = L.steps;
+  drag(84, -84); const f1 = S.osc[0].frame, sy1 = S.osc[0].wt.sync, w1 = S.osc[0].wt.window, st1 = L.steps;
+  ok(Math.abs(f1 - (4 + .2 * (FR - 1))) < 1e-6 && Math.abs(sy1 - fromN(ROWS.sync, toN(ROWS.sync, 2) + .2)) < 1e-6 && w1 === 0 && st1 === st0 + 1, 'drag up and right 84 px: frame 5.0 → ' + (f1 + 1).toFixed(1) + ', sync ×2.00 → ×' + sy1.toFixed(2) + ', window untouched, 1 undo step');
+  reset(); drag(84, 0, { shiftKey: true }); const w2 = S.osc[0].wt.window, sy2 = S.osc[0].wt.sync; reset(); drag(84, 0, { altKey: true }); const sy3 = S.osc[0].wt.sync;
+  ok(Math.abs(w2 - .2) < 1e-6 && sy2 === 2 && Math.abs(toN(ROWS.sync, sy3) - toN(ROWS.sync, 2) - .05) < 1e-6, 'shift sideways moves the window (0 → ' + Math.round(w2 * 100) + ' %) and leaves sync; Option moves a quarter as far');
+  reset(); st0 = L.steps; drag(0, 0); ok(L.steps === st0 && S.osc[0].frame === 4 && S.osc[0].wt.sync === 2, 'control: a grab with no motion writes nothing and makes no undo step');
+  MAP.v = { row: 'asym', inv: false }; render(); reset(); drag(0, -84); const a1 = S.osc[0].wt.asym, f2 = S.osc[0].frame; MAP.v.inv = true; render(); reset(); drag(0, -84); const a2 = S.osc[0].wt.asym;
+  ok(Math.abs(a1 - .2 * 2) < 1e-6 && f2 === 4 && Math.abs(a2 + .4) < 1e-6, 'mapped to Asym: up moves asym (+' + a1.toFixed(2) + '), not the frame (control); inverted, the same drag moves it the other way (' + a2.toFixed(2) + ')');
+  MAP = JSON.parse(keepMap); render();
+  // the switch: a pip changes the view and the picture; the name steps to the next
+  { const before = pix(lead()).join(), pips = $('win3').querySelectorAll('.vw-sw .pip'), tgt = LOOKS[(LOOKS.findIndex(x => x.id === look) + 2) % 6].id; pips[LOOKS.findIndex(x => x.id === tgt)].click(); paint(); const after = pix(lead()).join(), lk = look, kept = store.get('horde-wtlab-view');
+    const sw0 = L.sw; L.sw = 'name'; render(); $('win3').querySelector('.vw-sw .nm').click(); const stepped = look; L.sw = sw0;
+    ok(lk === tgt && before !== after && (kept === null || kept === tgt) && stepped === LOOKS[(LOOKS.findIndex(x => x.id === tgt) + 1) % 6].id, 'the switch: a pip set ' + tgt + ' and the picture changed (control: it was different before), remembered on this machine; the name steps to ' + stepped); }
+  S.osc[0].frame = keepFrame; Object.assign(S.osc[0].wt, JSON.parse(keepWt)); Object.keys(ROWS).forEach((k, i) => ROWS[k].set(0, keepRows[i])); setLook(keep.look);
   // the blend
   S.x = 0; S.y = 0; const atA = blended(0)[8].slice(), tA = table(S.osc[0].corners[0])[8]; S.x = 1; S.y = 1; const atD = blended(0)[8], tD = table(S.osc[0].corners[3])[8];
   ok(same(atA, tA) && same(atD, tD) && !same(atA, atD), 'the blend is corner A’s table at A and D’s at D (control: they differ)');
@@ -528,7 +656,7 @@ function selfcheck() {
   const g1 = mulberry32(17)(), g2 = mulberry32(17)(); ok(g1 === g2, 'the rolled table is seeded (the same seed draws the same)');
   L.morph = keep.morph; L.motion = keep.motion; L.tick = keep.tick; look = keep.look; render(); $('selfcheck').textContent = out.join('\n'); return out;
 }
-render(); window.WT_PAGE_LAB = { S, L, selfcheck, render, setLook: id => { look = id; render(); } };
+render(); window.WT_PAGE_LAB = { S, L, ROWS, selfcheck, render, setLook: id => { setLook(id); render(); }, get MAP() { return MAP; } };
 requestAnimationFrame(() => requestAnimationFrame(selfcheck));
 })();
 </script>

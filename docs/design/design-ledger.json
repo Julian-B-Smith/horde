@@ -529,7 +529,7 @@
   },
   "wavetable-page-lab.html": {
    "status": "exploring",
-   "note": "GB37. The wavetable page (ADR-387, the lead's handover). Round 2 (2026-11-08): Q3, six looks on the house screen kit (the human: fit horde's screens, a little more lively); Q1, where the four corner tables go while morph is on (five variants; V4 retired by GUI-63); Q2, where the 3 x 3 PM matrix lives (five variants). Ruled: GUI-62 (the lead picture), GUI-63 (morph off one table, on the four, no pad or grid among them). Published for the human as an Artifact."
+   "note": "GB37. The wavetable page (ADR-387, the lead's handover). Round 2 (2026-11-08): Q3, six looks on the house screen kit (the human: fit horde's screens, a little more lively); Q1, where the four corner tables go while morph is on (five variants; V4 retired by GUI-63); Q2, where the 3 x 3 PM matrix lives (five variants). Round 3 (the same day): the lead glass is a viewer with a switch on the glass for the six views and a BladeView-style XY drag (frame up and down, sync sideways, shift for window; three mappable slots). Ruled: GUI-62 (the lead picture), GUI-63 (morph off one table, on the four, no pad or grid among them). Published for the human as an Artifact."
   }
  },
  "not_labs": {
