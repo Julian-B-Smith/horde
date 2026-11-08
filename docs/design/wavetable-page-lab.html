@@ -4,18 +4,37 @@
      corner tables and the 3 x 3 PM matrix should live: "Let's audition a few options, including any creative approaches we haven't yet considered" and
      "Let's try a few options".
 
-     WHAT'S ALREADY ANSWERED, AND IS BUILT AS ANSWERED. The Osc page's lead picture, where the blade waveform you dragged sat, is the BLENDED FRAME STACK: the
-     table the oscillator reads at the puck, its frame line, and under it the blended cycle and the harmonics (the human, 2026-11-08).
+     ROUND 2 (the human, 2026-11-08). "Let's try a few options for the aesthetics of the wavetables": round 1 drew them as the wavetable bench does, on
+     white wells in corner colours, which is not horde's screen. Every table picture here is now a horde SCREEN: drawn only through H.Viz.kit with the six
+     scr- roles, so it follows the Screen scheme and the chassis theme, with the house phosphor rules (glow is a wider underlay stroke, never a blur;
+     scanlines at the scheme's strength). Inside the glass a corner is its letter in the glass's own ink; its colour is on the chassis (the tile's frame and
+     chip), per screens.md. Q3 auditions six looks, and they are "a little more lively": with Motion on, a mock LFO moves the read frame and each look has
+     its own motion. And GUI-63: with morph off an oscillator shows one table (the one the audible corner plays); with morph on its four corner tables, and
+     no pad or morph grid among them (the Morph page has the pad). So V1 lost its centre pad, V6 its small pad, and V4 (a morph grid itself) is retired.
 
-     WHAT'S OPEN, AND IS WHAT THIS ASKS. Q1, where an oscillator's four corner tables are picked and seen (six ways). Q2, where the PM matrix lives (five ways).
+     WHAT'S ALREADY ANSWERED, AND IS BUILT AS ANSWERED. GUI-62: the Osc page's lead picture is the BLENDED FRAME STACK the oscillator reads at the puck,
+     with the cycle and harmonics under it. GUI-63 above.
 
-     WHAT IS REAL. The window's size (980 x 720), the tokens and the corner colours are the design system's. The rows named are the wavetable spec's
-     (`oscN.wt.*`, the matrix of ADR-385 A1, the diagonal being each oscillator's feedback).
-     WHAT ISN'T. Every table is a MOCK, drawn here from eight seeded generators named after the factory set's; none is the engine's or the lab's bank. The
-     blend is Linear only. No audio. The swarm's pictures on the left are grey stand-ins: they don't change with this question. Nothing here edits gui3*,
-     arp-face/ or the master, and a ruling goes through the chain (ADR-316).
+     WHAT'S OPEN, AND IS WHAT THIS ASKS. Q3, the look (six). Q1, where the four corner tables are picked and seen while morph is on (five). Q2, where the PM
+     matrix lives (five).
 
-     HOUSE RULES. No Math.random (seeded mulberry32). No clock: motion is a frame count. No wheel listener (B301). -->
+     WHAT IS REAL. The window's size (980 x 720), the tokens, the screen kit and its schemes, the corner colours and glyphs. The rows named are the wavetable
+     spec's (`oscN.wt.*`, the matrix of ADR-385 A1, the diagonal being each oscillator's feedback; morph off plays `morph.audible`, MO-20).
+     WHAT ISN'T. Every table is a MOCK from eight seeded generators named after the factory set's. The blend is Linear only. No audio. Motion's LFO on the
+     frame is a MOCK modulation, and L6's members are a mock spread, not the swarm's phases. The puck pad above the windows stands in for the Morph page's.
+     The swarm's pictures on the left are grey stand-ins. Nothing here edits gui3*, arp-face/ or the master; a ruling goes through the chain (ADR-316).
+
+     ROUND 3 (the human, 2026-11-08). "I like all of these views. I'm thinking we should include some combination of them with a little clickable
+     signal on the viewer to switch between them. Could we also make the viewer an interactive XY like the scalpel was? Maybe up/down scrubs the frame
+     and left/right increases sync by default, with different options mappable or something?" So the lead glass is now THE VIEWER: a switch on the glass
+     (pips or a name, the bench picks which to show) steps through the six views, and a drag on it writes the oscillator's rows, BladeView's pattern
+     (GUI-30, B293-B299): relative (a grab moves nothing), up for a later frame, right for more sync, shift + horizontal for the third slot (Window), alt a
+     quarter as far, one undo step per gesture, arrow keys when focused. The legend pill on the glass opens the mapping: three slots, each any of the
+     nine continuous wt rows (CONTRACT section 2.1's table) with an invert, and Default. The view and the mapping are one choice for every viewer,
+     remembered per machine, never with a patch (as BladeView's are). The picture follows the rows: sync, window, asym and bend warp every frame
+     (a MOCK of WT-32 to WT-34's shapes), frame spread fans L6's members; the PM rows move the readout only.
+
+     HOUSE RULES. No Math.random (seeded mulberry32). No clock: motion is a frame count (L.tick). No wheel listener (B301). Reduced motion starts Still. -->
 <html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
@@ -26,9 +45,9 @@
 <link rel="stylesheet" href="arp-face/bundle.css">
 <style>
   html, body { background: var(--bg); }
-  body { margin: 0; padding: 20px 16px 60px; color: var(--ink); font: 13px/1.5 var(--font-sans); }
+  body { margin: 0; padding: 0 16px 60px; color: var(--ink); font: 13px/1.5 var(--font-sans); }
   .col { max-width: 1012px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
-  h1 { font: 800 19px/1.2 var(--font-sans); margin: 0 0 6px; }
+  h1 { font: 800 19px/1.2 var(--font-sans); margin: 20px 0 6px; }
   h2 { font: 800 14px/1.2 var(--font-sans); margin: 0 0 6px; }
   p { margin: 0 0 6px; max-width: 86ch; }
   .note { color: var(--hint); font-size: 12px; }
@@ -38,10 +57,22 @@
   .opt:hover { border-color: var(--ink); }
   .opt:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
   .opt[aria-pressed="true"] { border: 2px solid var(--ink); padding: 6px 7px; }
+  .opt[aria-disabled="true"] { cursor: default; opacity: .55; }
+  .opt[aria-disabled="true"] b { text-decoration: line-through; }
   .opt b { font: 700 12px/1.25 var(--font-sans); }
   .opt span { color: var(--hint); font-size: 11.5px; line-height: 1.35; }
   .opt i { font-style: normal; color: var(--value); font: 700 9.5px/1 var(--font-mono); letter-spacing: .06em; }
   .why { min-height: 40px; }
+
+  /* the lab's own controls, above the windows: not part of the page being designed */
+  .bench { position: sticky; top: 0; z-index: 30; background: var(--bg); padding: 10px 0 8px; border-bottom: 1px solid var(--div); display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; }
+  .bench .grp { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .bench .lbl { font: 700 10px/1 var(--font-sans); letter-spacing: .08em; text-transform: uppercase; color: var(--t2); }
+  .bench .hd-pill { min-height: 26px; padding: 0 10px; font: 500 11.5px/1 var(--font-sans); display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--ink); background: var(--panel); color: var(--ink); }
+  .bench .puck { display: flex; align-items: center; gap: 8px; }
+  .bench .puck .hd-viz { width: 84px; height: 84px; flex: 0 0 auto; }
+  .bench .hd-scr .hd-pill { min-height: 24px; padding: 0 7px; font-size: 10.5px; }
+  .bench .hd-pill[aria-checked="true"] { background: var(--ink); color: var(--bg); font-weight: 700; }
 
   /* the horde window, at its real size */
   .win { position: relative; width: 980px; height: 720px; max-width: 100%; box-sizing: border-box; overflow: hidden; border: 1.5px solid var(--ink); border-radius: var(--radius-window); background: var(--bg); display: flex; flex-direction: column; }
@@ -58,21 +89,27 @@
   .left { flex: 0 0 250px; display: flex; flex-direction: column; gap: 6px; }
   .right { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
   .pane { border: 1px solid var(--div); border-radius: var(--radius); background: var(--panel); padding: 6px 8px; min-width: 0; }
-  .ph { display: flex; align-items: baseline; gap: 6px; font: 800 10.5px/1.2 var(--font-sans); letter-spacing: .06em; text-transform: uppercase; margin-bottom: 4px; }
-  .ph .h { font: 500 10px/1.2 var(--font-mono); letter-spacing: 0; text-transform: none; color: var(--hint); }
-  canvas.cv { display: block; width: 100%; background: var(--well); border-radius: 4px; }
-  .sel { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 1px 6px; border: 1px solid var(--ink); border-radius: var(--radius); background: var(--panel); font: 600 10.5px/1.5 var(--font-sans); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ph { display: flex; align-items: baseline; gap: 6px; font: 800 10.5px/1.2 var(--font-sans); letter-spacing: .06em; text-transform: uppercase; margin-bottom: 4px; min-width: 0; }
+  .ph .h { font: 500 10px/1.2 var(--font-mono); letter-spacing: 0; text-transform: none; color: var(--hint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ph .sel { text-transform: none; letter-spacing: 0; }
+  canvas.cv { display: block; width: 100%; }
+  /* a screen: the house glass (bundle.css .hd-viz) at a fixed height */
+  .glass { flex: 0 0 auto; }
+  /* a corner tile's frame is the chassis, so it carries the corner's colour (screens.md: "the chassis carries the corner colours") */
+  .ctile { border-width: 1.5px; display: flex; flex-direction: column; gap: 4px; }
+  .ctile .hd-viz { border-color: var(--ccol); }
+  .sel { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; max-width: 100%; min-width: 0; padding: 1px 6px; border: 1px solid var(--ink); border-radius: var(--radius); background: var(--panel); font: 600 10.5px/1.5 var(--font-sans); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .sel::after { content: '▾'; font-size: 9px; }
   .sel:focus-visible { outline: 2px solid var(--ink); }
-  .chip { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 4px; font: 800 10px/1 var(--font-sans); color: #111; flex: 0 0 auto; }
+  .chip { display: inline-flex; align-items: center; justify-content: center; gap: 2px; height: 16px; padding: 0 3px; border-radius: 4px; font: 800 10px/1 var(--font-sans); color: #111; flex: 0 0 auto; }
   .row { display: flex; align-items: center; gap: 6px; min-width: 0; }
-  .wt { font: 600 10px/1 var(--font-mono); color: var(--hint); margin-left: auto; }
+  .wt { font: 600 10px/1 var(--font-mono); color: var(--hint); margin-left: auto; white-space: nowrap; flex: 0 0 auto; }
   .ctlrow { display: flex; flex-wrap: wrap; gap: 4px 10px; font: 500 10px/1.3 var(--font-mono); color: var(--t2); }
   .ctlrow b { color: var(--ink); font-weight: 700; }
-  .menu { position: absolute; z-index: 20; min-width: 170px; padding: 4px; border: 1.5px solid var(--ink); border-radius: var(--radius); background: var(--panel); box-shadow: var(--shadow-hover); }
+  .menu { position: absolute; z-index: 20; min-width: 190px; padding: 4px; border: 1.5px solid var(--ink); border-radius: var(--radius); background: var(--panel); box-shadow: var(--shadow-hover); }
   .menu button { all: unset; box-sizing: border-box; display: flex; gap: 6px; align-items: center; width: 100%; padding: 3px 6px; border-radius: 4px; cursor: pointer; font: 500 11px/1.3 var(--font-sans); }
   .menu button:hover, .menu button:focus-visible { background: var(--well); }
-  .menu canvas { width: 46px; height: 18px; background: var(--well); border-radius: 3px; }
+  .menu .hd-viz { width: 46px; height: 18px; flex: 0 0 auto; border-width: 1px; border-radius: 3px; }
   .pmcell { all: unset; box-sizing: border-box; cursor: ns-resize; display: grid; place-items: center; border: 1px solid var(--div); border-radius: 4px; background: var(--well); font: 700 11px/1 var(--font-mono); position: relative; overflow: hidden; touch-action: none; }
   .pmcell .fill { position: absolute; left: 0; right: 0; bottom: 0; background: var(--value); opacity: .35; }
   .pmcell span { position: relative; }
@@ -80,20 +117,59 @@
   .pmcell:focus-visible { outline: 2px solid var(--ink); }
   .pill { all: unset; cursor: pointer; padding: 1px 7px; border: 1px solid var(--ink); border-radius: var(--radius-capsule); font: 600 10px/1.5 var(--font-sans); }
   .pill[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+  .banner { padding: 6px 10px; border: 1px dashed var(--ink); border-radius: var(--radius); font-size: 12px; margin-bottom: 8px; }
+  /* THE VIEWER: the lead glass's switch, legend and readout are glass UI, so they take the glass's own ink (scr-physics and scr-grid), never the chassis' */
+  .vw { position: relative; }
+  .vw canvas { cursor: grab; touch-action: none; }
+  .vw canvas:active { cursor: grabbing; }
+  .vw canvas:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--scr-physics); }
+  .vw-sw { position: absolute; left: 6px; top: 5px; display: flex; align-items: center; gap: 4px; z-index: 2; }
+  .vw-sw button { all: unset; box-sizing: border-box; cursor: pointer; }
+  .vw-sw .pip { width: 9px; height: 9px; border-radius: 50%; border: 1.2px solid var(--scr-physics); }
+  .vw-sw .pip[aria-checked="true"] { background: var(--scr-physics); }
+  .vw-sw .pip:focus-visible, .vw-sw .nm:focus-visible, .vw-leg:focus-visible { outline: 1.5px solid var(--scr-physics); outline-offset: 2px; }
+  .vw-sw .nm, .vw-sw .cur { font: 700 9px/1 var(--font-mono); letter-spacing: .08em; color: var(--scr-physics); }
+  .vw-sw .nm { padding: 2px 5px; border: 1px solid var(--scr-physics); border-radius: 3px; }
+  .vw-sw .cur { color: var(--scr-grid); margin-left: 3px; }
+  .vw-leg { all: unset; box-sizing: border-box; cursor: pointer; position: absolute; right: 6px; bottom: 5px; z-index: 2; padding: 2px 6px; border: 1px solid var(--scr-grid); border-radius: 3px; background: var(--scr-ground); font: 600 9px/1.2 var(--font-mono); color: var(--scr-grid); letter-spacing: .04em; }
+  .mapbox { position: absolute; z-index: 25; width: 300px; padding: 8px; border: 1.5px solid var(--ink); border-radius: var(--radius); background: var(--panel); box-shadow: var(--shadow-hover); font-size: 11px; display: flex; flex-direction: column; gap: 6px; }
+  .mapbox .mr { display: grid; grid-template-columns: 62px 1fr auto; gap: 6px; align-items: center; }
+  .mapbox select { font: 500 11px/1.3 var(--font-sans); }
+  .mapbox .ft { display: flex; justify-content: space-between; align-items: center; }
   #say { min-height: 18px; font-size: 12px; }
   #selfcheck { font: 500 11px/1.4 var(--font-mono); white-space: pre-wrap; color: var(--hint); }
 </style>
 </head>
 <body>
-<div class="col">
+<div class="col" id="lab">
   <header>
-    <h1>Wavetable page lab</h1>
-    <p>The wavetable member replaces the blades in 1.0, and there are three oscillators (ADR-387). This lab asks where two of the new things go, each shown inside a horde window at its real size. The Osc page's lead picture is already yours: the <b>blended frame stack</b> the oscillator reads at the puck, with its cycle and harmonics.</p>
-    <p class="note">Drag the small pad's puck, or the puck in any variant that has one, and every picture follows: the tables blend by the corner weights, Linear. Every table is a MOCK drawn from eight seeded generators named after the factory set's. No audio. The grey boxes on the left are the swarm's pictures, unchanged by these questions.</p>
+    <h1>Wavetable page lab · round 2</h1>
+    <p>The wavetable member replaces the blades in 1.0, and there are three oscillators (ADR-387). Each picture below is shown inside a horde window at its real size. Already yours: the Osc page leads with the <b>blended frame stack</b> (GUI-62), and from your note today, <b>morph off shows one table; morph on shows the four corner tables, with no pad or morph grid among them</b> (GUI-63).</p>
+    <p class="note">New this round: every table is drawn on horde's own screen, in the Screen scheme's colours, with scanlines and glow, so it follows the scheme and the chassis. Corner colours sit on the chassis, on each tile's frame and chip, never inside the glass. Every table is a MOCK, made by eight seeded generators. No audio.</p>
   </header>
 
+  <div class="bench" id="bench" aria-label="Lab controls (not part of the page)">
+    <div class="grp"><span class="lbl">Morph</span><span id="bMorph"></span></div>
+    <div class="grp" id="bAud"><span class="lbl">Plays corner</span><span id="bAudP"></span></div>
+    <div class="grp puck" id="bPuck"><span class="lbl">Puck</span><div class="hd-viz" id="padHost"><canvas class="padcv" aria-label="The puck: stands in for the Morph page's pad"></canvas></div><span class="note" style="max-width:16ch;line-height:1.3">stands in for the Morph page's pad</span></div>
+    <div class="grp"><span class="lbl">Motion</span><span id="bMotion"></span></div>
+    <div class="grp"><span class="lbl">Chassis</span><span id="bTheme"></span></div>
+    <div class="grp"><span class="lbl">Switch</span><span id="bSw"></span></div>
+    <div class="grp"><span class="lbl">Osc 1 sync in</span><span id="bSync"></span></div>
+    <div class="grp"><span class="lbl">Screen</span><span id="bScr"></span></div>
+  </div>
+
+  <section class="card" aria-labelledby="q3">
+    <h2 id="q3">Q3 · The viewer: six views, switched on the glass, and an XY you drag (round 3)</h2>
+    <p class="note"><b>Switch views</b> with the pips (or the name, set by Switch above) at the glass's top left, or with the cards below. <b>Drag the glass:</b> up and down scrubs the frame, left and right sets the sync ratio, and Shift with left and right sets the window. Hold Option (Alt) to move a quarter as far. Each drag is one undo step. With the glass focused, the arrow keys do the same. <b>The pill at the bottom right</b> shows what each direction moves; click it to map any of the nine wavetable controls to each, or to invert one. The view and the mapping are one choice for every viewer, remembered on this machine. With morph on, the corner tables sit in a plain row under the viewer; where they go is Q1's question. Every shape here is a MOCK.</p>
+    <div class="picker" id="pick3" role="group" aria-label="Q3 looks"></div>
+    <p class="why note" id="why3"></p>
+    <div class="win" id="win3" aria-label="horde window for Q3"></div>
+  </section>
+
   <section class="card" aria-labelledby="q1">
-    <h2 id="q1">Q1 · Where an oscillator's four corner tables are picked and seen</h2>
+    <h2 id="q1">Q1 · Where an oscillator's four corner tables are picked and seen (morph on)</h2>
+    <div id="off1"></div>
     <div class="picker" id="pick1" role="group" aria-label="Q1 variants"></div>
     <p class="why note" id="why1"></p>
     <div class="win" id="win1" aria-label="horde window for Q1"></div>
@@ -101,7 +177,7 @@
 
   <section class="card" aria-labelledby="q2">
     <h2 id="q2">Q2 · Where the 3 × 3 PM matrix lives</h2>
-    <p class="note">Rows are the modulated oscillator, columns the modulator; the diagonal is each oscillator's own feedback (WT-61). Every cell is a corner value like every other control, so it blends across the pad. Drag a cell, or a wire, up or down to set its depth.</p>
+    <p class="note">Rows are the oscillator being modulated, columns the modulator. The diagonal is each oscillator's own feedback (WT-61). Every cell is a corner value like any other control, so it blends across the pad. Drag a cell, or a wire, up or down to set its depth.</p>
     <div class="picker" id="pick2" role="group" aria-label="Q2 variants"></div>
     <p class="why note" id="why2"></p>
     <div class="win" id="win2" aria-label="horde window for Q2"></div>
@@ -109,23 +185,28 @@
 
   <section class="card">
     <h2>Telling me your picks</h2>
-    <p>Answer in the chat: one Q1 variant and one Q2 variant, or a mix ("V3's corners, but with V6's weights"). Anything you'd change, say so: each answer becomes a GUI ruling and goes into the design master before GUI 3.</p>
+    <p>Answer in the chat with a Q3 look, and if you like, a Q1 and a Q2 variant. Mixes are welcome, for example "L2's ridges with L6's members". Anything you'd change, say so. Each answer becomes a GUI ruling and goes into the design master before GUI 3.</p>
     <div id="say" aria-live="polite"></div>
     <details><summary class="note">Self-check</summary><div id="selfcheck">running…</div></details>
   </section>
 </div>
+<script src="arp-face/bundle.js"></script>
 <script>
 (function () {
 'use strict';
 const $ = id => document.getElementById(id);
+/* The design system, only if it is the real one (filter-lab's guard): the lab load check runs this script against stubs with no bundle,
+   where window.Horde is absent or a callable proxy, and an array test and the screen kit's function tell the real one apart. */
+const HZ = (typeof window !== 'undefined' && window.Horde && Array.isArray(window.Horde.CORNERS) && window.Horde.Viz && typeof window.Horde.Viz.kit === 'function') ? window.Horde : null;
+if (!HZ) { const n = document.createElement('p'); n.className = 'hd-note bad'; n.setAttribute('role', 'alert'); n.textContent = 'The design system did not load (arp-face/bundle.js). Open this lab from docs/design/.'; document.body.prepend(n); return; }
 const VAR = n => { try { return getComputedStyle(document.documentElement).getPropertyValue(n).trim() || '#888'; } catch (e) { return '#888'; } };
-const C = () => ({ A: VAR('--cA'), B: VAR('--cB'), Cc: VAR('--cC'), D: VAR('--cD'), ink: VAR('--ink'), hint: VAR('--hint'), div: VAR('--div'), well: VAR('--well'), value: VAR('--value'), meter: VAR('--meter-ink'), panel: VAR('--panel') });
+const C = () => ({ ink: VAR('--ink'), hint: VAR('--hint'), div: VAR('--div'), well: VAR('--well'), value: VAR('--value'), panel: VAR('--panel') });
 const CORNER = ['A', 'B', 'C', 'D'], CVAR = ['--cA', '--cB', '--cC', '--cD'];
 const N = 256, FR = 16;   // a mock table: 16 frames of 256 samples (the engine's are 2048; the picture doesn't need them)
+const TAU = Math.PI * 2;
 
 /* ===== the mock tables: eight seeded generators named after the factory set's. MOCK, not the engine's or the wavetable lab's bank. ===== */
 function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
-const TAU = Math.PI * 2;
 function additive(amp) { const o = new Float32Array(N); for (let i = 0; i < N; i++) { let s = 0; for (let h = 1; h < amp.length; h++) if (amp[h]) s += amp[h] * Math.sin(TAU * h * i / N); o[i] = s; } return o; }
 const GEN = {
   'Sine → saw': f => additive(Array.from({ length: 2 + Math.round(f * 2.2) }, (_, h) => h ? 1 / h : 0)),
@@ -140,52 +221,166 @@ const GEN = {
 const NAMES = Object.keys(GEN), CACHE = {};
 function table(name) { if (CACHE[name]) return CACHE[name]; const fr = []; for (let f = 0; f < FR; f++) { const o = GEN[name](f); let m = 0; o.forEach(v => { m = Math.max(m, Math.abs(v)); }); fr.push(o.map(v => v / (m || 1))); } return (CACHE[name] = fr); }
 
-/* ===== the state: three oscillators, each with four corner tables and a frame; one puck ===== */
-const S = { x: .34, y: .42, sel: 0, osc: [
+/* ===== the state: three oscillators, each with four corner tables and a frame; one puck; the bench's switches ===== */
+const S = { x: .34, y: .42, osc: [
   { corners: ['Sine → saw', 'Hard sync 1 → 6', 'Vowel ah → ee', 'FM index 0 → 8'], frame: 7.9 },
   { corners: ['Sine → saw', 'Triangle fold', 'Vowel ah → ee', 'Drawbar registrations'], frame: 5.2 },
   { corners: ['PWM 50 → 5 %', 'Rolled #17', 'Triangle fold', 'Sine → saw'], frame: 10.4 }],
   pm: [[0, .22, 0], [.4, .1, 0], [0, .6, 0]], alg: 'custom', open: 0 };
+let reduce = false; try { reduce = matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+const L = { morph: true, audible: 0, motion: !reduce, tick: 0, sw: 'pips', steps: 0 };
+// each oscillator's continuous wt rows (CONTRACT section 2.1). Lab defaults differ from the engine's in one place, said on the bench: osc 1's sync is on (x pitch) so the default drag is heard; the engine's default is off
+S.osc.forEach((o, i) => { o.wt = { frameSpread: 0, syncIn: i === 0 ? 'pitch' : 'off', sync: 2, syncHz: 880, window: 0, asym: 0, bend: 0 }; });
+const others = o => [0, 1, 2].filter(x => x !== o);
+const ROWS = {
+  frame: { label: 'Frame', min: 0, max: FR - 1, law: 'lin', fmt: v => (v + 1).toFixed(1), get: o => S.osc[o].frame, set: (o, v) => { S.osc[o].frame = v; } },
+  frameSpread: { label: 'Frame spread', min: -1, max: 1, law: 'lin', fmt: v => (v >= 0 ? '+' : '') + v.toFixed(2) },
+  sync: { label: 'Sync ratio', min: 1, max: 16, law: 'log', fmt: v => '×' + v.toFixed(2) },
+  syncHz: { label: 'Sync Hz', min: 20, max: 12000, law: 'log', fmt: v => Math.round(v) + ' Hz' },
+  window: { label: 'Window', min: 0, max: 1, law: 'lin', fmt: v => Math.round(v * 100) + ' %' },
+  asym: { label: 'Asym', min: -1, max: 1, law: 'lin', fmt: v => (v >= 0 ? '+' : '') + v.toFixed(2) },
+  bend: { label: 'Bend', min: -1, max: 1, law: 'lin', fmt: v => (v >= 0 ? '+' : '') + v.toFixed(2) },
+  pmA: { label: 'PM from the first other osc', min: 0, max: 10, law: 'pow', fmt: v => v.toFixed(2), get: o => S.pm[o][others(o)[0]] * 10, set: (o, v) => { S.pm[o][others(o)[0]] = v / 10; } },
+  pmB: { label: 'PM from the second other osc', min: 0, max: 10, law: 'pow', fmt: v => v.toFixed(2), get: o => S.pm[o][others(o)[1]] * 10, set: (o, v) => { S.pm[o][others(o)[1]] = v / 10; } } };
+Object.keys(ROWS).forEach(k => { const r = ROWS[k]; r.key = k; if (!r.get) { r.get = o => S.osc[o].wt[k]; r.set = (o, v) => { S.osc[o].wt[k] = v; }; } });
+const toN = (r, v) => r.law === 'log' ? Math.log(v / r.min) / Math.log(r.max / r.min) : r.law === 'pow' ? Math.sqrt((v - r.min) / (r.max - r.min)) : (v - r.min) / (r.max - r.min);
+const fromN = (r, n) => { n = Math.min(1, Math.max(0, n)); return r.law === 'log' ? r.min * Math.pow(r.max / r.min, n) : r.law === 'pow' ? r.min + (r.max - r.min) * n * n : r.min + (r.max - r.min) * n; };
+// the mapping: three slots, BladeView's (vertical, horizontal, shift + horizontal), each a row and an invert. One for every viewer, per machine
+const MAP_DEFAULT = { v: { row: 'frame', inv: false }, h: { row: 'sync', inv: false }, sh: { row: 'window', inv: false } };
+const SLOT = { v: '↕', h: '↔', sh: '⇧↔' };
+const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
+let MAP = (() => { try { const m = JSON.parse(store.get('horde-wtlab-xymap')); if (m && ['v', 'h', 'sh'].every(s => m[s] && ROWS[m[s].row])) return m; } catch (e) {} return JSON.parse(JSON.stringify(MAP_DEFAULT)); })();
+const saveMap = () => store.set('horde-wtlab-xymap', JSON.stringify(MAP));
 const weights = () => [(1 - S.x) * (1 - S.y), S.x * (1 - S.y), (1 - S.x) * S.y, S.x * S.y];
-function blended(o) { const w = weights(), tb = S.osc[o].corners.map(table), out = []; for (let f = 0; f < FR; f++) { const v = new Float32Array(N); for (let k = 0; k < 4; k++) if (w[k] > 1e-6) for (let i = 0; i < N; i++) v[i] += w[k] * tb[k][f][i]; out.push(v); } return out; }
+// the blend is memoised on its inputs, so a still puck hands every look the same frames (and the sonogram's harmonics cache holds)
+const BL = [{}, {}, {}];
+function blended(o) { const key = S.x + ',' + S.y + ',' + S.osc[o].corners.join('|'); if (BL[o].key === key) return BL[o].fr;
+  const w = weights(), tb = S.osc[o].corners.map(table), out = []; for (let f = 0; f < FR; f++) { const v = new Float32Array(N); for (let k = 0; k < 4; k++) if (w[k] > 1e-6) for (let i = 0; i < N; i++) v[i] += w[k] * tb[k][f][i]; out.push(v); } BL[o] = { key, fr: out }; return out; }
+// what the oscillator reads: the blend at the puck with morph on, the audible corner's own table with morph off (MO-20, one-hot at morph.audible)
+const tableOf = o => L.morph ? blended(o) : table(S.osc[o].corners[L.audible]);
 function frameAt(fr, f) { const a = Math.floor(f), b = Math.min(FR - 1, a + 1), t = f - a, o = new Float32Array(N); for (let i = 0; i < N; i++) o[i] = fr[a][i] * (1 - t) + fr[b][i] * t; return o; }
+// what sync, window, asym and bend do to a cycle: a MOCK of WT-32 to WT-34's shapes, so the picture answers the drag. Identity at their defaults (checked)
+function syncRatio(o) { const w = S.osc[o].wt; return w.syncIn === 'off' ? 1 : w.syncIn === 'hz' ? Math.min(32, Math.max(1, w.syncHz / 220)) : w.sync; }
+function warp1(s, w, r) { const o = new Float32Array(N), a = .5 + .45 * w.asym, e = Math.pow(4, -w.bend);
+  for (let i = 0; i < N; i++) { let p = i / N; p = p < a ? p * .5 / a : .5 + (p - a) * .5 / (1 - a); p = Math.pow(p, e); const x = ((p * r) % 1) * N, i0 = Math.floor(x) % N, t = x - Math.floor(x); let v = s[i0] * (1 - t) + s[(i0 + 1) % N] * t;
+    if (w.window) v *= 1 - w.window + w.window * (.5 - .5 * Math.cos(TAU * i / N)); o[i] = v; } return o; }
+const WP = [{}, {}, {}];
+function warped(fr, o) { const w = S.osc[o].wt, r = syncRatio(o), k = [r, w.window, w.asym, w.bend].join(); if (WP[o].fr === fr && WP[o].k === k) return WP[o].out;
+  const out = r === 1 && !w.window && !w.asym && !w.bend ? fr : fr.map(s => warp1(s, w, r)); WP[o] = { fr, k, out }; return out; }
+// Motion: a MOCK LFO on the frame position and a phase that runs along the cycle; both are frame counts, never a clock
+const frameNow = o => Math.max(0, Math.min(FR - 1, S.osc[o].frame + (L.motion ? 3.2 * Math.sin(L.tick * .021 + o * 1.7) : 0)));
+const phaseNow = o => L.motion ? (L.tick * .0045 + o * .31) % 1 : .3;
 
-/* ===== the drawings ===== */
-function fit(cv) { const r = cv.getBoundingClientRect(), d = window.devicePixelRatio || 1, w = Math.max(1, Math.round(r.width * d)), h = Math.max(1, Math.round(r.height * d)); if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; } const g = cv.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0); return [g, r.width, r.height]; }
-// the frame stack, as the wavetable lab draws it: back frames faint, offset up and right; the read frame thick in its colour
-function drawStack(cv, fr, f, col, o) {
-  o = o || {}; const [g, W, H] = fit(cv), k = C(); g.clearRect(0, 0, W, H);
-  const dx = (o.dx === undefined ? .22 : o.dx) * W / FR, dy = -(o.dy === undefined ? .42 : o.dy) * H / FR, w = W - dx * FR - 8, amp = H * (o.amp || .2), y0 = H - amp - 6;
-  const line = (s, ox, oy) => { g.beginPath(); for (let i = 0; i < N; i += 2) { const x = 4 + ox + i / (N - 1) * w, y = y0 + oy - s[i] * amp; i ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); };
-  g.lineWidth = 1; g.strokeStyle = k.hint; g.globalAlpha = .38;
-  for (let j = FR - 1; j >= 0; j--) line(fr[j], dx * j, dy * j);
-  g.globalAlpha = 1; g.lineWidth = o.thin ? 1.5 : 2.2; g.strokeStyle = col; line(frameAt(fr, f), dx * f, dy * f);
-  if (o.label !== false && W > 120) { g.fillStyle = k.hint; g.font = '500 9px ui-monospace, Menlo, monospace'; g.textAlign = 'right'; g.fillText('frame ' + f.toFixed(1), W - 4, 11); }
-}
-function drawCycle(cv, s, col) { const [g, W, H] = fit(cv), k = C(); g.clearRect(0, 0, W, H); g.strokeStyle = k.div; g.lineWidth = 1; g.beginPath(); g.moveTo(0, H / 2 + .5); g.lineTo(W, H / 2 + .5); g.stroke(); g.strokeStyle = col; g.lineWidth = 1.8; g.beginPath(); for (let i = 0; i < N; i++) { const x = i / (N - 1) * W, y = H / 2 - s[i] * (H / 2 - 4); i ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); }
-function harmonics(s, n) { const a = []; for (let h = 1; h <= n; h++) { let re = 0, im = 0; for (let i = 0; i < N; i++) { re += s[i] * Math.cos(TAU * h * i / N); im += s[i] * Math.sin(TAU * h * i / N); } a.push(Math.hypot(re, im) * 2 / N); } return a; }
-function drawHarm(cv, s) { const [g, W, H] = fit(cv), k = C(), a = harmonics(s, 48), bw = W / 48; g.clearRect(0, 0, W, H); a.forEach((v, i) => { const db = Math.max(-60, 20 * Math.log10(v + 1e-9)), hgt = (1 + db / 60) * (H - 4); g.fillStyle = i === 0 ? k.value : k.meter; g.fillRect(i * bw + 1, H - hgt, Math.max(1, bw - 2), hgt); }); }
-function drawMiniPad(cv) { const [g, W, H] = fit(cv), k = C(), cs = [k.A, k.B, k.Cc, k.D]; g.clearRect(0, 0, W, H); g.strokeStyle = k.div; g.lineWidth = 1; for (let i = 1; i < 4; i++) { g.beginPath(); g.moveTo(i * W / 4, 0); g.lineTo(i * W / 4, H); g.moveTo(0, i * H / 4); g.lineTo(W, i * H / 4); g.stroke(); } [[0, 0], [W, 0], [0, H], [W, H]].forEach(([x, y], i) => { g.fillStyle = cs[i]; g.beginPath(); g.arc(x, y, 9, 0, TAU); g.fill(); }); g.fillStyle = k.value; g.strokeStyle = k.ink; g.lineWidth = 1.5; g.beginPath(); g.arc(S.x * W, S.y * H, 6, 0, TAU); g.fill(); g.stroke(); }
-// the puck: any canvas marked .padcv drags it
-function padDrag(cv) { cv.style.cursor = 'crosshair'; cv.style.touchAction = 'none'; cv.addEventListener('pointerdown', e => { e.preventDefault(); try { cv.setPointerCapture(e.pointerId); } catch (_) {} const mv = ev => { const r = cv.getBoundingClientRect(); S.x = Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width)); S.y = Math.min(1, Math.max(0, (ev.clientY - r.top) / r.height)); paint(); }; mv(e); cv.onpointermove = ev => { if (ev.buttons) mv(ev); }; cv.onpointerup = () => { cv.onpointermove = null; }; }); }
+/* ===== drawing on glass: everything below draws through the house kit (H.Viz.kit), so only the six scr- roles reach a screen ===== */
+const MONO = () => (getComputedStyle(document.documentElement).getPropertyValue('--font-mono') || 'monospace').trim();
+function kit(c) { const K = HZ.Viz.kit(c); K.g.setTransform(1, 0, 0, 1, 0, 0); K.g.globalAlpha = 1; K.g.setLineDash([]); return K; }
+// a beam: the phosphor rule's wider underlay at 22%, then the line (Viz.scope's 8 V under 2.2 V)
+function beam(K, role, wd, pathFn, a) { const g = K.g; g.strokeStyle = K.c(role, .22 * (a === undefined ? 1 : a)); g.lineWidth = wd * 3.6 * K.V; pathFn(); g.stroke(); g.strokeStyle = K.c(role, a); g.lineWidth = wd * K.V; pathFn(); g.stroke(); }
+function dot(K, x, y, r, role) { const g = K.g; g.fillStyle = K.c(role, .22); g.beginPath(); g.arc(x, y, r * 2.4, 0, TAU); g.fill(); g.fillStyle = K.c(role); g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill(); }
+function label(K, t, x, y, align, role) { const g = K.g; g.font = '600 ' + (9 * K.V) + 'px ' + MONO(); g.textAlign = align || 'left'; g.textBaseline = 'alphabetic'; g.fillStyle = K.c(role || 'grid'); g.fillText(t, x, y); g.textAlign = 'left'; }
+const focus = (j, f) => .1 + .6 * Math.exp(-((j - f) ** 2) / 5);   // how bright a back frame is, by its distance from the read frame
+function poly(g, n, X, Y) { g.beginPath(); for (let i = 0; i < n; i++) { const x = X(i), y = Y(i); i ? g.lineTo(x, y) : g.moveTo(x, y); } }
+const COSS = []; for (let h = 1; h <= 32; h++) { const c = new Float32Array(N), s = new Float32Array(N); for (let i = 0; i < N; i++) { c[i] = Math.cos(TAU * h * i / N); s[i] = Math.sin(TAU * h * i / N); } COSS.push([c, s]); }
+function harm(s, n) { const a = []; for (let h = 0; h < n; h++) { let re = 0, im = 0; const [c, si] = COSS[h]; for (let i = 0; i < N; i++) { re += s[i] * c[i]; im += s[i] * si[i]; } a.push(Math.hypot(re, im) * 2 / N); } return a; }
+const lev = v => Math.max(0, 1 + 20 * Math.log10(v + 1e-9) / 54);   // 0 dB to -54 dB, as 1 to 0
+const HC = new WeakMap(); function harmOf(fr) { let m = HC.get(fr); if (!m) { m = fr.map(s => harm(s, 32).map(lev)); HC.set(fr, m); } return m; }
+const sunset = (K, t, a) => t < .5 ? K.mix('physics', 'value', t * 2, a) : K.mix('value', 'marker', (t - .5) * 2, a);   // Viz.spectrum's level map
+
+/* ===== Q3: six looks. draw(K, fr, f, o, small) paints one glass: fr the frames, f the read frame, o the oscillator (its phase) ===== */
+const LOOKS = [
+  { id: 'L1', name: 'Phosphor stack', tag: 'round 1, on glass', why: 'Round 1’s 3-D stack moved onto the screen. The back frames are thin phosphor traces that brighten near the read frame, and the read frame is a glowing beam. A bright dot runs along it, and with Motion on the read frame slides up and down the stack.',
+    draw(K, fr, f, o, sm) { const { g, W, H, V } = K; K.tube(); K.scan();
+      const dx = .2 * W / FR, dy = .44 * H / FR, w = W - dx * (FR - 1) - 8 * V, amp = H * (sm ? .16 : .2), y0 = H - amp - 5 * V, X = (i, j) => 4 * V + j * dx + i / (N - 1) * w, Y = (v, j) => y0 - j * dy - v * amp;
+      g.lineWidth = V; for (let j = FR - 1; j >= 0; j--) { g.strokeStyle = K.c('physics', focus(j, f)); poly(g, N / 2, i => X(i * 2, j), i => Y(fr[j][i * 2], j)); g.stroke(); }
+      const s = frameAt(fr, f); beam(K, 'value', sm ? 1.6 : 2.2, () => poly(g, N, i => X(i, f), i => Y(s[i], f)));
+      const i = Math.floor(phaseNow(o) * (N - 1)); dot(K, X(i, f), Y(s[i], f), (sm ? 2 : 2.6) * V, 'marker');
+    } },
+  { id: 'L2', name: 'Ridgeline', tag: 'new', why: 'The frames as solid ridges, back to front, each hiding what is behind it, like a terrain seen from the side. The read frame is drawn over them as a beam, and a marker line scans across with a dot where it crosses. Shapes read clearly even small.',
+    draw(K, fr, f, o, sm) { const { g, W, H, V } = K; K.tube(); K.scan();
+      const top = 4 * V, bot = H - 3 * V, amp = (bot - top) * (sm ? .5 : .46), base = j => top + amp + j * (bot - top - amp) / (FR - 1), X = i => 4 * V + i / (N - 1) * (W - 8 * V), Y = (v, j) => base(j) - (v * .5 + .5) * amp;
+      const ground = K.c('ground', 1 / K.sc.alpha);
+      for (let j = 0; j < FR; j++) { poly(g, N / 2, i => X(i * 2), i => Y(fr[j][i * 2], j)); g.lineTo(X(N - 1), H); g.lineTo(X(0), H); g.closePath(); g.fillStyle = ground; g.fill();
+        poly(g, N / 2, i => X(i * 2), i => Y(fr[j][i * 2], j)); g.strokeStyle = K.c('physics', focus(j, f)); g.lineWidth = V; g.stroke(); }
+      const s = frameAt(fr, f), p = phaseNow(o), ip = Math.floor(p * (N - 1));
+      g.strokeStyle = K.c('marker', .3); g.lineWidth = V; g.beginPath(); g.moveTo(X(ip), 0); g.lineTo(X(ip), H); g.stroke();
+      beam(K, 'value', sm ? 1.6 : 2.2, () => poly(g, N, i => X(i), i => Y(s[i], f))); dot(K, X(ip), Y(s[ip], f), (sm ? 2 : 2.6) * V, 'marker');
+    } },
+  { id: 'L3', name: 'Turntable', tag: 'new', why: 'The table as a 3-D wire mesh that turns slowly on its stand, so you see it from changing angles. Frames run front to back, and faint cross lines join them. The read frame glows. It is the liveliest look and needs the most room.',
+    draw(K, fr, f, o, sm) { const { g, W, H, V } = K; K.tube(); K.scan();
+      const yaw = L.motion ? .55 * Math.sin(L.tick * .0075 + o) : .4, cy = Math.cos(yaw), sy = Math.sin(yaw), amp = H * (sm ? .17 : .15);
+      const P = (x, z, v) => { const X = x - .5, Z = z - .5, rx = X * cy - Z * sy, rz = X * sy + Z * cy; return [W / 2 + rx * W * .8, H * .5 + rz * H * .5 - v * amp, rz]; };
+      const zOf = j => j / (FR - 1);
+      g.lineWidth = V; g.strokeStyle = K.c('grid', .2); for (let i = 0; i < N; i += 32) { g.beginPath(); for (let j = 0; j < FR; j++) { const q = P(i / (N - 1), zOf(j), fr[j][i]); j ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); } g.stroke(); }
+      const order = [...Array(FR).keys()].sort((a, b) => P(.5, zOf(a), 0)[2] - P(.5, zOf(b), 0)[2]);
+      order.forEach(j => { const d = P(.5, zOf(j), 0)[2]; g.strokeStyle = K.c('physics', focus(j, f) * (.6 + .4 * (d + .7) / 1.4)); g.lineWidth = V; poly(g, N / 2, i => P(i * 2 / (N - 1), zOf(j), fr[j][i * 2])[0], i => P(i * 2 / (N - 1), zOf(j), fr[j][i * 2])[1]); g.stroke(); });
+      const s = frameAt(fr, f), zf = f / (FR - 1); beam(K, 'value', sm ? 1.6 : 2.2, () => poly(g, N, i => P(i / (N - 1), zf, s[i])[0], i => P(i / (N - 1), zf, s[i])[1]));
+      const ip = Math.floor(phaseNow(o) * (N - 1)), q = P(ip / (N - 1), zf, s[ip]); dot(K, q[0], q[1], (sm ? 2 : 2.6) * V, 'marker');
+    } },
+  { id: 'L4', name: 'Sonogram', tag: 'new', why: 'What each frame sounds like: frames run left to right, harmonics bottom to top, and brightness is level, in the spectrum’s sunset colours. A bracket marks the read frame, and under it is the read cycle as a beam. It shows timbre rather than shape, and the frame sweeping through it is easy to follow.',
+    draw(K, fr, f, o, sm) { const { g, W, H, V } = K; K.tube(); K.scan();
+      const hm = harmOf(fr), HN = 32, hh = sm ? H - 2 * V : H * .6, cw = (W - 8 * V) / FR, ch = (hh - 4 * V) / HN;
+      for (let j = 0; j < FR; j++) for (let k = 0; k < HN; k++) { const t = hm[j][k]; if (t < .02) continue; g.fillStyle = sunset(K, t, .12 + .88 * t); g.fillRect(4 * V + j * cw, hh - (k + 1) * ch, cw - .6 * V, ch - .4 * V); }
+      g.strokeStyle = K.c('meter'); g.lineWidth = 1.5 * V; g.strokeRect(4 * V + f * cw - .75 * V, 2 * V, cw + .5 * V, hh - 3 * V);
+      if (!sm) { const s = frameAt(fr, f), y0 = hh + 3 * V, mid = (y0 + H - 3 * V) / 2, a = (H - 3 * V - y0) / 2 - 2 * V, X = i => 4 * V + i / (N - 1) * (W - 8 * V);
+        g.strokeStyle = K.c('grid', .4); g.lineWidth = V; g.beginPath(); g.moveTo(0, mid); g.lineTo(W, mid); g.stroke();
+        beam(K, 'value', 2, () => poly(g, N, X, i => mid - s[i] * a)); const ip = Math.floor(phaseNow(o) * (N - 1)); dot(K, X(ip), mid - s[ip] * a, 2.4 * V, 'marker');
+        label(K, 'FRAMES →', 6 * V, hh - 4 * V); } } },
+  { id: 'L5', name: 'Polar rings', tag: 'new', why: 'Each frame wrapped into a ring, the first frame inside and the last outside, like tree rings. The read ring glows, and a spoke sweeps round it with a dot where they meet. It echoes the swarm’s ring on the left of the page, and it is compact.',
+    draw(K, fr, f, o, sm) { const { g, W, H, V } = K; K.tube(); K.scan();
+      const cx = W / 2, cyy = H / 2, ry = H * .46, rx = Math.min(W * .47, ry * (sm ? 1.6 : 2.3)), amp = .05, ang = i => i / N * TAU - Math.PI / 2;
+      const ring = (s, j) => { const k = .24 + .72 * j / (FR - 1); poly(g, N / 2 + 1, i => cx + Math.cos(ang(i * 2 % N)) * rx * (k + s[i * 2 % N] * amp), i => cyy + Math.sin(ang(i * 2 % N)) * ry * (k + s[i * 2 % N] * amp)); };
+      g.lineWidth = V; for (let j = 0; j < FR; j++) { g.strokeStyle = K.c('physics', Math.max(.24, focus(j, f))); ring(fr[j], j); g.stroke(); }
+      const s = frameAt(fr, f), p = phaseNow(o), ip = Math.floor(p * (N - 1)), kf = .24 + .72 * f / (FR - 1);
+      g.strokeStyle = K.c('grid', .4); g.lineWidth = V; g.beginPath(); g.moveTo(cx, cyy); g.lineTo(cx + Math.cos(ang(ip)) * rx * 1.02, cyy + Math.sin(ang(ip)) * ry * 1.02); g.stroke();
+      beam(K, 'value', sm ? 1.6 : 2.2, () => ring(s, f)); dot(K, cx + Math.cos(ang(ip)) * rx * (kf + s[ip] * amp), cyy + Math.sin(ang(ip)) * ry * (kf + s[ip] * amp), (sm ? 2 : 2.6) * V, 'marker');
+    } },
+  { id: 'L6', name: 'Swarm beams', tag: 'new', why: 'Horde is a swarm, so the read cycle is drawn as seven members, each slightly out of phase, with their sum glowing on top. A faint band behind them shows the table’s whole range over every frame. The members drift with Motion. It shows the sound’s shimmer rather than the table’s depth. The spread is a MOCK, not the swarm’s.',
+    draw(K, fr, f, o, sm) { const { g, W, H, V } = K; K.tube(); K.scan();
+      const mid = H / 2, a = H / 2 - 5 * V, X = i => 4 * V + i / (N - 1) * (W - 8 * V), lo = new Float32Array(N).fill(9), hi = new Float32Array(N).fill(-9);
+      fr.forEach(s => { for (let i = 0; i < N; i++) { if (s[i] < lo[i]) lo[i] = s[i]; if (s[i] > hi[i]) hi[i] = s[i]; } });
+      g.beginPath(); for (let i = 0; i < N; i++) g.lineTo(X(i), mid - hi[i] * a); for (let i = N - 1; i >= 0; i--) g.lineTo(X(i), mid - lo[i] * a); g.closePath(); g.fillStyle = K.c('grid', .1); g.fill();
+      g.strokeStyle = K.c('grid', .35); g.lineWidth = V; g.beginPath(); g.moveTo(0, mid); g.lineTo(W, mid); g.stroke();
+      const M = 7, sum = new Float32Array(N), sp = S.osc[o].wt ? S.osc[o].wt.frameSpread : 0;
+      for (let m = 0; m < M; m++) { const s = frameAt(fr, Math.max(0, Math.min(FR - 1, f + sp * ((m - 3) / 3) * 5))), off = Math.round(((m - 3) / 3) * (.028 + (L.motion ? .02 * Math.sin(L.tick * .013 + m * 1.9 + o) : .01)) * N), ga = 1 + (L.motion ? .05 * Math.sin(L.tick * .017 + m * 2.3) : 0), mem = new Float32Array(N);
+        for (let i = 0; i < N; i++) { mem[i] = s[(i + off + N) % N] * ga; sum[i] += mem[i] / M; }
+        g.strokeStyle = K.c('physics', .42); g.lineWidth = 1.1 * V; poly(g, N / 2, i => X(i * 2), i => mid - mem[i * 2] * a); g.stroke(); }
+      beam(K, 'value', sm ? 1.6 : 2.2, () => poly(g, N, X, i => mid - sum[i] * a)); const ip = Math.floor(phaseNow(o) * (N - 1)); dot(K, X(ip), mid - sum[ip] * a, (sm ? 2 : 2.6) * V, 'marker');
+      if (!sm) label(K, '7 MEMBERS · MOCK SPREAD', 6 * V, H - 5 * V); } }
+];
+const SHORT = { L1: 'STACK', L2: 'RIDGES', L3: 'TURNTABLE', L4: 'SONOGRAM', L5: 'RINGS', L6: 'SWARM' };
+let look = (v => LOOKS.some(x => x.id === v) ? v : 'L1')(store.get('horde-wtlab-view'));
+function setLook(id) { look = id; store.set('horde-wtlab-view', id); }
+const LOOK = () => LOOKS.find(x => x.id === look);
+// the glasses under the lead picture: the read cycle, and its harmonics as the spectrum's bars
+function drawCycleGlass(c, s, o) { const K = kit(c), { g, W, H, V } = K; K.tube(); K.scan(); const mid = H / 2, a = H / 2 - 4 * V, X = i => 3 * V + i / (N - 1) * (W - 6 * V);
+  g.strokeStyle = K.c('grid', .4); g.lineWidth = V; g.beginPath(); g.moveTo(0, mid); g.lineTo(W, mid); g.stroke(); beam(K, 'value', 2, () => poly(g, N, X, i => mid - s[i] * a));
+  if (o !== undefined) { const ip = Math.floor(phaseNow(o) * (N - 1)); dot(K, X(ip), mid - s[ip] * a, 2.2 * V, 'marker'); } }
+function drawHarmGlass(c, s) { const K = kit(c), { g, W, H, V } = K; K.tube(); K.scan(); const a = harm(s, 32), sl = (W - 4 * V) / 32, bw = sl * .72, floor = H - 2 * V, top = H - 5 * V;
+  a.forEach((x, k) => { const t = lev(x); g.fillStyle = sunset(K, t); g.fillRect(2 * V + k * sl + (sl - bw) / 2, floor - t * top, bw, t * top); }); g.fillStyle = K.c('grid', .55); g.fillRect(0, floor, W, 2 * V); }
+// a corner's small glass: the look, small, then the ground laid over it by how little the corner counts, so corners near the puck glow; the corner's letter in the glass's own ink
+function drawCornerGlass(c, o, k, viaLook) { const K = kit(c), fr = table(S.osc[o].corners[k]), f = frameNow(o);
+  (viaLook === false ? LOOKS[0] : LOOK()).draw(K, fr, f, o, true);
+  const w = weights()[k]; if (L.morph) { K.g.fillStyle = K.c('ground', (1 - Math.min(1, w * 1.6)) * .62 / K.sc.alpha); K.g.fillRect(0, 0, K.W, K.H); }
+  label(K, CORNER[k], 5 * K.V, 11 * K.V, 'left', 'physics'); }
 
 /* ===== small builders ===== */
 const h = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; };
-const cv = (hgt, cls) => { const c = h('canvas', 'cv' + (cls ? ' ' + cls : '')); c.style.height = hgt + 'px'; return c; };
-const chip = i => { const c = h('span', 'chip', CORNER[i]); c.style.background = 'var(' + CVAR[i] + ')'; return c; };
+const cv = (hgt, cls) => { const c = h('canvas', 'cv' + (cls ? ' ' + cls : '')); c.style.height = hgt + 'px'; return c; };   // a canvas on the panel (Q2's graphs), not a screen
+function glass(hgt, cls) { const d = h('div', 'hd-viz glass' + (cls ? ' ' + cls : '')); d.style.height = hgt + 'px'; const c = h('canvas'); d.append(c); d.cv = c; return d; }
+const chip = i => { const c = h('span', 'chip'); c.style.background = 'var(' + CVAR[i] + ')'; c.innerHTML = HZ.glyph(i, 8, '#111') + CORNER[i]; c.setAttribute('aria-label', 'corner ' + CORNER[i]); return c; };
 const pct = v => Math.round(v * 100) + ' %';
 let menu = null;
 function closeMenu() { if (menu) { menu.remove(); menu = null; } }
 document.addEventListener('pointerdown', e => { if (menu && !menu.contains(e.target)) closeMenu(); }, true);
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu(); });
-// a table picker: the library, each entry with a thumbnail of its middle frame
+// a table picker: the library, each entry with its middle frame on a small glass
 function picker(o, k, label) {
   const b = h('button', 'sel'); b.type = 'button'; b.setAttribute('aria-haspopup', 'menu'); b.setAttribute('aria-label', (label || 'Osc ' + (o + 1) + ', corner ' + CORNER[k]) + ' table: ' + S.osc[o].corners[k]);
   b.textContent = S.osc[o].corners[k];
   b.addEventListener('click', () => {
     closeMenu(); const win = b.closest('.win'), r = b.getBoundingClientRect(), wr = win.getBoundingClientRect(); menu = h('div', 'menu'); menu.setAttribute('role', 'menu');
-    NAMES.forEach(n => { const it = h('button'); it.type = 'button'; it.setAttribute('role', 'menuitem'); const t = h('canvas'); it.append(t, h('span', null, n)); it.addEventListener('click', () => { S.osc[o].corners[k] = n; closeMenu(); say('Osc ' + (o + 1) + ', corner ' + CORNER[k] + ': ' + n); render(); }); menu.append(it); requestAnimationFrame(() => drawCycle(t, table(n)[8], C().ink)); });
-    menu.style.left = Math.min(r.left - wr.left, wr.width - 190) + 'px'; menu.style.top = Math.min(r.bottom - wr.top + 2, wr.height - 300) + 'px'; win.append(menu); menu.querySelector('button').focus();
+    NAMES.forEach(n => { const it = h('button'); it.type = 'button'; it.setAttribute('role', 'menuitem'); const t = glass(18); it.append(t, h('span', null, n)); it.addEventListener('click', () => { S.osc[o].corners[k] = n; closeMenu(); say('Osc ' + (o + 1) + (L.morph ? ', corner ' + CORNER[k] : '') + ': ' + n); render(); }); menu.append(it); requestAnimationFrame(() => drawCycleGlass(t.cv, table(n)[8])); });
+    menu.style.left = Math.min(r.left - wr.left, wr.width - 210) + 'px'; menu.style.top = Math.min(r.bottom - wr.top + 2, wr.height - 300) + 'px'; win.append(menu); menu.querySelector('button').focus();
   });
   return b;
 }
@@ -200,59 +395,118 @@ function chrome(win, page, sub) {
   win.append(bar, sb, body, foot); return body;
 }
 function leftStandIns(body) { const l = h('div', 'left'); l.append(Object.assign(h('div', 'stand', 'the ring (the swarm), unchanged'), { style: 'height:150px' }), Object.assign(h('div', 'stand', 'its spectrum'), { style: 'height:70px' }), Object.assign(h('div', 'stand', 'phase carpet · voice map'), { style: 'height:70px' })); body.append(l); return l; }
-// the lead picture, answered: the blended frame stack, with the cycle and harmonics under it
-function leadPicture(parent, o, hgt) {
-  const p = h('div', 'pane'), hd = h('div', 'ph'); hd.append(document.createTextNode('Osc ' + (o + 1) + ' · the table it reads'), h('span', 'h', 'blended at the puck · Linear · frame ' + S.osc[o].frame.toFixed(1)));
-  const st = cv(hgt || 150), row = h('div', 'row'), cy = cv(46), hm = cv(46); row.style.alignItems = 'stretch'; cy.style.flex = hm.style.flex = '1 1 0';
-  row.append(cy, hm); p.append(hd, st, row); parent.append(p);
-  draws.push(() => { const fr = blended(o); drawStack(st, fr, S.osc[o].frame, C().value); const s = frameAt(fr, S.osc[o].frame); drawCycle(cy, s, C().value); drawHarm(hm, s); });
+// the lead picture (GUI-62): the table the oscillator reads, in the chosen look, with the cycle and harmonics under it. Morph off: one table, its picker here
+function leadPicture(parent, o, hgt, under) {
+  const p = h('div', 'pane'), hd = h('div', 'ph'); hd.append(document.createTextNode('Osc ' + (o + 1) + ' · the table it reads'));
+  if (L.morph) hd.append(h('span', 'h', 'blended at the puck · Linear'));
+  else { hd.append(picker(o, L.audible, 'Osc ' + (o + 1)), h('span', 'h', 'morph off: corner ' + CORNER[L.audible] + '’s table plays')); }
+  const st = glass(hgt || 150, 'vw'); p.append(hd, st); viewer(st, o);
+  let cy = null, hm = null; if (under !== false) { const row = h('div', 'row'); row.style.cssText = 'align-items:stretch;margin-top:5px'; cy = glass(46); hm = glass(46); cy.style.flex = '1 1 0'; hm.style.flex = '0 0 34%'; row.append(cy, hm); p.append(row); }
+  parent.append(p);
+  draws.push(() => { const fr = warped(tableOf(o), o), f = frameNow(o), K = kit(st.cv); LOOK().draw(K, fr, f, o, false); readout(K, o, st.drag); if (cy) { const s = frameAt(fr, f); drawCycleGlass(cy.cv, s, o); drawHarmGlass(hm.cv, s); } });
+  return p;
+}
+/* ===== THE VIEWER: the switch, the XY drag (BladeView's pattern) and the legend that opens the mapping ===== */
+function readout(K, o, drag) { const parts = [], moving = drag ? drag.moving : null;
+  ['v', 'h', 'sh'].forEach(sl => { const r = ROWS[MAP[sl].row]; if (moving ? moving.includes(sl) : sl !== 'sh' || r.key !== 'window' || S.osc[o].wt.window) parts.push(r.label.toUpperCase().replace('PM FROM THE ', 'PM ').replace(' OTHER OSC', '') + ' ' + r.fmt(r.get(o))); });
+  if (!moving && S.osc[o].wt.syncIn === 'off' && ['sync', 'syncHz'].some(k => ['v', 'h', 'sh'].some(sl => MAP[sl].row === k))) parts.push('SYNC OFF');
+  const t = parts.join('  ·  '); K.g.font = '600 ' + (9 * K.V) + 'px ' + MONO(); const w = K.g.measureText(t).width;
+  K.g.fillStyle = K.c('ground', .78 / K.sc.alpha); K.g.fillRect(K.W - w - 10 * K.V, 2 * K.V, w + 8 * K.V, 13 * K.V); label(K, t, K.W - 6 * K.V, 12 * K.V, 'right', moving ? 'physics' : 'grid'); }
+function viewer(st, o) {
+  const c = st.cv; c.tabIndex = 0; const legText = () => ['v', 'h', 'sh'].map(sl => SLOT[sl] + ' ' + ROWS[MAP[sl].row].label.replace('PM from the ', 'PM ').replace(' other osc', '')).join('   ');
+  c.setAttribute('aria-label', 'Osc ' + (o + 1) + ' table viewer, ' + LOOKS.find(x => x.id === look).name + '. Drag: ' + legText().replace(/↕/g, 'up and down,').replace(/⇧↔/g, 'shift and sideways,').replace(/↔/g, 'sideways,'));
+  // the switch: six pips, or the view's name that steps on a click (shift-click steps back)
+  const sw = h('div', 'vw-sw'); sw.setAttribute('role', 'radiogroup'); sw.setAttribute('aria-label', 'View');
+  if (L.sw === 'pips') { LOOKS.forEach(x => { const b = h('button', 'pip'); b.type = 'button'; b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', String(x.id === look)); b.setAttribute('aria-label', x.name); b.title = x.name; b.addEventListener('click', e => { e.stopPropagation(); setLook(x.id); say('View: ' + x.name); render(); }); sw.append(b); }); sw.append(h('span', 'cur', SHORT[look])); }
+  else { const b = h('button', 'nm', SHORT[look] + ' ▸'); b.type = 'button'; b.setAttribute('aria-label', 'View: ' + LOOKS.find(x => x.id === look).name + '. Click for the next, shift-click for the one before'); b.addEventListener('click', e => { e.stopPropagation(); const i = LOOKS.findIndex(x => x.id === look), n = LOOKS[(i + (e.shiftKey ? LOOKS.length - 1 : 1)) % LOOKS.length]; setLook(n.id); say('View: ' + n.name); render(); }); sw.append(b); }
+  const leg = h('button', 'vw-leg', legText()); leg.type = 'button'; leg.setAttribute('aria-haspopup', 'dialog'); leg.setAttribute('aria-label', 'What the drag moves: ' + legText() + '. Click to map');
+  leg.addEventListener('click', e => { e.stopPropagation(); mapBox(st); });
+  st.append(sw, leg);
+  // the drag: relative, from the values at the grab; 420 px crosses a row's range (BladeView's), alt a quarter as far; one undo step if anything moved
+  c.addEventListener('pointerdown', e => { if (e.button) return; e.preventDefault(); c.focus({ preventScroll: true }); try { c.setPointerCapture(e.pointerId); } catch (_) {}
+    const x0 = e.clientX, y0 = e.clientY, n0 = {}; ['v', 'h', 'sh'].forEach(sl => { const r = ROWS[MAP[sl].row]; n0[sl] = toN(r, r.get(o)); }); const before = JSON.stringify(snapRows(o));
+    st.drag = { moving: [] };
+    c.onpointermove = ev => { if (!ev.buttons) return; const k = (ev.altKey ? .25 : 1) / 420, dy = (y0 - ev.clientY) * k, dx = (ev.clientX - x0) * k, hs = ev.shiftKey ? 'sh' : 'h', rest = ev.shiftKey ? 'h' : 'sh';
+      const put = (sl, d) => { const r = ROWS[MAP[sl].row]; r.set(o, fromN(r, n0[sl] + (MAP[sl].inv ? -d : d))); };
+      put(rest, 0); put('v', dy); put(hs, dx); st.drag.moving = [dy ? 'v' : null, dx ? hs : null].filter(Boolean); paint(); };
+    c.onpointerup = () => { c.onpointermove = null; c.onpointerup = null; st.drag = null; if (JSON.stringify(snapRows(o)) !== before) { L.steps++; say('One undo step: ' + legText()); } paint(); }; });
+  c.addEventListener('keydown', e => { const d = { ArrowUp: ['v', 1], ArrowDown: ['v', -1], ArrowRight: [e.shiftKey ? 'sh' : 'h', 1], ArrowLeft: [e.shiftKey ? 'sh' : 'h', -1] }[e.key]; if (!d) return; e.preventDefault();
+    const r = ROWS[MAP[d[0]].row], step = (e.altKey ? .005 : .02) * d[1] * (MAP[d[0]].inv ? -1 : 1); r.set(o, fromN(r, toN(r, r.get(o)) + step)); L.steps++; paint(); });
+}
+const snapRows = o => Object.keys(ROWS).map(k => ROWS[k].get(o));
+// the mapping: three slots, each any continuous wt row and an invert, and Default. On the chassis, under the glass
+let mbox = null;
+function closeMap() { if (mbox) { mbox.remove(); mbox = null; } }
+document.addEventListener('pointerdown', e => { if (mbox && !mbox.contains(e.target) && !e.target.closest('.vw-leg')) closeMap(); }, true);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMap(); });
+function mapBox(st) { closeMap(); const win = st.closest('.win'), r = st.getBoundingClientRect(), wr = win.getBoundingClientRect(); mbox = h('div', 'mapbox'); mbox.setAttribute('role', 'dialog'); mbox.setAttribute('aria-label', 'What the drag moves');
+  mbox.append(Object.assign(h('b'), { textContent: 'What the drag moves' }), Object.assign(h('div', 'note'), { textContent: 'One mapping for every viewer, remembered on this machine, never saved with a patch.' }));
+  [['v', 'Up / down'], ['h', 'Sideways'], ['sh', 'Shift + side']].forEach(([sl, name]) => { const row = h('div', 'mr'), sel = h('select'); sel.setAttribute('aria-label', name);
+    Object.keys(ROWS).forEach(k => { const op = h('option', null, ROWS[k].label); op.value = k; if (MAP[sl].row === k) op.selected = true; sel.append(op); });
+    sel.addEventListener('change', () => { MAP[sl].row = sel.value; saveMap(); render(); mapBox(document.querySelector('#win3 .vw')); });
+    const inv = h('label'); const cb = h('input'); cb.type = 'checkbox'; cb.checked = MAP[sl].inv; cb.addEventListener('change', () => { MAP[sl].inv = cb.checked; saveMap(); render(); mapBox(document.querySelector('#win3 .vw')); }); inv.append(cb, document.createTextNode(' invert'));
+    row.append(Object.assign(h('span'), { textContent: SLOT[sl] + ' ' + name }), sel, inv); mbox.append(row); });
+  const ft = h('div', 'ft'), def = h('button', 'pill', 'Default'); def.type = 'button'; def.addEventListener('click', () => { MAP = JSON.parse(JSON.stringify(MAP_DEFAULT)); saveMap(); render(); say('Mapping back to its default: up and down Frame, sideways Sync ratio, shift Window'); });
+  ft.append(def, Object.assign(h('span', 'note'), { textContent: 'Esc closes' })); mbox.append(ft);
+  mbox.style.left = Math.max(4, Math.min(r.right - wr.left - 300, wr.width - 306)) + 'px'; mbox.style.top = Math.min(r.bottom - wr.top + 4, wr.height - 200) + 'px'; win.append(mbox); }
+// a corner's tile: chip and picker on the chassis, the corner's colour on its frame, its table on the glass
+function cornerTile(o, k, hgt, opts) {
+  opts = opts || {}; const p = h('div', 'pane ctile'); p.style.setProperty('--ccol', 'var(' + CVAR[k] + ')'); p.style.borderColor = 'var(' + CVAR[k] + ')';
+  const hd = h('div', 'row'); hd.append(chip(k), picker(o, k)); const wt = h('span', 'wt'); hd.append(wt); const gl = glass(hgt, 'cglass'); p.append(hd, gl);
+  draws.push(() => { wt.textContent = pct(weights()[k]); drawCornerGlass(gl.cv, o, k); });
   return p;
 }
 function weightBar(k) { const b = h('div'); b.style.cssText = 'height:4px;border-radius:2px;background:var(--well);overflow:hidden;flex:1 1 auto'; const i = h('div'); i.style.cssText = 'height:100%;background:var(' + CVAR[k] + ')'; b.append(i); draws.push(() => { i.style.width = pct(weights()[k]); }); return b; }
+function morphOffPage(body) { leftStandIns(body); const r = h('div', 'right'); body.append(r); leadPicture(r, 0, 220); r.append(Object.assign(h('div', 'stand', 'morph is off: one table, so no corner tables. The Osc section’s controls (Face / All / +Adv), the envelope and the transformations follow here'), { style: 'flex:1 1 auto' })); }
 
-/* ===== Q1: six ways to show an oscillator's four corner tables ===== */
+/* ===== Q3's window: Osc 1 in the chosen look; the corner tiles in a plain row while morph is on (where they go is Q1's) ===== */
+function buildQ3() { const body = chrome($('win3'), 'Osc', 'Osc 1');
+  if (!L.morph) { morphOffPage(body); return; }
+  leftStandIns(body); const r = h('div', 'right'); body.append(r); leadPicture(r, 0, 240);
+  const g = h('div'); g.style.cssText = 'display:grid;grid-template-columns:repeat(4,1fr);gap:6px'; [0, 1, 2, 3].forEach(k => g.append(cornerTile(0, k, 74))); r.append(g);
+  r.append(Object.assign(h('div', 'stand', 'the Osc section’s controls follow here'), { style: 'flex:1 1 auto' })); }
+
+/* ===== Q1: where the four corner tables go, with morph on. No variant puts a pad or a morph grid among them (GUI-63) ===== */
 const Q1 = [
-  { id: 'V1', name: 'Around a pad', tag: 'the lab’s', why: 'The wavetable lab’s layout on the Osc page: the four tables as frame stacks in their pad positions, A B over C D, with a small pad between them. The blend is visible as the puck moves toward a corner. Costs the most height.',
-    build(body) { leftStandIns(body); const r = h('div', 'right'); body.append(r); leadPicture(r, 0, 118);
-      const g = h('div'); g.style.cssText = 'display:grid;grid-template-columns:1fr 112px 1fr;grid-template-rows:1fr 1fr;gap:6px;flex:1 1 auto;min-height:0';
-      const tile = k => { const p = h('div', 'pane'), hd = h('div', 'row'); p.style.cssText = 'display:flex;flex-direction:column;gap:4px'; hd.append(chip(k), picker(0, k), h('span', 'wt')); const c = cv(58); c.style.flex = '1 1 auto'; p.append(hd, c); draws.push(() => { hd.lastChild.textContent = pct(weights()[k]); drawStack(c, table(S.osc[0].corners[k]), S.osc[0].frame, C()[['A', 'B', 'Cc', 'D'][k]], { label: false }); }); return p; };
-      const pad = cv(112, 'padcv'); pad.style.gridRow = '1 / 3'; pad.style.gridColumn = '2'; pad.style.alignSelf = 'center'; padDrag(pad); draws.push(() => drawMiniPad(pad));   // the column is explicit, or auto-placement puts the row-spanning pad in column 1
-      g.append(tile(0), pad, tile(1), tile(2), tile(3)); r.append(g); } },
-  { id: 'V2', name: 'One at a time', tag: 'more room', why: 'One large frame stack for the corner you pick, with its menu, and four thumbnails to switch corners; each thumbnail carries its weight. The most room for one table, the least for comparing.',
-    build(body) { leftStandIns(body); const r = h('div', 'right'); body.append(r); leadPicture(r, 0, 118);
+  { id: 'V1', name: 'In pad positions', tag: 'no pad now', why: 'The four tiles under the lead picture in their pad positions, A and B over C and D, with nothing between them (GUI-63: the Morph page has the pad). Each corner brightens as the puck nears it.',
+    build(body) { leftStandIns(body); const r = h('div', 'right'); body.append(r); leadPicture(r, 0, 150);
+      const g = h('div'); g.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:6px;flex:1 1 auto;min-height:0';
+      [0, 1, 2, 3].forEach(k => { const t = cornerTile(0, k, 74); g.append(t); }); r.append(g); } },
+  { id: 'V2', name: 'One at a time', tag: 'more room', why: 'One large glass for the corner you pick, with its menu, and four small glasses to switch corners, each with its weight. The most room for one table, the least for comparing.',
+    build(body) { leftStandIns(body); const r = h('div', 'right'); body.append(r); leadPicture(r, 0, 130);
       const p = h('div', 'pane'), th = h('div'); th.style.cssText = 'display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:6px';
-      [0, 1, 2, 3].forEach(k => { const b = h('button', 'pane'); b.type = 'button'; b.style.cssText = 'all:unset;box-sizing:border-box;cursor:pointer;border:1px solid var(--div);border-radius:var(--radius);padding:4px;display:flex;flex-direction:column;gap:3px'; b.setAttribute('aria-pressed', String(S.open === k)); const rw = h('div', 'row'); rw.append(chip(k), h('span', 'note', ''), weightBar(k)); rw.children[1].style.cssText = 'font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'; const c = cv(30); b.append(rw, c); b.addEventListener('click', () => { S.open = k; render(); }); if (S.open === k) b.style.border = '2px solid var(--ink)'; draws.push(() => { rw.children[1].textContent = S.osc[0].corners[k]; drawCycle(c, frameAt(table(S.osc[0].corners[k]), S.osc[0].frame), C()[['A', 'B', 'Cc', 'D'][k]]); }); th.append(b); });
-      const hd = h('div', 'row'); hd.append(chip(S.open), picker(0, S.open), h('span', 'wt', 'corner ' + CORNER[S.open])); const big = cv(150); p.append(th, hd, big); r.append(p);
-      draws.push(() => drawStack(big, table(S.osc[0].corners[S.open]), S.osc[0].frame, C()[['A', 'B', 'Cc', 'D'][S.open]])); } },
-  { id: 'V3', name: 'Corners on the stack', tag: 'new', why: 'No separate area: the four corner tables sit as small chips at the four corners of the lead picture itself, where they are on the pad. Each shows its cycle and weight; a click opens its menu. The page keeps its height for the controls below.',
-    build(body) { leftStandIns(body); const r = h('div', 'right'); body.append(r); const lp = leadPicture(r, 0, 200); lp.style.position = 'relative';
-      [0, 1, 2, 3].forEach(k => { const c = h('div', 'pane'); c.style.cssText = 'position:absolute;width:170px;padding:3px 5px;box-shadow:var(--shadow-rest);' + (k < 2 ? 'top:22px;' : 'top:154px;') + (k % 2 ? 'right:8px;' : 'left:8px;'); const rw = h('div', 'row'); rw.append(chip(k), picker(0, k)); const mini = cv(20), wb = h('div', 'row'); wb.append(weightBar(k), h('span', 'wt')); c.append(rw, mini, wb); lp.append(c); draws.push(() => { wb.lastChild.textContent = pct(weights()[k]); drawCycle(mini, frameAt(table(S.osc[0].corners[k]), S.osc[0].frame), C()[['A', 'B', 'Cc', 'D'][k]]); }); });
-      const ctl = h('div', 'stand', 'the Osc section’s controls (Face / All / +Adv), the envelope, and the transformations follow here'); ctl.style.flex = '1 1 auto'; r.append(ctl); } },
-  { id: 'V4', name: 'Morph terrain', tag: 'new', why: 'The table drawn across the whole pad: a 5 × 5 field of cycles, each what the oscillator reads at that pad point. The four corner cells are the corner tables, with their menus; the puck is a ring you drag over the field. Shows how the sound transforms, not just its ends.',
-    build(body) { leftStandIns(body); const r = h('div', 'right'); body.append(r); const row = h('div', 'row'); row.style.cssText = 'align-items:stretch;gap:6px;flex:1 1 auto;min-height:0'; r.append(row);
-      const p = h('div', 'pane'); p.style.cssText = 'flex:0 0 330px'; const hd = h('div', 'ph'); hd.append(document.createTextNode('Osc 1 across the pad'), h('span', 'h', 'drag the ring')); const t = cv(300, 'padcv'); padDrag(t); p.append(hd, t);
-      const pk = h('div'); pk.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:6px'; [0, 1, 2, 3].forEach(k => { const rw = h('div', 'row'); rw.append(chip(k), picker(0, k)); pk.append(rw); }); p.append(pk); row.append(p);
-      const side = h('div', 'right'); row.append(side); leadPicture(side, 0, 140); const ctl = h('div', 'stand', 'the Osc section’s controls follow here'); ctl.style.flex = '1 1 auto'; side.append(ctl);
-      draws.push(() => { const [g, W, H] = fit(t), k = C(), n = 5, cw = W / n, ch = H / n, tb = S.osc[0].corners.map(table); g.clearRect(0, 0, W, H);
-        for (let a = 0; a < n; a++) for (let b = 0; b < n; b++) { const x = a / (n - 1), y = b / (n - 1), w = [(1 - x) * (1 - y), x * (1 - y), (1 - x) * y, x * y], s = new Float32Array(N); for (let q = 0; q < 4; q++) if (w[q]) { const f = frameAt(tb[q], S.osc[0].frame); for (let i = 0; i < N; i++) s[i] += w[q] * f[i]; }
-          const corner = (a === 0 || a === n - 1) && (b === 0 || b === n - 1), ci = (b ? 2 : 0) + (a ? 1 : 0); g.strokeStyle = corner ? [k.A, k.B, k.Cc, k.D][ci] : k.hint; g.lineWidth = corner ? 2 : 1.2; g.beginPath(); for (let i = 0; i < N; i += 4) { const px = a * cw + 6 + i / (N - 1) * (cw - 12), py = b * ch + ch / 2 - s[i] * (ch / 2 - 8); i ? g.lineTo(px, py) : g.moveTo(px, py); } g.stroke(); }
-        g.strokeStyle = k.value; g.lineWidth = 2.5; g.beginPath(); g.arc(S.x * W, S.y * H, Math.min(cw, ch) * .55, 0, TAU); g.stroke(); }); } },
-  { id: 'V5', name: 'Twelve on the Morph page', tag: 'the lead’s list', why: 'All twelve pickers on the Morph page, an oscillator a row and a corner a column, beside the pad; each Osc page shows only what it reads. The place to compare oscillators, and where Save current sound and capture already are.',
-    build(body) { chrome($('win1'), 'Morph', 'Morph'); body = $('win1').querySelector('.wbody'); const l = h('div', 'left'); l.style.flex = '0 0 240px'; const pad = cv(236, 'padcv'); padDrag(pad); draws.push(() => drawMiniPad(pad)); l.append(pad, Object.assign(h('div', 'stand', 'the law’s note · the corners’ names'), { style: 'flex:1 1 auto' })); body.append(l);
+      [0, 1, 2, 3].forEach(k => { const b = h('button', 'pane'); b.type = 'button'; b.style.cssText = 'all:unset;box-sizing:border-box;cursor:pointer;border:' + (S.open === k ? 2 : 1) + 'px solid var(' + CVAR[k] + ');border-radius:var(--radius);padding:4px;display:flex;flex-direction:column;gap:3px'; b.setAttribute('aria-pressed', String(S.open === k)); const rw = h('div', 'row'); rw.append(chip(k), weightBar(k)); const gl = glass(30, 'cglass'); b.append(rw, gl); b.addEventListener('click', () => { S.open = k; render(); }); draws.push(() => drawCornerGlass(gl.cv, 0, k)); th.append(b); });
+      const hd = h('div', 'row'); hd.append(chip(S.open), picker(0, S.open), h('span', 'wt', 'corner ' + CORNER[S.open])); const big = glass(150, 'cglass'); big.style.borderColor = 'var(' + CVAR[S.open] + ')'; p.append(th, hd, big); r.append(p);
+      draws.push(() => { const K = kit(big.cv); LOOK().draw(K, table(S.osc[0].corners[S.open]), frameNow(0), 0, false); }); } },
+  { id: 'V3', name: 'Corners on the stack', tag: 'new', why: 'No separate area: the four corner tables sit as small cards at the four corners of the lead picture itself, where they are on the pad. Each shows its table and weight, and a click opens its menu. The page keeps its height for the controls below.',
+    build(body) { leftStandIns(body); const r = h('div', 'right'); body.append(r); const lp = leadPicture(r, 0, 236); lp.style.position = 'relative';
+      [0, 1, 2, 3].forEach(k => { const c = h('div', 'pane ctile'); c.style.cssText = 'position:absolute;width:168px;padding:3px 5px;box-shadow:var(--shadow-rest);border-color:var(' + CVAR[k] + ');--ccol:var(' + CVAR[k] + ');' + (k < 2 ? 'top:46px;' : 'top:150px;') + (k % 2 ? 'right:12px;' : 'left:12px;'); const rw = h('div', 'row'); rw.append(chip(k), picker(0, k)); const mini = glass(26, 'cglass'), wb = h('div', 'row'); wb.append(weightBar(k), h('span', 'wt')); c.append(rw, mini, wb); lp.append(c); draws.push(() => { wb.lastChild.textContent = pct(weights()[k]); drawCornerGlass(mini.cv, 0, k); }); });
+      r.append(Object.assign(h('div', 'stand', 'the Osc section’s controls (Face / All / +Adv), the envelope, and the transformations follow here'), { style: 'flex:1 1 auto' })); } },
+  { id: 'V4', name: 'Morph terrain', tag: 'retired', retired: true, why: 'Retired by your note (GUI-63): it was a morph grid, a 5 × 5 field of cycles across the pad, and the Morph page has the pad.' },
+  { id: 'V5', name: 'Twelve on the Morph page', tag: 'the lead’s list', why: 'All twelve pickers on the Morph page, beside its own pad, an oscillator a row and a corner a column. Each Osc page shows only what it reads. The place to compare oscillators, and where Save current sound and capture already are.',
+    build() { const body = chrome($('win1'), 'Morph', 'Morph'); const l = h('div', 'left'); l.style.flex = '0 0 240px'; const pad = glass(236, 'padglass'); pad.cv.classList.add('padcv'); padDrag(pad.cv); draws.push(() => drawPad(pad.cv)); l.append(Object.assign(h('div', 'note', 'the Morph page’s own pad'), { style: 'font-size:10px' }), pad, Object.assign(h('div', 'stand', 'the law’s note · the corners’ names'), { style: 'flex:1 1 auto' })); body.append(l);
       const r = h('div', 'right'); body.append(r); const p = h('div', 'pane'), hd = h('div', 'ph'); hd.append(document.createTextNode('Corner tables'), h('span', 'h', '3 oscillators × 4 corners · weights at the puck')); p.append(hd);
       const g = h('div'); g.style.cssText = 'display:grid;grid-template-columns:44px repeat(4,1fr);gap:5px;align-items:center'; g.append(h('span')); [0, 1, 2, 3].forEach(k => { const c = h('div', 'row'); c.append(chip(k), weightBar(k)); g.append(c); });
-      [0, 1, 2].forEach(o => { g.append(h('b', null, 'Osc ' + (o + 1))); [0, 1, 2, 3].forEach(k => { const c = h('div'); c.style.cssText = 'display:flex;flex-direction:column;gap:2px;min-width:0'; const m = cv(54); c.append(picker(o, k), m); g.append(c); draws.push(() => drawStack(m, table(S.osc[o].corners[k]), S.osc[o].frame, C()[['A', 'B', 'Cc', 'D'][k]], { label: false, thin: true })); }); });
+      [0, 1, 2].forEach(o => { g.append(h('b', null, 'Osc ' + (o + 1))); [0, 1, 2, 3].forEach(k => { const c = h('div'); c.style.cssText = 'display:flex;flex-direction:column;gap:2px;min-width:0'; const m = glass(54, 'cglass'); m.style.borderColor = 'var(' + CVAR[k] + ')'; c.append(picker(o, k), m); g.append(c); draws.push(() => drawCornerGlass(m.cv, o, k)); }); });
       p.append(g); r.append(p); r.append(Object.assign(h('div', 'stand', 'the Selected row card and the Morph field follow, as today'), { style: 'flex:1 1 auto' })); } },
-  { id: 'V6', name: 'Crossfade lanes', tag: 'new', why: 'The four tables as lanes feeding the blended stack, like a mixer: each lane its corner chip, menu, a strip of its frames and its live weight, drawn brighter the more it counts. The blend reads as a sum, which is what Linear is.',
+  { id: 'V6', name: 'Crossfade lanes', tag: 'no pad now', why: 'The four tables as lanes feeding the lead picture, like a mixer. Each lane has its corner chip, menu, a strip of its frames on glass and its live weight, and glows brighter the more it counts. The blend reads as a sum, which is what Linear is.',
     build(body) { leftStandIns(body); const r = h('div', 'right'); body.append(r); const row = h('div', 'row'); row.style.cssText = 'align-items:stretch;gap:6px'; r.append(row);
-      const lanes = h('div', 'pane'); lanes.style.cssText = 'flex:0 0 300px;display:flex;flex-direction:column;gap:5px'; lanes.append(Object.assign(h('div', 'ph'), { textContent: 'Corner lanes' }));
-      [0, 1, 2, 3].forEach(k => { const ln = h('div'); ln.style.cssText = 'display:grid;grid-template-columns:auto 1fr 38px;gap:4px;align-items:center'; const strip = cv(26); strip.style.gridColumn = '1 / 4'; ln.append(chip(k), picker(0, k), h('span', 'wt'), strip); lanes.append(ln);
-        draws.push(() => { const w = weights()[k]; ln.children[2].textContent = pct(w); strip.style.opacity = String(.25 + .75 * Math.min(1, w * 2)); const [g, W, H] = fit(strip), t = table(S.osc[0].corners[k]); g.clearRect(0, 0, W, H); g.strokeStyle = C()[['A', 'B', 'Cc', 'D'][k]]; g.lineWidth = 1.2; for (let f = 0; f < FR; f += 2) { const x0 = f / FR * W; g.beginPath(); for (let i = 0; i < N; i += 8) { const x = x0 + i / N * (W / 8 - 2), y = H / 2 - t[f][i] * (H / 2 - 3); i ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); } }); });
-      const pad = cv(96, 'padcv'); pad.style.width = '96px'; padDrag(pad); draws.push(() => drawMiniPad(pad)); lanes.append(pad); row.append(lanes);
-      const side = h('div', 'right'); row.append(side); leadPicture(side, 0, 190); r.append(Object.assign(h('div', 'stand', 'the Osc section’s controls follow here'), { style: 'flex:1 1 auto' })); } }
+      const lanes = h('div', 'pane'); lanes.style.cssText = 'flex:0 0 300px;display:flex;flex-direction:column;gap:6px'; lanes.append(Object.assign(h('div', 'ph'), { textContent: 'Corner lanes' }));
+      [0, 1, 2, 3].forEach(k => { const ln = h('div'); ln.style.cssText = 'display:grid;grid-template-columns:auto 1fr 38px;gap:4px;align-items:center'; const strip = glass(40, 'cglass'); strip.style.gridColumn = '1 / 4'; strip.style.borderColor = 'var(' + CVAR[k] + ')'; ln.append(chip(k), picker(0, k), h('span', 'wt'), strip); lanes.append(ln);
+        draws.push(() => { ln.children[2].textContent = pct(weights()[k]); const K = kit(strip.cv), { g, W, H, V } = K, t = table(S.osc[0].corners[k]); K.tube(); K.scan(); const fn = frameNow(0);
+          for (let f = 0; f < FR; f += 2) { const x0 = 3 * V + f / FR * (W - 6 * V), near = Math.abs(f - fn) < 1.01; g.strokeStyle = K.c(near ? 'value' : 'physics', near ? 1 : .55); g.lineWidth = (near ? 1.6 : 1) * V; poly(g, N / 8, i => x0 + i * 8 / N * ((W - 6 * V) / 8 - 3 * V), i => H / 2 - t[f][i * 8] * (H / 2 - 4 * V)); g.stroke(); }
+          const w = weights()[k]; g.fillStyle = K.c('ground', (1 - Math.min(1, w * 1.6)) * .62 / K.sc.alpha); g.fillRect(0, 0, W, H); label(K, CORNER[k], 4 * V, 10 * V, 'left', 'physics'); }); });
+      row.append(lanes); const side = h('div', 'right'); row.append(side); leadPicture(side, 0, 230); r.append(Object.assign(h('div', 'stand', 'the Osc section’s controls follow here'), { style: 'flex:1 1 auto' })); } }
 ];
 
-/* ===== Q2: five places for the PM matrix ===== */
+/* ===== the pad: the bench's stand-in for the Morph page's pad, and V5's. A screen, so its corners are letters in the glass's ink ===== */
+function drawPad(c) { const K = kit(c), { g, W, H, V } = K; K.tube(); K.scan(); g.strokeStyle = K.c('grid', .3); g.lineWidth = V;
+  for (let i = 1; i < 4; i++) { g.beginPath(); g.moveTo(i * W / 4, 0); g.lineTo(i * W / 4, H); g.moveTo(0, i * H / 4); g.lineTo(W, i * H / 4); g.stroke(); }
+  const pad = 6 * V; [[pad, 12 * V, 'left'], [W - pad, 12 * V, 'right'], [pad, H - pad, 'left'], [W - pad, H - pad, 'right']].forEach(([x, y, al], i) => label(K, CORNER[i], x, y, al, 'physics'));
+  dot(K, S.x * W, S.y * H, 4.5 * V, 'value'); }
+function padDrag(c) { c.style.cursor = 'crosshair'; c.style.touchAction = 'none'; c.addEventListener('pointerdown', e => { e.preventDefault(); try { c.setPointerCapture(e.pointerId); } catch (_) {} const mv = ev => { const r = c.getBoundingClientRect(); S.x = Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width)); S.y = Math.min(1, Math.max(0, (ev.clientY - r.top) / r.height)); paint(); }; mv(e); c.onpointermove = ev => { if (ev.buttons) mv(ev); }; c.onpointerup = () => { c.onpointermove = null; }; }); }
+
+/* ===== Q2: five places for the PM matrix (unchanged this round, but its scopes are screens now) ===== */
 const ALG = { custom: null, parallel: [[0, 0, 0], [0, 0, 0], [0, 0, 0]], 'stack 3→2→1': [[0, .5, 0], [0, 0, .5], [0, 0, 0]], '2 + 3 → 1': [[0, .5, .5], [0, 0, 0], [0, 0, 0]], 'ring 1→2→3→1': [[0, 0, .4], [.4, 0, 0], [0, .4, 0]], 'all feedback': [[.3, 0, 0], [0, .3, 0], [0, 0, .3]] };
 function algPills(parent) { const r = h('div', 'row'); r.style.flexWrap = 'wrap'; Object.keys(ALG).forEach(n => { const b = h('button', 'pill', n); b.type = 'button'; b.setAttribute('aria-pressed', String(S.alg === n)); b.addEventListener('click', () => { if (ALG[n]) S.pm = ALG[n].map(r => r.slice()); S.alg = n; say('Algorithm: ' + n + (ALG[n] ? ', written into the matrix as ordinary values' : '')); render(); }); r.append(b); }); parent.append(r); }
 function depthDrag(el, get, set) { el.addEventListener('pointerdown', e => { e.preventDefault(); try { el.setPointerCapture(e.pointerId); } catch (_) {} const y0 = e.clientY, v0 = get(); el.onpointermove = ev => { if (ev.buttons) { set(Math.min(1, Math.max(0, v0 + (y0 - ev.clientY) / 120))); S.alg = 'custom'; paint(); } }; el.onpointerup = () => { el.onpointermove = null; render(); }; }); el.addEventListener('keydown', e => { const d = e.key === 'ArrowUp' ? .05 : e.key === 'ArrowDown' ? -.05 : 0; if (d) { e.preventDefault(); set(Math.min(1, Math.max(0, get() + d))); S.alg = 'custom'; paint(); } }); }
@@ -263,11 +517,14 @@ function grid(parent, big) {
     depthDrag(cell, () => S.pm[rw][c], x => { S.pm[rw][c] = x; }); draws.push(() => { f.style.height = pct(S.pm[rw][c]); v.textContent = rw === c ? (S.pm[rw][c] ? 'fb ' + S.pm[rw][c].toFixed(2) : 'fb') : S.pm[rw][c] ? S.pm[rw][c].toFixed(2) : '·'; }); g.append(cell); }); });
   parent.append(g);
 }
-function modScope(parent, o, hgt) { const c = cv(hgt || 40); parent.append(c); draws.push(() => { const [g, W, H] = fit(c), k = C(), r = [3, 1, 2][o]; g.clearRect(0, 0, W, H); g.strokeStyle = k.value; g.lineWidth = 1.5; g.beginPath(); for (let i = 0; i < 128; i++) { const x = i / 127 * W, y = H / 2 - Math.sin(TAU * r * i / 128) * (H / 2 - 4); i ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); g.strokeStyle = k.meter; g.beginPath(); for (let i = 0; i < 128; i++) { const x = i / 127 * W, y = H / 2 - Math.cos(TAU * r * i / 128) * (H / 2 - 4) * .6; i ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); }); }
-function internal(parent, o) { const p = h('div', 'pane'), hd = h('div', 'ph'); hd.append(document.createTextNode('Internal modulator · osc ' + (o + 1)), h('span', 'h', 'scope: modulator (pink), deviation (teal), MOCK')); const cr = h('div', 'ctlrow'); cr.innerHTML = 'shape <b>sine</b> · rate <b>× ' + [3, 1, 2][o] + '.00</b> · depth <b>0.40</b> · mix <b>100 %</b> · per member <b>decorrelated</b>'; p.append(hd, cr); modScope(p, o, 34); parent.append(p); }
+function modScope(parent, o, hgt) { const gl = glass(hgt || 40); parent.append(gl); draws.push(() => { const K = kit(gl.cv), { g, W, H, V } = K, r = [3, 1, 2][o], ph = L.motion ? L.tick * .02 : 0; K.tube(); K.scan();
+  g.strokeStyle = K.c('grid', .4); g.lineWidth = V; g.beginPath(); g.moveTo(0, H / 2); g.lineTo(W, H / 2); g.stroke();
+  g.strokeStyle = K.c('meter', .8); g.lineWidth = 1.3 * V; poly(g, 128, i => i / 127 * W, i => H / 2 - Math.cos(TAU * r * i / 128 + ph) * (H / 2 - 4 * V) * .6); g.stroke();
+  beam(K, 'value', 1.6, () => poly(g, 128, i => i / 127 * W, i => H / 2 - Math.sin(TAU * r * i / 128 + ph) * (H / 2 - 4 * V))); }); }
+function internal(parent, o) { const p = h('div', 'pane'), hd = h('div', 'ph'); hd.append(document.createTextNode('Internal modulator · osc ' + (o + 1)), h('span', 'h', 'scope: the modulator (beam) and the pitch deviation (meter), MOCK')); const cr = h('div', 'ctlrow'); cr.innerHTML = 'shape <b>sine</b> · rate <b>× ' + [3, 1, 2][o] + '.00</b> · depth <b>0.40</b> · mix <b>100 %</b> · per member <b>decorrelated</b>'; p.append(hd, cr); modScope(p, o, 34); parent.append(p); }
 const Q2 = [
-  { id: 'P1', name: 'A row per Osc page, grid on the Dashboard', why: 'Each Osc page shows what modulates it: three depths (osc 1, osc 2, osc 3, its own being feedback) beside its internal modulator and scope. The whole 3 × 3 grid and the named algorithms are a card on the Osc dashboard.',
-    build() { const body = chrome($('win2'), 'Osc', 'Osc 1'); leftStandIns(body); const r = h('div', 'right'); body.append(r); leadPicture(r, 0, 100);
+  { id: 'P1', name: 'A row per Osc page, grid on the Dashboard', why: 'Each Osc page shows what modulates it: three depths (osc 1, osc 2 and osc 3, its own being feedback) beside its internal modulator and scope. The whole 3 × 3 grid and the named algorithms are a card on the Osc dashboard.',
+    build() { const body = chrome($('win2'), 'Osc', 'Osc 1'); leftStandIns(body); const r = h('div', 'right'); body.append(r); leadPicture(r, 0, 100, false);
       const p = h('div', 'pane'), hd = h('div', 'ph'); hd.append(document.createTextNode('FM / PM · what modulates osc 1'), h('span', 'h', 'drag a depth')); p.append(hd); const g = h('div'); g.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:4px';
       [0, 1, 2].forEach(c => { const cell = h('button', 'pmcell' + (c === 0 ? ' diag' : '')); cell.type = 'button'; cell.style.height = '36px'; const f = h('div', 'fill'), v = h('span'); cell.append(f, v); depthDrag(cell, () => S.pm[0][c], x => { S.pm[0][c] = x; }); draws.push(() => { f.style.height = pct(S.pm[0][c]); v.textContent = (c === 0 ? 'feedback ' : 'osc ' + (c + 1) + ' ') + S.pm[0][c].toFixed(2); }); g.append(cell); }); p.append(g); r.append(p); internal(r, 0);
       const dash = h('div', 'pane'); dash.style.cssText = 'position:absolute;right:14px;bottom:92px;width:300px;box-shadow:var(--shadow-hover)'; const dh = h('div', 'ph'); dh.append(document.createTextNode('Osc dashboard card'), h('span', 'h', 'the whole matrix')); dash.append(dh); grid(dash); algPills(dash); $('win2').append(dash); } },
@@ -290,7 +547,7 @@ const Q2 = [
       const hit = [];
       draws.push(() => { const [g, W, H] = fit(c), k = C(), rows = ['osc 1', 'osc 2', 'osc 3', 'sub', 'noise'], ry = i => 30 + i * (H - 60) / 4, bx = 150, bw = 200; g.clearRect(0, 0, W, H); hit.length = 0;
         [['filter 1', .3], ['filter 2', .7]].forEach(([n, f]) => { const fy = f * H; g.strokeStyle = k.ink; g.lineWidth = 1.5; g.strokeRect(W - 220, fy - 22, 150, 44); g.fillStyle = k.ink; g.font = '700 11px system-ui, sans-serif'; g.textAlign = 'center'; g.fillText(n, W - 145, fy + 4); rows.forEach((_, i) => { g.strokeStyle = k.div; g.lineWidth = 1; g.beginPath(); g.moveTo(bx + bw, ry(i)); g.bezierCurveTo(bx + bw + 120, ry(i), W - 340, fy, W - 220, fy); g.stroke(); }); });
-        rows.forEach((n, i) => { g.fillStyle = k.panel; g.strokeStyle = k.ink; g.lineWidth = 1.5; g.beginPath(); g.roundRect(bx, ry(i) - 18, bw, 36, 6); g.fill(); g.stroke(); g.fillStyle = k.ink; g.font = '800 12px system-ui, sans-serif'; g.textAlign = 'left'; g.fillText(n, bx + 10, ry(i) + 4); if (i < 3) { const fr = blended(i), s = frameAt(fr, S.osc[i].frame); g.strokeStyle = k.value; g.lineWidth = 1.2; g.beginPath(); for (let j = 0; j < N; j += 4) { const x = bx + 70 + j / N * 120, y = ry(i) - s[j] * 12; j ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); } });
+        rows.forEach((n, i) => { g.fillStyle = k.panel; g.strokeStyle = k.ink; g.lineWidth = 1.5; g.beginPath(); g.roundRect(bx, ry(i) - 18, bw, 36, 6); g.fill(); g.stroke(); g.fillStyle = k.ink; g.font = '800 12px system-ui, sans-serif'; g.textAlign = 'left'; g.fillText(n, bx + 10, ry(i) + 4); if (i < 3) { const fr = tableOf(i), s = frameAt(fr, frameNow(i)); g.strokeStyle = k.value; g.lineWidth = 1.2; g.beginPath(); for (let j = 0; j < N; j += 4) { const x = bx + 70 + j / N * 120, y = ry(i) - s[j] * 12; j ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); } });
         for (let rw = 0; rw < 3; rw++) for (let cl = 0; cl < 3; cl++) { const d = S.pm[rw][cl]; if (rw === cl) { const x = bx - 14, y = ry(rw); g.strokeStyle = d ? k.value : k.div; g.lineWidth = 1 + d * 6; g.beginPath(); g.arc(x, y, 9, 0, TAU); g.stroke(); hit.push({ rw, cl, x, y }); continue; }
           // each direction its own lane (downward wires inside, upward outside) and its own end of the box, so a pair never overlaps; the dot marks the modulated end
           const up = cl > rw, y1 = ry(cl) + (up ? -9 : 9), y2 = ry(rw) + (up ? 9 : -9), span = Math.abs(rw - cl), x = bx - 26 - span * 30 - (up ? 34 : 0), my = (y1 + y2) / 2;
@@ -302,32 +559,104 @@ const Q2 = [
     build() { const body = chrome($('win2'), 'Osc', 'Dashboard'); const l = h('div', 'right'); l.style.flex = '0 0 330px'; body.append(l); const p = h('div', 'pane'), hd = h('div', 'ph'); hd.append(document.createTextNode('PM matrix'), h('span', 'h', 'a dashboard card')); p.append(hd); grid(p); algPills(p); l.append(p); l.append(Object.assign(h('div', 'stand', 'the other dashboard cards (sources, filters)'), { style: 'flex:1 1 auto' }));
       const r = h('div', 'right'); body.append(r); r.append(Object.assign(h('div', 'stand', 'the signal flow (GUI-57 r3) fills the rest'), { style: 'flex:1 1 auto' })); } }
 ];
+// a panel canvas (Q2's graphs are drawn on the panel, not on glass)
+function fit(c) { const r = c.getBoundingClientRect(), d = window.devicePixelRatio || 1, w = Math.max(1, Math.round(r.width * d)), hh = Math.max(1, Math.round(r.height * d)); if (c.width !== w || c.height !== hh) { c.width = w; c.height = hh; } const g = c.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0); return [g, r.width, r.height]; }
+
+/* ===== the bench ===== */
+function pills(host, items, cur, pick) { host.replaceChildren(); host.className = 'hd-pills'; host.setAttribute('role', 'radiogroup'); items.forEach(([v, lab, html]) => { const b = h('button', 'hd-pill hd-focus'); b.type = 'button'; b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', String(v === cur)); if (html) b.innerHTML = html; else b.textContent = lab; b.addEventListener('click', () => pick(v)); host.append(b); }); }
+let scr = null;
+function bench() {
+  pills($('bMorph'), [[false, 'Off'], [true, 'On']], L.morph, v => { L.morph = v; say('Morph ' + (v ? 'on: the four corner tables show' : 'off: one table, corner ' + CORNER[L.audible] + '’s')); render(); });
+  pills($('bAudP'), [0, 1, 2, 3].map(i => [i, CORNER[i], HZ.glyph(i, 9, 'currentColor') + CORNER[i]]), L.audible, v => { L.audible = v; render(); });
+  pills($('bMotion'), [[true, 'Live'], [false, 'Still']], L.motion, v => { L.motion = v; render(); });
+  pills($('bSw'), [['pips', 'Pips'], ['name', 'Name']], L.sw, v => { L.sw = v; render(); });
+  pills($('bSync'), [['off', 'Off'], ['pitch', '× pitch'], ['hz', 'Hz']], S.osc[0].wt.syncIn, v => { S.osc[0].wt.syncIn = v; say('Osc 1 sync in: ' + v + (v === 'off' ? ' (the engine’s default; the ratio is stored, and the readout says SYNC OFF)' : '')); render(); });
+  const th = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+  pills($('bTheme'), [['light', 'Cream'], ['dark', 'Dark']], th, v => { document.documentElement.setAttribute('data-theme', v); render(); });
+  $('bAud').style.display = L.morph ? 'none' : ''; $('bPuck').style.display = L.morph ? '' : 'none';
+  if (!scr) { scr = HZ.ScreenScheme($('bScr'), $('lab'), { list: true, onchange: () => { if (draws.length) paint(); } }); }
+}
 
 /* ===== rendering ===== */
 let draws = [], v1 = 'V1', v2 = 'P1';
-function opts(host, list, cur, pick) { host.replaceChildren(); list.forEach(v => { const b = h('button', 'opt'); b.type = 'button'; b.setAttribute('aria-pressed', String(v.id === cur)); b.append(h('i', null, v.id + (v.tag ? ' · ' + v.tag : '')), h('b', null, v.name)); b.addEventListener('click', () => pick(v.id)); host.append(b); }); }
+function opts(host, list, cur, pick) { host.replaceChildren(); list.forEach(v => { const b = h('button', 'opt'); b.type = 'button'; b.setAttribute('aria-pressed', String(v.id === cur)); if (v.retired) b.setAttribute('aria-disabled', 'true'); b.append(h('i', null, v.id + (v.tag ? ' · ' + v.tag : '')), h('b', null, v.name)); b.addEventListener('click', () => { if (v.retired) { say(v.id + ' is retired: ' + v.why); return; } pick(v.id); }); host.append(b); }); }
 function render() {
-  closeMenu(); draws = [];
-  opts($('pick1'), Q1, v1, id => { v1 = id; render(); }); opts($('pick2'), Q2, v2, id => { v2 = id; render(); });
-  const a = Q1.find(v => v.id === v1), b = Q2.find(v => v.id === v2); $('why1').textContent = a.why; $('why2').textContent = b.why;
-  a.build(chrome($('win1'), 'Osc', 'Osc 1')); b.build();
+  closeMenu(); closeMap(); draws = []; bench();
+  opts($('pick3'), LOOKS, look, id => { setLook(id); render(); }); opts($('pick1'), Q1, v1, id => { v1 = id; render(); }); opts($('pick2'), Q2, v2, id => { v2 = id; render(); });
+  const a = Q1.find(v => v.id === v1), b = Q2.find(v => v.id === v2); $('why3').textContent = LOOK().why; $('why2').textContent = b.why;
+  buildQ3();
+  $('off1').replaceChildren(); $('pick1').style.display = '';
+  if (L.morph) { $('why1').textContent = a.why; a.build(chrome($('win1'), 'Osc', 'Osc 1')); }
+  else { $('off1').append(Object.assign(h('div', 'banner'), { textContent: 'Morph is off, so an oscillator has one table: there are no corner tables to place, and every variant is this page. Turn Morph on above to compare them.' })); $('pick1').style.display = 'none'; $('why1').textContent = ''; morphOffPage(chrome($('win1'), 'Osc', 'Osc 1')); }
+  b.build(); draws.push(() => drawPad($('padHost').querySelector('canvas')));
   paint();
 }
 function paint() { draws.forEach(f => f()); }
 addEventListener('resize', paint);
+padDrag($('padHost').querySelector('canvas'));
+(function loop() { if (L.motion) { L.tick++; paint(); } requestAnimationFrame(loop); })();
 
-/* ===== self-check: every variant builds and draws inside its window, the blend follows the puck, and a table change reaches the lead picture ===== */
+/* ===== self-check ===== */
+// how much of a glass is drawn: its canvas against a sibling painted with only the ground and scanlines (the empty screen), same size, same scheme
+function inked(c) { const ref = h('canvas'); ref.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;visibility:hidden'; c.parentElement.append(ref);
+  const K = kit(ref); K.tube(); K.scan(); const a = c.getContext('2d').getImageData(0, 0, c.width, c.height).data, b = K.g.getImageData(0, 0, ref.width, ref.height).data; ref.remove();
+  if (a.length !== b.length) return -1; let n = 0; for (let i = 0; i < a.length; i += 4) if (Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]) > 30) n++; return n / (a.length / 4); }
+const pix = c => Array.from(c.getContext('2d').getImageData(0, 0, c.width, c.height).data);
 function selfcheck() {
-  const out = [], ok = (c, t) => out.push((c ? 'OK     ' : 'FAILED ') + t), x0 = S.x, y0 = S.y, keep1 = v1, keep2 = v2;
-  Q1.forEach(v => { v1 = v.id; render(); const w = $('win1').getBoundingClientRect(), over = [...$('win1').querySelectorAll('.pane, canvas')].filter(e => { const r = e.getBoundingClientRect(); return r.width && (r.right > w.right + 1 || r.bottom > w.bottom + 1); }); ok(!over.length && $('win1').querySelectorAll('canvas').length >= 3, v.id + ' builds inside the window' + (over.length ? ' (OVER: ' + over.length + ')' : '')); });
-  Q2.forEach(v => { v2 = v.id; render(); const w = $('win2').getBoundingClientRect(), over = [...$('win2').querySelectorAll('.pane, canvas')].filter(e => { const r = e.getBoundingClientRect(); return r.width && (r.right > w.right + 1 || r.bottom > w.bottom + 1); }); ok(!over.length, v.id + ' builds inside the window' + (over.length ? ' (OVER: ' + over.length + ')' : '')); });
+  const out = [], ok = (c, t) => out.push((c ? 'OK     ' : 'FAILED ') + t), keep = { x: S.x, y: S.y, v1, v2, look, morph: L.morph, motion: L.motion, tick: L.tick, aud: L.audible };
+  L.motion = false; L.morph = true;
+  const inside = win => { const w = win.getBoundingClientRect(); return [...win.querySelectorAll('.pane, canvas, .hd-viz')].filter(e => { const r = e.getBoundingClientRect(); return r.width && (r.right > w.right + 1 || r.bottom > w.bottom + 1); }).length; };
+  const lead = () => $('win3').querySelector('.pane .hd-viz canvas');
+  // Q3: every look draws on its glass, and the empty screen reads empty (control)
+  LOOKS.forEach(L0 => { look = L0.id; render(); const c = lead(), f = inked(c), tiles = [...$('win3').querySelectorAll('.cglass canvas')].map(inked); ok(f > .01 && tiles.length === 4 && tiles.every(t => t > .003) && !inside($('win3')), L0.id + ' draws on its glass: ' + (f * 100).toFixed(1) + ' % of the lead inked, 4 corner glasses inked, inside the window'); });
+  { const c = lead(), K = kit(c); K.tube(); K.scan(); ok(inked(c) === 0, 'control: an empty screen reads 0 % inked'); }
+  look = keep.look; render();
+  // GUI-63: morph off shows one table and no corner tables; on shows four; no pad or morph grid on an Osc page
+  L.morph = false; render(); const offSel = $('win3').querySelectorAll('.sel').length, offTiles = $('win3').querySelectorAll('.cglass').length, offQ1 = $('win1').querySelectorAll('.sel').length + $('win1').querySelectorAll('.cglass').length * 10;
+  const same = (p, q) => p.every((v, i) => Math.abs(v - q[i]) < 1e-6); L.audible = 2; const playsC = same(tableOf(0)[8], table(S.osc[0].corners[2])[8]); L.audible = keep.aud;
+  L.morph = true; render(); const onTiles = $('win3').querySelectorAll('.cglass').length;
+  ok(offSel === 1 && offTiles === 0 && offQ1 === 1 && onTiles === 4 && playsC, 'morph off: 1 table picker and 0 corner tables on Q3 and Q1 (' + offSel + ', ' + offTiles + '), the audible corner’s table plays; morph on: ' + onTiles + ' corner tables (control)');
+  let pads = 0; Q1.filter(v => !v.retired && v.id !== 'V5').forEach(v => { v1 = v.id; render(); pads += $('win1').querySelectorAll('.padcv').length; }); v1 = 'V5'; render(); const v5pad = $('win1').querySelectorAll('.padcv').length;
+  ok(pads === 0 && $('win3').querySelectorAll('.padcv').length === 0 && v5pad === 1, 'no pad or morph grid on any Osc page variant (control: the Morph page, V5, has its pad)');
+  // every variant inside its window
+  Q1.filter(v => !v.retired).forEach(v => { v1 = v.id; render(); const n = inside($('win1')); ok(!n && $('win1').querySelectorAll('canvas').length >= 3, v.id + ' builds inside the window' + (n ? ' (OVER: ' + n + ')' : '')); });
+  Q2.forEach(v => { v2 = v.id; render(); const n = inside($('win2')); ok(!n, v.id + ' builds inside the window' + (n ? ' (OVER: ' + n + ')' : '')); });
+  v1 = keep.v1; v2 = keep.v2; render();
+  // the screens follow the scheme: the ground under TUBE differs from ORCHID's (control: TUBE twice reads the same)
+  scr.set('tube'); paint(); const t1 = pix(lead()).slice(0, 4).join(); scr.set('orchid'); paint(); const o1 = pix(lead()).slice(0, 4).join(); scr.set('tube'); paint(); const t2 = pix(lead()).slice(0, 4).join(); scr.set(null); paint();
+  ok(t1 !== o1 && t1 === t2, 'the glass follows the Screen scheme: TUBE ' + t1 + ' vs ORCHID ' + o1 + ' (control: TUBE again reads the same)');
+  // Motion: live moves the picture; still holds it
+  L.motion = true; paint(); const m0 = pix(lead()).join(); L.tick += 40; paint(); const m1 = pix(lead()).join(); L.motion = false; paint(); const s0 = pix(lead()).join(); L.tick += 40; paint(); const s1 = pix(lead()).join();
+  ok(m0 !== m1 && s0 === s1, 'Motion live moves the picture over 40 frames; Still holds it (control)');
+  // ROUND 3, THE VIEWER. The warp is the identity at its defaults (control: sync x3 changes the frames)
+  { const w = S.osc[0].wt, kw = JSON.stringify(w); Object.assign(w, { syncIn: 'off', window: 0, asym: 0, bend: 0 }); const fr = tableOf(0), id = warped(fr, 0) === fr; Object.assign(w, { syncIn: 'pitch', sync: 3 }); const ch = !same(warped(fr, 0)[8], fr[8]); Object.assign(w, JSON.parse(kw)); ok(id && ch, 'the warp is the identity with sync off and window, asym and bend at 0 (control: sync ×3 changes the frames)'); }
+  // the drag, with real pointer events on Q3's viewer: BladeView's pattern
+  const keepMap = JSON.stringify(MAP), keepRows = snapRows(0), keepWt = JSON.stringify(S.osc[0].wt), keepFrame = S.osc[0].frame;
+  const vc = () => $('win3').querySelector('.vw canvas'), PE = (c, t, x, y, o) => c.dispatchEvent(new PointerEvent(t, Object.assign({ bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0, buttons: t === 'pointerup' ? 0 : 1, pointerId: 7 }, o || {})));
+  const drag = (dx, dy, o) => { const c = vc(), r = c.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2; PE(c, 'pointerdown', x, y, o); PE(c, 'pointermove', x + dx, y + dy, o); PE(c, 'pointerup', x + dx, y + dy, o); };
+  const reset = () => { S.osc[0].frame = 4; Object.assign(S.osc[0].wt, { syncIn: 'pitch', sync: 2, window: 0, asym: 0, bend: 0 }); };
+  MAP = JSON.parse(JSON.stringify(MAP_DEFAULT)); render(); reset(); let st0 = L.steps;
+  drag(84, -84); const f1 = S.osc[0].frame, sy1 = S.osc[0].wt.sync, w1 = S.osc[0].wt.window, st1 = L.steps;
+  ok(Math.abs(f1 - (4 + .2 * (FR - 1))) < 1e-6 && Math.abs(sy1 - fromN(ROWS.sync, toN(ROWS.sync, 2) + .2)) < 1e-6 && w1 === 0 && st1 === st0 + 1, 'drag up and right 84 px: frame 5.0 → ' + (f1 + 1).toFixed(1) + ', sync ×2.00 → ×' + sy1.toFixed(2) + ', window untouched, 1 undo step');
+  reset(); drag(84, 0, { shiftKey: true }); const w2 = S.osc[0].wt.window, sy2 = S.osc[0].wt.sync; reset(); drag(84, 0, { altKey: true }); const sy3 = S.osc[0].wt.sync;
+  ok(Math.abs(w2 - .2) < 1e-6 && sy2 === 2 && Math.abs(toN(ROWS.sync, sy3) - toN(ROWS.sync, 2) - .05) < 1e-6, 'shift sideways moves the window (0 → ' + Math.round(w2 * 100) + ' %) and leaves sync; Option moves a quarter as far');
+  reset(); st0 = L.steps; drag(0, 0); ok(L.steps === st0 && S.osc[0].frame === 4 && S.osc[0].wt.sync === 2, 'control: a grab with no motion writes nothing and makes no undo step');
+  MAP.v = { row: 'asym', inv: false }; render(); reset(); drag(0, -84); const a1 = S.osc[0].wt.asym, f2 = S.osc[0].frame; MAP.v.inv = true; render(); reset(); drag(0, -84); const a2 = S.osc[0].wt.asym;
+  ok(Math.abs(a1 - .2 * 2) < 1e-6 && f2 === 4 && Math.abs(a2 + .4) < 1e-6, 'mapped to Asym: up moves asym (+' + a1.toFixed(2) + '), not the frame (control); inverted, the same drag moves it the other way (' + a2.toFixed(2) + ')');
+  MAP = JSON.parse(keepMap); render();
+  // the switch: a pip changes the view and the picture; the name steps to the next
+  { const before = pix(lead()).join(), pips = $('win3').querySelectorAll('.vw-sw .pip'), tgt = LOOKS[(LOOKS.findIndex(x => x.id === look) + 2) % 6].id; pips[LOOKS.findIndex(x => x.id === tgt)].click(); paint(); const after = pix(lead()).join(), lk = look, kept = store.get('horde-wtlab-view');
+    const sw0 = L.sw; L.sw = 'name'; render(); $('win3').querySelector('.vw-sw .nm').click(); const stepped = look; L.sw = sw0;
+    ok(lk === tgt && before !== after && (kept === null || kept === tgt) && stepped === LOOKS[(LOOKS.findIndex(x => x.id === tgt) + 1) % 6].id, 'the switch: a pip set ' + tgt + ' and the picture changed (control: it was different before), remembered on this machine; the name steps to ' + stepped); }
+  S.osc[0].frame = keepFrame; Object.assign(S.osc[0].wt, JSON.parse(keepWt)); Object.keys(ROWS).forEach((k, i) => ROWS[k].set(0, keepRows[i])); setLook(keep.look);
+  // the blend
   S.x = 0; S.y = 0; const atA = blended(0)[8].slice(), tA = table(S.osc[0].corners[0])[8]; S.x = 1; S.y = 1; const atD = blended(0)[8], tD = table(S.osc[0].corners[3])[8];
-  const same = (p, q) => p.every((v, i) => Math.abs(v - q[i]) < 1e-6); ok(same(atA, tA) && same(atD, tD) && !same(atA, atD), 'the blend is corner A’s table at A and D’s at D (control: they differ)');
-  S.x = x0; S.y = y0; const was = S.osc[0].corners[0], before = blended(0)[8].slice(); S.osc[0].corners[0] = was === 'PWM 50 → 5 %' ? 'Sine → saw' : 'PWM 50 → 5 %'; const after = blended(0)[8]; S.osc[0].corners[0] = was; ok(!same(before, after), 'a corner’s table change reaches the blended table');
+  ok(same(atA, tA) && same(atD, tD) && !same(atA, atD), 'the blend is corner A’s table at A and D’s at D (control: they differ)');
+  S.x = keep.x; S.y = keep.y; const was = S.osc[0].corners[0], before = blended(0)[8].slice(); S.osc[0].corners[0] = was === 'PWM 50 → 5 %' ? 'Sine → saw' : 'PWM 50 → 5 %'; const after = blended(0)[8]; S.osc[0].corners[0] = was; ok(!same(before, after), 'a corner’s table change reaches the blended table');
   const g1 = mulberry32(17)(), g2 = mulberry32(17)(); ok(g1 === g2, 'the rolled table is seeded (the same seed draws the same)');
-  v1 = keep1; v2 = keep2; render(); $('selfcheck').textContent = out.join('\n'); return out;
+  L.morph = keep.morph; L.motion = keep.motion; L.tick = keep.tick; look = keep.look; render(); $('selfcheck').textContent = out.join('\n'); return out;
 }
-render(); window.WT_PAGE_LAB = { S, selfcheck, render };
+render(); window.WT_PAGE_LAB = { S, L, ROWS, selfcheck, render, setLook: id => { setLook(id); render(); }, get MAP() { return MAP; } };
 requestAnimationFrame(() => requestAnimationFrame(selfcheck));
 })();
 </script>
