@@ -84,6 +84,49 @@ const READ = `(() => { const t = document.body.innerText.split('\\n'); return { 
 /* the control's plant: once the page has said Ready (its self-checks are done), frames stop; a detector that still reads motion can't see stillness */
 const FREEZE = `(() => { const raf = window.requestAnimationFrame.bind(window); window.requestAnimationFrame = cb => raf(t => { const s = document.getElementById('status'); if (s && /Ready/.test(s.textContent) && document.body.innerText.includes('OK ·')) return; cb(t); }); })();`;
 
+/* GUI-61 r3 (the human: a drag past the XY's edges "highlights text in the surrounding boxes", in the plug-in's WebKit view). Real mouse drags
+   through CDP: a knob on Osc 1 and the Morph page's pad are each dragged onto a paragraph. HEADLESS CHROME CAN'T SHOW THE BUG: its own pointer
+   capture already keeps those drags from selecting, with or without the guard (a plant proved it, 2026-11-07), and no WebKit runs here. So the
+   check holds the MECHANISM: midway through each drag the page carries hd-nosel and the paragraph computes user-select none, and both clear on
+   release. The control: a drag across the paragraph itself holds no capture, so no class, and it selects text (the paragraph is selectable). */
+const SEL_SETUP = `(() => { const vis = e => !!e && e.getClientRects().length > 0 && getComputedStyle(e).visibility !== 'hidden', c = e => { const r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, l: r.left, r: r.right }; };
+  const text = [...document.querySelectorAll('p, .hd-hint, .hd-note')].find(e => vis(e) && e.textContent.trim().length > 60 && e.getBoundingClientRect().top > 0 && e.getBoundingClientRect().bottom < innerHeight);
+  const knob = [...document.querySelectorAll('.page:not([hidden]) [data-key] [role="slider"]')].find(e => vis(e) && e.getBoundingClientRect().bottom < innerHeight);
+  const line = e => { const r = e.getClientRects()[0]; return { x: (r.left + r.right) / 2, y: (r.top + r.bottom) / 2, l: r.left, r: r.right }; };   // a wrapped paragraph's box centre can fall between its lines
+  getSelection().removeAllRanges(); return { text: text && line(text), knob: knob && c(knob) }; })()`;
+async function mouseDrag(b, from, to, probe) {
+  from = { x: Math.round(from.x), y: Math.round(from.y) }; to = { x: Math.round(to.x), y: Math.round(to.y) };   // whole pixels: a press at x.5 selects nothing in headless Chrome, which would blind the control
+  await b.call('Input.dispatchMouseEvent', { type: 'mouseMoved', x: from.x, y: from.y });
+  await b.call('Input.dispatchMouseEvent', { type: 'mousePressed', x: from.x, y: from.y, button: 'left', buttons: 1, clickCount: 1 });
+  for (let i = 1; i <= 12; i++) await b.call('Input.dispatchMouseEvent', { type: 'mouseMoved', x: from.x + (to.x - from.x) * i / 12, y: from.y + (to.y - from.y) * i / 12, button: 'left', buttons: 1 });
+  const mid = await b.evalIn(NOSEL);
+  await b.call('Input.dispatchMouseEvent', { type: 'mouseReleased', x: to.x, y: to.y, button: 'left', buttons: 0, clickCount: 1 });
+  // read after the release: headless Chrome reports only a caret while the button is down, and the dragged range once it's up
+  await sleep(80); const got = await b.evalIn('getSelection().toString()'), after = await b.evalIn(NOSEL); await b.evalIn('getSelection().removeAllRanges()');
+  return { sel: got.trim().length, held: mid.cls && mid.us === 'none', cleared: !after.cls && after.us !== 'none' };
+}
+const NOSEL = `(() => { const t = [...document.querySelectorAll('p, .hd-hint, .hd-note')].find(e => e.getClientRects().length && e.textContent.trim().length > 60); return { cls: document.documentElement.classList.contains('hd-nosel'), us: t ? getComputedStyle(t).webkitUserSelect || getComputedStyle(t).userSelect : null }; })()`;
+async function selectProbe(b) {
+  const at = await b.evalIn(SEL_SETUP); if (!at.text || !at.knob) return { missing: !at.text ? 'a paragraph' : 'a knob' };
+  const control = await mouseDrag(b, { x: at.text.l + 3, y: at.text.y }, { x: at.text.r - 3, y: at.text.y });
+  const at2 = await b.evalIn(SEL_SETUP), knob = await mouseDrag(b, at2.knob, at2.text);   // measured again: a drag can focus, and so scroll, the page
+  await b.evalIn(`[...document.querySelectorAll('button,[role=tab]')].find(e => e.textContent.trim() === 'Morph')?.click()`); await sleep(400);
+  const pad = await b.evalIn(`(() => { const e = document.querySelector('#morphPad .hm-qp-layer'); if (!e) return null; const r = e.getBoundingClientRect(); return { x: r.left + r.width * .3, y: r.top + r.height * .5 }; })()`);
+  const t2 = (await b.evalIn(SEL_SETUP)).text, padSel = pad && t2 ? await mouseDrag(b, pad, t2) : null;
+  return { knob, control, pad: padSel };
+}
+
+/* The probe loads the page fresh with ?fast, as the plug-in loads it (no self-checks). After the self-checks have run, a plain drag across a paragraph
+   in headless Chrome leaves only a caret, so the control would fail there for a reason that isn't the guard's. */
+async function runSelect(chrome, url) {
+  const dir = await mkdtemp(join(tmpdir(), 'gui3-select-')), b = await cdp(chrome, dir);
+  try {
+    await b.call('Page.navigate', { url });
+    let ready = false; for (let i = 0; i < 60 && !ready; i++) { await sleep(500); try { ready = await b.evalIn(`/Ready/.test((document.getElementById('status') || {}).textContent || '')`); } catch {} }
+    return ready ? await selectProbe(b) : { missing: 'loaded page' };
+  } finally { b.ws.close(); b.proc.kill(); await sleep(200); await rm(dir, { recursive: true, force: true }); }
+}
+
 async function run(chrome, url, plant) {
   const dir = await mkdtemp(join(tmpdir(), 'gui3-browser-')), b = await cdp(chrome, dir);
   try {
@@ -245,6 +288,15 @@ try {
   r.thrown.forEach(t => red.push('uncaught: ' + String(t).split('\n')[0]));
   const still = MOVERS.filter(n => !r.pics.some(p => p.name.startsWith(n) && p.moved));
   if (still.length) red.push('frozen after the self-checks: ' + still.join(', '));
+  r.sel = await runSelect(chrome, base + '?fast#osc1');
+  if (!r.sel || r.sel.missing) red.push('text selection (GUI-61 r3): the probe found no ' + (r.sel ? r.sel.missing : 'page') + ' to drag onto');
+  else {
+    [['a knob', r.sel.knob], ['the Morph pad', r.sel.pad]].forEach(([n, d]) => {
+      if (!d) red.push(`text selection (GUI-61 r3): ${n} or a paragraph beside it was not found`);
+      else if (d.sel || !d.held || !d.cleared) red.push(`text selection (GUI-61 r3): ${n} dragged onto a paragraph ${d.held ? '' : 'left the page selectable mid-drag, '}${d.cleared ? '' : 'left it unselectable after release, '}${d.sel ? 'selected ' + d.sel + ' characters' : ''}`.replace(/, $/, ''));
+    });
+    if (!r.sel.control || !r.sel.control.sel || r.sel.control.held) red.push('CONTROL: a drag across the paragraph itself ' + (r.sel.control && r.sel.control.held ? 'set hd-nosel' : 'selected nothing') + ', so the guard\u2019s reading proves nothing');
+  }
   const c = await run(chrome, base + '#osc1', FREEZE), seen = MOVERS.filter(n => c.pics.some(p => p.name.startsWith(n) && p.moved));
   if (seen.length) red.push('CONTROL: with frames stopped the detector still read motion in ' + seen.join(', ') + ', so it can’t tell stillness');
   const recorded = existsSync(FIXTURE), frames = recorded ? JSON.parse(await readFile(FIXTURE, 'utf8')) : syntheticFrames();
@@ -255,6 +307,7 @@ try {
   nativeVerdict(await runNative(chrome, eb, frames, true), red, frames, true);
   console.log(red.length ? 'gui3_browser_check: RED\n  ' + red.join('\n  ')
     : `gui3_browser_check: GREEN -- ${r.st.ok} self-checks pass in a real browser, ${MOVERS.join(', ')} move after them, and with frames stopped they read frozen (control); ` +
+      `a knob and the Morph pad dragged onto a paragraph make the page unselectable mid-drag and selectable again on release, where a drag across the paragraph sets nothing and selects ${r.sel.control.sel} characters (control; headless Chrome can't show the WebKit bug itself); ` +
       `the plug-in's one-file page runs under its policy with no violation, its bridge side holds on ${recorded ? 'the recorded' : 'SYNTHETIC'} frames, and a frozen replay reads frozen (control); ` +
       `in plug-in mode the ${nat.n.w} x ${nat.n.h} device fills the view's top-left with no lab chrome, says hello with its hash, shows and clears a mismatch, and paints its bank and build with no frames drawn`);
 } finally { srv.close(); }

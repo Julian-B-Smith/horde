@@ -12,6 +12,8 @@ body { margin:0; background:var(--bg); color:var(--text); font-family:var(--font
 svg { max-width:100%; }
 .hd-col { display:flex; flex-direction:column; gap:6px; align-items:flex-start; }
 .hd-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+/* GUI-61 r3: while a drag holds the pointer, nothing on the page is selectable (the Session sets the class; -webkit- for the plug-in's WebKit view) */
+.hd-nosel, .hd-nosel * { -webkit-user-select:none !important; user-select:none !important; }
 .hd-cluster { font:800 11px/1 var(--font-sans); letter-spacing:.1em; text-transform:uppercase; color:var(--ink); }
 .hd-label { font:500 10px/1.2 var(--font-sans); color:var(--t2); }
 .hd-hint { font:400 9px/1.5 var(--font-mono); color:var(--hint); }

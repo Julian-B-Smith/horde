@@ -1,0 +1,219 @@
+{
+  "format": "horde-engine-preview-demo/1",
+  "note": "B645: the demo bank of four-corner presets for the test plug-in, read by gen_bank (embedded after the factory bank as 'Demo (morph): <name>') and by demo_render (measured). Rules: demo_bank.h. Values in each row's unit, Step rows by option name or number. Pass 2 (the human's listening, 2026-11-07): away from the supersaw, many Morphable rows travelling together between corners. out.level per corner is measured (the factory bank's median loudness, peak at most -1 dBFS). Before modulation and the FX: the human re-voices the bank later.",
+  "presets": [
+    {
+      "name": "Iron Lung",
+      "description": "Resonant growl bass. A square an octave down, a sub-harmonic FM blade and a fold blade over a sine sub, with the noise resonator ringing at the note. Across the pad the growl opens: A is a closed, round hum; B starts to talk as the fold window turns; C bites with sub drive and a faster wobble; D is a wide, screaming resonance.",
+      "render": {"single": 36, "bass": true},
+      "glide": 0.04,
+      "morph": {"morph.law": "Blend", "morph.glide": 0.05},
+      "common": {"voice.polyphony": 8, "voice.mode": "legato", "env1.decayCurve": 2.3, "env1.releaseCurve": 2.3, "env1.sustain": 0.9, "osc1.baseWave": "square", "osc1.octave": -1, "osc1.unison": 1, "osc1.blade1.on": "on", "osc1.blade1.mode": "FM free", "osc1.blade1.wave": "sine", "osc1.blade1.cut": 1, "osc1.blade1.position": 0.5, "osc1.blade2.on": "on", "osc1.blade2.mode": "Fold", "osc1.blade2.wave": "sine", "sub.on": "on", "sub.wave": "sine", "sub.octave": -1, "sub.character": "Tube", "noise.on": "on", "noise.resonator": "on", "noise.pitch": -12, "noise.filter": "LP", "noise.keytrack": 1},
+      "corners": [
+        {"out.level": 7.65, "env1.attack": 0.004, "env1.decay": 0.8, "env1.release": 0.2, "osc1.blade1.fmDepth": 0.4, "osc1.blade1.modRate": 0.5, "osc1.blade1.width": 0.3, "osc1.blade1.rotate": 0.0, "osc1.blade2.cut": 1.0, "osc1.blade2.depth": 0.0, "osc1.blade2.width": 0.2, "osc1.blade2.rotate": 0.0, "osc1.blade2.position": 0.5, "sub.drive": 0.1, "sub.crunch": 0.0, "sub.tone": 300, "noise.feedback": 0.9, "noise.cutoff": 300, "noise.resonance": 0.2, "mix.osc1": -12, "mix.sub": 0, "mix.noise": -30, "osc1.width": 0.0, "osc1.baseWave": "square"},
+        {"out.level": 5.59, "env1.attack": 0.003, "env1.decay": 0.6, "env1.release": 0.18, "osc1.blade1.fmDepth": 1.4, "osc1.blade1.modRate": 0.5, "osc1.blade1.width": 0.45, "osc1.blade1.rotate": 0.4, "osc1.blade2.cut": 1.5, "osc1.blade2.depth": 0.4, "osc1.blade2.width": 0.35, "osc1.blade2.rotate": 0.6, "osc1.blade2.position": 0.4, "sub.drive": 0.25, "sub.crunch": 0.1, "sub.tone": 600, "noise.feedback": 0.93, "noise.cutoff": 600, "noise.resonance": 0.4, "mix.osc1": -6, "mix.sub": -1, "mix.noise": -24, "osc1.width": 0.2, "osc1.baseWave": "saw"},
+        {"out.level": 4.19, "env1.attack": 0.002, "env1.decay": 0.45, "env1.release": 0.15, "osc1.blade1.fmDepth": 3.0, "osc1.blade1.modRate": 1.5, "osc1.blade1.width": 0.6, "osc1.blade1.rotate": 1.2, "osc1.blade2.cut": 2.5, "osc1.blade2.depth": 0.75, "osc1.blade2.width": 0.5, "osc1.blade2.rotate": 1.8, "osc1.blade2.position": 0.3, "sub.drive": 0.6, "sub.crunch": 0.35, "sub.tone": 1500, "noise.feedback": 0.95, "noise.cutoff": 1200, "noise.resonance": 0.6, "mix.osc1": -3, "mix.sub": -2, "mix.noise": -18, "osc1.width": 0.4, "osc1.baseWave": "square"},
+        {"out.level": 3.28, "env1.attack": 0.002, "env1.decay": 0.35, "env1.release": 0.12, "osc1.blade1.fmDepth": 4.0, "osc1.blade1.modRate": 0.75, "osc1.blade1.width": 0.8, "osc1.blade1.rotate": 2.5, "osc1.blade2.cut": 4.0, "osc1.blade2.depth": 1.0, "osc1.blade2.width": 0.7, "osc1.blade2.rotate": 3.0, "osc1.blade2.position": 0.2, "sub.drive": 0.8, "sub.crunch": 0.5, "sub.tone": 4000, "noise.feedback": 0.97, "noise.cutoff": 2500, "noise.resonance": 0.8, "mix.osc1": -2, "mix.sub": -3, "mix.noise": -14, "osc1.width": 0.7, "osc1.baseWave": "saw"}
+      ]
+    },
+    {
+      "name": "Acid Line",
+      "description": "A squelch bass in the acid style: a single saw an octave down whose sync blade rings like a resonant filter, swept by ENV 2 on every note, over a saw sub through the sub's low-pass. A is soft and round; B squelches; C pushes the resonance up and the envelope short; D distorts it all through the sub's drive and a fold blade.",
+      "render": {"single": 36, "bass": true},
+      "glide": 0.07,
+      "morph": {"morph.law": "Blend", "morph.glide": 0.03},
+      "routes": [{"env": 2, "key": "osc1.blade1.cut", "octaves": 2.0}],
+      "common": {"voice.polyphony": 8, "voice.mode": "legato", "env1.decayCurve": 2.3, "env1.releaseCurve": 2.3, "osc1.baseWave": "saw", "osc1.octave": -1, "osc1.unison": 1, "osc1.width": 0, "osc1.blade1.on": "on", "osc1.blade1.mode": "Sync", "osc1.blade1.wave": "sine", "osc1.blade1.position": 0.5, "osc1.blade2.on": "on", "osc1.blade2.mode": "Fold", "osc1.blade2.wave": "sine", "osc1.blade2.cut": 1.5, "env2.attack": 0.001, "env2.sustain": 0, "env2.decayCurve": 2.3, "env2.velocity": 0.6, "sub.on": "on", "sub.wave": "saw", "sub.octave": -1, "sub.character": "Diode"},
+      "corners": [
+        {"out.level": 9.93, "env1.decay": 0.6, "env1.sustain": 0.8, "env1.release": 0.12, "env2.decay": 0.35, "osc1.blade1.cut": 1.5, "osc1.blade1.depth": 0.5, "osc1.blade1.width": 0.6, "osc1.blade1.edges": 0.5, "osc1.blade2.depth": 0.0, "osc1.blade2.width": 0.2, "sub.tone": 250, "sub.drive": 0.0, "sub.crunch": 0.0, "mix.osc1": -6, "mix.sub": -4, "osc1.feedback": 0.0},
+        {"out.level": 9.98, "env1.decay": 0.4, "env1.sustain": 0.7, "env1.release": 0.1, "env2.decay": 0.25, "osc1.blade1.cut": 2.5, "osc1.blade1.depth": 0.8, "osc1.blade1.width": 0.8, "osc1.blade1.edges": 0.3, "osc1.blade2.depth": 0.1, "osc1.blade2.width": 0.25, "sub.tone": 500, "sub.drive": 0.15, "sub.crunch": 0.0, "mix.osc1": -3, "mix.sub": -6, "osc1.feedback": 0.02},
+        {"out.level": 8.0, "env1.decay": 0.3, "env1.sustain": 0.6, "env1.release": 0.08, "env2.decay": 0.14, "osc1.blade1.cut": 3.5, "osc1.blade1.depth": 1.0, "osc1.blade1.width": 1.0, "osc1.blade1.edges": 0.1, "osc1.blade2.depth": 0.2, "osc1.blade2.width": 0.3, "sub.tone": 900, "sub.drive": 0.3, "sub.crunch": 0.2, "mix.osc1": -1, "mix.sub": -8, "osc1.feedback": 0.05},
+        {"out.level": 2.72, "env1.decay": 0.3, "env1.sustain": 0.7, "env1.release": 0.08, "env2.decay": 0.2, "osc1.blade1.cut": 3.0, "osc1.blade1.depth": 1.0, "osc1.blade1.width": 1.0, "osc1.blade1.edges": 0.05, "osc1.blade2.depth": 0.7, "osc1.blade2.width": 0.6, "sub.tone": 2500, "sub.drive": 0.85, "sub.crunch": 0.6, "mix.osc1": -2, "mix.sub": -5, "osc1.feedback": 0.08}
+      ]
+    },
+    {
+      "name": "Talking Sub",
+      "description": "A vocal wobble bass: a sine an octave down with a formant blade at a fixed frequency that walks through vowels, and a rotating fold for the wobble, over a smooth-square sub. A says oo slowly; B opens to oh; C to ah with a faster wobble; D shouts yeah with the drive up.",
+      "render": {"single": 36, "bass": true},
+      "glide": 0.05,
+      "morph": {"morph.law": "Blend", "morph.glide": 0.05},
+      "common": {"voice.polyphony": 8, "voice.mode": "legato", "env1.decayCurve": 2.3, "env1.releaseCurve": 2.3, "env1.sustain": 0.9, "osc1.baseWave": "sine", "osc1.octave": -1, "osc1.unison": 1, "osc1.blade1.on": "on", "osc1.blade1.mode": "FM reset", "osc1.blade1.wave": "sine", "osc1.blade1.cutIn": "Hz", "osc1.blade1.position": 0.5, "osc1.blade1.modRate": 1, "osc1.blade2.on": "on", "osc1.blade2.mode": "Fold", "osc1.blade2.wave": "sine", "osc1.blade2.cutIn": "x pitch per cycle", "sub.on": "on", "sub.wave": "smooth square", "sub.octave": -1},
+      "corners": [
+        {"out.level": 9.68, "env1.attack": 0.01, "env1.decay": 0.9, "env1.release": 0.25, "osc1.blade1.cutHz": 300, "osc1.blade1.width": 0.5, "osc1.blade1.edges": 0.7, "osc1.blade1.fmDepth": 0.8, "osc1.blade1.rotate": 0.3, "osc1.blade2.cut": 1.0, "osc1.blade2.depth": 0.2, "osc1.blade2.rotate": -0.3, "sub.softness": 0.9, "sub.drive": 0.0, "sub.tone": 400, "mix.osc1": -6, "mix.sub": -2, "osc1.width": 0.0},
+        {"out.level": 7.32, "env1.attack": 0.006, "env1.decay": 0.7, "env1.release": 0.2, "osc1.blade1.cutHz": 450, "osc1.blade1.width": 0.6, "osc1.blade1.edges": 0.6, "osc1.blade1.fmDepth": 1.2, "osc1.blade1.rotate": 0.6, "osc1.blade2.cut": 1.5, "osc1.blade2.depth": 0.4, "osc1.blade2.rotate": -0.6, "sub.softness": 0.7, "sub.drive": 0.2, "sub.tone": 800, "mix.osc1": -4, "mix.sub": -3, "osc1.width": 0.2},
+        {"out.level": 5.91, "env1.attack": 0.003, "env1.decay": 0.5, "env1.release": 0.15, "osc1.blade1.cutHz": 750, "osc1.blade1.width": 0.75, "osc1.blade1.edges": 0.4, "osc1.blade1.fmDepth": 1.8, "osc1.blade1.rotate": 1.5, "osc1.blade2.cut": 2.0, "osc1.blade2.depth": 0.7, "osc1.blade2.rotate": -1.5, "sub.softness": 0.5, "sub.drive": 0.4, "sub.tone": 1600, "mix.osc1": -2, "mix.sub": -4, "osc1.width": 0.4},
+        {"out.level": 4.05, "env1.attack": 0.002, "env1.decay": 0.4, "env1.release": 0.12, "osc1.blade1.cutHz": 1100, "osc1.blade1.width": 0.9, "osc1.blade1.edges": 0.3, "osc1.blade1.fmDepth": 2.6, "osc1.blade1.rotate": 3.0, "osc1.blade2.cut": 3.0, "osc1.blade2.depth": 0.9, "osc1.blade2.rotate": -3.0, "sub.softness": 0.3, "sub.drive": 0.75, "sub.tone": 3000, "mix.osc1": -1, "mix.sub": -4, "osc1.width": 0.6}
+      ]
+    },
+    {
+      "name": "Brass Section",
+      "description": "Polysynth brass in the eighties style: a saw whose full-cycle sync blade, sine to saw, flares open at every note on ENV 2, the brass 'blat', with a saw an octave up drifting against it. A is a soft horn section; B a bright trumpet stab; C the full synth-brass wall with an octave above; D a muted, nasal section with a slow swell.",
+      "render": {"retrigger": 0.75},
+      "morph": {"morph.law": "Blend", "morph.glide": 0.04},
+      "routes": [{"env": 2, "key": "osc1.blade1.cut", "octaves": 1.6}],
+      "common": {"voice.polyphony": 8, "env1.decayCurve": 2.3, "env1.releaseCurve": 2.3, "osc1.baseWave": "saw", "osc1.unison": 1, "osc1.blade1.on": "on", "osc1.blade1.mode": "Sync", "osc1.blade1.wave": "sine->saw", "osc1.blade1.cut": 1, "osc1.blade1.position": 0.5, "osc1.blade1.width": 1, "osc1.blade1.depth": 1, "osc2.on": "on", "osc2.baseWave": "saw", "osc2.octave": 1, "osc2.unison": 1, "env2.sustain": 0, "env2.decayCurve": 2.3, "env2.velocity": 0.7},
+      "corners": [
+        {"out.level": -0.39, "env1.attack": 0.06, "env1.decay": 1.0, "env1.sustain": 0.85, "env1.release": 0.35, "env2.attack": 0.06, "env2.decay": 0.5, "osc1.blade1.shape": 0.35, "osc1.blade1.edges": 0.3, "osc1.fine": -3, "osc1.width": 0.5, "osc1.driftDepth": 3, "mix.osc2": -30, "osc2.fine": 3},
+        {"out.level": 2.26, "env1.attack": 0.02, "env1.decay": 0.5, "env1.sustain": 0.6, "env1.release": 0.2, "env2.attack": 0.015, "env2.decay": 0.25, "osc1.blade1.shape": 0.95, "osc1.blade1.edges": 0.0, "osc1.fine": -2, "osc1.width": 0.6, "osc1.driftDepth": 2, "mix.osc2": -18, "osc2.fine": 4},
+        {"out.level": -0.47, "env1.attack": 0.03, "env1.decay": 0.8, "env1.sustain": 0.8, "env1.release": 0.3, "env2.attack": 0.03, "env2.decay": 0.4, "osc1.blade1.shape": 0.8, "osc1.blade1.edges": 0.1, "osc1.fine": -5, "osc1.width": 0.9, "osc1.driftDepth": 5, "mix.osc2": -8, "osc2.fine": 6},
+        {"out.level": 0.03, "env1.attack": 0.18, "env1.decay": 1.5, "env1.sustain": 0.9, "env1.release": 0.5, "env2.attack": 0.25, "env2.decay": 0.8, "osc1.blade1.shape": 0.2, "osc1.blade1.edges": 0.5, "osc1.fine": -1, "osc1.width": 0.3, "osc1.driftDepth": 6, "mix.osc2": -26, "osc2.fine": 2}
+      ]
+    },
+    {
+      "name": "String Machine",
+      "description": "An ensemble string machine: three gently drifting saws whose brightness comes from a full-cycle sine-to-saw sync blade, an octave of saws above, slow attacks and long releases. A is dark violas; B the classic bright ensemble; C a choir of strings with the noise whispering louder; D a thin, high, glassy section.",
+      "morph": {"morph.law": "Blend", "morph.glide": 0.2},
+      "common": {"voice.polyphony": 8, "env1.decayCurve": 2.3, "env1.releaseCurve": 2.3, "env1.attackCurve": -1, "osc1.baseWave": "saw", "osc1.unison": 3, "osc1.distribution": "even", "osc1.spreadLaw": "drift", "osc1.blade1.on": "on", "osc1.blade1.mode": "Sync", "osc1.blade1.wave": "sine->saw", "osc1.blade1.cut": 1, "osc1.blade1.width": 1, "osc1.blade1.depth": 1, "osc2.on": "on", "osc2.baseWave": "saw", "osc2.octave": 1, "osc2.unison": 2, "osc2.distribution": "even", "noise.on": "on", "noise.whisper": "on", "noise.vowel": 0.4},
+      "corners": [
+        {"out.level": 2.04, "env1.attack": 0.5, "env1.decay": 2.0, "env1.sustain": 0.9, "env1.release": 1.2, "osc1.blade1.shape": 0.3, "osc1.blade1.cut": 1.0, "osc1.detune": 0.06, "osc1.driftDepth": 6, "osc1.driftRate": 0.3, "osc1.panMotion": 0.3, "osc1.width": 0.6, "osc2.detune": 0.05, "mix.osc2": -24, "mix.noise": -50, "noise.colour": 0.0},
+        {"out.level": 1.59, "env1.attack": 0.3, "env1.decay": 2.0, "env1.sustain": 0.85, "env1.release": 0.9, "osc1.blade1.shape": 0.75, "osc1.blade1.cut": 1.0, "osc1.detune": 0.12, "osc1.driftDepth": 10, "osc1.driftRate": 0.5, "osc1.panMotion": 0.6, "osc1.width": 0.9, "osc2.detune": 0.1, "mix.osc2": -10, "mix.noise": -40, "noise.colour": 0.3},
+        {"out.level": 1.79, "env1.attack": 0.8, "env1.decay": 3.0, "env1.sustain": 0.95, "env1.release": 2.0, "osc1.blade1.shape": 0.5, "osc1.blade1.cut": 1.0, "osc1.detune": 0.09, "osc1.driftDepth": 8, "osc1.driftRate": 0.4, "osc1.panMotion": 0.8, "osc1.width": 1.0, "osc2.detune": 0.08, "mix.osc2": -16, "mix.noise": -16, "noise.colour": 0.2},
+        {"out.level": 1.24, "env1.attack": 0.25, "env1.decay": 1.5, "env1.sustain": 0.8, "env1.release": 0.7, "osc1.blade1.shape": 1.0, "osc1.blade1.cut": 1.25, "osc1.detune": 0.15, "osc1.driftDepth": 14, "osc1.driftRate": 0.7, "osc1.panMotion": 0.5, "osc1.width": 0.8, "osc2.detune": 0.12, "mix.osc2": -4, "mix.noise": -34, "noise.colour": 0.6}
+      ]
+    },
+    {
+      "name": "Tine Piano",
+      "description": "A digital electric piano: a sine body with a ratio-1 FM blade, and on osc 2 a short metallic tine two octaves up on its own fast envelope. A is a soft, round tine piano; B the bright, bell-edged digital piano; C a barking reed piano with the FM pushed; D a glassy, distant one with a long tail.",
+      "render": {"retrigger": 1.0},
+      "morph": {"morph.law": "Blend", "morph.glide": 0.03},
+      "common": {"voice.polyphony": 8, "env1.decayCurve": 2.3, "env1.releaseCurve": 2.3, "osc1.baseWave": "sine", "osc1.unison": 1, "osc1.blade1.on": "on", "osc1.blade1.mode": "FM free", "osc1.blade1.wave": "sine", "osc1.blade1.cut": 1, "osc1.blade1.position": 0.5, "osc2.on": "on", "osc2.baseWave": "sine", "osc2.octave": 2, "osc2.unison": 1, "osc2.env": "ENV 2", "osc2.blade1.on": "on", "osc2.blade1.mode": "FM free", "osc2.blade1.wave": "sine", "osc2.blade1.cut": 1, "osc2.blade1.position": 0.5, "env2.attack": 0.0008, "env2.sustain": 0, "env2.decayCurve": 2.3, "env2.releaseCurve": 2.3},
+      "corners": [
+        {"out.level": 4.56, "env1.attack": 0.003, "env1.decay": 2.5, "env1.sustain": 0.3, "env1.release": 0.4, "env2.decay": 0.25, "env2.release": 0.2, "osc1.blade1.fmDepth": 0.4, "osc1.blade1.modRate": 1.0, "osc1.blade1.width": 0.5, "osc2.blade1.fmDepth": 0.5, "osc2.blade1.modRate": 3.5, "mix.osc2": -24, "osc1.width": 0.0, "osc1.driftDepth": 1},
+        {"out.level": 5.44, "env1.attack": 0.001, "env1.decay": 2.0, "env1.sustain": 0.25, "env1.release": 0.35, "env2.decay": 0.35, "env2.release": 0.25, "osc1.blade1.fmDepth": 1.8, "osc1.blade1.modRate": 1.0, "osc1.blade1.width": 0.7, "osc2.blade1.fmDepth": 1.5, "osc2.blade1.modRate": 3.5, "mix.osc2": -6, "osc1.width": 0.2, "osc1.driftDepth": 1},
+        {"out.level": 4.0, "env1.attack": 0.002, "env1.decay": 1.4, "env1.sustain": 0.35, "env1.release": 0.25, "env2.decay": 0.15, "env2.release": 0.1, "osc1.blade1.fmDepth": 2.6, "osc1.blade1.modRate": 1.0, "osc1.blade1.width": 0.9, "osc2.blade1.fmDepth": 0.8, "osc2.blade1.modRate": 2.0, "mix.osc2": -14, "osc1.width": 0.0, "osc1.driftDepth": 2},
+        {"out.level": 2.97, "env1.attack": 0.002, "env1.decay": 4.0, "env1.sustain": 0.2, "env1.release": 1.2, "env2.decay": 0.6, "env2.release": 0.5, "osc1.blade1.fmDepth": 1.5, "osc1.blade1.modRate": 3.0, "osc1.blade1.width": 0.6, "osc2.blade1.fmDepth": 2.0, "osc2.blade1.modRate": 5.2, "mix.osc2": -10, "osc1.width": 0.5, "osc1.driftDepth": 3}
+      ]
+    },
+    {
+      "name": "Hollow Pulse Pad",
+      "description": "A hollow pulse-wave pad from the sub played at the note's own pitch as a pulse, the width set per corner, under a square whose mirrored blade window turns slowly like pulse-width modulation; the sub's low-pass opens across the pad. A is a hollow square; B a narrower, nasal pulse with a slow turn; C a thin, reedy pulse; D opens bright with the turn fast.",
+      "morph": {"morph.law": "Blend", "morph.glide": 0.3},
+      "common": {"voice.polyphony": 8, "env1.decayCurve": 2.3, "env1.releaseCurve": 2.3, "env1.attackCurve": -1, "sub.on": "on", "sub.wave": "pulse", "sub.octave": 0, "sub.voiceMode": "per note", "osc1.baseWave": "square", "osc1.unison": 2, "osc1.distribution": "even", "osc1.blade1.on": "on", "osc1.blade1.mode": "Sync", "osc1.blade1.wave": "square", "osc1.blade1.cut": 1, "osc1.blade1.mirror": "twin -", "osc1.blade1.depth": 1},
+      "corners": [
+        {"out.level": -2.71, "env1.attack": 0.6, "env1.decay": 2.0, "env1.sustain": 0.9, "env1.release": 1.5, "sub.pulseWidth": 0.5, "sub.tone": 900, "sub.pan": -0.2, "osc1.blade1.width": 0.2, "osc1.blade1.rotate": 0.1, "osc1.blade1.edges": 0.5, "osc1.detune": 0.03, "osc1.width": 0.6, "osc1.panMotion": 0.2, "mix.osc1": -10, "mix.sub": 0},
+        {"out.level": -1.27, "env1.attack": 0.8, "env1.decay": 2.5, "env1.sustain": 0.85, "env1.release": 2.0, "sub.pulseWidth": 0.32, "sub.tone": 1500, "sub.pan": 0.2, "osc1.blade1.width": 0.3, "osc1.blade1.rotate": 0.25, "osc1.blade1.edges": 0.3, "osc1.detune": 0.05, "osc1.width": 0.8, "osc1.panMotion": 0.3, "mix.osc1": -8, "mix.sub": -1},
+        {"out.level": 0.88, "env1.attack": 1.0, "env1.decay": 3.0, "env1.sustain": 0.8, "env1.release": 2.5, "sub.pulseWidth": 0.15, "sub.tone": 2500, "sub.pan": -0.3, "osc1.blade1.width": 0.45, "osc1.blade1.rotate": 0.4, "osc1.blade1.edges": 0.2, "osc1.detune": 0.06, "osc1.width": 0.9, "osc1.panMotion": 0.5, "mix.osc1": -6, "mix.sub": -2},
+        {"out.level": -2.94, "env1.attack": 0.4, "env1.decay": 1.5, "env1.sustain": 0.9, "env1.release": 1.0, "sub.pulseWidth": 0.25, "sub.tone": 6000, "sub.pan": 0.3, "osc1.blade1.width": 0.35, "osc1.blade1.rotate": 1.2, "osc1.blade1.edges": 0.1, "osc1.detune": 0.08, "osc1.width": 1.0, "osc1.panMotion": 0.7, "mix.osc1": -4, "mix.sub": -2}
+      ]
+    },
+    {
+      "name": "Wavetable Sweep",
+      "description": "A wavetable-style sweep from one blade: a full-cycle sync window whose carrier morphs from sine to saw while its ratio, position and mirror move, with a fold blade adding harmonics. A is a pure, soft sine; B a vocal formant; C a bright metallic saw; D a hollow folded buzz.",
+      "morph": {"morph.law": "Blend", "morph.glide": 0.08},
+      "common": {"voice.polyphony": 8, "env1.decayCurve": 2.3, "env1.releaseCurve": 2.3, "env1.sustain": 0.85, "osc1.baseWave": "sine", "osc1.unison": 2, "osc1.distribution": "even", "osc1.blade1.on": "on", "osc1.blade1.mode": "Sync", "osc1.blade1.wave": "sine->saw", "osc1.blade1.width": 1, "osc1.blade2.on": "on", "osc1.blade2.mode": "Fold", "osc1.blade2.wave": "sine"},
+      "corners": [
+        {"out.level": 6.6, "env1.attack": 0.02, "env1.decay": 1.5, "env1.release": 0.6, "osc1.blade1.shape": 0.0, "osc1.blade1.cut": 1.0, "osc1.blade1.position": 0.0, "osc1.blade1.depth": 0.4, "osc1.blade1.edges": 0.8, "osc1.blade2.cut": 1.0, "osc1.blade2.depth": 0.0, "osc1.blade2.width": 0.2, "osc1.detune": 0.02, "osc1.width": 0.2, "osc1.blade1.mirror": "off"},
+        {"out.level": 1.42, "env1.attack": 0.05, "env1.decay": 1.0, "env1.release": 0.5, "osc1.blade1.shape": 0.4, "osc1.blade1.cut": 2.6, "osc1.blade1.position": 0.25, "osc1.blade1.depth": 0.9, "osc1.blade1.edges": 0.4, "osc1.blade2.cut": 1.0, "osc1.blade2.depth": 0.2, "osc1.blade2.width": 0.3, "osc1.detune": 0.04, "osc1.width": 0.5, "osc1.blade1.mirror": "reflect"},
+        {"out.level": -0.87, "env1.attack": 0.01, "env1.decay": 0.8, "env1.release": 0.4, "osc1.blade1.shape": 1.0, "osc1.blade1.cut": 4.2, "osc1.blade1.position": 0.5, "osc1.blade1.depth": 1.0, "osc1.blade1.edges": 0.0, "osc1.blade2.cut": 2.0, "osc1.blade2.depth": 0.3, "osc1.blade2.width": 0.4, "osc1.detune": 0.06, "osc1.width": 0.8, "osc1.blade1.mirror": "off"},
+        {"out.level": -0.53, "env1.attack": 0.03, "env1.decay": 1.2, "env1.release": 0.5, "osc1.blade1.shape": 0.6, "osc1.blade1.cut": 1.6, "osc1.blade1.position": 0.75, "osc1.blade1.depth": 0.8, "osc1.blade1.edges": 0.2, "osc1.blade2.cut": 3.0, "osc1.blade2.depth": 0.9, "osc1.blade2.width": 0.8, "osc1.detune": 0.03, "osc1.width": 0.6, "osc1.blade1.mirror": "reflect"}
+      ]
+    },
+    {
+      "name": "Sync Lead",
+      "description": "The classic hard-sync lead: one saw whose full-cycle sync blade sweeps with ENV 2 at every note, a square an octave below, legato glide. A is mellow; B the classic tearing sync; C screams with the ratio high; D turns nasal and thin with a narrower window.",
+      "render": {"single": 72},
+      "glide": 0.06,
+      "morph": {"morph.law": "Blend", "morph.glide": 0.04},
+      "routes": [{"env": 2, "key": "osc1.blade1.cut", "octaves": 1.0}],
+      "common": {"voice.polyphony": 8, "voice.mode": "legato", "env1.decayCurve": 2.3, "env1.releaseCurve": 2.3, "env1.sustain": 0.85, "osc1.baseWave": "saw", "osc1.unison": 1, "osc1.blade1.on": "on", "osc1.blade1.mode": "Sync", "osc1.blade1.wave": "saw", "osc1.blade1.depth": 1, "osc2.on": "on", "osc2.baseWave": "square", "osc2.octave": -1, "osc2.unison": 1, "env2.attack": 0.002, "env2.sustain": 0.2, "env2.decayCurve": 2.3},
+      "corners": [
+        {"out.level": 6.43, "env1.attack": 0.01, "env1.decay": 1.0, "env1.release": 0.3, "env2.decay": 0.6, "osc1.blade1.cut": 1.3, "osc1.blade1.width": 1.0, "osc1.blade1.position": 0.5, "osc1.blade1.edges": 0.4, "osc1.feedback": 0.0, "osc1.driftDepth": 2, "osc1.width": 0.0, "mix.osc2": -12, "osc2.fine": 0},
+        {"out.level": 4.22, "env1.attack": 0.004, "env1.decay": 0.8, "env1.release": 0.25, "env2.decay": 0.4, "osc1.blade1.cut": 2.5, "osc1.blade1.width": 1.0, "osc1.blade1.position": 0.5, "osc1.blade1.edges": 0.15, "osc1.feedback": 0.03, "osc1.driftDepth": 3, "osc1.width": 0.1, "mix.osc2": -14, "osc2.fine": 4},
+        {"out.level": 3.51, "env1.attack": 0.003, "env1.decay": 0.6, "env1.release": 0.2, "env2.decay": 0.25, "osc1.blade1.cut": 5.0, "osc1.blade1.width": 1.0, "osc1.blade1.position": 0.5, "osc1.blade1.edges": 0.0, "osc1.feedback": 0.08, "osc1.driftDepth": 5, "osc1.width": 0.3, "mix.osc2": -18, "osc2.fine": 8},
+        {"out.level": 5.02, "env1.attack": 0.02, "env1.decay": 1.2, "env1.release": 0.35, "env2.decay": 0.8, "osc1.blade1.cut": 3.5, "osc1.blade1.width": 0.5, "osc1.blade1.position": 0.25, "osc1.blade1.edges": 0.3, "osc1.feedback": 0.02, "osc1.driftDepth": 2, "osc1.width": 0.0, "mix.osc2": -24, "osc2.fine": 0}
+      ]
+    },
+    {
+      "name": "Bamboo Flute",
+      "description": "A breathy flute: a sine body with a little of its octave, noise through the resonator at the note for the pitched breath, a keytracked band-pass and its own breath envelope for the chiff, soft attack. A is a concert flute; B a breathy shakuhachi; C a pan pipe with more chiff; D an overblown, airy flute with the octave strong.",
+      "render": {"single": 72},
+      "morph": {"morph.law": "Blend", "morph.glide": 0.1},
+      "common": {"voice.polyphony": 8, "env1.decayCurve": 2.3, "env1.releaseCurve": 2.3, "env1.attackCurve": -1, "osc1.baseWave": "sine", "osc1.unison": 1, "osc2.on": "on", "osc2.baseWave": "sine", "osc2.octave": 1, "osc2.unison": 1, "noise.on": "on", "noise.type": "Clean", "noise.resonator": "on", "noise.filter": "BP", "noise.keytrack": 1, "noise.env": "ENV 2", "env2.attackCurve": -1, "env2.decayCurve": 2.3, "env2.releaseCurve": 2.3},
+      "corners": [
+        {"out.level": -1.03, "env1.attack": 0.09, "env1.decay": 1.5, "env1.sustain": 0.9, "env1.release": 0.25, "env2.attack": 0.03, "env2.decay": 0.25, "env2.sustain": 0.4, "env2.release": 0.2, "noise.colour": 0.2, "noise.feedback": 0.6, "noise.cutoff": 1400, "noise.resonance": 0.35, "mix.noise": -18, "mix.osc2": -20, "osc1.driftDepth": 3, "osc1.driftRate": 0.5, "osc1.width": 0.0},
+        {"out.level": -0.52, "env1.attack": 0.16, "env1.decay": 1.5, "env1.sustain": 0.85, "env1.release": 0.35, "env2.attack": 0.06, "env2.decay": 0.4, "env2.sustain": 0.7, "env2.release": 0.35, "noise.colour": -0.1, "noise.feedback": 0.75, "noise.cutoff": 1000, "noise.resonance": 0.5, "mix.noise": -9, "mix.osc2": -26, "osc1.driftDepth": 9, "osc1.driftRate": 0.35, "osc1.width": 0.1},
+        {"out.level": 0.56, "env1.attack": 0.05, "env1.decay": 0.8, "env1.sustain": 0.75, "env1.release": 0.18, "env2.attack": 0.01, "env2.decay": 0.12, "env2.sustain": 0.25, "env2.release": 0.15, "noise.colour": 0.5, "noise.feedback": 0.4, "noise.cutoff": 2500, "noise.resonance": 0.2, "mix.noise": -12, "mix.osc2": -30, "osc1.driftDepth": 2, "osc1.driftRate": 0.6, "osc1.width": 0.3},
+        {"out.level": -1.59, "env1.attack": 0.12, "env1.decay": 1.2, "env1.sustain": 0.9, "env1.release": 0.3, "env2.attack": 0.04, "env2.decay": 0.3, "env2.sustain": 0.6, "env2.release": 0.3, "noise.colour": 0.4, "noise.feedback": 0.5, "noise.cutoff": 3000, "noise.resonance": 0.3, "mix.noise": -10, "mix.osc2": -9, "osc1.driftDepth": 5, "osc1.driftRate": 0.7, "osc1.width": 0.2}
+      ]
+    },
+    {
+      "name": "Bowed Wood",
+      "description": "A bowed string-and-wood tone: one saw whose brightness is a sine-to-saw sync blade, a narrow noise blade for the rosin scratch, the noise resonator as the body, slow attack and a little drift. A is a dark cello; B a scratchy fiddle; C a breathy, hollow viol; D a glassy harmonic bow.",
+      "render": {"single": 48},
+      "morph": {"morph.law": "Blend", "morph.glide": 0.1},
+      "common": {"voice.polyphony": 8, "env1.decayCurve": 2.3, "env1.releaseCurve": 2.3, "env1.attackCurve": -1.5, "osc1.baseWave": "saw", "osc1.unison": 1, "osc1.blade1.on": "on", "osc1.blade1.mode": "Sync", "osc1.blade1.wave": "sine->saw", "osc1.blade1.width": 1, "osc1.blade1.depth": 1, "osc1.blade2.on": "on", "osc1.blade2.mode": "Noise", "osc1.blade2.position": 0.02, "noise.on": "on", "noise.resonator": "on", "noise.filter": "LP", "noise.keytrack": 1},
+      "corners": [
+        {"out.level": -0.77, "env1.attack": 0.3, "env1.decay": 2.0, "env1.sustain": 0.9, "env1.release": 0.5, "osc1.blade1.shape": 0.35, "osc1.blade1.cut": 1.0, "osc1.blade2.width": 0.06, "osc1.blade2.depth": 0.2, "osc1.blade2.edges": 0.6, "noise.feedback": 0.92, "noise.cutoff": 1200, "noise.colour": -0.3, "mix.noise": -20, "osc1.driftDepth": 5, "osc1.driftRate": 0.4, "osc1.width": 0.2, "osc1.baseWave": "saw"},
+        {"out.level": 0.01, "env1.attack": 0.12, "env1.decay": 1.5, "env1.sustain": 0.8, "env1.release": 0.3, "osc1.blade1.shape": 0.9, "osc1.blade1.cut": 1.0, "osc1.blade2.width": 0.12, "osc1.blade2.depth": 0.6, "osc1.blade2.edges": 0.3, "noise.feedback": 0.85, "noise.cutoff": 3000, "noise.colour": 0.3, "mix.noise": -18, "osc1.driftDepth": 8, "osc1.driftRate": 0.6, "osc1.width": 0.3, "osc1.baseWave": "saw"},
+        {"out.level": -0.24, "env1.attack": 0.4, "env1.decay": 2.5, "env1.sustain": 0.85, "env1.release": 0.7, "osc1.blade1.shape": 0.5, "osc1.blade1.cut": 1.0, "osc1.blade2.width": 0.08, "osc1.blade2.depth": 0.35, "osc1.blade2.edges": 0.5, "noise.feedback": 0.95, "noise.cutoff": 900, "noise.colour": -0.5, "mix.noise": -12, "osc1.driftDepth": 6, "osc1.driftRate": 0.3, "osc1.width": 0.4, "osc1.baseWave": "triangle"},
+        {"out.level": -1.3, "env1.attack": 0.2, "env1.decay": 1.8, "env1.sustain": 0.9, "env1.release": 0.6, "osc1.blade1.shape": 0.1, "osc1.blade1.cut": 2.0, "osc1.blade2.width": 0.04, "osc1.blade2.depth": 0.15, "osc1.blade2.edges": 0.7, "noise.feedback": 0.9, "noise.cutoff": 5000, "noise.colour": 0.5, "mix.noise": -22, "osc1.driftDepth": 3, "osc1.driftRate": 0.5, "osc1.width": 0.5, "osc1.baseWave": "sine"}
+      ]
+    },
+    {
+      "name": "Rainglass",
+      "description": "A rain texture with no oscillator: crackle through the noise resonator tuned high, so every pop rings like a drop, through a high-pass. A is a light drizzle on glass; B a downpour; C slow drips in a cave; D a storm with the wind band gusting.",
+      "morph": {"morph.law": "Blend", "morph.glide": 0.5},
+      "common": {"voice.polyphony": 8, "env1.decayCurve": 2.3, "env1.releaseCurve": 2.3, "osc1.on": "off", "env1.attack": 0.4, "env1.sustain": 1, "env1.release": 2.0, "noise.on": "on", "mix.noise": 0, "noise.type": "Crackle", "noise.resonator": "on", "noise.filter": "HP"},
+      "corners": [
+        {"out.level": 2.25, "noise.density": 150, "noise.feedback": 0.93, "noise.pitch": 24, "noise.colour": 0.5, "noise.cutoff": 1500, "noise.resonance": 0.2, "noise.spread": 0.6, "noise.gust": 0.2, "noise.pan": -0.2, "env1.decay": 3.0, "noise.wind": "off"},
+        {"out.level": -9.71, "noise.density": 900, "noise.feedback": 0.75, "noise.pitch": 12, "noise.colour": 0.8, "noise.cutoff": 700, "noise.resonance": 0.1, "noise.spread": 1.0, "noise.gust": 0.4, "noise.pan": 0.0, "env1.decay": 2.0, "noise.wind": "off"},
+        {"out.level": 7.5, "noise.density": 50, "noise.feedback": 0.98, "noise.pitch": 19, "noise.colour": 0.0, "noise.cutoff": 400, "noise.resonance": 0.4, "noise.spread": 0.8, "noise.gust": 0.1, "noise.pan": 0.3, "env1.decay": 4.0, "noise.wind": "off"},
+        {"out.level": -4.47, "noise.density": 300, "noise.feedback": 0.85, "noise.pitch": 7, "noise.colour": 0.3, "noise.cutoff": 250, "noise.resonance": 0.3, "noise.spread": 1.0, "noise.gust": 0.9, "noise.pan": 0.0, "env1.decay": 2.5, "noise.wind": "on"}
+      ]
+    },
+    {
+      "name": "Overtone Singer",
+      "description": "Throat singing: a drone saw whose narrow FM-reset window picks out one harmonic as a whistle, a second blade for the low vowel, a whisper of breath and a sine sub. Across the pad the whistle climbs the series, the 5th harmonic at A, the 8th at B, the 12th at C, the 16th at D, while the low vowel moves oo, oh, ah, and back to a dark hum, and the breath brightens.",
+      "render": {"single": 48},
+      "glide": 0.08,
+      "morph": {"morph.law": "Blend", "morph.glide": 0.15},
+      "common": {"voice.polyphony": 8, "env1.decayCurve": 2.3, "env1.releaseCurve": 2.3, "env1.attackCurve": -1, "osc1.baseWave": "saw", "osc1.unison": 1, "osc1.blade1.on": "on", "osc1.blade1.mode": "FM reset", "osc1.blade1.wave": "sine", "osc1.blade1.position": 0.5, "osc1.blade1.depth": 1, "osc1.blade2.on": "on", "osc1.blade2.mode": "FM reset", "osc1.blade2.wave": "sine", "osc1.blade2.cutIn": "Hz", "osc1.blade2.position": 0.5, "sub.on": "on", "sub.wave": "sine", "sub.octave": -1, "noise.on": "on", "noise.whisper": "on", "noise.vowel": 0.6},
+      "corners": [
+        {"out.level": -4.59, "env1.attack": 0.3, "env1.decay": 2.0, "env1.sustain": 0.95, "env1.release": 0.8, "osc1.blade1.cut": 5, "osc1.blade1.width": 0.9, "osc1.blade1.edges": 0.8, "osc1.blade2.cutHz": 320, "osc1.blade2.width": 0.5, "osc1.blade2.depth": 0.9, "noise.colour": 0.0, "mix.noise": -30, "mix.sub": -12, "osc1.driftDepth": 2, "osc1.width": 0.0},
+        {"out.level": -1.37, "env1.attack": 0.25, "env1.decay": 2.0, "env1.sustain": 0.9, "env1.release": 0.7, "osc1.blade1.cut": 8, "osc1.blade1.width": 0.85, "osc1.blade1.edges": 0.8, "osc1.blade2.cutHz": 550, "osc1.blade2.width": 0.45, "osc1.blade2.depth": 0.8, "noise.colour": 0.3, "mix.noise": -28, "mix.sub": -14, "osc1.driftDepth": 3, "osc1.width": 0.1},
+        {"out.level": -3.86, "env1.attack": 0.2, "env1.decay": 2.0, "env1.sustain": 0.9, "env1.release": 0.6, "osc1.blade1.cut": 12, "osc1.blade1.width": 0.8, "osc1.blade1.edges": 0.8, "osc1.blade2.cutHz": 850, "osc1.blade2.width": 0.4, "osc1.blade2.depth": 0.7, "noise.colour": 0.5, "mix.noise": -26, "mix.sub": -16, "osc1.driftDepth": 4, "osc1.width": 0.2},
+        {"out.level": -1.08, "env1.attack": 0.15, "env1.decay": 2.0, "env1.sustain": 0.85, "env1.release": 0.5, "osc1.blade1.cut": 16, "osc1.blade1.width": 0.75, "osc1.blade1.edges": 0.8, "osc1.blade2.cutHz": 260, "osc1.blade2.width": 0.35, "osc1.blade2.depth": 0.6, "noise.colour": 0.8, "mix.noise": -24, "mix.sub": -18, "osc1.driftDepth": 5, "osc1.width": 0.3}
+      ]
+    },
+    {
+      "name": "Bell Foundry",
+      "description": "FM bells through a free-running FM blade on a sine, the modulator's ratio, depth and the decay travelling together. A is a classic bell; B a soft temple gong (the pass-1 B dropped its octave-down, overdriven version); C a harmonic, short tine; D a high glass bell with a sine two octaves up.",
+      "render": {"retrigger": 1.0},
+      "morph": {"morph.law": "Blend", "morph.glide": 0.05},
+      "common": {"voice.polyphony": 8, "env1.decayCurve": 2.3, "env1.releaseCurve": 2.3, "env1.attack": 0.001, "env1.sustain": 0, "osc1.baseWave": "sine", "osc1.unison": 2, "osc1.distribution": "even", "osc1.blade1.on": "on", "osc1.blade1.mode": "FM free", "osc1.blade1.wave": "sine", "osc1.blade1.cut": 1, "osc2.baseWave": "sine", "osc2.octave": 2, "osc2.unison": 1},
+      "corners": [
+        {"out.level": 4.86, "env1.decay": 3.5, "env1.release": 2.5, "osc1.blade1.modRate": 3.5, "osc1.blade1.fmDepth": 2.4, "osc1.blade1.width": 0.25, "osc1.blade1.position": 0.5, "osc1.blade1.edges": 0.0, "osc1.detune": 0.05, "osc1.coupling": 0.5, "osc1.width": 0.6, "mix.osc2": -20, "osc2.on": "off"},
+        {"out.level": 4.52, "env1.decay": 5.0, "env1.release": 3.5, "osc1.blade1.modRate": 1.414, "osc1.blade1.fmDepth": 1.6, "osc1.blade1.width": 0.35, "osc1.blade1.position": 0.4, "osc1.blade1.edges": 0.3, "osc1.detune": 0.08, "osc1.coupling": 0.3, "osc1.width": 0.8, "mix.osc2": -20, "osc2.on": "off"},
+        {"out.level": 7.12, "env1.decay": 1.6, "env1.release": 1.0, "osc1.blade1.modRate": 1.0, "osc1.blade1.fmDepth": 1.2, "osc1.blade1.width": 0.5, "osc1.blade1.position": 0.5, "osc1.blade1.edges": 0.2, "osc1.detune": 0.02, "osc1.coupling": 0.7, "osc1.width": 0.3, "mix.osc2": -20, "osc2.on": "off"},
+        {"out.level": 5.77, "env1.decay": 2.5, "env1.release": 2.0, "osc1.blade1.modRate": 7.1, "osc1.blade1.fmDepth": 1.5, "osc1.blade1.width": 0.2, "osc1.blade1.position": 0.6, "osc1.blade1.edges": 0.0, "osc1.detune": 0.04, "osc1.coupling": 0.4, "osc1.width": 0.9, "mix.osc2": -10, "osc2.on": "on"}
+      ]
+    },
+    {
+      "name": "Glitch Cartridge",
+      "description": "Percussive glitch hits under a hot Quantum law, so every key jumps corner on its own. A is an FM zap blip with an LFSR tick; B a crushed square hat over sample-and-hold noise; C an inharmonic ring-modulated tine; D a folded bit-kick with crackle (a kick, so the low-end ceiling leaves this preset out). The oscillator and the noise sound in every corner.",
+      "render": {"retrigger": 0.25, "bass": true},
+      "morph": {"morph.law": "Quantum", "morph.temperature": 0.3, "morph.cohesion": 0.2, "morph.glide": 0},
+      "common": {"voice.polyphony": 8, "env1.decayCurve": 2.3, "env1.releaseCurve": 2.3, "env1.attack": 0.0005, "env1.sustain": 0, "env2.attack": 0.0005, "env2.sustain": 0, "env2.decayCurve": 2.3, "osc1.unison": 1, "osc1.blade1.on": "on", "osc1.blade1.position": 0.5, "osc1.blade1.depth": 1, "noise.on": "on", "noise.env": "ENV 2"},
+      "corners": [
+        {"out.level": 5.47, "env1.decay": 0.12, "env1.release": 0.08, "env2.decay": 0.05, "env2.release": 0.05, "osc1.blade1.cut": 1, "osc1.blade1.width": 0.8, "osc1.blade1.fmDepth": 6, "osc1.blade1.modRate": 5, "noise.rate": 8000, "noise.density": 30, "mix.noise": -14, "osc1.baseWave": "sine", "osc1.octave": 0, "osc1.blade1.mode": "FM reset", "osc1.blade1.wave": "sine", "noise.type": "LFSR", "noise.length": "7"},
+        {"out.level": 0.99, "env1.decay": 0.06, "env1.release": 0.04, "env2.decay": 0.08, "env2.release": 0.06, "osc1.blade1.cut": 12, "osc1.blade1.width": 1.0, "osc1.blade1.fmDepth": 2, "osc1.blade1.modRate": 2, "noise.rate": 6000, "noise.density": 30, "mix.noise": -4, "osc1.baseWave": "square", "osc1.octave": 0, "osc1.blade1.mode": "Crush", "osc1.blade1.wave": "saw", "noise.type": "S&H", "noise.length": "15"},
+        {"out.level": 9.13, "env1.decay": 0.2, "env1.release": 0.12, "env2.decay": 0.03, "env2.release": 0.03, "osc1.blade1.cut": 7.3, "osc1.blade1.width": 0.9, "osc1.blade1.fmDepth": 2, "osc1.blade1.modRate": 2, "noise.rate": 8000, "noise.density": 30, "mix.noise": -20, "osc1.baseWave": "triangle", "osc1.octave": 0, "osc1.blade1.mode": "Ring", "osc1.blade1.wave": "sine", "noise.type": "Clean", "noise.length": "15"},
+        {"out.level": 2.58, "env1.decay": 0.18, "env1.release": 0.1, "env2.decay": 0.06, "env2.release": 0.05, "osc1.blade1.cut": 1.2, "osc1.blade1.width": 0.9, "osc1.blade1.fmDepth": 2, "osc1.blade1.modRate": 2, "noise.rate": 8000, "noise.density": 900, "mix.noise": -10, "osc1.baseWave": "sine", "osc1.octave": -2, "osc1.blade1.mode": "Fold", "osc1.blade1.wave": "sine", "noise.type": "Crackle", "noise.length": "15"}
+      ]
+    },
+    {
+      "name": "Neon Horde",
+      "description": "The one supersaw kept from the first pass, for contrast: nine saws in a horde with a sync blade. A is the classic horde; B locks it into a shimmering sync lead; C splays it hollow and dark; D is the full scream. Its sync cut flips between corners at quantum boundaries instead of sweeping.",
+      "render": {"single": 72},
+      "morph": {"morph.law": "Blend", "morph.glide": 0.08},
+      "modes": {"osc1.blade1.cut": "quantum"},
+      "common": {"voice.polyphony": 8, "env1.decayCurve": 2.3, "env1.releaseCurve": 2.3, "osc1.baseWave": "saw", "osc1.unison": 9, "osc1.distribution": "JP-8000", "osc1.width": 1, "osc1.blade1.on": "on", "osc1.blade1.mode": "Sync", "osc1.blade1.wave": "saw", "osc1.blade1.position": 0.5, "osc2.on": "on", "osc2.baseWave": "saw", "osc2.octave": 1, "osc2.unison": 5, "osc2.width": 1},
+      "corners": [
+        {"out.level": 4.93, "env1.attack": 0.004, "env1.decay": 1.2, "env1.sustain": 0.8, "env1.release": 0.45, "osc1.detune": 0.3, "osc1.coupling": 0.0, "osc1.driftDepth": 0, "osc1.driftRate": 0.4, "osc1.blade1.depth": 0.0, "osc1.blade1.cut": 2, "osc1.blade1.width": 0.4, "osc1.blade1.edges": 0.1, "osc2.detune": 0.25, "mix.osc2": -10},
+        {"out.level": 4.4, "env1.attack": 0.01, "env1.decay": 1.0, "env1.sustain": 0.75, "env1.release": 0.4, "osc1.detune": 0.45, "osc1.coupling": 0.7, "osc1.driftDepth": 20, "osc1.driftRate": 0.4, "osc1.blade1.depth": 1.0, "osc1.blade1.cut": 3.5, "osc1.blade1.width": 0.6, "osc1.blade1.edges": 0.1, "osc2.detune": 0.3, "mix.osc2": -5},
+        {"out.level": 11.13, "env1.attack": 0.03, "env1.decay": 1.6, "env1.sustain": 0.85, "env1.release": 0.7, "osc1.detune": 0.15, "osc1.coupling": -0.6, "osc1.driftDepth": 5, "osc1.driftRate": 0.3, "osc1.blade1.depth": 0.35, "osc1.blade1.cut": 1.5, "osc1.blade1.width": 0.3, "osc1.blade1.edges": 0.4, "osc2.detune": 0.1, "mix.osc2": -22},
+        {"out.level": 2.4, "env1.attack": 0.002, "env1.decay": 0.8, "env1.sustain": 0.8, "env1.release": 0.3, "osc1.detune": 0.75, "osc1.coupling": 0.0, "osc1.driftDepth": 40, "osc1.driftRate": 0.6, "osc1.blade1.depth": 1.0, "osc1.blade1.cut": 6.5, "osc1.blade1.width": 0.8, "osc1.blade1.edges": 0.0, "osc2.detune": 0.4, "mix.osc2": -3}
+      ]
+    }
+  ]
+}

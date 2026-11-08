@@ -164,6 +164,10 @@
   {
    "version": "1794078853-724a",
    "evidence": "docs/design/arp-face/README.md: a moved envelope selector leans to osc 1's envelope, GUI-55 A2, 2026-11-07"
+  },
+  {
+   "version": "1794086465-fbf9",
+   "evidence": "docs/design/arp-face/README.md: the Morph pad jumps, Option-click and ADD WAYPOINT drop waypoints, no text selected while dragging, GUI-61, 2026-11-07"
   }
  ],
  "vendoring": {
@@ -7348,6 +7352,51 @@
    "clause": "Across the pad is hidden until a row is selected",
    "shell": "docs/design/gui3.html: crossCard.style.display = ok || !r || !S.params[k] ? 'none' : '';",
    "note": "Shell-only: the card around the master's CrossSection, which is unchanged (as GUI-59's adapter rows are recorded). FX device: none."
+  },
+  {
+   "port_tab": null,
+   "via": null,
+   "superseded_by": null,
+   "lab": null,
+   "id": "gui61-blend-map-below",
+   "adr": "GUI-61",
+   "clause": "r1: the Blend map card follows Find and the Morph field on the Morph page",
+   "component": null,
+   "bundle": null,
+   "master_version": null,
+   "state": "ruled",
+   "shell": "docs/design/gui3.html: blendCard);   // GUI-61 r1",
+   "note": "Shell layout of master parts (the Morph bench is the shell's, GUI-19). FX device: none."
+  },
+  {
+   "port_tab": null,
+   "via": null,
+   "superseded_by": null,
+   "lab": null,
+   "id": "gui61-pad-jumps",
+   "adr": "GUI-61",
+   "clause": "r2: a click on the Morph page's pad puts the puck there; Option-click or ADD WAYPOINT then a click drops a waypoint; no double-click drop",
+   "component": "QuantumPad",
+   "bundle": "QuantumPad",
+   "master_version": "1794086465-fbf9",
+   "state": "in-shell",
+   "shell": "docs/design/gui3.html: H.QuantumPad(pad, S, { jumps: true });",
+   "note": "Master: QuantumPad jumps, BlendMaps onPad, Option-click and armed ADD WAYPOINT. Supersedes B269's empty-click rule and GUI-21's on the Morph page only. Self-check 4b3d. FX device: none."
+  },
+  {
+   "port_tab": null,
+   "via": null,
+   "superseded_by": null,
+   "lab": null,
+   "id": "gui61-no-select-drag",
+   "adr": "GUI-61",
+   "clause": "r3: no text is selected while a drag holds the pointer",
+   "component": "components/bundle.css",
+   "bundle": "Session",
+   "master_version": "1794086465-fbf9",
+   "state": "in-shell",
+   "shell": "docs/design/arp-face/bundle.js: document.addEventListener('gotpointercapture'",
+   "note": "Master Session and bundle.css (hd-nosel). gui3_browser_check holds the mechanism; the WebKit selection itself is the human's to confirm in the plug-in. FX device: every page."
   }
  ],
  "not_design": [
@@ -8410,6 +8459,10 @@
   {
    "adr": "GUI-44",
    "reason": "A gate: GUI 3's browser check wired into ./verify fast, a hole where there's no browser. No design element."
+  },
+  {
+   "adr": "ADR-384",
+   "reason": "A CANDIDATE engine reference and its review; no design element until a ruling ports it (the corner-table UI would then be the GUI session's)."
   }
  ],
  "engine_impact": {
@@ -8606,7 +8659,8 @@
    "GN-35",
    "GN-55"
   ],
-  "GUI-60": "none: it changes what is drawn, not what is sent, saved or undone"
+  "GUI-60": "none: it changes what is drawn, not what is sent, saved or undone",
+  "GUI-61": "none: these change what a gesture does on the page, not what is sent, saved or undone"
  },
  "audit_notes": [
   "[A] Counts: 33 design ADRs with 56 rows (ruled 31, of which 6 superseded and 7 legacy-only; wired 9; in-shell 7; vendored 4; in-master 4; unknown 1); 79 not_design. Every primary heading ADR-001..ADR-112 appears exactly once. Headings out of numeric order (ADR-052, ADR-053 before ADR-051; ADR-095, 094, 093, 092; ADR-091 A1-A4 after ADR-112 A3) were all covered. One non-ADR heading sits in range: 'NOTICE · Library standby (plugin-skeleton FOUNDATIONS)', line 661, not design and not listed.",

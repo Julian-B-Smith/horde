@@ -16,8 +16,16 @@ try:
     d=json.load(sys.stdin); print(d.get("tool_input",{}).get("file_path","") or "")
 except Exception:
     print("")' 2>/dev/null)"
+#
+# B646 (2026-11-07, human-approved): a write under `.claude/worktrees/` is a
+# worktree's edit, not the root's. Each worktree is verified in place by the
+# agent or lead working there (`./verify` never runs in the root, where the
+# local Sluice link would run its hold check), so marking the ROOT dirty for it
+# blocked every Stop with an oracle run that could not clear it. This case must
+# come before the "$root"/* one, which would otherwise match first.
 if [ -n "$path" ]; then
   case "$path" in
+    "$root"/.claude/worktrees/*) exit 0 ;;  # a worktree's edit: verified in that worktree
     "$root"/*|"$root") ;;             # inside the repo: dirty
     /*) exit 0 ;;                     # an absolute path elsewhere (scratchpad, /tmp): not ours
     *) ;;                             # relative: assume the repo
