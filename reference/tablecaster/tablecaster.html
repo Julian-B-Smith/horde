@@ -611,7 +611,11 @@ function regen(addHistory){
 }
 
 /* ---------- Rolling ---------- */
-const rnd=Math.random;
+// B653 sanctioned edit (ADR-386): the roll draws came from Math.random(); they now come from a
+// mulberry32 stream with a fixed seed (SPEC §5.7: seeded RNG only), so a session's sequence of rolls
+// and mutations replays exactly. A table itself was already reproducible from its settings and seed.
+const ROLL_SEED=0x7AB1EC45;
+const rnd=mulberry32(ROLL_SEED);
 function newSeed(){return (Math.floor(rnd()*0xFFFFFFFF))>>>0;}
 function roll(){P.seed=newSeed();syncUI();regen(true);}
 function rollAll(){
