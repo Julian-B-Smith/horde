@@ -8463,6 +8463,10 @@
   {
    "adr": "ADR-384",
    "reason": "A CANDIDATE engine reference and its review; no design element until a ruling ports it (the corner-table UI would then be the GUI session's)."
+  },
+  {
+   "adr": "ADR-385",
+   "reason": "The wavetable build's process, scope and budget, and ADR-377 A3 (corner tables blend in 1.0); the page's corner-table controls are the GUI session's once the build reaches the shell (the B650 lab is a bench, not the shell)."
   }
  ],
  "engine_impact": {
