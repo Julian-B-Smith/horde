@@ -12972,3 +12972,22 @@ The GUI session built it as GUI-55 A2 (#1455). Its reading, for the human to con
 **FX device (ADR-254).** None directly: the wavetable is a source. The capture library is device-wide storage.
 
 **ADR-377 A3 (the human, 2026-11-07, by poll: "Yes, in 1.0"): wavetables blend across corners in 1.0.** ADR-377's bullet "Parametric morphing of structure (wave shapes interpolating, and the like) is after 1.0" no longer holds for the wavetable member's corner tables: the morph blends them by the Linear or Spectral log law (SPEC-WAVETABLE WT-53, the spectral-blend corner class). Every other Structural key still follows its quantum pick and latch, and no two settings of any other group sound at once outside PA-5's timed flip. **FX device (ADR-254):** unchanged; FX-module structure still follows the quantum boundaries.
+
+## ADR-386 — CANDIDATE: TABLECASTER, the random wavetable generator, ingested as a reference (B653); ADR-385 A1: three oscillators with a PM matrix (B654)
+
+**Context.** The human, 2026-11-08: "I've dropped Tablecaster.html in the downloads for your review (it's an early version of the concept)" — the random wavetable generator ADR-384 anticipated ("already in the prototype stage", a tab in Random that renders tables to corners). And: "Let's also think about adding a third oscillator in the real version."
+
+**What TABLECASTER is.** A roll generates a table of 16 to 256 frames of 2048-sample cycles from one of ten engines (additive, formant, FM, Chebyshev, phase distortion, superf, segment, fold, chaos, hybrid), an optional base wave combined by mix, ring or warp, settings that sweep start→end across the frames along a curve, a phase mode (keep or zero) and a normalisation (peak, RMS or table); Roll, Roll all, Mutate, per-setting locks, a history, and WAV export for other synths. A table is fully determined by its settings and seed (mulberry32 with a hashed seed), so it fits SPEC-WAVETABLE's recipe slot (WT-4x): generator id, version, settings and seed.
+
+**Status: CANDIDATE.** Filed by poll, "File it". **The sanctioned edit, spent:** the roll and mutate draws came from `Math.random()`; they draw from a mulberry32 stream with a fixed seed (SPEC §5.7). In horde the roll seed would come from the patch's own purpose-keyed stream.
+
+**Integration points the lead's review names, for a later ruling:**
+1. **Frame count:** it makes up to 256 frames; SPEC-WAVETABLE fixes 16. Proposed: corners play 16 (resampled), the library keeps the full roll for capture and export.
+2. **Normalisation:** its peak/RMS/table modes are display and export; the engine applies WT-16's loudness rule.
+3. **Quality gate:** a roll reaches a corner only through WT-47's gate (no DC, audible-band level, no near-silent frames, frames that differ).
+4. **Versioning:** each engine's output is frozen per generator version by goldens, or saved patches re-voice.
+5. **Phase:** "zero phase" keeps Linear blends from cancelling mid-pad; proposed as the default for tables headed to corners.
+
+**FX device (ADR-254).** None: a generator of source tables.
+
+**ADR-385 A1 (the human, 2026-11-08, by poll: "Plan 3 with a PM matrix").** The wavetable build plans THREE oscillators: the contract makes the oscillator count a build parameter from stage 1, and specifies PM between them, any oscillator to any with feedback, so three-operator FM stacks (electric pianos, bells, growls) are possible. WT-BUDGET stays 4 % per oscillator, so three oscillators budget 12 %. The real engine's third oscillator block (ids, a mixer channel, a fifth source in MO-26's shared switch pick, morph keys, modulation destinations, GUI pages) is a separate ruling and spec round; the wavetable build does not decide it. **FX device (ADR-254):** none.

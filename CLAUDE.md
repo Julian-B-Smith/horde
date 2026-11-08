@@ -192,7 +192,8 @@ ingested 2026-09-16, ADR-169; one sanctioned edit: seed `quantumPick`), and `spe
 sanctioned edit is spent), and `specs/SPEC-SCALPEL.md` + `reference/scalpel/**` (SCALPEL, blade
 synthesis on the swarm, ingested 2026-09-24, ADR-184 CANDIDATE; a seed edit is PROPOSED, not yet
 sanctioned) — and `docs/design-system/HORDE-Morph-Knob-Spec.md` + `docs/design-system/HORDE-Map-Mode-Spec.md` + their three prototypes `HORDE-Morph-Knobs.html`, `HORDE-Map-Mode.html`, `HORDE-Slider-Marks.html` (GUI 3's interaction specs, ingested 2026-10-21, ADR-261) and `specs/SPEC-QUADRANT.md` + `reference/quadrant/**` (QUADRANT, the human's wavetable blend proof of concept,
-ingested 2026-11-07, ADR-384 CANDIDATE; its one sanctioned edit, seeding the voice phase, is spent) — (they ARE the reference — an edit there is a spec change), `./verify`, golden render fixtures once they exist.
+ingested 2026-11-07, ADR-384 CANDIDATE; its one sanctioned edit, seeding the voice phase, is spent) and `reference/tablecaster/**` (TABLECASTER, the human's random
+wavetable generator, ingested 2026-11-08, ADR-386 CANDIDATE; its one sanctioned edit, seeding the roll draws, is spent) — (they ARE the reference — an edit there is a spec change), `./verify`, golden render fixtures once they exist.
 
 **Verify targets.** `fast`: leak gate + structure/manifest sanity now; grows
 the L0 suite (parity + trajectories) from Phase 1 — seconds-to-minutes,
