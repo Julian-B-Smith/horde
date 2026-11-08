@@ -12134,6 +12134,29 @@ A plant of an even weight (0.25) turned it red: 29 % against 37 %, then 54 %.
 **Engine impact.** GN-54: "once per Live session" outlives the page, which dies with the window, so the plug-in tells the page at `hello` whether this is the first opening since it loaded.
 
 **FX device (ADR-254).** The same, as a Mindlathe plug-in.
+### GUI-54 A1 — BUILT, with two choices by the human: the saturated header PNG, decoded to a canvas (GB30; 2026-11-08)
+
+**The human, 2026-11-08:** "Realizing we never added the Mindlathe logo." Two questions followed:
+- **Which art.** Offered the colour SVG from the Mindlathe brand's masters, the human answered: "The PNG version is the one I would like to use", the saturated header graphic. It is a public repo, so it is now published here.
+- **How it reaches the page.** The plug-in's page runs under `default-src 'none'`, and `gui_sink_check` forbids any `data:` source, so no image can show there. The human chose **"Decode into a canvas"** over loosening the policy. The PNG's bytes ride in the bundle as base64 and are decoded to pixels in script, which loads nothing, so the policy and its check are unchanged.
+
+**What is built.**
+- **The master's `Splash`.** It covers the window's inside on the chassis colour, with the art centred at 62 % of the width (600 px at most).
+- **Dismissing.** The first press, any button, fades it over 400 ms. That press, its click, a double-click, a context menu and a wheel turn stop there, and it still takes presses while it fades.
+- **Timing.** It fades on its own at 2.5 s, and under reduced motion it goes at once, with no fade.
+- **The art.** It is `assets/Logos/mindlathe-saturated.png`, the human's PNG scaled from 1492 to 960 px wide, with every chunk but the image data dropped. It was not redrawn.
+- **The drift check.** `tools/splash_art_check.py`, new in `./verify fast`, holds the base64 to the PNG byte for byte, in the master and the vendored bundle.
+
+**State (recorded per GUI-27).** Nothing persists and nothing is undoable: the splash is the page's own, and it dies with the window. "Once per Live session" is the plug-in's to know (GN-54): the page reads `first_open` in hello's answer, and false takes the splash away at once.
+
+**Readings (the GUI session's, open to the human).**
+- **Until the bridge sends `first_open`,** the splash shows at every opening of the plug-in's window, not never. On the lab page every load is a first opening.
+- **"Fade on first click"** is read as the first press of any button, and that press does nothing else.
+
+**Engine impact.** GN-54, unchanged in substance. Its message is now named: `first_open` in hello's answer.
+
+**FX device (ADR-254).** The same, as a Mindlathe plug-in.
+
 ## GUI-42 — DIRECTED by the human: the Morph page fits beside its pad; pictures keep moving; the waveform's name (amends GUI-40 and GUI-33; 2026-11-05)
 
 **The human, 2026-11-05:** "The morph grid still gets cut off at the bottom of the scroll by the morph box. I feel like we need to reformat a little to fit everything on the page more sensibly." And: "Also the osc visualizers are all freezing".
@@ -12470,6 +12493,25 @@ The layout is the shell's.
 
 **FX device (ADR-254).** Ruling 3 serves it as it serves every page. Rulings 1 and 2 are the Morph page's, and it has none.
 
+
+## GUI-62 — RULED by the human: the Osc page's lead picture is the blended frame stack (GB37; 2026-11-08)
+
+**The human, 2026-11-08.** The lead handed over the wavetable page (ADR-387: the wavetable member replaces the blades in 1.0, and there are three oscillators; `docs/wavetable/INTEGRATION.md` §7). Asked what should take the Osc page's top-right area, where the blade waveform you dragged sat, the human chose **"The blended frame stack"**.
+
+**What changes.** Each Osc page leads with the table the oscillator reads at the puck:
+- its frames as a stack, the wavetable lab's 3-D picture, with the read frame drawn bold;
+- the frame's position;
+- under it, the blended cycle and its harmonics.
+
+The blade view and its drag roles retire with the blades (INTEGRATION.md §7.1).
+
+**Still open in the lab** (`docs/design/wavetable-page-lab.html`, exploring): where an oscillator's four corner tables are picked and seen (six variants), and where the 3 × 3 PM matrix lives (five variants). The human asked to audition them, "including any creative approaches we haven't yet considered".
+
+**State (GUI-27).** None: a picture.
+
+**Engine impact.** GN-57: the frames of the table each oscillator reads at the puck, as cycles, across the bridge.
+
+**FX device (ADR-254).** None: it has no oscillators.
 ## ADR-365 — RULED by the human: the 8 Hz blocker for FM free in pitch FM; item 7.8's table remade; spec round 58 (B621, B623; 2026-11-04)
 
 **Context.** FM free in pitch FM runs an accumulator that never restarts, while each of C.16's readings starts it at 0, so the estimate cannot see its mean and BL-19 cannot hold by the law alone (Q-TA-71: engine-free, 95 of its 144 one-member cases over 0.003, up to 0.046). ADR-363 sent this to a scratch trial of C.16's existing blocker, with clips for the human. Separately, item 7.8's reference R2 places FM free's modulator half a cycle from round 56's start, and 7.8 plays before its settings settle (Q-TA-77).
@@ -13005,3 +13047,14 @@ The GUI session built it as GUI-55 A2 (#1455). Its reading, for the human to con
 **What follows.** The spec rework (SPEC-WAVETABLE, CONTRACT, then a SPEC-ENGINE round) carries these, with a critic. The blade-cycle generator is a new work item: its spec (which blade settings a frame captures, how corners differ, what goes to the load report), its C++ port and goldens, before the factory patch session.
 
 **FX device (ADR-254).** None: these are source and state rulings.
+## ADR-387 — RULED by the human: the wavetable member replaces blades for 1.0, and the plugin has three oscillators in 1.0 (B655, B656, B657)
+
+**Context.** The human, 2026-11-08, after playing wavetable labs v2 and v3 (B651, B652): "I'm liking it. As fun as the scalpel was, it really limited the sound design space and I couldn't stop worrying about the CPU overhead. I think we have the shape of the thing now; let's run through everything that will have to be figured out for a C++ version to wire into the plugin (morph & mod contracts, randomization, gui needs) and then maybe think up some tests (export wavetables from Serum and record the different compositions on both to test fidelity, etc.)". Evidence before the ruling: B645's demo bank (blades reached a narrower space), B648's cost bench (the specified wavetable design about 13 % of a core per oscillator by uncalibrated instruction count, against blades' 61.9 % for the Glass pad, whole engine), B652's paper estimate (about a third of SCALPEL's 83 presets reachable with FM/PM plus a blade-cycle table generator, a third approximately, the rest not at all).
+
+**Rulings (the human, by poll, 2026-11-08).**
+1. **"Replace, for 1.0".** The wavetable member (SPEC-WAVETABLE, CONTRACT) is the swarm's only waveform source in 1.0. Blade rows retire behind the revision gate: ids are frozen and never deleted; how an old patch's blade settings load (mapped or flagged) is the integration plan's to propose. The factory bank is re-voiced at the factory patch session. ADR-384's open direction question is closed; ADR-385's "replace or beside" open item (CONTRACT §7 A1) is answered.
+2. **"In 1.0"** for the third oscillator in the real plugin, not only the isolated build (CONTRACT §7 H9 answered): its parameter block, mixer channel, place in MO-26's shared switch pick, modulation destinations and GUI pages are in the 1.0 integration plan.
+
+**What follows.** The charter's "every oscillator is a swarm cut by blades" becomes "a swarm whose members read wavetables". The lead writes the integration inventory (B656: morph and modulation contracts, randomization, state and migration, GUI needs, the clean-room engine's changes, budgets) and the test plan (B657, incl. fidelity comparisons against tables exported from another synth, kept local per the rule that competitor material is never committed). SCALPEL (ADR-184) becomes history for 1.0; its references stay as protected history. The simpler-engine contingency is resolved by this ruling.
+
+**FX device (ADR-254).** None directly. The FX device hosts modules, not oscillators.

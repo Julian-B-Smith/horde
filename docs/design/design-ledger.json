@@ -172,6 +172,10 @@
   {
    "version": "1794113431-06a5",
    "evidence": "docs/design/arp-face/README.md: the share bar in the Morph inspector, GUI-56 r3, 2026-11-07"
+  },
+  {
+   "version": "1794163020-0651",
+   "evidence": "docs/design/arp-face/README.md: the Mindlathe splash, its art decoded to a canvas, GUI-54, 2026-11-08"
   }
  ],
  "vendoring": {
@@ -522,6 +526,10 @@
   "random-roles-lab.html": {
    "status": "exploring",
    "note": "B644 (the lead's). Every manifest row nested by PA-8's live-when table, where the human annotates how Random treats each one: roll (never, once per patch, per corner), where it unlocks on the chaos curve, the Random-page toggle that owns it, and the Discrete lock; transposition ladders and a seeded four-corner preview. The annotations come back as exported JSON for the Random page and the spec (ADR-374, GUI-55)."
+  },
+  "wavetable-page-lab.html": {
+   "status": "exploring",
+   "note": "GB37. The wavetable page (ADR-387, the lead's handover). Q1: where an oscillator's four corner tables are picked and seen (six variants). Q2: where the 3 x 3 PM matrix lives (five variants). The lead picture is ruled (GUI-62). Published for the human as an Artifact."
   }
  },
  "not_labs": {
@@ -7299,18 +7307,18 @@
   },
   {
    "port_tab": null,
-   "component": null,
-   "bundle": null,
-   "shell": null,
+   "component": "Splash",
+   "bundle": "Splash",
+   "shell": "docs/design/gui3.html: H.Splash($('win'), { reduce: S.reduce })",
    "via": null,
    "superseded_by": null,
-   "state": "ruled",
-   "master_version": null,
+   "state": "in-shell",
+   "master_version": "1794163020-0651",
    "lab": null,
    "id": "gui54-splash",
    "adr": "GUI-54",
    "clause": "the Mindlathe logo covers the window on its first opening per Live session, fading on the first click or after 2.5 s",
-   "note": "FX device: the same."
+   "note": "Master: Splash, with the human's PNG (assets/Logos/mindlathe-saturated.png) carried as base64 and decoded to a canvas, since the plug-in page's policy loads no image (the human, 2026-11-08). tools/splash_art_check.py holds the base64 to the PNG. On the plug-in, hello's first_open false takes it away at once; until GN-54 sends it, it shows at every opening (GUI-54 A1). Browser check: painted, swallow, fade, timer, reduced motion, first_open, each with a control; three plants red. FX device: the same."
   },
   {
    "port_tab": null,
@@ -7401,6 +7409,21 @@
    "state": "in-shell",
    "shell": "docs/design/arp-face/bundle.js: document.addEventListener('gotpointercapture'",
    "note": "Master Session and bundle.css (hd-nosel). gui3_browser_check holds the mechanism; the WebKit selection itself is the human's to confirm in the plug-in. FX device: every page."
+  },
+  {
+   "lab": "docs/design/wavetable-page-lab.html",
+   "via": null,
+   "superseded_by": null,
+   "master_version": null,
+   "bundle": null,
+   "shell": null,
+   "port_tab": null,
+   "adr": "GUI-62",
+   "id": "gui62-blended-stack",
+   "clause": "the Osc page's lead picture is the blended frame stack, with its cycle and harmonics",
+   "component": null,
+   "state": "ruled",
+   "note": "Replaces the blade view (INTEGRATION.md §7.1). A master component once the lab's two questions are ruled. FX device: none."
   }
  ],
  "not_design": [
@@ -8479,6 +8502,10 @@
   {
    "adr": "ADR-386",
    "reason": "A CANDIDATE generator reference and the three-oscillator plan for the wavetable build; no design element until a ruling ports them (a Tables tab in Random would then be the GUI session's)."
+  },
+  {
+   "adr": "ADR-387",
+   "reason": "An engine-direction ruling (wavetables replace blades; three oscillators). Its page changes reach this ledger as the GUI session's own GUI-n rulings, from B656's GUI-needs handover; nothing here is drawn yet."
   }
  ],
  "engine_impact": {
@@ -8676,7 +8703,10 @@
    "GN-55"
   ],
   "GUI-60": "none: it changes what is drawn, not what is sent, saved or undone",
-  "GUI-61": "none: these change what a gesture does on the page, not what is sent, saved or undone"
+  "GUI-61": "none: these change what a gesture does on the page, not what is sent, saved or undone",
+  "GUI-62": [
+   "GN-57"
+  ]
  },
  "audit_notes": [
   "[A] Counts: 33 design ADRs with 56 rows (ruled 31, of which 6 superseded and 7 legacy-only; wired 9; in-shell 7; vendored 4; in-master 4; unknown 1); 79 not_design. Every primary heading ADR-001..ADR-112 appears exactly once. Headings out of numeric order (ADR-052, ADR-053 before ADR-051; ADR-095, 094, 093, 092; ADR-091 A1-A4 after ADR-112 A3) were all covered. One non-ADR heading sits in range: 'NOTICE · Library standby (plugin-skeleton FOUNDATIONS)', line 661, not design and not listed.",

@@ -34,6 +34,8 @@ The page's existing transport (`docs/design/gui3/engine-stub.js`, `GUI3Engine.TR
 - `preset {seq, index}`.
 - `plugin {seq, voices}`: the test plug-in's own Voices setting, which sits outside §5. The page gives it one small control.
 
+**hello's answer: `first_open`** (GN-54, GUI-54). The answer to `hello` carries `first_open: bool`, true only for the first window the plug-in has opened since it loaded. The page shows the Mindlathe splash on that opening and not on later ones, because the page itself dies with the window. Until the bridge sends it, the page treats every opening as the first.
+
 **The morph's messages** (B636, B639; the page's side is GUI-59). The plug-in hosts the morph and plays the clean room's resolver, so while morph is on the page sends no morphing row as a `set` (the resolver is its only source, IF-12, and the bridge refuses and counts such a set). Instead:
 - `corner {seq, index, values: {key: v}}`: values written into one corner (0 to 3), by the same rules as a `set`. Partial is fine: the page sends only what changed.
 - `save {seq, index}`: MO-25's Save current sound, from the resolver's own reads. The corner comes back in the frames.
