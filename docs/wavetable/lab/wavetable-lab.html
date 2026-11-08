@@ -4,11 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Wavetable Lab</title>
-<meta name="description" content="horde's wavetable member, playable: four morph corners that each hold every setting and a table, Blend and Quantum laws, two drawn LFOs whose shapes and route depths transform across the corners, Spectral log without per-note rebuilds, an FM/PM section that recreates SCALPEL's jitter, a preset bank, capture and recipes. B650, B651, B652.">
+<meta name="description" content="horde's wavetable member, playable: four morph corners that each hold every setting and a table, Blend and Quantum laws, two drawn LFOs whose shapes and route depths transform across the corners, Spectral log without per-note rebuilds, an FM/PM section that recreates SCALPEL's jitter, a preset bank, capture and recipes, and Weir's real per-voice filter (SVF 12, compiled C++ → WebAssembly). B650, B651, B652, B659.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;800&family=Roboto+Mono:wght@400;600&display=swap">
 <!--
+  B659 (horde lead session, 2026-11-08; the human, by poll: "Weir in the wavetable lab", to start testing filters): one
+  instance of Weir's SVF 12 per voice, after the amp envelope (RC-1's slot sits after each source's governing envelope),
+  run from Weir's own C++ compiled to WebAssembly (weir/weir_lab.wasm, vendored: weir/PROVENANCE.md). There is no
+  JavaScript copy of the filter, by ADR-307 ("what is heard must be the code that ships"); Weir is prepared as horde
+  calls it, prepare(sr, block, 0.0), with no smoothing, and cutoff modulation arrives per sample in octaves (ADR-311).
+  See traces/2026-11-08-b659-wavetable-lab-weir.md.
   B652 (horde lead session, 2026-11-08; the human, playing v2: "Could we add FM/PM to this bench to see how it sounds?",
   then "Could we also get some presets in the lab?"): an FM/PM section per oscillator (internal modulator with SCALPEL's
   shapes and pitch law, osc 2, Self), a 2× FM oversampling switch, a live modulator scope, and a 24-patch bank.
@@ -33,7 +39,10 @@
              (WT-22). Posts each set straight to the worklet over a MessageChannel, transferring
              the buffer.
     worklet  the voices: swarm members reading the published set. It never allocates in
-             process(); retired sets go back to their worker through the port handler.
+             process(); retired sets go back to their worker through the port handler. B659: it also
+             holds one instance of weir_lab.wasm (instantiated synchronously from the module the page
+             compiled, as Weir's own lab does), with 16 SVF 12 instances inside it: 8 voices at the
+             sample rate and 8 at twice it for the FM oversampling switch.
   Determinism: no Math.random anywhere. mulberry32 streams with visible seeds; morph motion
   advances on the audio clock (ctx.currentTime), not the wall clock.
 -->
@@ -230,7 +239,7 @@ details summary{cursor:pointer;font:800 11px var(--sans);letter-spacing:.1em;tex
   <header>
     <div>
       <h1>horde · wavetable lab</h1>
-      <p class="sub">The swarm's member waveform, read from four corner tables on the morph pad. Every setting has a value in each corner, as in horde; the two drawn LFOs and their routes transform as the morph moves. Drag the puck, play the keys, and write what should change in the notes at the bottom. The Patch menu (under Play) holds 24 patches, each with a line on what the pad does. B650 · B651 · B652.</p>
+      <p class="sub">The swarm's member waveform, read from four corner tables on the morph pad. Every setting has a value in each corner, as in horde; the two drawn LFOs and their routes transform as the morph moves. Drag the puck, play the keys, and write what should change in the notes at the bottom. The Patch menu (under Play) holds 28 patches, each with a line on what the pad does. Each voice ends in Weir's SVF 12, the real C++ filter compiled to WebAssembly (the Filter card). B650 · B651 · B652 · B659.</p>
     </div>
     <div class="hgroup">
       <span class="pill busy" id="status"><span class="dot"></span><span id="statusText">Building factory tables…</span></span>
@@ -240,6 +249,7 @@ details summary{cursor:pointer;font:800 11px var(--sans);letter-spacing:.1em;tex
   </header>
   <div class="banner" id="audioWarn" hidden></div>
   <div class="banner" id="loadWarn" hidden></div>
+  <div class="banner" id="weirWarn" hidden></div>
 
   <section class="stage" aria-label="The four morph corners and the pad">
     <div class="col">
@@ -278,6 +288,8 @@ details summary{cursor:pointer;font:800 11px var(--sans);letter-spacing:.1em;tex
     <div class="card" id="osc1panel"></div>
   </section>
 
+  <section class="card" id="filterPanel" aria-label="The per-voice filter"></section>
+
   <section class="panels3" aria-label="Drawn LFOs and the mod matrix">
     <div class="card" id="lfo1Card"></div>
     <div class="card" id="lfo2Card"></div>
@@ -293,6 +305,7 @@ details summary{cursor:pointer;font:800 11px var(--sans);letter-spacing:.1em;tex
         <label class="hint" for="preset">Patch</label>
         <select id="preset" aria-label="Load a patch preset"></select>
         <button class="btn small" id="presetLoad" title="Load the chosen patch again (it sets every corner value, the corner tables, the routes, the LFO shapes and the puck; the library, the morph settings and the lab switches stay)">Load</button>
+        <button class="btn small" id="presetAB" aria-pressed="false" title="B659: a re-voiced patch has two versions. A uses Weir's filter; B is the old patch from before the filter (its fake: ENV 2 scanning the table, or none). Switching keeps the puck where it is.">A: with filter</button>
       </div>
       <p class="note" id="presetDesc" style="margin:0 0 6px"></p>
       <div class="formrow">
@@ -300,7 +313,7 @@ details summary{cursor:pointer;font:800 11px var(--sans);letter-spacing:.1em;tex
         <button class="btn" id="panic" title="All notes off">All off</button>
         <span class="hint" id="octRead">oct 0</span>
       </div>
-      <p class="note">Computer keys: <span class="num">A–K</span> white, <span class="num">W E T Y U</span> black, <span class="num">Z / X</span> octave. Velocity 0.85.</p>
+      <p class="note">Computer keys: <span class="num">A–K</span> white, <span class="num">W E T Y U</span> black, <span class="num">Z / X</span> octave. Keys play at Key velocity (Envelopes &amp; voice, default 0.85).</p>
       <div class="kb" id="kb" aria-label="On-screen keyboard"></div>
       <h3>Output</h3>
       <div class="meter">
@@ -584,6 +597,16 @@ const FM_SHAPES = ["Sine", "Tri", "Saw", "Rev saw", "Square", "Smooth noise", "S
 const SELF_PM_MAX = 1.6;   // Self PM's index clamp, rad (see the FM section's note)
 const SCN = 520, STATS_LEN = 16 + 8*48 + 2*SCN;   // per-oscillator scope block in the stats buffer: 256 mod, 256 cents, 8 fields
 const SLOT_LAW_FLAT = SLOT_NAMES.flatMap(n => SLOT_LAW[n] || [-1, 0, 1]);
+// B659: the per-voice filter's slots, sent beside the two oscillators' (one block, not per oscillator). A route to a filter
+// row uses slot 2·NPS + its index. Mode is Weir's own index (0 is Weir's bit-exact bypass, the lab's Off).
+const F_NAMES = ["FMODE", "FCUT", "FRES", "FRING", "FKT", "FENV", "FVEL"];
+const FSLOT = Object.fromEntries(F_NAMES.map((n, i) => [n, i])), NFP = F_NAMES.length;
+const F_LAW = {FCUT: [1, 20, 20000], FRES: [0, 0, 1], FRING: [0, 0, 1], FKT: [0, 0, 1], FENV: [0, -8, 8], FVEL: [0, -4, 4]};
+const F_LAW_FLAT = F_NAMES.flatMap(n => F_LAW[n] || [-1, 0, 1]);
+const F_MODES = ["Off", "LP", "BP", "HP", "Notch", "Peak"];   // SVF 12's modes in Weir's order (svf.h: bypass, LP, BP, HP, NOTCH, PEAK)
+const F_OCT = Math.log2(20000/20);   // a cutoff route's depth 1 = the whole knob range, in octaves
+const F_TAIL = 1e-4;                  // RC-1 / horde 6.4: a voice's filter rings on until Weir's tail() < 1e-4 (−80 dB), absolute
+const WEIR_IMPORTS_SRC = "{wasi_snapshot_preview1:{fd_close:()=>0,fd_write:()=>0,fd_seek:()=>0}}";   // Weir lab/wasm_env.mjs: libc++'s abort path links three inert WASI stubs
 
 /* =====================================================================================================
    Worklet: 8 voices × 2 oscillators × up to 9 members. Nothing in process() allocates.
@@ -623,7 +646,10 @@ const HT=63,HB=(()=>{const h=new Float64Array(HT),I0=x=>{let s=1,t=1;for(let k=1
 const HBI=[];for(let t=0;t<HT;t++)if(Math.abs(HB[t])>1e-12)HBI.push(t);
 // how a route moves each slot, in its normalised form (MS-12: a depth is in v): [law, lo, hi] per slot;
 // law 0 lin, 1 log, 2 pow, 3 dB on a linear gain (−∞ at v < 0.01), 4 added in semitones over hi − lo, −1 not a destination
-const DLAW=new Float64Array(${JSON.stringify(SLOT_LAW_FLAT)});
+const DLAW=new Float64Array(${JSON.stringify([...SLOT_LAW_FLAT, ...F_LAW_FLAT])});   // B659: the filter's slot j reads law NP + j
+// B659: the filter's slots, the octave span of a cutoff route, the tail threshold, Weir's imports
+const ${F_NAMES.map((n, i) => n + "=" + i).join(",")},NFP=${NFP},FOCT=${F_OCT},FTAIL=${F_TAIL};
+const WEIR_IMPORTS=${WEIR_IMPORTS_SRC};
 function toV(j,x){const c=DLAW[3*j],lo=DLAW[3*j+1],hi=DLAW[3*j+2];if(c===1)return Math.log(x/lo)/Math.log(hi/lo);if(c===2)return Math.sqrt(Math.max(0,(x-lo)/(hi-lo)));
   if(c===3)return x<=0?0:0.02+0.98*(20*Math.log10(x)-lo)/(hi-lo);return (x-lo)/(hi-lo);}
 function fromV(j,v){const c=DLAW[3*j],lo=DLAW[3*j+1],hi=DLAW[3*j+2];if(c===1)return lo*Math.pow(hi/lo,v);if(c===2)return lo+(hi-lo)*v*v;
@@ -633,7 +659,7 @@ const A1=0,D1=1,S1=2,R1=3,A2=4,D2=5,S2=6,R2=7,OUT=8,POLY=9,INTERP=10,XF=11,OSX=1
 const SEAT=[];for(let U=0;U<=MAXM;U++){const q=[];let lo=0,hi=U-1;while(lo<=hi){q.push(lo++);if(lo<=hi)q.push(hi--);}const s=new Float32Array(MAXM);for(let i=0;i<U;i++){const k=q[i];s[i]=U>1?-1+2*k/(U-1):0;}SEAT.push(s);}
 function clamp01(x){return x<0?0:x>1?1:x;}
 class WT extends AudioWorkletProcessor{
- constructor(){super();
+ constructor(opt){super();
   this.T=new Float64Array(2*NP);this.S=new Float64Array(2*NP);this.GT=new Float64Array(NG);this.GS=new Float64Array(NG);this.init=false;
   this.cur=[null,null];this.old=[null,null];this.pend=[null,null];this.xr=[0,0];this.xp=[0,0];this.retireAfter=[0,0];
   this.rq=[[null,null,null,null],[null,null,null,null]];this.rqn=[0,0];this.op=[null,null];
@@ -655,15 +681,35 @@ class WT extends AudioWorkletProcessor{
   this.vst=new Float32Array(MAXV*48);this.seeds=[-1,-1];this.rng=[null,null];
   this.dcx=[0,0];this.dcy=[0,0];this.clip=0;this.accMs=0;this.accN=0;this.outPk=0;
   // B651: per-voice values (the smoothed targets plus this voice's routes), the routes, two drawn LFOs, the frames voices read
-  this.VP=new Float64Array(2*NP);this.MD=new Float64Array(2*NP);
+  this.VP=new Float64Array(2*NP);
   this.rSrc=new Int8Array(NR);this.rDst=new Int16Array(NR).fill(-1);this.rT=new Float64Array(NR);this.rS=new Float64Array(NR);
   this.lfP=[new Float64Array(3*MAXP),new Float64Array(3*MAXP)];this.lfN=[0,0];this.lfRate=[0,0];this.lfT0=[0,0];this.lfPh0=[0,0];this.lv=new Float64Array(2);
   this.need=[0,0];
+  // B659: Weir's SVF 12, one instance per voice after the amp envelope (RC-1). The page compiled weir_lab.wasm; it is
+  // instantiated here synchronously (an AudioWorklet cannot fetch or await while it starts), as Weir's lab/worklet.js does.
+  // One module instance, 16 filter instances inside it (the ABI's 16 slots): bank 0 at the sample rate for the 8 voices,
+  // bank 1 at twice it for the FM oversampling switch (the voice sum runs at 2× there). prepare(sr, block, 0.0): no
+  // smoothing, as horde calls it (ADR-311); the lab's own 12 ms smoother is in front, and the knob's move inside a block
+  // reaches Weir per sample through the cutoff-modulation input. Every view onto Weir's memory is made here: the memory
+  // never grows (build.sh: ALLOW_MEMORY_GROWTH=0), so process() reads and writes through them without allocating.
+  this.FT=new Float64Array(NFP);this.FS=new Float64Array(NFP);this.FV=new Float64Array(NFP);this.MD=new Float64Array(2*NP+NFP);
+  this.wx=null;this.wErr="";this.fh=[new Int32Array(MAXV),new Int32Array(MAXV)];this.fL=[[],[]];this.fR=[[],[]];this.fO=[[],[]];
+  this.vFOn=new Uint8Array(MAXV);this.vTl=new Uint8Array(MAXV);this.vLc=new Float64Array(MAXV);this.vOct=new Float64Array(MAXV);this.vFc=new Float64Array(MAXV);this.vTv=new Float64Array(MAXV);
+  this.e2b=new Float64Array(BS);this.lfb=[new Float64Array(BS),new Float64Array(BS)];this.cutK=new Float64Array(NR);this.cutS=new Int8Array(NR);
+  const po=opt&&opt.processorOptions||{};
+  if(po.weir){try{const x=new WebAssembly.Instance(po.weir,WEIR_IMPORTS).exports;if(x._initialize)x._initialize();
+    for(let b=0;b<2;b++)for(let v=0;v<MAXV;v++){const h=x.weir_create(po.weirKind);if(h<0)throw new Error("weir_create refused (slots full)");
+      const nb=BS*(b+1);x.weir_prepare(h,sampleRate*(b+1),nb,0);this.fh[b][v]=h;
+      this.fL[b][v]=new Float64Array(x.memory.buffer,x.weir_left(h),nb);this.fR[b][v]=new Float64Array(x.memory.buffer,x.weir_right(h),nb);this.fO[b][v]=new Float64Array(x.memory.buffer,x.weir_mod_cutoff(h),nb);}
+    this.wx=x;}catch(err){this.wx=null;this.wErr=String(err&&err.message||err);}}
+  else this.wErr="no module";
+  this.port.postMessage({type:"weir",ok:!!this.wx,err:this.wErr,mem:this.wx?this.wx.memory.buffer.byteLength:0});
   this.port.onmessage=e=>{const d=e.data;
    if(d.type==="ports"){this.op=[d.p1,d.p2];d.p1.onmessage=ev=>this.onSet(0,ev.data);d.p2.onmessage=ev=>this.onSet(1,ev.data);}
    else if(d.type==="params"){for(let i=0;i<2*NP;i++)this.T[i]=d.osc[i];for(let i=0;i<NG;i++)this.GT[i]=d.glob[i];
      for(let r=0;r<NR;r++){this.rSrc[r]=d.rs[r];this.rDst[r]=d.rd[r];this.rT[r]=d.rk[r];}
-     if(!this.init){this.S.set(this.T);this.GS.set(this.GT);this.rS.set(this.rT);this.init=true;}
+     for(let i=0;i<NFP;i++)this.FT[i]=d.filt[i];
+     if(!this.init){this.S.set(this.T);this.GS.set(this.GT);this.rS.set(this.rT);this.FS.set(this.FT);this.init=true;}
      for(let o=0;o<2;o++){const sd=this.T[o*NP+SEED];if(sd!==this.seeds[o]){this.seeds[o]=sd;this.rng[o]=L.mulberry32(sd>>>0);this.mrng[o]=L.mulberry32(((sd>>>0)^fnv32("wt/fm/modulator"))>>>0);}}}
    else if(d.type==="lfo"){const n=d.n,c=Math.min(MAXP,d.count);for(let i=0;i<3*c;i++)this.lfP[n][i]=d.pts[i];this.lfN[n]=c;this.lfRate[n]=d.rate;this.lfT0[n]=d.t0;this.lfPh0[n]=d.ph0;}
    else if(d.type==="on")this.noteOn(d.id,d.note,d.vel);
@@ -685,22 +731,26 @@ class WT extends AudioWorkletProcessor{
  flush(){for(let o=0;o<2;o++){while(this.rqn[o]>0){const s=this.rq[o][--this.rqn[o]];this.rq[o][this.rqn[o]]=null;if(this.op[o])this.op[o].postMessage({type:"recycle",buf:s.buf},[s.buf.buffer]);}}}
  noteOn(id,note,vel){const poly=Math.max(1,Math.min(MAXV,this.GT[POLY]|0));
    for(let v=0;v<MAXV;v++){if(this.vAct[v]&&this.vId[v]===id){this.start(v,id,note,vel,false);return;}}
-   for(let v=0;v<poly;v++){if(!this.vAct[v]){this.start(v,id,note,vel,true);return;}}
+   for(let v=0;v<poly;v++){if(!this.vAct[v]&&!this.vTl[v]){this.start(v,id,note,vel,true);return;}}
+   for(let v=0;v<poly;v++){if(!this.vAct[v]){this.start(v,id,note,vel,true);return;}}   // B659: only ringing filter tails are free: the oldest-index one is cut
    let best=-1,ba=1e300;for(let v=0;v<poly;v++){if(this.vSt[v]!==4&&this.vAge[v]<ba){ba=this.vAge[v];best=v;}}
    if(best<0)best=0;this.vSt[best]=4;this.pId[best]=id;this.pNote[best]=note;this.pVel[best]=vel;this.pGate[best]=1;}  // steal: 3 ms fade, then the new note
  start(v,id,note,vel,fresh){this.vAct[v]=1;this.vGate[v]=1;this.vId[v]=id;this.vNote[v]=note;this.vVel[v]=vel;this.vSt[v]=0;this.vAge[v]=++this.age;
-   if(fresh){this.vEnv[v]=0;this.vE2[v]=0;}this.vE2St[v]=0;
+   if(fresh){this.vEnv[v]=0;this.vE2[v]=0;this.fReset(v);}this.vE2St[v]=0;
    if(fresh)for(let o=0;o<2;o++){const r=this.rng[o];const b=(o*MAXV+v)*MAXM;for(let i=0;i<MAXM;i++){this.ph[b+i]=r?r():0;this.prv[b+i]=0;}
      // B652: the modulators' start (SCALPEL: modX = 1000·Math.random() per member; here a seeded mulberry32 draw). A periodic shape at a
      // ratio, per member, starts locked to its member's carrier (modX = ratio·θ₀), so ratio FM has one timbre on every note (key sync).
      // Shared: one draw for the whole voice, so every member computes the same modulator.
      const S=this.S,q=o*NP,mr=this.mrng[o],code=FMC[S[q+FMSH]|0],per=(S[q+FMDEC]|0)===0,lock=code<5&&(S[q+FMRM]|0)===0&&per;const one=mr?1000*mr():0;
      for(let i=0;i<MAXM;i++){const k=b+i;this.mX[k]=lock?S[q+FMR]*this.ph[k]:per?(mr?1000*mr():0):one;this.mAcc[k]=0;this.mIx[k]=NaN;this.fb1[k]=0;this.fb2[k]=0;}}}
+ // B659: a reused voice clears its filter (filter.h reset(): the next setParams lands at once), and its tail stops
+ fReset(v){if(this.wx){this.wx.weir_reset(this.fh[0][v]);this.wx.weir_reset(this.fh[1][v]);}this.vFOn[v]=0;this.vTl[v]=0;this.vOct[v]=0;this.vTv[v]=0;}
  release(v){this.vGate[v]=0;this.vSt[v]=3;this.vE0[v]=this.vEnv[v];this.vQ[v]=1;this.vE2St[v]=3;}
  noteOff(id){for(let v=0;v<MAXV;v++){if(this.vAct[v]&&this.vGate[v]&&this.vId[v]===id&&this.vSt[v]!==4)this.release(v);if(this.pId[v]===id)this.pGate[v]=0;}}
  fill(buf){const ms=this.accN>0?this.accMs/(this.accN/sampleRate*1000):0;this.accMs=0;this.accN=0;
    buf[0]=ms;let a=0;for(let v=0;v<MAXV;v++)if(this.vAct[v])a++;buf[1]=a;buf[2]=this.clip;buf[3]=this.outPk;this.outPk=0;
    buf[4]=this.cur[0]?1:0;buf[5]=this.cur[1]?1:0;buf[6]=sampleRate;
+   let nt=0;for(let v=0;v<MAXV;v++)if(this.vTl[v])nt++;buf[7]=this.wx?1:0;buf[8]=nt;   // B659: Weir loaded, filter tails ringing on freed voices
    for(let v=0;v<MAXV;v++){const o=16+v*48;this.vst[v*48]=this.vAct[v];this.vst[v*48+1]=this.vNote[v];this.vst[v*48+2]=this.vEnv[v];this.vst[v*48+31]=this.vAge[v];this.vst[v*48+32]=this.vGate[v];
      for(let k=0;k<48;k++)buf[o+k]=this.vst[v*48+k];}
    // B652: the FM scope of the newest held voice's first member, per oscillator: a ring of the modulator and the pitch deviation in
@@ -796,6 +846,35 @@ class WT extends AudioWorkletProcessor{
   {let zr=0,zi=0;for(let i=0;i<U;i++){zr+=Math.cos(TAU*ph[base+i]);zi+=Math.sin(TAU*ph[base+i]);}const ps=Math.atan2(zi,zr)/TAU;
    for(let i=0;i<MAXM;i++){let d=i<U?ph[base+i]-ps:0;d-=Math.floor(d);this.vst[vs+10+o*10+i]=d;}}
   return true;}
+ // B659: one voice through its SVF 12. The voice (both oscillators, times the amp envelope and velocity) is written into
+ // Weir's buffers, the block's parameters go in once by weir_set, and the cutoff's motion goes in per sample, in octaves:
+ // the knob/keytrack/velocity's move across the block (linear in log2 Hz, so a turned knob does not step at the block edge),
+ // Env amount × ENV 2, and every route to the cutoff. Weir clamps the result to [10 Hz, 0.49·fs] (svf.h). With no motion
+ // the modulation input is left off (useMod 0), so the coefficients are computed once.
+ fFilter(v,n,OS,vel,mode,oL,oR){
+  const x=this.wx,b=OS-1,h=this.fh[b][v],Lb=this.fL[b][v],Rb=this.fR[b][v],Ob=this.fO[b][v],N=n*OS,eb=this.envBuf,aL=this.aL,aR=this.aR,F=this.FV;
+  for(let s=0;s<N;s++){const g=eb[s>>b]*vel;Lb[s]=aL[s]*g;Rb[s]=aR[s]*g;}
+  const lc1=Math.log2(Math.max(1,F[FCUT]))+F[FKT]*(this.vNote[v]-60)/12+F[FVEL]*vel;   // keytrack about C4 (MIDI 60); velocity in octaves
+  let lc0=this.vLc[v];if(!this.vFOn[v]){this.vFOn[v]=1;lc0=lc1;}this.vLc[v]=lc1;
+  const ea=F[FENV],e2b=this.e2b,dl=lc0-lc1;let useMod=dl!==0||ea!==0?1:0;for(let r=0;r<NR&&!useMod;r++)if(this.cutS[r])useMod=1;
+  let last=0;
+  if(useMod){for(let s=0;s<N;s++){const sx=s>>b;let o=dl*(1-(s+1)/N)+ea*e2b[sx];
+      for(let r=0;r<NR;r++){const sc=this.cutS[r];if(sc)o+=this.cutK[r]*(sc===3?e2b[sx]:this.lfb[sc-1][sx]);}
+      Ob[s]=o;}last=Ob[N-1];}
+  x.weir_set(h,Math.pow(2,lc1),0,F[FRES],0,F[FRING],mode);
+  x.weir_process(h,N,useMod);
+  if(OS===1){for(let s=0;s<n;s++){oL[s]+=Lb[s];oR[s]+=Rb[s];}}
+  else{const a=this.o2L,c=this.o2R;for(let s=0;s<N;s++){a[s]+=Lb[s];c[s]+=Rb[s];}}
+  this.vOct[v]=last;this.vFc[v]=Math.min(0.49*sampleRate*OS,Math.max(10,Math.pow(2,lc1+last)));}
+ // a freed voice's filter ringing out with no input, at its last parameters and last modulation (RC-1's tail report)
+ fTail(v,n,OS,oL,oR,mode){
+  if(!mode){this.fReset(v);return;}
+  const x=this.wx,b=OS-1,h=this.fh[b][v],Lb=this.fL[b][v],Rb=this.fR[b][v],Ob=this.fO[b][v],N=n*OS,o=this.vOct[v];
+  Lb.fill(0,0,N);Rb.fill(0,0,N);if(o!==0)Ob.fill(o,0,N);
+  x.weir_process(h,N,o!==0?1:0);
+  if(OS===1){for(let s=0;s<n;s++){oL[s]+=Lb[s];oR[s]+=Rb[s];}}
+  else{const a=this.o2L,c=this.o2R;for(let s=0;s<N;s++){a[s]+=Lb[s];c[s]+=Rb[s];}}
+  if(x.weir_tail(h)<FTAIL)this.fReset(v);}
  // B652: 2× → 1× through the halfband: the history holds the last HT−1 inputs, then this block's 2n; out[j] = Σ h·x at 2j
  decim(x2,h,out,n){const B=HT-1;for(let s=0;s<2*n;s++)h[B+s]=x2[s];
    for(let j=0;j<n;j++){const o=2*j;let y=0;for(let q=0;q<HBI.length;q++){const t=HBI[q];y+=HB[t]*h[o+t];}out[j]=y;}
@@ -806,14 +885,20 @@ class WT extends AudioWorkletProcessor{
   const al=1-Math.exp(-n/(0.012*sampleRate));
   for(let i=0;i<2*NP;i++){const j=i%NP;if(STEP.indexOf(j)>=0||j===UNI)this.S[i]=this.T[i];else this.S[i]+=(this.T[i]-this.S[i])*al;}
   for(let i=0;i<NG;i++){if(i===POLY||i===INTERP||i===XF||i===OSX)this.GS[i]=this.GT[i];else this.GS[i]+=(this.GT[i]-this.GS[i])*al;}
+  this.FS[FMODE]=this.FT[FMODE];for(let i=1;i<NFP;i++)this.FS[i]+=(this.FT[i]-this.FS[i])*al;   // B659: the mode steps (Structural); the rest glide like every slot
   // B652: the FM oversampling switch; a change clears the halfband's history and the 2× sum
-  const OSn=this.GS[OSX]>=2?2:1;if(OSn!==this.os){this.os=OSn;this.hL.fill(0);this.hR.fill(0);this.o2L.fill(0);this.o2R.fill(0);}
+  const OSn=this.GS[OSX]>=2?2:1;if(OSn!==this.os){this.os=OSn;this.hL.fill(0);this.hR.fill(0);this.o2L.fill(0);this.o2R.fill(0);for(let v=0;v<MAXV;v++)this.fReset(v);}   // B659: the other filter bank starts clear
   const OS=this.os;
   // the FM scope follows the newest held voice
   {let best=-1,ba=-1;for(let v=0;v<MAXV;v++)if(this.vAct[v]&&this.vGate[v]&&this.vAge[v]>ba){ba=this.vAge[v];best=v;}if(best!==this.scV){this.scV=best;this.scPrev[0]=this.scPrev[1]=0;}}
   let nR=0;for(let r=0;r<NR;r++){this.rS[r]+=(this.rT[r]-this.rS[r])*al;if(this.rSrc[r]>0&&this.rDst[r]>=0)nR++;}
   // the drawn LFOs, global and free-running: phase in closed form on the audio clock, so the page's copy reads the same phase
   for(let k=0;k<2;k++){let ph=this.lfPh0[k]+this.lfRate[k]*(currentTime-this.lfT0[k]);ph-=Math.floor(ph);this.lv[k]=this.lfN[k]>1?L.shapeFlat(this.lfP[k],this.lfN[k],ph):0;}
+  // B659: routes to the filter's cutoff reach Weir per sample, in octaves (ADR-311's modulation input): each one's depth × the
+  // knob's span, and its source per sample (an LFO here, in closed form on the same clock; ENV 2 per voice below)
+  const fMode=this.wx?this.FS[FMODE]|0:0;let cl=0;   // cl: bit k set when LFO k+1 moves the cutoff
+  for(let r=0;r<NR;r++){const sc=this.rSrc[r];this.cutS[r]=0;this.cutK[r]=0;if(fMode&&sc>0&&this.rDst[r]===2*NP+FCUT&&this.rS[r]!==0){this.cutS[r]=sc;this.cutK[r]=this.rS[r]*FOCT;if(sc<3)cl|=sc;}}
+  for(let k=0;k<2;k++)if(cl&(k+1)){const lb=this.lfb[k];for(let s=0;s<n;s++){let ph=this.lfPh0[k]+this.lfRate[k]*(currentTime+s/sampleRate-this.lfT0[k]);ph-=Math.floor(ph);lb[s]=this.lfN[k]>1?L.shapeFlat(this.lfP[k],this.lfN[k],ph):0;}}
   const XFn=Math.max(16,this.GS[XF]);
   for(let o=0;o<2;o++){
    if(!this.cur[o]&&this.pend[o]){this.cur[o]=this.pend[o];this.pend[o]=null;}
@@ -823,7 +908,7 @@ class WT extends AudioWorkletProcessor{
   const on2=P[NP+ON],U2=Math.max(1,Math.min(MAXM,P[NP+UNI]|0));
   this.pmOn=on2>1e-4;this.pmNeed=this.pmOn;   // osc 2 runs whenever it is on, so a route can open PM from 0
   const aInc=1/(Math.max(0.0005,GS[A1])*sr),dc=Math.exp(-4/(Math.max(0.005,GS[D1])*sr)),Su=GS[S1],rc=Math.exp(-5/(Math.max(0.005,GS[R1])*sr)),stl=1/(0.003*sr);
-  for(let v=0;v<MAXV;v++){if(!this.vAct[v])continue;
+  for(let v=0;v<MAXV;v++){if(!this.vAct[v]){if(this.vTl[v])this.fTail(v,n,OS,oL,oR,fMode);continue;}
    let env=this.vEnv[v],st=this.vSt[v],q=this.vQ[v];const e0=this.vE0[v],eb=this.envBuf;
    for(let s=0;s<n;s++){
     if(st===0){env+=aInc;if(env>=1){env=1;st=1;}}
@@ -832,26 +917,31 @@ class WT extends AudioWorkletProcessor{
     else if(st===4){env-=stl;if(env<=0){env=0;st=5;}}
     else env=0;eb[s]=env;}
    this.vEnv[v]=env;this.vSt[v]=st;this.vQ[v]=q;
-   // ENV 2, a route source (per voice), per block
-   let e2=this.vE2[v];const s2=this.vE2St[v];
-   if(s2===0){e2+=n/(Math.max(0.0005,GS[A2])*sr);if(e2>=1){e2=1;this.vE2St[v]=1;}}
-   else if(s2===1){e2=GS[S2]+(e2-GS[S2])*Math.exp(-4*n/(Math.max(0.005,GS[D2])*sr));}
-   else e2*=Math.exp(-5*n/(Math.max(0.005,GS[R2])*sr));
-   this.vE2[v]=e2;
+   // ENV 2, a route source (per voice): per sample since B659 (the filter's Env amount and ENV 2 → cutoff read every sample);
+   // the other routes read its value at the block's end, as before. The same laws: linear attack, exponential decay and release.
+   let e2=this.vE2[v],s2=this.vE2St[v];const e2b=this.e2b,S2v=GS[S2],a2i=1/(Math.max(0.0005,GS[A2])*sr),d2c=Math.exp(-4/(Math.max(0.005,GS[D2])*sr)),r2c=Math.exp(-5/(Math.max(0.005,GS[R2])*sr));
+   for(let s=0;s<n;s++){if(s2===0){e2+=a2i;if(e2>=1){e2=1;s2=1;}}else if(s2===1)e2=S2v+(e2-S2v)*d2c;else e2*=r2c;e2b[s]=e2;}
+   this.vE2[v]=e2;this.vE2St[v]=s2;
    // this voice's values: the targets plus its routes, added in each destination's normalised form and clamped (MS-12)
-   const VP=this.VP;VP.set(P);
+   const VP=this.VP;VP.set(P);const FV=this.FV;FV.set(this.FS);
    if(nR){const MD=this.MD;MD.fill(0);let any=false;
      for(let r=0;r<NR;r++){const sc=this.rSrc[r],ds=this.rDst[r];if(sc===0||ds<0)continue;const a=this.rS[r]*(sc===1?this.lv[0]:sc===2?this.lv[1]:e2);if(a!==0){MD[ds]+=a;any=true;}}
-     if(any)for(let i=0;i<2*NP;i++){const a=MD[i];if(a===0)continue;const j=i%NP,c=DLAW[3*j];if(c<0)continue;
-       if(c===4)VP[i]+=(DLAW[3*j+2]-DLAW[3*j+1])*a;else VP[i]=fromV(j,clamp01(toV(j,VP[i])+a));}}
+     if(any){for(let i=0;i<2*NP;i++){const a=MD[i];if(a===0)continue;const j=i%NP,c=DLAW[3*j];if(c<0)continue;
+       if(c===4)VP[i]+=(DLAW[3*j+2]-DLAW[3*j+1])*a;else VP[i]=fromV(j,clamp01(toV(j,VP[i])+a));}
+       // B659: resonance, Ring and Env amount move per block (the ABI's process() takes cutoff modulation only); cutoff is per sample, in fFilter
+       for(let j=1;j<NFP;j++){const a=MD[2*NP+j];if(a===0||j===FCUT)continue;const J=NP+j;if(DLAW[3*J]<0)continue;FV[j]=fromV(J,clamp01(toV(J,FV[j])+a));}}}
    this.aL.fill(0);this.aR.fill(0);
    const f0=440*Math.pow(2,(this.vNote[v]-69)/12);
    const r2=this.renderOsc(1,v,f0,n,on2,U2);this.pmVoice=r2&&this.pmOn;   // osc 2 first: it is osc 1's PM modulator (WT-30, CONTRACT §1.8)
    this.renderOsc(0,v,f0,n,on2,U2);
    const vel=this.vVel[v];
+   if(fMode)this.fFilter(v,n,OS,vel,fMode,oL,oR);   // B659: the voice, after its amp envelope, through its SVF 12
+   else{if(this.vFOn[v])this.fReset(v);
    if(OS===1){for(let s=0;s<n;s++){const g=eb[s]*vel;oL[s]+=this.aL[s]*g;oR[s]+=this.aR[s]*g;}}
-   else{const a=this.o2L,b2=this.o2R;for(let s=0;s<2*n;s++){const g=eb[s>>1]*vel;a[s]+=this.aL[s]*g;b2[s]+=this.aR[s]*g;}}
-   if(st===5){if(this.pId[v]>=0){const g=this.pGate[v];this.start(v,this.pId[v],this.pNote[v],this.pVel[v],true);this.pId[v]=-1;if(!g)this.release(v);}else{this.vAct[v]=0;this.vId[v]=-1;}}}
+   else{const a=this.o2L,b2=this.o2R;for(let s=0;s<2*n;s++){const g=eb[s>>1]*vel;a[s]+=this.aL[s]*g;b2[s]+=this.aR[s]*g;}}}
+   this.vst[v*48+35]=this.vFOn[v]?this.vFc[v]:0;this.vst[v*48+36]=this.vFOn[v];
+   if(st===5){if(this.pId[v]>=0){const g=this.pGate[v];this.start(v,this.pId[v],this.pNote[v],this.pVel[v],true);this.pId[v]=-1;if(!g)this.release(v);}
+     else{this.vAct[v]=0;this.vId[v]=-1;this.vTl[v]=this.vFOn[v]&&this.wx.weir_tail(this.fh[OS-1][v])>=FTAIL?1:0;if(!this.vTl[v]&&this.vFOn[v])this.fReset(v);}}}   // RC-1: the voice is free; its filter rings out
   for(let o=0;o<2;o++){if(this.retireAfter[o]){this.retireAfter[o]=0;this.xr[o]=0;if(this.old[o]){this.retire(o,this.old[o]);this.old[o]=null;}}}
   if(OS===2){this.decim(this.o2L,this.hL,oL,n);if(oR!==oL)this.decim(this.o2R,this.hR,oR,n);this.o2L.fill(0);this.o2R.fill(0);}
   // output stage: 0.14 × 10^(out.level/20) × the voices (OU-1), then the lab's 8 Hz DC blocker (WT-25's fallback); clip latch, no clamp
@@ -1033,6 +1123,20 @@ const ENV_ROWS = {attack: ["Attack", "log", 0.0005, 10, 0.004], decay: ["Decay",
 for (const E of ["env1", "env2"]) for (const [k, [label, law, lo, hi, def]] of Object.entries(ENV_ROWS))
   reg(`${E}.${k}`, {cls: "M", label, law, lo, hi, def, fmt: k === "sustain" ? fmtPct : fmtS, range: `${lo}..${hi}${k === "sustain" ? "" : " s"}`, doc: `SPEC-ENGINE 5.2, class M${law === "log" ? ": blends on the log taper" : ""}. Curves are not in the lab (linear attack, exponential decay and release).`});
 for (const n of [1, 2]) reg(`lfo${n}.rate`, {cls: "M", label: "Rate", law: "log", lo: 0.02, hi: 40, def: 1, fmt: fmtHz, range: "0.02..40 Hz", doc: "SPEC-ENGINE E.5, LF-4: a Morphable modulator key (MS-27), blended on its log taper. Hz only: the lab has no host tempo."});
+/* B659: the per-voice filter, Weir's SVF 12. Lab rows (not yet CONTRACT rows): the mode is Structural, the rest Morphable.
+   Weir's own words for what each does are in include/weir/svf.h and Weir D-013, D-015. SVF 12 reads cutoff, resonance and
+   morph (as Ring) and ignores drive (its registry's "uses"), so the lab has no filter drive. */
+const fmtOct = v => (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(2) + " oct";
+const FILTER_ROWS = {
+  mode:      {cls: "S", label: "Mode", law: "step", options: F_MODES, range: F_MODES.join(", "), def: 0, doc: "SVF 12's five taps of one 2-pole TPT state-variable filter (Weir D-013: Simper's form, the energy level law), or Off (Weir's bit-exact bypass: no Weir call at all). Structural: one corner's mode by its pick, and a flip lands on the next sample (Weir prepared with no smoothing, ADR-311); no PA-5 crossfade in the lab."},
+  cutoff:    {cls: "M", label: "Cutoff", law: "log", lo: 20, hi: 20000, def: 1200, fmt: fmtHz, range: "20 Hz..20 kHz (Weir clamps the modulated value to 10 Hz..0.49·fs)", doc: "Blends on its log taper (MO-9). Keytrack, velocity, Env amount and routes add octaves on top, per voice."},
+  resonance: {cls: "M", label: "Resonance", law: "lin", lo: 0, hi: 1, def: 0, fmt: v => v.toFixed(2), range: "0..1", doc: "Damping k = max(floor, √2·(1 − res)): Butterworth at 0, a bounded ring at 1 (never self-oscillating). BP, HP and Peak are level-compensated by Weir's energy law; LP and Notch are not, so a resonant LP gets louder (watch CLIP)."},
+  ring:      {cls: "M", label: "Ring", law: "lin", lo: 0, hi: 1, def: 0, fmt: fmtPct, range: "0..1", doc: "Weir's morph knob on SVF 12 (D-015): lowers the damping floor, 0.05·10^(−ring), so resonance 1 rings ten times longer at Ring 1. It changes nothing below resonance ≈ 0.965, where √2·(1 − res) is above the floor."},
+  keytrack:  {cls: "M", label: "Keytrack", law: "lin", lo: 0, hi: 1, def: 0, fmt: fmtPct, range: "0..1", doc: "The cutoff follows the voice's note: + keytrack × (note − 60)/12 octaves, about C4. 1 keeps the same harmonic at the cutoff on every note."},
+  envAmt:    {cls: "M", label: "Env amount", law: "lin", lo: -8, hi: 8, def: 0, fmt: fmtOct, range: "−8..+8 octaves", doc: "ENV 2 → cutoff, in octaves at ENV 2 = 1, per sample through Weir's cutoff-modulation input, unsmoothed (ADR-311). ENV 2's times are in the Envelopes card."},
+  velocity:  {cls: "M", label: "Velocity", law: "lin", lo: -4, hi: 4, def: 0, fmt: fmtOct, range: "−4..+4 octaves at velocity 1", doc: "Velocity → cutoff: + amount × velocity octaves. The PF-3 chord plays at 0.85; the keys play at Key velocity (Envelopes & voice)."},
+};
+for (const [nm, r] of Object.entries(FILTER_ROWS)) reg(`filter.${nm}`, Object.assign({}, r, {nm}));
 for (let r = 1; r <= NR; r++) reg(`mod.r${r}.depth`, {cls: "M", label: "Depth", law: "lin", lo: -1, hi: 1, def: 0, fmt: fmtSgn, range: "−1..1", doc: "The route's depth, a corner value (it blends). Added in the destination's normalised form: 1 sweeps the whole range (morph.x / morph.y: ±0.5 of the pad)."});
 
 // the drawn LFO model (ADR-349, LF-7, LF-8): one point list shared by the four corners, each corner its own t, v, u per point
@@ -1050,6 +1154,10 @@ const DESTS = [];   // {code, label, key (the row whose value it moves), slot (w
   .forEach(([k, sl, lab]) => [0, 1].forEach(o => { const N = o + 1;
     DESTS.push({code: `osc${N}.${k}`, label: `Osc ${N} · ${lab}`, key: k === "level" ? `mix.osc${N}` : `osc${N}.${k}`, slot: o*NPS + SLOT[sl], osc: o}); }));
 DESTS.sort((a, b) => a.osc - b.osc);
+// B659: the filter's four destinations. Cutoff reaches Weir per sample (octaves: depth 1 = the knob's whole range, 9.97 oct);
+// resonance, Ring and Env amount per 128-sample block.
+[["cutoff", "FCUT", "Cutoff (per sample)"], ["resonance", "FRES", "Resonance"], ["ring", "FRING", "Ring"], ["envAmt", "FENV", "Env amount"]]
+  .forEach(([k, sl, lab]) => DESTS.push({code: `filter.${k}`, label: `Filter · ${lab}`, key: `filter.${k}`, slot: 2*NPS + FSLOT[sl], osc: 2, group: "Filter (Weir SVF 12)"}));
 DESTS.push({code: "morph.x", label: "Morph x (global LFOs only)", key: null, slot: -1}, {code: "morph.y", label: "Morph y (global LFOs only)", key: null, slot: -1});
 const destOf = code => DESTS.find(d => d.code === code);
 
@@ -1116,26 +1224,36 @@ const BANK = [
    set("osc2.on", 1); set("osc2.wt.frame", [1, .6, 1, 1]); set("osc2.octave", -1); set("osc2.unison", 1); set("osc2.fine", [0, 7, 0, -5]); set("mix.osc2", [-Infinity, -16, -Infinity, -14]);
    set("osc1.fm.source", 1); set("osc1.fm.type", [0, 0, 1, 0]); set("osc1.fm.index", [2, 3, .6, 4.5]);
    st.lfo = [L4(TRI5, SINE5, RUP5, WOB5), L4(SINE5)]; set("lfo1.rate", [2, 4, 1, 6]); R(1, 1, "osc1.fm.index", [.25, .3, .2, .3]);
-   set("env1.attack", .003); set("env1.decay", .5); set("env1.sustain", .8); set("env1.release", .15); }},
+   set("env1.attack", .003); set("env1.decay", .5); set("env1.sustain", .8); set("env1.release", .15); },
+  fdesc: "B659: the same growl through a resonant low-pass whose cutoff LFO 1 also wobbles (route 2, per sample), so the index and the filter move together · B faster and more resonant · C pitch FM, a slower wobble · D deepest. The A/B button plays the old version (no filter).",
+  filt(set, st, R){ set("filter.mode", 1); set("filter.cutoff", [380, 480, 320, 560]); set("filter.resonance", [.55, .62, .5, .66]); set("filter.keytrack", .3); R(2, 1, "filter.cutoff", [.18, .2, .14, .22]); }},
 
  {id: "acid", group: "Classic sounds", name: "Acid squelch", desc: "No filter in the lab: ENV 2 scans Sine → saw from saw down to sine on each note, a filter-like sweep under Spectral log · B snappier · C the pulse table (square acid) · D slower, with bend. Play single notes.",
   build(set, st, R){ st.tables = [[TB.SS, TB.SS, TB.PU, TB.SS], ALL(TB.SS)]; st.puck = [0, 0];
    set("osc1.wt.law", 1); set("osc1.wt.frame", [.05, 0, .1, .15]); set("osc1.unison", 1); set("osc1.octave", -1); set("osc1.wt.bend", [0, 0, 0, .45]);
    R(1, 3, "osc1.wt.frame", [.85, .95, .7, .8]); set("env2.attack", .001); set("env2.decay", [.18, .1, .3, .35]); set("env2.sustain", [.05, 0, .1, .1]); set("env2.release", .1);
-   set("env1.attack", .002); set("env1.decay", [.3, .25, .35, .4]); set("env1.sustain", [.6, .5, .7, .6]); set("env1.release", .08); }},
+   set("env1.attack", .002); set("env1.decay", [.3, .25, .35, .4]); set("env1.sustain", [.6, .5, .7, .6]); set("env1.release", .08); },
+  fdesc: "B659: a plain saw (C a square) through Weir's resonant low-pass, ENV 2 → cutoff 4–5.5 octaves on each note (Env amount, per sample), keytrack 0.5 · B snappier and more resonant · C the square · D slower, with bend. Play single notes. The A/B button plays the old version (ENV 2 scans the table instead of a filter).",
+  filt(set, st, R, X){ X(1); set("osc1.wt.law", 0); set("osc1.wt.frame", [1, 1, 0, 1]);
+   set("filter.mode", 1); set("filter.cutoff", [150, 120, 190, 230]); set("filter.resonance", [.8, .88, .76, .72]); set("filter.envAmt", [5, 5.5, 4.5, 4]); set("filter.keytrack", .5); }},
  {id: "brass", group: "Classic sounds", name: "80s brass", desc: "ENV 2 swells a two-oscillator detuned saw with a slow attack on its brightness · B wider, 5 members · C one oscillator, softer · D a sharper stab.",
   build(set, st, R){ st.tables = [ALL(TB.SS), ALL(TB.SS)]; st.puck = [0, 0];
    set("osc1.wt.law", 1); set("osc1.wt.frame", [.25, .3, .2, .35]); R(1, 3, "osc1.wt.frame", [.6, .5, .65, .55]);
    set("env2.attack", [.08, .06, .12, .02]); set("env2.decay", [.6, .5, .8, .3]); set("env2.sustain", [.3, .35, .25, .4]); set("env2.release", .3);
    set("env1.attack", [.06, .04, .09, .015]); set("env1.decay", [1, 1, 1, .4]); set("env1.sustain", [.85, .85, .9, .6]); set("env1.release", [.3, .35, .3, .15]);
    set("osc1.unison", [3, 5, 3, 3]); set("osc1.detune", [.12, .18, .1, .1]); set("mix.osc1", -2);
-   set("osc2.on", [1, 1, 0, 1]); set("osc2.wt.frame", .75); set("osc2.unison", 1); set("osc2.fine", 7); set("mix.osc2", -8); }},
+   set("osc2.on", [1, 1, 0, 1]); set("osc2.wt.frame", .75); set("osc2.unison", 1); set("osc2.fine", 7); set("mix.osc2", -8); },
+  fdesc: "B659: full saws through a gently resonant low-pass; ENV 2's slow attack opens the cutoff ~3 octaves into each note (Env amount) and its sustain holds it part-way, the brass swell · B wider, 5 members · C one oscillator, darker · D a sharper stab. The A/B button plays the old version (ENV 2 scans the table instead).",
+  filt(set, st, R, X){ X(1); set("osc1.wt.law", 0); set("osc1.wt.frame", 1); set("osc2.wt.frame", 1);
+   set("filter.mode", 1); set("filter.cutoff", [480, 560, 400, 650]); set("filter.resonance", [.2, .15, .25, .3]); set("filter.envAmt", [3, 3.2, 2.6, 3.6]); set("filter.keytrack", .6); }},
  {id: "strings", group: "Classic sounds", name: "String machine", desc: "Nine detuned saw members with a slow attack; LFO 1 breathes the detune like an ensemble · B an octave-up osc 2 and a slower swell · C the pulse table, hollow · D widest and splayed.",
   build(set, st, R){ st.tables = [[TB.SS, TB.SS, TB.PU, TB.SS], ALL(TB.SS)]; st.puck = [0, 0];
    set("osc1.wt.frame", [.9, .8, .15, 1]); set("osc1.unison", 9); set("osc1.detune", [.18, .14, .22, .3]); set("osc1.coupling", [0, .1, 0, -.3]); set("osc1.width", 1); set("mix.osc1", -2);
    set("env1.attack", [.35, .6, .25, 1]); set("env1.decay", 1); set("env1.sustain", .9); set("env1.release", [.8, 1.2, .6, 1.5]);
    st.lfo = [L4(SINE5, TRI5, SINE5, HUMP5), L4(SINE5)]; set("lfo1.rate", [5.5, 6, 4.5, 6.5]); R(1, 1, "osc1.detune", [.05, .06, .05, .08]);
-   set("osc2.on", [0, 1, 0, 1]); set("osc2.octave", 1); set("osc2.wt.frame", .85); set("osc2.unison", 5); set("osc2.detune", .15); set("mix.osc2", -11); }},
+   set("osc2.on", [0, 1, 0, 1]); set("osc2.octave", 1); set("osc2.wt.frame", .85); set("osc2.unison", 5); set("osc2.detune", .15); set("mix.osc2", -11); },
+  fdesc: "B659: the saws at full brightness, darkened instead by a fixed low-pass at 2–4.5 kHz with half keytrack, as a string machine's filter does · B with the octave-up osc 2 · C the hollow pulse · D widest, the brightest cutoff. The A/B button plays the old version (darker table frames, no filter).",
+  filt(set){ set("osc1.wt.frame", [1, 1, .15, 1]); set("osc2.wt.frame", 1); set("filter.mode", 1); set("filter.cutoff", [2600, 3400, 2000, 4500]); set("filter.resonance", .1); set("filter.keytrack", .5); }},
  {id: "organ", group: "Classic sounds", name: "Drawbar organ", desc: "The drawbar table, one registration per corner (A the fundamental, B with the 2nd and 3rd, C a jazz mix, D all nine) · a tremolo from LFO 1, faster at D, none at C.",
   build(set, st, R){ st.tables = [ALL(TB.OR), ALL(TB.SS)]; st.puck = [0, 0];
    set("osc1.wt.frame", [0, 1/3, 2/3, 1]); set("mix.osc1", [-3, -5, -3, -6]); set("osc1.unison", [1, 1, 2, 1]); set("osc1.detune", .02); set("osc1.width", .5);
@@ -1147,7 +1265,9 @@ const BANK = [
    st.lfo = [L4(TRI5, SINE5, TRI5, SINE5), L4(SINE5, TRI5, SINE5, RUP5)]; set("lfo1.rate", [.4, .6, .25, .8]); set("lfo2.rate", [.3, .45, .2, .7]);
    R(1, 1, "osc1.wt.frame", [.3, .25, .35, .4]); R(2, 2, "osc2.wt.frame", [.3, .3, .3, .35]);
    set("osc2.on", 1); set("osc2.wt.frame", .5); set("osc2.octave", [0, -1, 0, 1]); set("osc2.unison", 3); set("mix.osc2", -8);
-   set("env1.attack", [.6, .8, .4, 1.5]); set("env1.decay", 1); set("env1.sustain", .9); set("env1.release", [1.2, 1.5, 1, 2]); }},
+   set("env1.attack", [.6, .8, .4, 1.5]); set("env1.decay", 1); set("env1.sustain", .9); set("env1.release", [1.2, 1.5, 1, 2]); },
+  fdesc: "B659: the PWM pad through a softly resonant low-pass that LFO 1 also breathes (route 3, ±0.5–1 octave, per sample) · B osc 2 an octave down, darker · C Spectral log, brighter · D faster and wider, the brightest. The A/B button plays the old version (no filter).",
+  filt(set, st, R){ set("filter.mode", 1); set("filter.cutoff", [1300, 1000, 1700, 2100]); set("filter.resonance", [.25, .2, .3, .35]); set("filter.keytrack", .4); R(3, 1, "filter.cutoff", [.06, .05, .08, .1]); }},
  {id: "sync-lead", group: "Classic sounds", name: "Sync lead", desc: "Hard sync on a saw; ENV 2 sweeps the ratio down into each note · B a higher ratio, 3 members · C softer, windowed · D the highest ratio over an octave-down osc 2.",
   build(set, st, R){ st.tables = [ALL(TB.SS), ALL(TB.SS)]; st.puck = [0, 0];
    set("osc1.wt.frame", 1); set("osc1.wt.syncIn", 1); set("osc1.wt.sync", [2.2, 3.5, 1.6, 5]); set("osc1.wt.window", [0, 0, .3, 0]);
@@ -1167,13 +1287,18 @@ const BANK = [
    set("osc1.wt.frame", [.85, 1, .6, .9]); set("osc1.octave", -1); set("osc1.unison", [2, 3, 2, 5]); set("osc1.detune", [.12, .15, .08, .2]); set("osc1.coupling", [0, -.3, .3, 0]); set("osc1.width", .5); set("mix.osc1", -3);
    set("osc2.on", 1); set("osc2.wt.frame", [.9, .9, 0, .9]); set("osc2.octave", [-1, -1, -2, -1]); set("osc2.fine", [9, 12, 0, 15]); set("osc2.unison", 1); set("mix.osc2", [-5, -6, -2, -6]);
    st.lfo = [L4(SINE5), L4(SINE5)]; set("lfo2.rate", .15); R(1, 2, "osc1.wt.frame", [.08, .1, .05, .1]);
-   set("env1.attack", .003); set("env1.decay", .5); set("env1.sustain", .9); set("env1.release", .15); }},
+   set("env1.attack", .003); set("env1.decay", .5); set("env1.sustain", .9); set("env1.release", .15); },
+  fdesc: "B659: the Reese's saws through a resonant low-pass that LFO 2 sweeps slowly (route 1, about ±1 octave, per sample) instead of the table frame · B three members, more resonance · C the sine sub under a darker saw · D five members, the widest beat. The A/B button plays the old version (LFO 2 moves the frame).",
+  filt(set, st, R, X){ X(1); set("osc1.wt.frame", 1); set("filter.mode", 1); set("filter.cutoff", [480, 560, 360, 650]); set("filter.resonance", [.35, .42, .25, .45]); set("filter.keytrack", .5); R(1, 2, "filter.cutoff", [.1, .12, .06, .12]); }},
  {id: "harp", group: "Classic sounds", name: "Pluck and harp", desc: "ENV 2 scans each voice's frame from bright to sine, per voice under Spectral log with no rebuilds · B the comb table, frame spread across 3 members · C a fast harp with an octave from osc 2 · D a vowel pluck, spread.",
   build(set, st, R){ st.tables = [[TB.SS, TB.CO, TB.SS, TB.VO], ALL(TB.SS)]; st.puck = [0, 0];
    set("osc1.wt.law", 1); set("osc1.wt.frame", [0, .1, 0, 0]); set("osc1.wt.frameSpread", [0, .3, 0, .4]); set("osc1.unison", [1, 3, 1, 3]); set("osc1.detune", .05);
    R(1, 3, "osc1.wt.frame", [.9, .7, .95, .8]); set("env2.attack", .001); set("env2.decay", [.18, .25, .1, .3]); set("env2.sustain", 0); set("env2.release", .3);
    set("env1.attack", .001); set("env1.decay", [.6, .9, .4, 1.4]); set("env1.sustain", 0); set("env1.release", [.6, .8, .4, 1]);
-   set("osc2.on", [0, 0, 1, 1]); set("osc2.octave", 1); set("osc2.wt.frame", .3); set("osc2.unison", 1); set("mix.osc2", -12); }},
+   set("osc2.on", [0, 0, 1, 1]); set("osc2.octave", 1); set("osc2.wt.frame", .3); set("osc2.unison", 1); set("mix.osc2", -12); },
+  fdesc: "B659: a plucked saw (B the comb, D the vowel) through a resonant low-pass that ENV 2 snaps shut on each note (Env amount 4.5–6 octaves, keytrack 0.7), the analog pluck · B more resonant · C a fast harp with the octave from osc 2 · D the vowel, most resonant. The A/B button plays the old version (ENV 2 scans the frame).",
+  filt(set, st, R, X){ X(1); set("osc1.wt.law", 0); set("osc1.wt.frame", [1, .6, 1, .6]);
+   set("filter.mode", 1); set("filter.cutoff", [220, 320, 300, 260]); set("filter.resonance", [.4, .55, .3, .6]); set("filter.envAmt", [5.5, 5, 6, 4.5]); set("filter.keytrack", .7); }},
  {id: "choir", group: "Classic sounds", name: "Choir and vowel pad", desc: "The vowel table from ah (A) to ee (C), spread across 5–9 members, with a little smooth-noise pitch jitter for breath; LFO 2 drifts the morph across x by itself · B an octave down in osc 2 · D osc 2 on a different vowel.",
   build(set, st, R){ st.tables = [ALL(TB.VO), ALL(TB.VO)]; st.puck = [.3, .5];
    set("osc1.wt.law", 1); set("osc1.wt.frame", [0, .5, 1, .25]); set("osc1.wt.frameSpread", [.2, .4, .3, .6]); set("osc1.unison", [5, 7, 9, 7]); set("osc1.detune", [.1, .14, .2, .12]); set("osc1.coupling", .2); set("mix.osc1", -2);
@@ -1220,25 +1345,58 @@ const BANK = [
    set("osc1.wt.frame", [.3, .5, .4, .2]); set("osc1.unison", [5, 3, 7, 5]); set("osc1.detune", .15); set("osc1.coupling", .3); set("mix.osc1", -2);
    st.lfo = [L4(SINE5, TRI5, HUMP5, SINE5), L4(SINE5)]; set("lfo1.rate", [.15, .25, .1, .2]); set("lfo2.rate", .05); R(1, 1, "osc1.wt.frame", .35); R(2, 2, "morph.y", .5);
    set("env1.attack", .2); set("env1.decay", 1); set("env1.sustain", .85); set("env1.release", 1); }},
+
+ // B659: filter-first patches. They need Weir's filter; there is no old version.
+ {id: "f-sweep-pad", group: "Filter first (Weir SVF 12)", name: "Resonant sweep pad", desc: "A 7-member saw swarm through a highly resonant low-pass that LFO 1 sweeps slowly (route 1, ±3–3.5 octaves, per sample); the resonance sings each harmonic it passes · B brighter, more resonant, osc 2 an octave down · C band-pass, hollower · D the most resonant, with osc 2.",
+  build(set, st, R){ st.tables = [ALL(TB.SS), ALL(TB.SS)]; st.puck = [0, 0];
+   set("osc1.wt.frame", 1); set("osc1.unison", 7); set("osc1.detune", [.18, .22, .15, .28]); set("osc1.width", 1); set("mix.osc1", [-7, -7, 0, -7]);   // C's band-pass passes less: +7 dB
+   set("osc2.on", [0, 1, 0, 1]); set("osc2.wt.frame", 1); set("osc2.octave", -1); set("osc2.unison", 3); set("mix.osc2", -13);
+   set("filter.mode", [1, 1, 2, 1]); set("filter.cutoff", [350, 700, 500, 1000]); set("filter.resonance", [.85, .9, .8, .92]); set("filter.keytrack", .3);
+   st.lfo = [L4(SINE5, TRI5, SINE5, HUMP5), L4(SINE5)]; set("lfo1.rate", [.07, .1, .05, .13]); R(1, 1, "filter.cutoff", [.3, .25, .35, .3]);
+   set("env1.attack", [.8, 1.2, .6, 1.5]); set("env1.decay", 1); set("env1.sustain", .9); set("env1.release", [1.5, 2, 1.2, 2.5]); }},
+ {id: "f-ring-pluck", group: "Filter first (Weir SVF 12)", name: "Ringing pluck with Ring", desc: "A short saw click excites a band-pass at resonance ≈ 1, keytracked to the 2nd harmonic: the filter's ring is the note, and it rings on after the envelope ends (RC-1's tail) · A Ring 0 · B Ring 0.5, longer · C low-pass, Ring 0.6 · D Ring 1, ten times A's ring. Play single notes and short chords.",
+  build(set, st, R){ st.tables = [ALL(TB.SS), ALL(TB.SS)]; st.puck = [0, 0];
+   set("osc1.wt.frame", 1); set("osc1.unison", 1); set("osc1.width", 0); set("mix.osc1", [6, 6, -9, 6]);   // the band-pass corners get far less energy from the click than C's resonant LP
+   set("filter.mode", [2, 2, 1, 2]); set("filter.cutoff", 523.25); set("filter.keytrack", 1); set("filter.resonance", [.97, .99, 1, 1]); set("filter.ring", [0, .5, .6, 1]);
+   set("filter.envAmt", [1, 1, 1.5, .5]); set("env2.attack", .001); set("env2.decay", .06); set("env2.sustain", 0); set("env2.release", .05);
+   set("env1.attack", .001); set("env1.decay", [.15, .15, .08, .12]); set("env1.sustain", 0); set("env1.release", .05); }},
+ {id: "f-key-bass", group: "Filter first (Weir SVF 12)", name: "Keytracked bass", desc: "A saw bass through a resonant low-pass with a short ENV 2 blip · A keytrack 1: every note equally bright · B keytrack 1, more resonant, two members · C keytrack 0.5, a square sub from osc 2 · D keytrack 0: a fixed cutoff, low notes buzz, high notes go dull. Play up the keyboard; Velocity → cutoff is +1 octave at velocity 1 (Key velocity).",
+  build(set, st, R){ st.tables = [ALL(TB.SS), ALL(TB.PU)]; st.puck = [0, 0];
+   set("osc1.wt.frame", 1); set("osc1.octave", -1); set("osc1.unison", [1, 2, 1, 3]); set("osc1.detune", .05); set("osc1.width", .3); set("mix.osc1", -1);
+   set("osc2.on", [0, 0, 1, 1]); set("osc2.octave", -2); set("osc2.wt.frame", 0); set("osc2.unison", 1); set("mix.osc2", -9);
+   set("filter.mode", 1); set("filter.cutoff", [300, 420, 260, 500]); set("filter.keytrack", [1, 1, .5, 0]); set("filter.resonance", [.45, .55, .35, .5]); set("filter.envAmt", [2.5, 3, 2, 3]); set("filter.velocity", 1);
+   set("env2.attack", .001); set("env2.decay", [.2, .15, .3, .25]); set("env2.sustain", .1); set("env2.release", .1);
+   set("env1.attack", .002); set("env1.decay", .4); set("env1.sustain", .8); set("env1.release", .1); }},
+ {id: "f-notch-peak", group: "Filter first (Weir SVF 12)", name: "Notch and peak morph", desc: "LFO 2 carries the morph across x by itself, so the mode flips between the notch corners (A 600 Hz, C 2.5 kHz) and the peak corners (B 1.5 kHz, D 400 Hz) as a Structural row, while the cutoff, resonance and LFO 1's wobble (per sample) blend.",
+  build(set, st, R){ st.tables = [ALL(TB.SS), ALL(TB.SS)]; st.puck = [.5, .5];
+   set("osc1.wt.frame", 1); set("osc1.unison", 5); set("osc1.detune", .14); set("osc1.width", .9); set("mix.osc1", -6);
+   set("filter.mode", [4, 5, 4, 5]); set("filter.cutoff", [600, 1500, 2500, 400]); set("filter.resonance", [.5, .8, .7, .85]);
+   st.lfo = [L4(SINE5), L4(SINE5, TRI5, SINE5, TRI5)]; set("lfo1.rate", [.3, .5, .2, .4]); set("lfo2.rate", .06); R(1, 1, "filter.cutoff", [.12, .1, .15, .1]); R(2, 2, "morph.x", .9);
+   set("env1.attack", .3); set("env1.decay", 1); set("env1.sustain", .9); set("env1.release", 1); }},
 ];
 // the shared base of the three SCALPEL jitter patches: SCALPEL's defaults where the lab has the row (A 4 ms, D 400 ms, S 0.85, R 280 ms)
 function jitterBase(set){ set("osc1.wt.frame", 1); set("osc1.fm.source", 0); set("osc1.fm.type", 1); set("osc1.fm.rateUnit", 0); set("osc1.width", .7);
   set("env1.attack", .004); set("env1.decay", .4); set("env1.sustain", .85); set("env1.release", .28); }
 const bankOf = id => BANK.find(b => b.id === id) || BANK[0];
-function PRESET(id){
+// B659: a re-voiced patch has a filter version (filt, run after build: the default) and its old version (build alone, no
+// filter), for A/B. old = true loads the old one; a patch without filt has only one.
+function PRESET(id, old){
   const cv = blankCV(), set = (k, v) => { if (!cv[k]) throw new Error("no key " + k); cv[k] = Array.isArray(v) ? v.slice() : [v, v, v, v]; };
   const st = {cv, osc: [{seed: 1234}, {seed: 1235}], routes: Array.from({length: NR}, () => ({src: 0, dst: "osc1.wt.frame"})),
     lfo: [L4(SINE5), L4(SINE5)], tables: null, puck: null};
   set("mix.osc2", -6); set("osc2.unison", 3); set("osc2.detune", .1); set("osc2.width", .5); set("osc2.wt.frame", .5);
-  bankOf(id).build(set, st, (r, src, dst, depth) => { if (!destOf(dst)) throw new Error("no destination " + dst); st.routes[r - 1] = {src, dst}; set(`mod.r${r}.depth`, depth); });
+  const B = bankOf(id), R = (r, src, dst, depth) => { if (!destOf(dst)) throw new Error("no destination " + dst); st.routes[r - 1] = {src, dst}; set(`mod.r${r}.depth`, depth); };
+  const X = r => { st.routes[r - 1] = {src: 0, dst: "osc1.wt.frame"}; set(`mod.r${r}.depth`, 0); };   // clears a route the old version used
+  B.build(set, st, R);
+  if (B.filt && !old) B.filt(set, st, R, X);
   return st;
 }
 const OPENING = () => Object.assign(PRESET("opening"), {
   morph: {x: 0.3, y: 0.3, law: 0, temperature: 1, cohesion: 0.3, seed: 1024, glide: 0.008},
   walk: {on: 0, tau: 1.5, sigma: 0.45, depth: 0.5, seed: 7},
-  out: {level: 0}, poly: 8,
+  out: {level: 0}, poly: 8, vel: 0.85,
   lab: {spacing: 0, interp: 4, xfade: 0, slFrames: 0, os: 0},
-  vizOsc: 0, preset: "opening",
+  vizOsc: 0, preset: "opening", presetOld: false,
 });
 let ST = OPENING();
 const genIdOf = g => FACT_IDS[FACTORY.findIndex(f => f.gen === g)];
@@ -1442,6 +1600,63 @@ function drawFm(o){
 }
 const resetFmExt = () => fmUI.forEach(u => { if (u) u.ext = {lo: Infinity, hi: -Infinity}; });
 
+/* ---------------- B659: the filter card ---------------- */
+const fltUI = {};
+function buildFilter(){
+  const P = $("filterPanel"), inertAt = () => SEL === 4 ? "here" : "at " + KEYS[SEL];
+  const h = el("h2", null, "Filter · Weir SVF 12"); h.append(el("span", "hint", "per voice, after the amp envelope · the real C++, compiled to WebAssembly (B659)")); P.append(h);
+  const grid = el("div", "panels"); P.append(grid);
+  const left = el("div"), right = el("div"); grid.append(left, right);
+  const g = el("div", "cgrid"); left.append(g);
+  const noWeir = () => WEIR.ok ? "" : "inert: Weir's filter did not load (see the banner)";
+  const off = () => noWeir() || (cval("filter.mode") === 0 ? `inert ${inertAt()}: the mode is Off` : "");
+  const ctls = [seg(g, cdef("filter.mode", {live: noWeir})),
+    slider(g, cdef("filter.cutoff", {live: off})),
+    slider(g, cdef("filter.resonance", {live: off})),
+    slider(g, cdef("filter.ring", {live: () => off() || (cval("filter.resonance") < 0.965 ? `inert ${inertAt()}: Ring acts only above resonance ≈ 0.965 (Weir D-015)` : "")})),
+    slider(g, cdef("filter.keytrack", {live: off})),
+    slider(g, cdef("filter.envAmt", {live: off})),
+    slider(g, cdef("filter.velocity", {live: off}))];
+  left.append(el("p", "note", "Order, per voice: the two oscillators (summed, stereo) → the amp envelope (ENV 1) × velocity → SVF 12, the same coefficients on both channels (RC-1) → the voice sum → output. horde's RC-1 puts the filter slot after each source's governing envelope, so here it sits after ENV 1, and a resonant voice rings on after its envelope ends until Weir's tail() falls under 10⁻⁴ (−80 dB), then the voice is free."));
+  left.append(el("p", "note", "Per sample, through Weir's cutoff-modulation input in octaves (unsmoothed, ADR-311): Env amount × ENV 2, every route to Filter · Cutoff (LFO 1, LFO 2, ENV 2), and the knob's own move inside each 128-sample block. Per block (weir_set): resonance, Ring and their routes, the mode, and the base cutoff with keytrack and velocity. SVF 12 has no drive (Weir's registry: it uses cutoff, resonance and Ring), so the lab has none."));
+  const vh = el("div", "vh"); vh.append(el("span", "hint", "Response |H| · dB · 20 Hz–20 kHz · from Weir's response() · each sounding voice at its own cutoff"), el("span", "num hint", ""));
+  const cv = el("canvas", "viz"); cv.style.height = "170px";
+  const rd = el("div", "hint"), st = el("div", "hint");
+  right.append(vh, cv, rd, st);
+  Object.assign(fltUI, {cv, rd, st, head: vh.lastChild, ctls, liveKey: ""});
+}
+// the cutoff a picture uses when no voice reports one: the resolved knob with keytrack and velocity at note, plus the page's mirror of the routes and Env amount
+function pictureCutoff(note, vel){
+  const lc = Math.log2(modulated("filter.cutoff", "filter.cutoff")) + RES["filter.keytrack"]*(note - 60)/12 + RES["filter.velocity"]*vel + RES["filter.envAmt"]*(held.length ? newestEnv2() : 0);
+  return Math.pow(2, lc); }
+const fltHz = new Float64Array(200).map((_, i) => 20*Math.pow(1000, i/199));
+function drawFilter(){
+  const ui = fltUI; if (!ui.cv) return; const [c, W, H] = fit(ui.cv); c.clearRect(0, 0, W, H);
+  // the inert hints read resolved values under "All corners", which the resolver sets a tick after an edit: re-sync on a change
+  const lk = [WEIR.ok, SEL, RES["filter.mode"], RES["filter.resonance"] >= 0.965].join(); if (lk !== ui.liveKey){ ui.liveKey = lk; ui.ctls.forEach(k => k.sync()); }
+  const top = 6, bot = H - 14, x0 = 30, xw = W - x0 - 4, dbHi = 30, dbLo = -60;
+  const X = f => x0 + Math.log10(f/20)/3*xw, Y = db => top + (dbHi - Math.max(dbLo, Math.min(dbHi, db)))/(dbHi - dbLo)*(bot - top);
+  c.font = `400 9px ${T.mono || "monospace"}`; c.fillStyle = T["--hint"]; c.strokeStyle = T["--hair"]; c.lineWidth = 1;
+  [24, 12, 0, -24, -48].forEach(db => { const y = Math.round(Y(db)) + .5; c.beginPath(); c.moveTo(x0, y); c.lineTo(W, y); c.stroke(); c.textAlign = "right"; c.fillText((db > 0 ? "+" : "") + db, x0 - 3, y + 3); });
+  [20, 100, 1000, 10000].forEach(f => { c.textAlign = "center"; c.fillText(f < 1000 ? f : f/1000 + "k", X(f), H - 3); });
+  const mode = RES["filter.mode"], vs = voices().filter(v => v.fon > 0);
+  if (!WEIR.ok){ c.textAlign = "left"; c.fillText(WEIR.err ? "Weir did not load: " + WEIR.err : "loading Weir…", x0 + 4, 20); ui.rd.textContent = ""; ui.st.textContent = ""; return; }
+  if (!mode){ c.textAlign = "left"; c.fillText("Off: the voices pass straight through (no Weir call)", x0 + 4, 20); }
+  else {
+    const res = clamp01(modulated("filter.resonance", "filter.resonance")), ring = clamp01(modulated("filter.ring", "filter.ring"));
+    const curve = (fc, col, lw, a) => { const db = weirResponse(fltHz, fc, res, ring, mode); c.globalAlpha = a; c.beginPath();
+      for (let i = 0; i < fltHz.length; i++){ const x = X(fltHz[i]), y = Y(db[i]); i ? c.lineTo(x, y) : c.moveTo(x, y); } c.strokeStyle = col; c.lineWidth = lw; c.stroke(); c.globalAlpha = 1; };
+    if (vs.length) vs.forEach((v, i) => curve(v.fc, i === vs.length - 1 ? T["--physics"] : T["--ghost"], i === vs.length - 1 ? 2 : 1.2, i === vs.length - 1 ? 1 : .8));
+    else curve(pictureCutoff(48, 0.85), T["--physics"], 2, .6);
+    vs.forEach(v => { const x = Math.round(X(Math.max(20, Math.min(20000, v.fc)))) + .5; c.strokeStyle = T["--value"]; c.globalAlpha = .5; c.beginPath(); c.moveTo(x, bot - 8); c.lineTo(x, bot); c.stroke(); c.globalAlpha = 1; });
+  }
+  ui.head.textContent = mode ? `${F_MODES[mode]} · res ${RES["filter.resonance"].toFixed(2)} · Ring ${fmtPct(RES["filter.ring"])}` : "Off";
+  ui.rd.textContent = !mode ? "" : vs.length ? "Cutoff per voice (live, with keytrack, velocity, Env amount and routes): " + vs.map(v => `${noteName(v.note)} ${fmtHz(v.fc)}`).join(" · ")
+    : `No voice sounding: the curve is C3 at velocity 0.85 (${fmtHz(pictureCutoff(48, 0.85))}).`;
+  const tails = statsBuf[8] || 0, wl = WEIR.worklet;
+  ui.st.textContent = `Weir ${WEIR.build} · ${(WEIR.bytes/1024).toFixed(1)} KiB module · audio thread: ${!node ? "starts with audio" : !wl ? "starting…" : wl.ok ? `one instance, 16 SVF 12 inside it (8 voices × 1× and 2×), ${(wl.mem/1048576).toFixed(0)} MiB fixed memory` : "failed: " + wl.err} · page: one more instance for the curves · ${tails} filter tail${tails === 1 ? "" : "s"} ringing on freed voices`;
+}
+
 /* ---------------- morph, motion, envelopes, lab switches, random panel ---------------- */
 const dev = (fullKey, o) => Object.assign({fullKey}, o);
 function buildMotion(){
@@ -1469,6 +1684,7 @@ function buildEnv(){
   H3(P, "ENV 2 (a per-voice route source)"); g = el("div", "cgrid"); P.append(g); ["attack", "decay", "sustain", "release"].forEach(k => slider(g, cdef("env2." + k)));
   H3(P, "Voice & output (device: global)"); g = el("div", "cgrid"); P.append(g);
   slider(g, dev("voice.polyphony", {label: "Polyphony", law: "int", lo: 1, hi: 8, def: 8, fmt: v => String(v), range: "1..8 in the lab", doc: "Device (D). Lab cap 8 (PF-3's chord). The oldest note is stolen with a 3 ms fade.", get: () => ST.poly, set: v => ST.poly = v}));
+  slider(g, dev("lab: key velocity (B659)", {label: "Key velocity", law: "lin", lo: 0.05, hi: 1, def: 0.85, fmt: v => v.toFixed(2), range: "0.05..1", doc: "The velocity the computer and on-screen keys play at (the lab has no MIDI input). The PF-3 chord stays at 0.85, as PF-3 defines it. Velocity scales the voice and, through the filter's Velocity row, its cutoff.", get: () => ST.vel, set: v => ST.vel = v}));
   slider(g, dev("out.level", {label: "Level", law: "db", lo: -60, hi: 26, def: 0, fmt: fmtDb, range: "−∞, −60..+26 dB", doc: "SPEC-ENGINE 5.2, OU-1: the output is 0.14 × 10^(level/20) × the voices; no limiter, a clip latch. Global in this lab.", get: () => ST.out.level, set: v => ST.out.level = v}));
 }
 function buildLab(){
@@ -1557,8 +1773,8 @@ function buildMatrix(){
     const row = el("div", "rt"), src = document.createElement("select"), dst = document.createElement("select"), now = el("span", "now", "");
     src.setAttribute("aria-label", `route ${r + 1} source`); dst.setAttribute("aria-label", `route ${r + 1} destination`);
     SRC_NAMES.forEach((s, i) => { const op = el("option", null, s); op.value = i; src.append(op); });
-    let grp = null, last = null; DESTS.forEach(d => { const gname = d.slot < 0 ? "Morph (MS-29)" : `Osc ${d.osc + 1}`; if (gname !== last){ grp = document.createElement("optgroup"); grp.label = gname; dst.append(grp); last = gname; }
-      const op = el("option", null, d.label.replace(/^Osc \d · /, "")); op.value = d.code; grp.append(op); });
+    let grp = null, last = null; DESTS.forEach(d => { const gname = d.slot < 0 ? "Morph (MS-29)" : d.group || `Osc ${d.osc + 1}`; if (gname !== last){ grp = document.createElement("optgroup"); grp.label = gname; dst.append(grp); last = gname; }
+      const op = el("option", null, d.label.replace(/^(Osc \d|Filter) · /, "")); op.value = d.code; grp.append(op); });
     src.addEventListener("change", () => { ST.routes[r].src = +src.value; changed(); });
     dst.addEventListener("change", () => { ST.routes[r].dst = dst.value; changed(); });
     row.append(el("span", "rn", String(r + 1)), src, dst, now); P.append(row);
@@ -1567,7 +1783,7 @@ function buildMatrix(){
     routeUI.push({src, dst, now});
     CTLS.push({sync(){ src.value = ST.routes[r].src; dst.value = ST.routes[r].dst; }});
   }
-  P.append(el("p", "note", "Sources: LFO 1 and 2 (global, so they may move the morph) and ENV 2 (per voice). Depth is added in the destination's normalised form, so 1 sweeps its whole range; on the pad 1 is ±0.5. As the morph moves, both the shapes and these depths transform. Applied per 128-sample block in the worklet."));
+  P.append(el("p", "note", "Sources: LFO 1 and 2 (global, so they may move the morph) and ENV 2 (per voice). Depth is added in the destination's normalised form, so 1 sweeps its whole range; on the pad 1 is ±0.5. As the morph moves, both the shapes and these depths transform. Applied per 128-sample block in the worklet, except Filter · Cutoff, which reaches Weir per sample in octaves (B659)."));
 }
 // a route's value now, for the newest held voice (ENV 2 mirrored on the page)
 function routeAmount(r){ const R = ST.routes[r]; if (!R.src) return 0; const dep = RES[`mod.r${r + 1}.depth`] || 0;
@@ -1632,6 +1848,33 @@ function assignCorner(o, c, id, quiet){
    Audio graph, workers, messages
    ===================================================================================================== */
 let ctx = null, node = null, analyser = null, starting = null, workers = [null, null], sentTo = [new Set(), new Set()];
+/* B659: Weir's filter. The page fetches and compiles weir/weir_lab.wasm once; the worklet instantiates that module for the
+   voices, and the page instantiates it again for the drawn curves (filter.h's response(), the same diagnostic Weir's oracle
+   reads), so the curve and the sound are the same C++. The registry names the kinds; the lab plays "svf12" (Weir D-013's
+   ruled form: Simper, energy law), looked up by id, never by index. */
+const WEIR = {module: null, x: null, kind: -1, build: "", h: -1, sr: 0, ok: false, err: "", bytes: 0, mem: 0, worklet: null};
+const WEIR_IMPORTS = {wasi_snapshot_preview1: {fd_close: () => 0, fd_write: () => 0, fd_seek: () => 0}};
+function cstr(x, p){ const b = new Uint8Array(x.memory.buffer); let s = ""; for (let i = p; b[i]; i++) s += String.fromCharCode(b[i]); return s; }
+async function loadWeir(){
+  try {
+    const res = await fetch("weir/weir_lab.wasm"); if (!res.ok) throw new Error(`weir/weir_lab.wasm: HTTP ${res.status}`);
+    const buf = await res.arrayBuffer(); WEIR.bytes = buf.byteLength; WEIR.module = await WebAssembly.compile(buf);
+    const x = (await WebAssembly.instantiate(WEIR.module, WEIR_IMPORTS)).exports; if (x._initialize) x._initialize();
+    const reg = JSON.parse(cstr(x, x.weir_registry_json())); WEIR.build = reg.build; WEIR.kind = reg.kinds.findIndex(k => k.id === "svf12");
+    if (WEIR.kind < 0) throw new Error("svf12 is not in Weir's registry");
+    WEIR.h = x.weir_create(WEIR.kind); if (WEIR.h < 0) throw new Error("weir_create refused");
+    WEIR.x = x; WEIR.mem = x.memory.buffer.byteLength; weirPrepare(48000); WEIR.ok = true;
+  } catch (e){ WEIR.err = String(e && e.message || e); WEIR.module = null; WEIR.ok = false;
+    showWarn("weirWarn", "Weir's filter did not load (" + WEIR.err + "). The lab plays without it. Serve this folder over http (python3 -m http.server) rather than opening the file directly, so the page can fetch weir/weir_lab.wasm."); }
+  changed();
+}
+const weirLoading = loadWeir();
+// the curve instance's sample rate follows the context's, since response() prewarps at it
+function weirPrepare(sr){ if (!WEIR.x || WEIR.sr === sr) return; WEIR.x.weir_prepare(WEIR.h, sr, 512, 0); WEIR.sr = sr; }
+// |H| in dB at each frequency in hz (Float64Array), through weir_response(); the result is a copy
+function weirResponse(hz, cutoff, res, ring, mode){
+  const x = WEIR.x, n = hz.length, base = x.weir_scratch(), mem = new Float64Array(x.memory.buffer, base, 3*n); mem.set(hz);
+  x.weir_response(WEIR.h, base, n, base + 8*n, base + 16*n, cutoff, res, 0, ring, mode); return mem.slice(n, 2*n); }
 const workerInfo = [0, 1].map(() => ({count: 0, frames: 0, ms: 0, nb: 0, mode: "", gains: null, built: null, lim: 0, cap: 0, busy: false, law: 0, log: []}));
 let noteSnap = [0, 0];   // each worker's set count at the last note-on: "rebuilds since the last note"
 function makeWorkers(){
@@ -1653,10 +1896,12 @@ async function ensureAudio(){
     LF.forEach((l, n) => { l.ph0 = ph[n]; l.t0 = ctx.currentTime; }); lastClock = null;   // the LFOs move onto the audio clock without a jump
     const url = URL.createObjectURL(new Blob([WORKLET_SRC], {type: "application/javascript"}));
     await ctx.audioWorklet.addModule(url);
-    node = new AudioWorkletNode(ctx, "horde-wt", {numberOfInputs: 0, outputChannelCount: [2]});
+    await weirLoading; weirPrepare(ctx.sampleRate);   // B659: the worklet gets the compiled module, or none (it then plays unfiltered)
+    node = new AudioWorkletNode(ctx, "horde-wt", {numberOfInputs: 0, outputChannelCount: [2], processorOptions: {weir: WEIR.module, weirKind: WEIR.kind}});
     analyser = ctx.createAnalyser(); analyser.fftSize = 2048;
     node.connect(analyser); node.connect(ctx.destination);
-    node.port.onmessage = e => { if (e.data.type === "stats"){ stats = e.data.buf; polling = false; onStats(); } };
+    node.port.onmessage = e => { if (e.data.type === "stats"){ stats = e.data.buf; polling = false; onStats(); }
+      else if (e.data.type === "weir"){ WEIR.worklet = e.data; if (WEIR.module && !e.data.ok) showWarn("weirWarn", "Weir's filter failed in the audio thread: " + e.data.err + ". The lab plays without it."); changed(); } };
     const ch = [new MessageChannel(), new MessageChannel()];
     node.port.postMessage({type: "ports", p1: ch[0].port1, p2: ch[1].port1}, [ch[0].port1, ch[1].port1]);
     for (let o = 0; o < 2; o++) workers[o].postMessage({type: "port", port: ch[o].port2}, [ch[o].port2]);
@@ -1688,9 +1933,11 @@ function pushParams(){
     dbLin(ST.out.level), ST.poly, ST.lab.interp, ST.lab.xfade ? 1024 : Rx, ST.lab.os ? 2 : 1]);
   const rs = new Int8Array(NR), rd = new Int16Array(NR), rk = new Float64Array(NR);
   ST.routes.forEach((R, r) => { const d = destOf(R.dst); rs[r] = R.src === 3 && d.slot < 0 ? 0 : R.src; rd[r] = d.slot; rk[r] = RES[`mod.r${r + 1}.depth`]; });
-  const key = osc.join() + "|" + glob.join() + "|" + rs.join() + rd.join() + "|" + rk.join();
+  // B659: the filter's resolved values, in F_NAMES order
+  const F = k => RES[`filter.${k}`], filt = new Float64Array([F("mode"), F("cutoff"), F("resonance"), F("ring"), F("keytrack"), F("envAmt"), F("velocity")]);
+  const key = osc.join() + "|" + glob.join() + "|" + rs.join() + rd.join() + "|" + rk.join() + "|" + filt.join();
   if (key === lastParamKey) return; lastParamKey = key;
-  node.port.postMessage({type: "params", osc, glob, rs, rd, rk});
+  node.port.postMessage({type: "params", osc, glob, rs, rd, rk, filt});
 }
 let lastWorkerKey = ["", ""];
 function pushWorkers(){
@@ -1725,7 +1972,7 @@ let noteSeq = 1; const noteIds = new Map(); const held = [];   // held: {key, no
 async function noteOn(key, note, vel){
   if (!(await ensureAudio())) return;
   if (!noteIds.has(key)) noteIds.set(key, noteSeq++);
-  node.port.postMessage({type: "on", id: noteIds.get(key), note, vel: vel || 0.85});
+  node.port.postMessage({type: "on", id: noteIds.get(key), note, vel: vel || ST.vel || 0.85});
   const i = held.findIndex(h => h.key === key); if (i >= 0) held.splice(i, 1);
   held.push({key, note, t0: ctx.currentTime});
   noteSnap = workerInfo.map(w => w.count);
@@ -1861,7 +2108,19 @@ function drawOutput(){
       const x = Math.round(X(n)) + .5, y = top + db/floor*(bot - top); c.moveTo(x, bot); c.lineTo(x, y); }
     c.lineWidth = 1; c.stroke();
     const cen = cd ? cn/cd : 1; c.strokeStyle = T["--value"]; c.lineWidth = 2; c.beginPath(); c.moveTo(X(cen), top); c.lineTo(X(cen), bot); c.stroke();
-    $("specRead").textContent = `centroid n ${cen.toFixed(1)} (${fmtHz(cen*L.C3)} at C3)${lim ? ` · newest voice reads H ≤ ${lim}` : ""}`; }
+    // B659: the filter's |H| (Weir's response()) at each harmonic's frequency for the newest sounding voice (else C3), on the
+    // same dB grid with 0 dB at the top line: what the filter does to these harmonics. Its peak above 0 dB is clipped to the top.
+    let fl = "";
+    if (WEIR.ok && RES["filter.mode"]){ const vs = voices().filter(v => v.fon > 0), nv = vs.length ? vs[vs.length - 1] : null, N = o + 1;
+      const tr = RES[`osc${N}.octave`]*12 + RES[`osc${N}.semitone`] + RES[`osc${N}.fine`]/100, note = nv ? nv.note : 48;
+      const f0 = 440*Math.pow(2, (note + tr - 69)/12), fc = nv ? nv.fc : pictureCutoff(48, 0.85);
+      const nn = new Float64Array(160).map((_, i) => Math.pow(1024, i/159)), hz = nn.map(n => Math.min(0.499*(WEIR.sr || 48000), n*f0));
+      const db = weirResponse(hz, fc, clamp01(modulated("filter.resonance", "filter.resonance")), clamp01(modulated("filter.ring", "filter.ring")), RES["filter.mode"]);
+      c.strokeStyle = T["--physics"]; c.lineWidth = 1.6; c.beginPath();
+      for (let i = 0; i < nn.length; i++){ const y = top + Math.min(-floor, Math.max(0, -db[i]))/(-floor)*(bot - top), x = X(nn[i]); i ? c.lineTo(x, y) : c.moveTo(x, y); } c.stroke();
+      const nc = fc/f0; if (nc >= 1 && nc <= 1024){ c.setLineDash([2, 3]); c.beginPath(); c.moveTo(X(nc), top); c.lineTo(X(nc), bot); c.stroke(); c.setLineDash([]); }
+      fl = ` · filter (violet): ${F_MODES[RES["filter.mode"]]} at ${fmtHz(fc)} = n ${nc.toFixed(1)} of ${nv ? noteName(nv.note) : "C3"}`; }
+    $("specRead").textContent = `centroid n ${cen.toFixed(1)} (${fmtHz(cen*L.C3)} at C3)${lim ? ` · newest voice reads H ≤ ${lim}` : ""}${fl}`; }
 }
 // stats from the worklet (polled; the handler fills a transferred buffer, so process() never posts)
 let stats = null, polling = false; const statsBuf = new Float32Array(STATS_LEN);
@@ -1875,7 +2134,7 @@ function onStats(){ const s = stats; if (!s) return; statsBuf.set(s);
   $("clip").classList.toggle("lit", s[2] > 0);
   vizDirty = true; }
 function voices(){ const out = []; const s = statsBuf; for (let v = 0; v < 8; v++){ const o = 16 + v*48; if (s[o] > 0) out.push({v, note: s[o + 1], env: s[o + 2], H1: s[o + 3], m1: s[o + 4], H2: s[o + 5], m2: s[o + 6], R1: s[o + 7], f1: s[o + 8], f2: s[o + 9],
-    ph1: s.subarray(o + 10, o + 19), U1: s[o + 19], ph2: s.subarray(o + 20, o + 29), U2: s[o + 29], R2: s[o + 30], age: s[o + 31], gate: s[o + 32], Hn1: s[o + 33], Hn2: s[o + 34]}); } return out.sort((a, b) => a.age - b.age); }
+    ph1: s.subarray(o + 10, o + 19), U1: s[o + 19], ph2: s.subarray(o + 20, o + 29), U2: s[o + 29], R2: s[o + 30], age: s[o + 31], gate: s[o + 32], Hn1: s[o + 33], Hn2: s[o + 34], fc: s[o + 35], fon: s[o + 36]}); } return out.sort((a, b) => a.age - b.age); }
 function mipLimit(o){ const vs = voices().filter(v => v.gate); if (!vs.length) return 0; const v = vs[vs.length - 1]; return o === 0 ? v.H1 : v.H2; }
 function drawMip(){
   const [c, W, H] = fit($("mip")); c.clearRect(0, 0, W, H); const lay = L.makeLayout(ST.lab.spacing), vs = voices(), o = ST.vizOsc;
@@ -1994,7 +2253,7 @@ function rndPreview(){ rndDirty = false; const r = rndRecipe(), b = buildGen(r);
 /* ---------------- notes for the lead ---------------- */
 const NOTE_SECTIONS = [
   ["corners", "Corners & the factory tables"], ["pad", "The pad & morph motion (LFO, 2-D random)"], ["law", "Blend laws & frames"],
-  ["swarm", "The swarm: unison, detune, coupling, width"], ["transform", "Sync, window, asym, bend"], ["fm", "FM / PM and the jitter patches"], ["presets", "The preset bank"], ["loud", "Loudness steadiness"],
+  ["swarm", "The swarm: unison, detune, coupling, width"], ["transform", "Sync, window, asym, bend"], ["fm", "FM / PM and the jitter patches"], ["filter", "The filter (Weir SVF 12): modes, resonance, Ring, keytrack, envelope"], ["presets", "The preset bank (and the A/B of the re-voiced ones)"], ["loud", "Loudness steadiness"],
   ["capture", "Capture, recipes, library"], ["random", "Random table slot"], ["visuals", "Visuals (stacks, spectrum, mip, phases)"],
   ["names", "Names, ranges, layout"], ["sound", "How it sounds / feels"], ["other", "Anything else"]];
 let NOTES = {};
@@ -2006,7 +2265,8 @@ function exportJSON(){
   const recipes = {}; for (const id of patchRecipes([LIBRARY, ST.osc[0].corners, ST.osc[1].corners])) recipes[id] = DICT.get(id).recipe;
   // settings.cv holds every corner key's four values, A B C D; resolved is what sounded at the heard position
   const resolved = Object.fromEntries([...PDEF.keys()].map(k => [k, RES[k]]));
-  return JSON.stringify({lab: "horde wavetable lab", brief: "B650, B651, B652", spec: "SPEC-WAVETABLE / CONTRACT on main", notes: NOTES,
+  return JSON.stringify({lab: "horde wavetable lab", brief: "B650, B651, B652, B659", spec: "SPEC-WAVETABLE / CONTRACT on main", notes: NOTES,
+    weir: {loaded: WEIR.ok, build: WEIR.build, kind: "svf12", file: "weir/weir_lab.wasm", provenance: "weir/PROVENANCE.md", error: WEIR.err || undefined},
     settings: ST, corners: "settings.cv[key] = [A, B, C, D]; settings.lfo[n].pts[j].c[corner] = {t, v, u, parked}", resolved, lfoResolved: LRES, heard, sampleRate: ctx ? ctx.sampleRate : null, read: ST.lab.interp + "-point", dictionary: recipes, library: LIBRARY,
     names: Object.fromEntries(Object.entries(recipes).map(([id, r]) => [id, r.name]))}, null, 2);
 }
@@ -2045,12 +2305,13 @@ function frame(){
   tick(); const moved = lastMoved; lastMoved = false;
   if (moved || stackDirty || held.length || morphRouted() || ST.walk.on || ST.routes.some(R => R.src && R.dst.endsWith("wt.frame"))){ drawCorners(); stackDirty = false; }
   drawPad(); updateMarks(); drawLfo(0); drawLfo(1); drawMatrix();
-  drawOutput(); drawMip(); drawPhase(); drawLoud(); drawMeter(); drawFm(0); drawFm(1);
+  drawOutput(); drawMip(); drawPhase(); drawLoud(); drawMeter(); drawFm(0); drawFm(1); drawFilter();
   if (libDirty){ libDirty = false; drawLib(); }
   if (rndDirty) rndPreview();
   const busy = workerInfo.some(w => w.busy) && node;
   const st = $("status"), stt = $("statusText");
-  if (!node){ st.className = "pill"; stt.textContent = "Ready · audio off"; }
+  if (!WEIR.ok && !WEIR.err){ st.className = "pill busy"; stt.textContent = "Loading Weir's filter…"; }
+  else if (!node){ st.className = "pill"; stt.textContent = "Ready · audio off"; }
   else if (busy){ st.className = "pill busy"; stt.textContent = "Rebuilding tables…"; }
   else { st.className = "pill ok"; stt.textContent = "Playing"; }
   $("rebuildRead").textContent = workerInfo.map((w, o) => `osc ${o + 1}: ${w.count} rebuilds (${w.frames} frames built), last ${w.ms.toFixed(1)} ms for ${w.nb} frame${w.nb === 1 ? "" : "s"}${w.mode ? " · " + w.mode : ""} · since the last note-on: ${w.count - noteSnap[o]}`).join(" — ") + ". A static patch rebuilds zero times (WT-14); under Spectral log a note or a frame envelope rebuilds nothing unless the frames mode is shared.";
@@ -2084,7 +2345,8 @@ function wire(){
   { const sel = $("preset"); let grp = null, last = null; BANK.forEach(b => { if (b.group !== last){ grp = document.createElement("optgroup"); grp.label = b.group; sel.append(grp); last = b.group; }
       const op = el("option", null, b.name); op.value = b.id; op.title = b.desc; grp.append(op); }); }
   $("presetLoad").addEventListener("click", () => loadPreset($("preset").value));
-  $("preset").addEventListener("change", () => loadPreset($("preset").value));
+  $("presetAB").addEventListener("click", () => { ST.presetOld = !ST.presetOld; loadPreset($("preset").value, true); });
+  $("preset").addEventListener("change", () => { ST.presetOld = false; loadPreset($("preset").value); });   // a new patch opens on its filter version
   $("rndSeed").addEventListener("input", () => rndDirty = true);
   $("rndRoll").addEventListener("click", () => { $("rndSeed").value = (Math.floor(+$("rndSeed").value || 0) + 1) >>> 0; rndDirty = true; });
   $("rndAdd").addEventListener("click", () => { const r = rndRecipe(), id = recipeId(r);
@@ -2105,11 +2367,13 @@ function wire(){
 function tableIdOf(spec){ if (typeof spec === "string") return genIdOf(spec);
   const c = spec.cap, recipe = {v: 1, kind: "cap", src: c.src.map(tableIdOf), x: c.x, y: c.y, frame: c.frame, law: c.law, lawV: 1, name: c.name};
   const id = recipeId(recipe); if (!DICT.has(id)) buildRecipe(recipe); return id; }
-function loadPreset(name){ const P = PRESET(name), B = bankOf(name); ST.cv = P.cv; ST.routes = P.routes; ST.lfo = P.lfo; ST.osc.forEach((s, o) => s.seed = P.osc[o].seed); ST.preset = B.id;
+// B659: keepPuck (the A/B toggle) leaves the puck where it is, so the two versions compare at one position
+function loadPreset(name, keepPuck){ const B = bankOf(name), old = !!(B.filt && ST.presetOld), P = PRESET(name, old); ST.cv = P.cv; ST.routes = P.routes; ST.lfo = P.lfo; ST.osc.forEach((s, o) => s.seed = P.osc[o].seed); ST.preset = B.id;
   if (P.tables) P.tables.forEach((row, o) => { ST.osc[o].corners = row.map(tableIdOf); ST.osc[o].corners.forEach(id => sendTable(o, id)); });
-  if (P.puck){ ST.morph.x = P.puck[0]; ST.morph.y = P.puck[1]; }
+  if (P.puck && !keepPuck){ ST.morph.x = P.puck[0]; ST.morph.y = P.puck[1]; }
   for (const k in GLIDE) delete GLIDE[k]; for (const k in LATCH) delete LATCH[k]; LGL.forEach(m => m.clear()); resetFmExt();
-  $("preset").value = B.id; $("presetDesc").textContent = B.desc; stackDirty = true;
+  $("preset").value = B.id; $("presetDesc").textContent = B.filt && !old ? B.fdesc : B.desc; stackDirty = true;
+  const ab = $("presetAB"); ab.disabled = !B.filt; ab.setAttribute("aria-pressed", old); ab.textContent = !B.filt ? "No A/B" : old ? "B: old, no filter" : "A: with filter";
   stepMotion(); resolve(0); refreshMenus(); renderLib(); changed(); }
 function about(){
   const lay = L.makeLayout(0);
@@ -2121,7 +2385,8 @@ function about(){
   <p><b>The drawn LFOs</b> follow ADR-349 and LF-8: one point list (up to 32) shared by the four corners, each corner its own time, level and bend per point. Under Blend each point's time (in cycles, linearly), level and bend blend over the corners and the list is re-sorted by time (id breaking a tie); under Quantum each point picks its corner by the draw <code>morph/lfoN/point/&lt;id&gt;</code> (cohesion 1 is the whole-shape flip), glided. Adding a point in one corner parks it in the others on their curves (C.12's exact split: bend u at fraction f becomes u·f and u·(1 − f)). The shape law and editing are ported from the design system's ShapeMorph (GUI-37). Both LFOs are <b>global and free-running</b> here (not per note), so they may move the morph (MS-29); their phase is computed in closed form on the audio clock on the page and in the worklet alike.</p>
   <p><b>Spectral log without per-note rebuilds (B651).</b> Spectral log's blend, exp(Σ w ln|c|) per harmonic, is nonlinear but does not depend on the frame except through which frame it blends, so at the morph position all 16 frames are log-blended once and each voice crossfades its two adjacent frames in the time domain, as Linear's strategy (b) does. A rebuild happens only when the morph position, a corner table or the law changes, never for a note or a frame envelope; the frame, frame spread and ENV 2 → frame work per voice under both laws. The cost moves to the morph: a move rebuilds 16 frames instead of 1. The lazy switch builds only the adjacent pair each sounding voice reads (the worker polls the worklet every 15 ms; a frame not built yet is read as its nearest built frame until it arrives). <b>Between integer frames this interpolates linearly between two log-blended frames, not in the log domain</b> (CONTRACT §7 C6 is still open; a this-frame capture at a fractional frame bakes the log-domain rule, so it can differ slightly from what was heard). The old shared frame stays on the switch for A/B.</p>
   <p><b>FM / PM (B652).</b> Each oscillator has an FM section whose every value is a corner value. The source is its own internal modulator, osc 2 (osc 1 only: this is WT-30's PM, and it absorbed <code>osc1.wt.pm</code>; osc 2 may sit at −∞) or Self (the mean of its last two outputs, clamped to ±1; under Phase the index is clamped at ${SELF_PM_MAX} rad). Phase moves the read by I/2π × the modulator; Pitch is SCALPEL's law, the read rate times (1 + 0.1·I)<sup>m</sup>, integrated, so ±1200·log2(1 + 0.1·I) cents at full swing. The internal modulator's seven shapes, its smooth and S&amp;H noise (a seeded hash, one value per modulator cycle, member seeds i·97) and its unbounded phase wrapped at 65,536 are ported exactly from <code>RazorCore.mod</code>; only SCALPEL's <code>Math.random()</code> start phases are replaced by mulberry32 draws. FM mix is SCALPEL's blade depth (a second, unmodulated read mixed in). WT-36: each member's level is chosen from its maximum read rate with FM included (Pitch: × (1 + 0.1·I); Phase: + I/2π × the modulator's peak slope × its rate), and the mip ladder outlines where a voice would read without FM. A lab switch runs the members at 2× and decimates through a 63-tap halfband. Index, ratio, Hz and mix are matrix destinations.</p>
-  <p><b>The preset bank (B652).</b> 24 patches in five groups; each sets every corner value, its corner tables (factory by name, three captures built from their recipes), routes, both LFO shapes and the puck, and shows one line on what the pad does. There is no filter and no noise source in the lab: the acid, brass and pluck patches scan Sine → saw with ENV 2 instead of a filter, and the flute's breath is smooth-noise PM, said in their lines.</p>
+  <p><b>The preset bank (B652, B659).</b> 28 patches in six groups; each sets every corner value, its corner tables (factory by name, three captures built from their recipes), routes, both LFO shapes and the puck, and shows one line on what the pad does. B659 re-voiced seven (growl, acid, brass, string machine, PWM pad, Reese, pluck) through Weir's filter; the A/B button next to the menu loads each one's old version, where the acid, brass and pluck scan Sine → saw with ENV 2 instead of a filter. There is still no noise source: the flute's breath is smooth-noise PM.</p>
+  <p><b>The filter (B659).</b> Each voice ends in one instance of Weir's SVF 12 (ADR-307: the filters live in Weir, a C++ library; Weir D-013: a 2-pole TPT state-variable filter in Simper's form with the energy level law; D-015: Ring). It is the real C++, compiled to WebAssembly by Weir's own <code>lab/build.sh</code> and vendored at <code>weir/weir_lab.wasm</code> (provenance, commit and sha256 in <code>weir/PROVENANCE.md</code>); there is no JavaScript copy, so what is heard is the code that ships. The page compiles the module once; the audio thread instantiates it synchronously (no Emscripten glue, Weir's own way) with 16 filter instances inside one module: 8 voices at the sample rate and 8 at twice it for the FM oversampling switch. Weir is prepared as horde calls it, <code>prepare(sr, block, 0.0)</code>: no smoothing (ADR-311). The slot sits after the amp envelope (RC-1: after each source's governing envelope), the same coefficients on both channels; a voice whose envelope has ended stays in its filter until <code>tail()</code> falls under 10<sup>−4</sup>, then it is free. Cutoff motion (Env amount × ENV 2, routes to the cutoff from both LFOs and ENV 2, and the knob's own move inside a block) reaches Weir per sample in octaves through <code>Mod.cutoffOct</code>; resonance, Ring and their routes go in per 128-sample block by <code>weir_set</code>, since the lab's ABI passes cutoff modulation only. The curves (the Filter card, and violet over Harmonics) are Weir's <code>response()</code> from a second instance on the page. Seven classic patches have a filter version and keep their old one behind the A/B button; four new patches are filter-first.</p>
   <p><b>The read: 4-point cubic (Catmull-Rom) by default</b>, on the 6-point layout, for browser CPU. The spec builds 6-point Lagrange (WT-6); the Read switch plays it.</p>
   <p><b>The swarm here</b> is a sketch of SW-1..17: members with even detune (cents law), balanced stereo seats, seeded start phases (mulberry32 at <code>oscN.seed</code>), and a plain Kuramoto mean-field coupling (the members' phases pull together as coupling rises; R is the order parameter). No drift, inertia, onset scatter or C.1 taper.</p>
   <p><b>Determinism.</b> No <code>Math.random</code> anywhere: start phases, the S&amp;H LFO, the 2-D random and the random table draw from mulberry32 streams with visible seeds. Table ids are the 64-bit FNV-1a hash of each recipe's canonical text (CONTRACT §3.1). Morph motion advances on the audio clock.</p>
@@ -2136,6 +2401,7 @@ function about(){
     <li>The "DSP load" readout is an estimate from <code>Date.now()</code> (1 ms resolution, averaged); analyser meters cannot see audio-thread underruns, so only your ears can confirm there is no crackle.</li>
     <li>The user library lives in this browser's storage as recipes (rebuilt on load); WT-45's device-wide folder and exported preset files are not in the lab.</li>
     <li>FM (B652): the level choice ignores the jumps of the square and S&amp;H modulators under Phase (a jump is a phase step and aliases like any step; the 2× switch helps); under osc 2 or Self the modulator's slope is estimated (as a sine at osc 2's pitch, or I·f for Self). The sync restart's polyBLEP is computed without FM. Routes move the FM values per 128-sample block. Ratio FM with a periodic shape starts locked to each member's carrier (key sync); SCALPEL starts every modulator at a random phase.</li>
+    <li>Filter (B659): resonance, Ring and their routes move per 128-sample block (the lab's ABI passes only cutoff modulation per sample, though Weir's <code>Mod</code> has a resonance input). The base cutoff, keytrack and velocity go in per block, and the knob's move across each block reaches Weir per sample as a linear ramp in octaves, so it does not step. A cutoff route is not clamped to the knob's 20 Hz–20 kHz; Weir clamps the result to 10 Hz–0.49·fs. A mode flip (Structural) lands on the next sample with no crossfade, as Weir behaves with smoothing off (horde's PA-5 crossfade is the engine's). A new note on a voice cuts that voice's filter (Weir's <code>reset()</code>), and a note that takes a voice still ringing out cuts its tail. The FM oversampling switch moves the voices to the 2× filter bank, which starts clear. Weir's level law is the ruled energy law; a resonant LP or Notch is louder than its input, so a high-resonance patch needs lower oscillator levels.</li>
     <li>Not measured here: aliasing (WT-F1), the top of the band (WT-F2), clicks (WT-F4), CPU (WT-P1). Those are the C++ build's gates.</li>
   </ul>`;
 }
@@ -2144,7 +2410,7 @@ function about(){
 (async function boot(){
   try { const q = new URLSearchParams(location.search).get("theme"); if (q === "light" || q === "dark") document.documentElement.setAttribute("data-theme", q); } catch (e){ /* no query: follow the system */ }
   readTheme();
-  buildCornerSel(); buildCorners(); buildOscPanel(0); buildOscPanel(1); buildLfo(0); buildLfo(1); buildMatrix(); buildMotion(); buildEnv(); buildLab(); buildRnd(); buildNotes(); buildKb(); about(); wire();
+  buildCornerSel(); buildCorners(); buildOscPanel(0); buildOscPanel(1); buildFilter(); buildLfo(0); buildLfo(1); buildMatrix(); buildMotion(); buildEnv(); buildLab(); buildRnd(); buildNotes(); buildKb(); about(); wire();
   makeWorkers();
   const stt = $("statusText");
   for (let i = 0; i < FACTORY.length; i++){ stt.textContent = `Building factory tables… ${i + 1}/${FACTORY.length} (${FACTORY[i].name})`; await sleep0();
