@@ -172,8 +172,11 @@ async function runSplash(chrome, url, mode, hello) {
     if (mode === 'press' || mode === 'reduce') {
       const p0 = await b.evalIn(PAGE), at = await b.evalIn(MIXAT); if (!at || !first.up) return { first };
       await click(b, at); await sleep(60); const mid = await b.evalIn(SPLASH), p1 = await b.evalIn(PAGE);
-      for (let i = 0; i < 40 && (await b.evalIn(SPLASH)).up; i++) await sleep(50);
-      const gone = !(await b.evalIn(SPLASH)).up; await click(b, at); await sleep(300); const p2 = await b.evalIn(PAGE);
+      for (let i = 0; i < 120 && (await b.evalIn(SPLASH)).up; i++) await sleep(50);
+      // the control: the tab measured again (the page can shift while it loads, and a stale point misses), and the switch polled for, not slept on
+      // (a fixed 300 ms read red under load on main, the lead's report 2026-11-08: the splash had gone, the page hadn't switched yet)
+      const gone = !(await b.evalIn(SPLASH)).up, at2 = await b.evalIn(MIXAT) || at; await click(b, at2);
+      let p2 = p0; for (let i = 0; i < 60 && p2 === p0; i++) { await sleep(50); p2 = await b.evalIn(PAGE); }
       return { first, mid, swallowed: p1 === p0, gone, control: p2 !== p0 && /mix/i.test(p2), log: (await b.evalIn(SPLASH)).log };
     }
     for (let i = 0; i < 160 && !(await b.evalIn(`(window.__splash || []).some(e => e[0] === 'remove')`)); i++) await sleep(50);
