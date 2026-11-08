@@ -129,7 +129,10 @@ void web_window(const clap_plugin_t* plugin, const clap_plugin_params_t* params,
   block(plugin, false);
   check(wait_for(wk, "__shot.frames > 3 && __shot.presets && __shot.hello", 5), "frames reach the page at the timer's pace");
   check(run(wk, "return String(__shot.withParams > 0);") == "true", "control: after a hello, a frame carries every row again");
-  check(run(wk, "return String(__shot.presets.names.length);") == "83", "the snapshot lists all 83 presets");
+  // The 83 factory presets, then B645's demo bank, each named "Demo (morph): ...", none before the 84th.
+  check(run(wk, "var n = __shot.presets.names, d = n.slice(83); return String(n.length > 83 && n.slice(0, 83).every(function (x) { return x.indexOf('Demo (morph): ') !== 0; }) && "
+                "d.every(function (x) { return x.indexOf('Demo (morph): ') === 0; }));") == "true",
+        "the snapshot lists the 83 factory presets, then the demo bank");
   const std::string build = run(wk, "return __shot.hello.build;");
   std::printf("     build label in the hello reply: %s\n", build.c_str());
   check(build.rfind("engine ", 0) == 0, "the hello reply carries the build label");
@@ -276,8 +279,10 @@ int main(int argc, char** argv) {
       collect<NSSlider>(window.contentView, sliders);
       std::printf("     %lu menus, %lu sliders\n", (unsigned long)popups.count, (unsigned long)sliders.count);
       NSPopUpButton* preset = nil;
-      for (NSPopUpButton* b in popups) if (b.numberOfItems == 83 && !preset) preset = b;   // Polyphony's menu has 64
-      check(preset != nil && preset.numberOfItems == 83, "the preset menu lists all 83");
+      // The 83 factory presets and B645's demo bank after them; Polyphony's menu has 64.
+      for (NSPopUpButton* b in popups) if (b.numberOfItems > 83 && !preset) preset = b;
+      check(preset != nil && [[preset itemAtIndex:83].title hasPrefix:@"Demo (morph): "] && ![[preset itemAtIndex:82].title hasPrefix:@"Demo (morph): "],
+            "the preset menu lists the 83 factory presets, then the demo bank");
 
       // Must-fail by construction: the value starts elsewhere, so only the window's action can make this read 5.
       double before = -1, after = -1;
