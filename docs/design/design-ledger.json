@@ -8459,6 +8459,10 @@
   {
    "adr": "GUI-44",
    "reason": "A gate: GUI 3's browser check wired into ./verify fast, a hole where there's no browser. No design element."
+  },
+  {
+   "adr": "ADR-384",
+   "reason": "A CANDIDATE engine reference and its review; no design element until a ruling ports it (the corner-table UI would then be the GUI session's)."
   }
  ],
  "engine_impact": {

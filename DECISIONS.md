@@ -12905,3 +12905,30 @@ Spec round 64 writes it, with item 34.19's checks. Its must-fail control is the 
 - **When a selector moves:** high chaos only. It lands on osc 1's envelope 80 % of the time (`prior.envOne`, a stand-in for the tuning session), and the other options share the rest evenly.
 
 The GUI session built it as GUI-55 A2 (#1455). Its reading, for the human to confirm: "osc 1's envelope" means whichever envelope osc 1 holds after the same draw. That is ENV 1, except in the rare draw where osc 1's own selector moved.
+
+## ADR-384 — CANDIDATE: QUADRANT, a wavetable blend across the morph pad, ingested as a reference (B647); the cost bench is B648
+
+**Context.** Pass 2 of the demo bank (B645) persuaded the human that blades reach a narrower sound space than a simpler system would. The human, 2026-11-07: "most of what the blades accomplish could be accomplished with a mixture of FM/PM and sync on a wavetable. Changing the engine would also take some weight off of the noise and sub oscillators as they currently exist. While I'm hesitant to switch direction at this point in the build, something tells me the result will be much less impressive if we keep trying to squeeze functionality from the scalpel. At least worth a discussion. Maybe we see how things look after the filters and modulators are added." The human delivered a spec (`specs/SPEC-QUADRANT.md`) and its browser bench (`reference/quadrant/quadrant-wavetable.html`): four 16-frame wavetables at the corners of an XY field, one shared band-limited blend per instance, Linear and Spectral log laws, capture of any blend into a user library. Of the bench, the human: "this was really more a proof of concept for the blend system than a full concept; I assumed these bones would be mixed with what has already been proven to work about the swarm, plus your recommendations about transformations and FM, etc. All your recommendations are right."
+
+**Status: CANDIDATE.** Filed by poll, "File it plus a cost bench". Nothing is ported and no direction is chosen: whether QUADRANT becomes the swarm's oscillator with blades as a layer, or replaces blades, is the human's ruling, to be weighed after the filters and modulators land. It must not be offered as an engine to choose beside blades (GUI-1).
+
+**The amendments the spec needs before a port** (the lead's review, which the human called right):
+1. **Harmonics:** 64 is too few for low notes (the top harmonic at C1 is 2.1 kHz); about 1024 (2048-sample top cycles), per-octave mip levels.
+2. **State:** a table referenced by a saved patch is stored as a recipe (a factory or generator id, version, settings and seed; a capture's source tables, x, y, frame and law), rebuilt deterministically; exported preset files also embed the rendered data. Embedding 1024-harmonic tables in the host's state chunk would risk the silent save failure large chunks cause. A generator's output is frozen per version by goldens.
+3. **Runtime FM/PM, sync and warps,** which the spec has only as baked factory tables. They bring aliasing back, so "no oversampling" holds only for patches that use none of them.
+4. **The swarm on top:** each member reads the shared set at its own phase, with coupling as today.
+5. **One pad:** QUADRANT's XY is the morph position and each corner's table a corner key. Blending different tables across corners is the waveform morphing ADR-377 put after 1.0, so a 1.0 QUADRANT needs that line revisited.
+6. **Per-voice frame position** under Linear (pre-built cycles per corner), so a note can scan its table; Spectral log stays global.
+7. **The crossfade between rebuilds** lasts the rebuild interval (128 samples), not 256.
+8. **Mip levels crossfade by pitch,** with the ceiling at min(20 kHz, 0.45 × the sample rate), so glides don't step in brightness.
+9. **Per-note sources to X and Y** follow MS-46/MS-47 (the newest note; `device.perNoteToShared`).
+10. **Loudness steady across the pad** (normalise by loudness, a peak limiter for safety), which answers the spec's peak-or-RMS question for a discovery instrument (ADR-337 A1).
+11. **The CPU test** uses PF-3's chord, and the reference figure is today's (61.9 % of a core for the Glass pad against ADR-354's 10.7 %).
+
+**The sanctioned edit, spent:** the bench's voice start phase was `Math.random()`; it is a seeded mulberry32 stream (SPEC §5.7). The other `Math.random()` makes library ids and never reaches the sound.
+
+**Related, not yet delivered:** the human's randomized wavetable generator, "already in the prototype stage", a tab in Random that renders tables to corners. Its output takes the same fidelity gates as every table (no DC, audible-band level, no near-silent frames, frames that differ, the aliasing floor).
+
+**FX device (ADR-254).** None: QUADRANT is a source. Its capture library is device-wide storage; if the FX device ever hosts a table-driven module it would read the same library.
+
+**ADR-337 A1 (the human, 2026-11-07, recorded by poll "Record it as said"): horde's position.** "I want Horde to really zero in on a corner of the market I haven't seen much activity in outside of Max for Live devices, which is rapid ideation and recombination of presets and ideas, as well as fluidity of coordinated performative/automated sound morphing. Horde is a discovery-oriented sound design system more than a precision system like Serum or Vital, but I still want what it outputs to be held to a professional standard of sonic fidelity." It refines ADR-337's centre (morph logic over the full depth of every parameter) and supersedes nothing. Said during the QUADRANT discussion. **FX device (ADR-254):** the same position holds for it.
