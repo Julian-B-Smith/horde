@@ -27,6 +27,7 @@
 
 #include "bank.h"
 #include "bridge_ext.h"
+#include "filter_core.h"
 #include "flush_to_zero.h"
 #include "horde_engine.h"
 #include "morph_core.h"
@@ -454,9 +455,9 @@ std::vector<std::string> audit_host(const clap_plugin_t* plugin, const clap_plug
   std::vector<std::string> failed;
   passed = 0;
   bridge->frame(plugin);
-  // The engine rows only: Preset is first, and morph.x and morph.y (last, B639) reach the resolver, never the engine,
-  // so their own check holds them (host_xy).
-  const std::uint32_t n = params->count(plugin) - 2;
+  // The engine rows only: Preset is first, and morph.x and morph.y (B639) reach the resolver, never the engine, so their
+  // own check holds them (host_xy). The test-only filter's six (B660) come after them and have a check of their own.
+  const std::uint32_t n = params->count(plugin) - 2 - preview::filter::kParams;
   for (std::uint32_t i = 1; i < n; ++i) {
     clap_param_info_t info{}, target{};
     params->get_info(plugin, i, &info);
@@ -1049,8 +1050,151 @@ void demo_checks(const char* clap, const char* plant, const char* plant_map, int
 
 }  // namespace
 
+// ---- B660's test-only filter ----------------------------------------------------------------------------------------
+// Weir's SVF 12 after the engine, six host parameters, off by default. `ref` is the plant built without any of it (the
+// build as it was before the filter), so "off is bit-identical" is held to the real thing, not to the filter's own word,
+// and the same plant is the no-op filter that the filter-on checks must tell from the real one.
+namespace flt = preview::filter;
+
+void set_filter(Loaded& p, double on, double mode, double cutoff, double res, double ring, double mix) {
+  float l[64], r[64];
+  Events e;
+  const double v[flt::kParams] = {on, mode, cutoff, res, ring, mix};
+  for (int f = 0; f < flt::kParams; ++f) e.param(flt::id_of(f), v[f]);
+  process(p.plugin, e, l, r, 64);
+}
+// The high band: the second difference's energy, a crude high-pass; the left channel of `play`'s interleaved output.
+double high_band(const std::vector<float>& x) {
+  double e = 0;
+  for (std::size_t i = 2; i < x.size() / 2; ++i) {
+    const double d = double(x[2 * i]) - 2.0 * double(x[2 * i - 2]) + double(x[2 * i - 4]);
+    e += d * d;
+  }
+  return e;
+}
+double rms_of(const std::vector<float>& x) {
+  double e = 0;
+  for (float v : x) e += double(v) * double(v);
+  return std::sqrt(e / double(x.size()));
+}
+void filter_checks(const char* clap, const char* nofilter) {
+  Loaded p, ref;
+  check(p.open(clap), "filter: the plug-in loads");
+  if (!nofilter) { check(false, "the no-filter plant was not given, so the filter's bit-identity control did not run"); return; }
+  check(ref.open(nofilter), "filter: the build without the filter loads");
+  if (!p.plugin || !ref.plugin) return;
+
+  // The parameters: six, after the morph's pair, at 0xA00010 on, off by default; the plant has none.
+  const std::uint32_t n = p.params->count(p.plugin);
+  bool listed = n > std::uint32_t(flt::kParams) && ref.params->count(ref.plugin) == n - flt::kParams;
+  for (int f = 0; f < flt::kParams && listed; ++f) {
+    clap_param_info_t info{};
+    listed = p.params->get_info(p.plugin, n - flt::kParams + std::uint32_t(f), &info) && info.id == 0xA00010 + std::uint32_t(f) &&
+             !std::strcmp(info.name, flt::param_name(f)) && info.default_value == flt::default_value(f) && info.min_value == 0 &&
+             info.max_value == flt::max_value(f) && (info.flags & CLAP_PARAM_IS_STEPPED) == (flt::stepped(f) ? CLAP_PARAM_IS_STEPPED : 0u);
+  }
+  check(listed, "the filter's six parameters follow the morph's, at 0xA00010 to 0xA00015, Filter on defaulting to off; the build without has none");
+  double on_now = -1;
+  check(p.params->get_value(p.plugin, 0xA00010, &on_now) && on_now == 0, "control: Filter on reads 0 (off) on a fresh instance");
+  char text[64];
+  check(p.params->value_to_text(p.plugin, 0xA00012, 1.0 / 3.0, text, sizeof text) && !std::strcmp(text, "200 Hz") &&
+            p.params->value_to_text(p.plugin, 0xA00011, 2, text, sizeof text) && !std::strcmp(text, "HP"),
+        "the cutoff reads in Hz on its log law (one third is 200 Hz) and the mode by name");
+
+  // Off is the build as it was, bit for bit, on every preset the plug-in offers: the factory bank and the demo bank.
+  const auto t0 = std::chrono::steady_clock::now();
+  int identical = 0, loud = 0, first_bad = -1;
+  for (int i = 0; i < kBankSize; ++i) {
+    const std::vector<float> a = play(p, i, {128}), b = play(ref, i, {128});
+    const bool same = a == b;
+    identical += same;
+    loud += peak(a) > 0;
+    if (!same && first_bad < 0) first_bad = i;
+  }
+  const double took = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+  std::printf("     filter off, %d presets played twice in %.0f s\n", kBankSize, took);
+  check(identical == kBankSize, "filter off: every preset (" + std::to_string(kBankSize) + ", factory and demo) is bit-identical to the build without the filter" +
+                                    (first_bad >= 0 ? " (first difference: " + std::string(kBank[first_bad].name) + ")" : ""));
+  check(loud >= kBankSize / 2, "control: most of them make sound, so identical is not the silence of two dead builds (" + std::to_string(loud) + ")");
+
+  // The brightest of the smoke presets (as the plant renders it), through LP at 200 Hz.
+  int bright = -1;
+  double best = 0;
+  for (const char* name : {"Trance jitter", "Glass horde pad", "Crunch horde", "Wobble jaw"}) {
+    const int i = find_preset(name);
+    if (i < 0) continue;
+    const std::vector<float> a = play(ref, i, {128});
+    const double ratio = high_band(a) / (rms_of(a) * rms_of(a) + 1e-30);
+    if (ratio > best) { best = ratio; bright = i; }
+  }
+  check(bright >= 0, "a bright preset to filter");
+  if (bright < 0) return;
+  const std::vector<float> dry = play(ref, bright, {128});
+  set_filter(p, 1, 0, 1.0 / 3.0, 0, 0, 1);
+  set_filter(ref, 1, 0, 1.0 / 3.0, 0, 0, 1);   // the plant has no such parameter: what a no-op filter does with it
+  const std::vector<float> wet = play(p, bright, {128});
+  const std::vector<float> noop = play(ref, bright, {128});
+  const double drop = high_band(wet) / high_band(dry), noop_drop = high_band(noop) / high_band(dry);
+  std::printf("     %s through LP at 200 Hz: high band x%.5f, level x%.3f; the no-op filter: high band x%.3f\n", kBank[bright].name, drop,
+              rms_of(wet) / rms_of(dry), noop_drop);
+  check(drop < 0.01 && rms_of(wet) > 1e-3 * rms_of(dry), std::string("filter on: LP at 200 Hz takes ") + kBank[bright].name + "'s high band down by more than 20 dB and is not a mute");
+  check(noop_drop > 0.9 && !(noop_drop < 0.01), "control: a no-op filter (the build without) reads the same drop as 1, so the check above fails it");
+
+  // Mix 0 is the dry signal, bit for bit, with the filter on: the other way to read the same control.
+  set_filter(p, 1, 0, 1.0 / 3.0, 0, 0, 0);
+  check(play(p, bright, {128}) == dry, "control: filter on with Mix 0 is bit-identical to the dry render");
+
+  // No NaN, no subnormal out of the real plug-in, every mode at full resonance and Ring (the pure-DSP corners are in bridge_test).
+  bool clean = true;
+  for (int mode = 0; mode < flt::kModeCount; ++mode) {
+    set_filter(p, 1, mode, 0.4, 1, 1, 1);
+    const std::vector<float> a = play(p, bright, {512});
+    for (float v : a) clean = clean && std::isfinite(v) && std::fpclassify(v) != FP_SUBNORMAL;
+    clean = clean && peak(a) > 0;
+  }
+  check(clean, "filter on: every mode at full Resonance and Ring is finite, never subnormal, and sounds");
+
+  // The state: what was set saves, loads into a new instance and plays the same; a default filter saves no line.
+  set_filter(p, 1, 3, 0.45, 0.6, 0.25, 0.75);
+  std::string chunk;
+  check(save_to(p, chunk) && chunk.find("\nfilter 1 3 ") != std::string::npos && chunk.rfind("horde-engine-preview 5", 0) == 0, "state: the filter's values are in the saved chunk");
+  Loaded q;
+  check(q.open(clap), "filter: a second instance loads");
+  std::string plain;
+  check(save_to(q, plain) && plain.find("filter") == std::string::npos && plain.rfind("horde-engine-preview 2", 0) == 0,
+        "control: an untouched instance saves no filter line and the chunk it always did");
+  if (q.plugin && load_from(q, chunk)) {
+    const double want[flt::kParams] = {1, 3, 0.45, 0.6, 0.25, 0.75};
+    bool same = true;
+    for (int f = 0; f < flt::kParams; ++f) {
+      double got = -1;
+      same = same && q.params->get_value(q.plugin, flt::id_of(f), &got) && got == want[f];
+    }
+    check(same, "state: a new instance loads the six values back exactly");
+    // Off, a new engine (so nothing of the last note is still sounding), then on: the cleared filter the new instance starts with.
+    set_filter(p, 0, 3, 0.45, 0.6, 0.25, 0.75);
+    fresh(p, bright);
+    set_filter(p, 1, 3, 0.45, 0.6, 0.25, 0.75);
+    check(play(p, bright, {128}) == play(q, bright, {128}), "state: and it plays what the saved instance plays, bit for bit");
+    check(load_from(q, plain) && q.params->get_value(q.plugin, 0xA00010, &on_now) && on_now == 0, "state: an older chunk, with no filter line, loads with the filter off");
+  } else {
+    check(false, "the saved chunk did not load");
+  }
+
+  // Off again after on: nothing stale reaches the output.
+  set_filter(p, 0, 3, 0.45, 0.6, 0.25, 0.75);
+  check(play(p, bright, {128}) == dry, "filter turned off again: bit-identical to the build without the filter once more");
+
+  for (Loaded* l : {&p, &ref, &q}) {
+    if (!l->plugin) continue;
+    l->plugin->stop_processing(l->plugin);
+    l->plugin->deactivate(l->plugin);
+    l->plugin->destroy(l->plugin);
+  }
+}
+
 int main(int argc, char** argv) {
-  if (argc < 2) { std::printf("usage: smoke <clap> [<plant clap>]\n"); return 2; }
+  if (argc < 2) { std::printf("usage: smoke <clap> [<plant> <plant-map> <plant-morph> <plant-nofilter>]\n"); return 2; }
   // The session log goes under $HOME, so point it at a scratch folder: a test mustn't write to the human's Logs.
   char home[] = "/tmp/engine-preview-smoke-XXXXXX";
   if (!mkdtemp(home)) return 2;
@@ -1068,13 +1212,14 @@ int main(int argc, char** argv) {
   for (std::size_t i = 0; i < horde::manifest_size(); ++i) engine_rows += horde::manifest_param(i).reserved ? 0 : 1;
   // B632 (ADR-370): every engine row is a host parameter, past Live's 64, whose panel then fills from the window.
   // B639 (IF-11): and the morph's position, morph.x and morph.y, last.
-  check(int(n_params) == 1 + engine_rows + 2, "every non-reserved engine row is a host parameter, plus Preset and morph.x and morph.y (" + std::to_string(1 + engine_rows + 2) + ")");
+  // B660: and the test-only filter's six after them.
+  check(int(n_params) == 1 + engine_rows + 2 + preview::filter::kParams, "every non-reserved engine row is a host parameter, plus Preset, morph.x and morph.y, and the test-only filter's six (" + std::to_string(1 + engine_rows + 2 + preview::filter::kParams) + ")");
   {
     clap_param_info_t xi{}, yi{};
     check(p.params->get_info(p.plugin, std::uint32_t(1 + engine_rows), &xi) && p.params->get_info(p.plugin, std::uint32_t(2 + engine_rows), &yi) &&
               !std::strcmp(xi.name, "morph.x") && !std::strcmp(yi.name, "morph.y") && xi.min_value == 0 && xi.max_value == 1 && xi.default_value == 0 &&
               yi.default_value == 0 && !(xi.flags & CLAP_PARAM_IS_STEPPED),
-          "morph.x and morph.y come last, 0 to 1, default 0, continuous (D.2)");
+          "morph.x and morph.y follow the engine rows, 0 to 1, default 0, continuous (D.2)");
   }
   {
     bool same = true;
@@ -1809,6 +1954,8 @@ int main(int argc, char** argv) {
   } else {
     check(false, "the dropped-position plant was not given, so the pad's control did not run");
   }
+
+  filter_checks(argv[1], argc > 5 ? argv[5] : nullptr);
 
   std::printf("%s (%d failed)\n", failures ? "engine-preview smoke: RED" : "engine-preview smoke: GREEN", failures);
   return failures ? 1 : 0;

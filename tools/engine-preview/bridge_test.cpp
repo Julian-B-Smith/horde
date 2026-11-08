@@ -4,13 +4,18 @@
 // The bridge's pure half (bridge_core.h, B628) held to section 7's rows of docs/proposals/gui-on-engine.md, headless:
 // no plug-in, no window. Each check has a control that must read the other way, so a check that can't fail can't pass.
 //   bridge_test
+#include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <string>
 #include <vector>
 
 #include "bridge_core.h"
+#include "filter_core.h"
+#include "flush_to_zero.h"
 #include "horde_engine.h"
+#include "post_filter.h"
 
 namespace {
 
@@ -364,6 +369,121 @@ int main() {
     const auto v = [](int count) { return (count - 1) / 63.0; };
     check(capped_count_v(poly, v(16), 8) == v(8), "a load asking for 16 voices gets 8");
     check(capped_count_v(poly, v(8), 8) == v(8) && capped_count_v(poly, v(6), 8) == v(6), "control: a load asking for 8 or fewer keeps its own");
+  }
+
+  // ---- the test-only post-engine filter (B660) ------------------------------------------------------------------
+  {
+    namespace flt = preview::filter;
+    // Ids: a block of its own, clear of Preset, the morph's pair and the engine's range.
+    check(flt::id_of(0) == 0xA00010 && flt::id_of(flt::kParams - 1) == 0xA00015 && flt::id_of(0) > 0xA00002 && flt::id_of(flt::kParams - 1) < 0xB00001,
+          "the filter's six ids are 0xA00010 to 0xA00015, clear of the morph's 0xA00001/2 and Preset's 0xB00001");
+    // The state: off by default, and then the chunk is the one it always was (the must-read-zero control).
+    SavedState plain;
+    plain.preset = 3;
+    const std::string before = write_state(plain);
+    check(flt::State{}.is_default() && !has(before, "filter") && has(before, kStateMagic2), "control: a default filter writes no line and no new version");
+    SavedState on = plain;
+    on.filter.v[flt::kOn] = 1;
+    on.filter.v[flt::kMode] = 3;
+    on.filter.v[flt::kCutoff] = 0.3333333333333333;
+    on.filter.v[flt::kResonance] = 0.7;
+    on.filter.v[flt::kRing] = 0.25;
+    on.filter.v[flt::kMix] = 0.5;
+    const std::string text = write_state(on);
+    SavedState back;
+    check(has(text, kStateMagic5) && has(text, "\nfilter 1 3 ") && read_state(text, back) && back.filter == on.filter && back.preset == 3,
+          "the filter's six values round trip through the state, exactly, in version 5");
+    SavedState old;
+    old.filter.v[flt::kOn] = 1;   // a stale value a load must not keep
+    check(read_state(before, old) && old.filter.is_default(), "an older chunk (no filter line) loads with the filter off");
+    SavedState hostile;
+    check(read_state(std::string(kStateMagic5) + "\nfilter nan 9 2 -1 5 7\n", hostile) && hostile.filter.is_default(),
+          "control: a filter line with a non-finite value is ignored");
+    check(read_state(std::string(kStateMagic5) + "\nfilter 1 9 2 -1 5 7\n", hostile) && hostile.filter.v[flt::kMode] == 4 && hostile.filter.v[flt::kCutoff] == 1 &&
+              hostile.filter.v[flt::kResonance] == 0 && hostile.filter.v[flt::kMix] == 1,
+          "an out-of-range value is clamped to its range");
+
+    // The DSP, on the plug-in's own class: 44.1 kHz, white noise (a fixed LCG: no wall clock, no RNG state shared).
+    constexpr double kRate = 44100;
+    constexpr std::size_t kN = 44100;
+    std::vector<float> noise(kN);
+    std::uint32_t lcg = 12345;
+    for (auto& x : noise) { lcg = lcg * 1664525u + 1013904223u; x = float(double(lcg >> 8) / double(1 << 24) - 0.5); }
+    const auto high_band = [](const std::vector<float>& x) {   // second difference: a crude high-pass, +12 dB/oct
+      double e = 0;
+      for (std::size_t i = 2; i < x.size(); ++i) { const double d = double(x[i]) - 2.0 * double(x[i - 1]) + double(x[i - 2]); e += d * d; }
+      return e;
+    };
+    const auto rms = [](const std::vector<float>& x) {
+      double e = 0;
+      for (float v : x) e += double(v) * double(v);
+      return std::sqrt(e / double(x.size()));
+    };
+    const auto run = [&](const flt::State& s, std::size_t block, std::vector<float>* right = nullptr) {
+      flt::PostFilter f;
+      f.prepare(kRate);
+      std::vector<float> l = noise, r = noise;
+      for (std::size_t at = 0; at < kN; at += block) f.process(s, l.data() + at, r.data() + at, std::min(block, kN - at));
+      if (right) *right = r;
+      return l;
+    };
+    flt::State lp;
+    lp.v[flt::kOn] = 1;
+    lp.v[flt::kMode] = 0;
+    lp.v[flt::kCutoff] = 1.0 / 3.0;   // 200 Hz
+    const std::vector<float> filtered = run(lp, 512);
+    const double drop = high_band(filtered) / high_band(noise);
+    check(drop < 1e-3 && rms(filtered) > 1e-3, "LP at 200 Hz takes the high band down by more than 30 dB and is not a mute (drop " + std::to_string(drop) + ")");
+    flt::State dry = lp;
+    dry.v[flt::kMix] = 0;
+    check(run(dry, 512) == noise, "control: Mix 0 hands the dry signal back bit for bit");
+    flt::State open = lp;
+    open.v[flt::kCutoff] = 1;   // 20 kHz
+    const double wide = high_band(run(open, 512)) / high_band(noise);
+    check(wide > 0.1, "control: LP at 20 kHz leaves the high band (a filter that always cuts would fail here)");
+    std::vector<float> r512;
+    const std::vector<float> l512 = run(lp, 512, &r512);
+    check(l512 == r512, "both channels get the same filter (a mono input stays mono)");
+    check(run(lp, 64) == l512 && run(lp, 4096) == l512 && run(lp, 100) == l512, "the output doesn't depend on how the host cuts the blocks (64, 100, 512, 4096)");
+
+    // No NaN, no subnormal: every mode at the corners of the range, noise then a long silent tail (where a decaying
+    // state meets the denormal range). The plug-in runs the filter under flush-to-zero, as the engine, so the run does too;
+    // the control is the same run without it, which must reach subnormals, or the tail was too short to test anything.
+    const auto corners = [&](bool flush, std::size_t* subnormal) {
+      bool finite = true;
+      *subnormal = 0;
+      const auto body = [&] {
+        for (int mode = 0; mode < flt::kModeCount; ++mode)
+          for (double x : {0.0, 0.5, 1.0})
+            for (double res : {0.0, 1.0})
+              for (double ring : {0.0, 1.0}) {
+                flt::State s;
+                s.v[flt::kOn] = 1;
+                s.v[flt::kMode] = mode;
+                s.v[flt::kCutoff] = x;
+                s.v[flt::kResonance] = res;
+                s.v[flt::kRing] = ring;
+                flt::PostFilter f;
+                f.prepare(kRate);
+                std::vector<float> l(2048), r(2048);
+                for (int block = 0; block < 60; ++block) {
+                  for (std::size_t i = 0; i < l.size(); ++i) l[i] = r[i] = block < 4 ? noise[(std::size_t(block) * 2048 + i) % kN] : 0.0f;
+                  f.process(s, l.data(), r.data(), l.size());
+                  for (std::size_t i = 0; i < l.size(); ++i) {
+                    finite = finite && std::isfinite(l[i]) && std::isfinite(r[i]);
+                    *subnormal += std::fpclassify(l[i]) == FP_SUBNORMAL ? 1 : 0;
+                    *subnormal += std::fpclassify(r[i]) == FP_SUBNORMAL ? 1 : 0;
+                  }
+                }
+              }
+      };
+      if (flush) horde2::underFlushToZero(body); else body();
+      return finite;
+    };
+    std::size_t flushed = 0, unflushed = 0;
+    const bool finite_flushed = corners(true, &flushed), finite_unflushed = corners(false, &unflushed);
+    check(finite_flushed && finite_unflushed && flushed == 0, "no NaN or infinity out of any mode at the corners of the range, and no subnormal under flush-to-zero, tail included (60 runs)");
+    check(unflushed > 0, "control: the same runs without flush-to-zero do reach subnormals (" + std::to_string(unflushed) + "), so the tail is long enough to test them");
   }
 
   // ---- the engine's own manifest --------------------------------------------------------------------------------
