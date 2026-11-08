@@ -4,11 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Wavetable Lab</title>
-<meta name="description" content="horde's wavetable member, playable: four corner tables on the morph pad, two blend laws, a per-voice frame, the swarm's unison and coupling, sync, warp and PM, capture and recipes. B650, for settling surface details before the C++ build.">
+<meta name="description" content="horde's wavetable member, playable: four morph corners that each hold every setting and a table, Blend and Quantum laws, two drawn LFOs whose shapes and route depths transform across the corners, Spectral log without per-note rebuilds, capture and recipes. B650, B651.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;800&family=Roboto+Mono:wght@400;600&display=swap">
 <!--
+  B651 (horde lead session, 2026-11-08; the human, playing B650): settings map to corners, drawn LFOs
+  whose shapes transform across the corners (ADR-349, LF-8), and Spectral log pre-blended over all 16
+  frames so a frame envelope never rebuilds. See traces/2026-11-08-b651-wavetable-lab-v2.md.
   Origin: horde lead session, 2026-11-07, ROADMAP B650 (the human: "a JS lab demonstrating the full
   functionality and design of the wavetable system so we can work through superficial details before
   the deeper build"). Behaviour follows specs/SPEC-WAVETABLE.md and docs/wavetable/CONTRACT.md as drafted
@@ -17,11 +20,14 @@
   docs/design-system/master/tokens.json (copied, read-only). This is a lab, not the GUI 3 shell.
 
   Threads, and why:
-    main     UI, factory/capture/random table generation (spectra), morph motion, visuals.
+    main     UI, factory/capture/random table generation (spectra), morph motion, the corner
+             resolver (Blend / Quantum, a stand-in for MO-7/MO-8), visuals.
     worker×2 one per oscillator: builds the published level sets at control rate (WT-14) so a
              moving pad never stalls the page. Linear = strategy (b) from corner level sets
-             (WT-23), Spectral log = one blended frame (WT-22). Posts each set straight to the
-             worklet over a MessageChannel, transferring the buffer.
+             (WT-23). Spectral log = all 16 frames log-blended at the morph position (B651's
+             default), or lazily only the frames sounding voices read, or the old shared frame
+             (WT-22). Posts each set straight to the worklet over a MessageChannel, transferring
+             the buffer.
     worklet  the voices: swarm members reading the published set. It never allocates in
              process(); retired sets go back to their worker through the port handler.
   Determinism: no Math.random anywhere. mulberry32 streams with visible seeds; morph motion
@@ -174,6 +180,30 @@ details summary{cursor:pointer;font:800 11px var(--sans);letter-spacing:.1em;tex
 .about code{font-family:var(--mono);font-size:11px}
 .limits li{color:var(--caution-tx)}
 
+/* corner values on every control (B651): A and B ticks above the track, C and D below, the resolved value as a line */
+.rng{position:relative;min-width:0}
+.rng .mk{position:absolute;left:8px;right:8px;top:0;bottom:0;pointer-events:none}
+.rng .mk i{position:absolute;width:3px;height:4px;margin-left:-1.5px;border-radius:1px;opacity:.9}
+.rng .mk i.t{top:0}.rng .mk i.b{bottom:0}
+.rng .mk i.sel{height:6px;width:4px;margin-left:-2px;box-shadow:0 0 0 1px var(--ink)}
+.rng .mk b{position:absolute;top:1px;bottom:1px;width:2px;margin-left:-1px;background:var(--value);border-radius:1px}
+.seg .btn{position:relative}
+.seg .btn.res{box-shadow:0 0 0 2px var(--value)}
+.seg .btn .cd{display:inline-flex;gap:1px;margin-left:5px;vertical-align:middle}
+.seg .btn .cd i{width:5px;height:5px;border-radius:50%;display:inline-block}
+.csel{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.csel .btn{padding:3px 10px}
+.csel .btn.k[aria-pressed="true"]{color:var(--on-corner);box-shadow:0 0 0 2px var(--ink) inset}
+.corner.selc{box-shadow:0 0 0 3px var(--value)}
+.chip{cursor:pointer}
+.lfoed{width:100%;aspect-ratio:2.6/1;background:var(--well);border:1px solid var(--hair);border-radius:6px;touch-action:none;cursor:crosshair}
+.rt{display:grid;grid-template-columns:16px minmax(0,.8fr) minmax(0,1.3fr) minmax(0,1fr);gap:4px 6px;align-items:center;margin-top:5px}
+.rt .rn{font:700 10px var(--mono);color:var(--hint)}
+.rt .now{font:400 10px var(--mono);color:var(--t2);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rt select{font-size:11px}
+.rtd{margin-left:22px}
+.rtd .ctl{padding:0}
+.cls{font:600 8px/1 var(--mono);color:var(--hint);margin-left:3px;vertical-align:super}
 @media (max-width:1100px){
   .outgrid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .panels3{grid-template-columns:minmax(0,1fr)}
@@ -196,7 +226,7 @@ details summary{cursor:pointer;font:800 11px var(--sans);letter-spacing:.1em;tex
   <header>
     <div>
       <h1>horde · wavetable lab</h1>
-      <p class="sub">The swarm's member waveform, read from four corner tables on the morph pad. Drag the puck, play the keys, and write what should change in the notes at the bottom. B650 · spec draft 279d253e.</p>
+      <p class="sub">The swarm's member waveform, read from four corner tables on the morph pad. Every setting has a value in each corner, as in horde; the two drawn LFOs and their routes transform as the morph moves. Drag the puck, play the keys, and write what should change in the notes at the bottom. B650 · B651.</p>
     </div>
     <div class="hgroup">
       <span class="pill busy" id="status"><span class="dot"></span><span id="statusText">Building factory tables…</span></span>
@@ -219,7 +249,9 @@ details summary{cursor:pointer;font:800 11px var(--sans);letter-spacing:.1em;tex
         <span class="num" id="xyRead">x 0.30 · y 0.30</span>
         <span class="hint" id="heardRead"></span>
       </div>
-      <div class="hint">Ring: where you put the puck. Dot: where the morph actually sits after the LFO and the 2-D random (both global, MS-29).</div>
+      <div class="csel" id="cornerSel" aria-label="The corner every control edits"><span class="hint">Edit corner</span></div>
+      <div class="csel" id="lawSel" aria-label="The morph's law"><span class="hint">Morph law</span></div>
+      <div class="hint">Every control shows and edits the selected corner's value; its ticks are the four corners' values (A, B above, C, D below) and the pink line is the value resolved here. Click near a pad corner to select it (the puck goes there). Ring: the puck. Dot: where the morph sits after the LFO routes and the 2-D random (global, MS-29).</div>
     </div>
     <div class="col">
       <div class="card corner" id="cornerB"></div>
@@ -242,11 +274,22 @@ details summary{cursor:pointer;font:800 11px var(--sans);letter-spacing:.1em;tex
     <div class="card" id="osc1panel"></div>
   </section>
 
+  <section class="panels3" aria-label="Drawn LFOs and the mod matrix">
+    <div class="card" id="lfo1Card"></div>
+    <div class="card" id="lfo2Card"></div>
+    <div class="card"><h2>Mod matrix <span class="hint">route depths are corner values (they blend)</span></h2><div id="matrix"></div></div>
+  </section>
+
   <section class="panels3">
-    <div class="card"><h2>Morph motion <span class="hint">global sources only (MS-29)</span></h2><div id="motionCtl"></div></div>
+    <div class="card"><h2>Morph &amp; motion <span class="hint">morph settings are never morphed (D.2)</span></h2><div id="motionCtl"></div></div>
     <div class="card"><h2>Envelopes &amp; voice</h2><div id="envCtl"></div></div>
     <div class="card">
       <h2>Play</h2>
+      <div class="formrow" style="margin-bottom:6px">
+        <label class="hint" for="preset">Patch</label>
+        <select id="preset" aria-label="Load a patch preset"><option value="opening">Opening · corners differ</option><option value="pluck">Pluck · Spectral log frame envelope</option><option value="init">Init · four equal corners</option></select>
+        <button class="btn small" id="presetLoad" title="Load the chosen patch (corner tables and the library stay)">Load</button>
+      </div>
       <div class="formrow">
         <button class="btn" id="holdChord" aria-pressed="false" title="horde's PF-3 chord: keys 48 + 3·(k mod 8), k = 0..7 (C3 D#3 F#3 A3 C4 D#4 F#4 A4), velocity 0.85">Hold chord (PF-3)</button>
         <button class="btn" id="panic" title="All notes off">All off</button>
@@ -436,7 +479,13 @@ function wtlib(){
     for (let n = 1; n <= H; n++){ p.re[n] = re[off + n]; p.im[n] = -im[off + n]; }
     fft(p, 1); for (let k = 0; k < N; k++) out[k] = p.re[k]; return out;
   }
-  return {NH, NF, EPS, G, PEAK, GCAP, C3, nK, KW, Eref, mulberry32, plan, fft, makeLayout, loudGain, logCache, frameBlend, synthLevels, render};
+  // ---- the drawn shape's law (C.12's curve on each segment; the design system's ShapeMorph/ModLaw.shapeAt, ADR-349).
+  // P is flat [t, v, u]·n sorted by t; segment i runs point i → i+1 with bend P[3i+2]; equal t is a vertical step.
+  function segCurve(x, u){ const k = 4*u; if (Math.abs(k) < 1e-9) return x; return (1 - Math.exp(-k*x))/(1 - Math.exp(-k)); }
+  function shapeFlat(P, n, t){ if (n < 1) return 0; if (t <= P[0]) return P[1];
+    for (let i = 0; i < n - 1; i++){ const a = 3*i, b = a + 3; if (t <= P[b]){ const sp = P[b] - P[a]; if (sp <= 1e-12) return P[b + 1]; return P[a + 1] + (P[b + 1] - P[a + 1])*segCurve((t - P[a])/sp, P[a + 2]); } }
+    return P[3*(n - 1) + 1]; }
+  return {NH, NF, EPS, G, PEAK, GCAP, C3, nK, KW, Eref, mulberry32, plan, fft, makeLayout, loudGain, logCache, frameBlend, synthLevels, render, segCurve, shapeFlat};
 }
 const L = wtlib();
 
@@ -445,48 +494,84 @@ const L = wtlib();
    ===================================================================================================== */
 const WORKER_SRC = `"use strict";
 const L=(${wtlib.toString()})();
-let lay=L.makeLayout(0), port=null, want=null, lastKey="", sched=false, count=0;
+let lay=L.makeLayout(0), port=null, want=null, lastKey="", sched=false, count=0, frames=0;
 const tabs=new Map(), gram=new Map(), pool=[];
+const re=new Float64Array(1025), im=new Float64Array(1025);
+// Lazy Spectral log (B651): the frames the worklet's voices read, polled over the port; a cache of the frames built at this key.
+let need=0, cache=null, cacheKey="";const built=new Uint8Array(16), cacheGains=new Float32Array(16);
+const mask=b=>{let m=0;for(let f=0;f<16;f++)if(b[f])m|=1<<f;return m;};
 function take(len){for(let i=0;i<pool.length;i++){if(pool[i].length===len)return pool.splice(i,1)[0];}return new Float32Array(len);}
 function kick(){if(!sched){sched=true;setTimeout(build,0);}}
+const lazy=()=>want&&want.law===1&&want.slmode===1;
 onmessage=e=>{const d=e.data;
-  if(d.type==="port"){port=d.port;port.onmessage=ev=>{const m=ev.data;if(m&&m.type==="recycle"&&m.buf){pool.push(m.buf);if(pool.length>6)pool.shift();}};lastKey="";kick();}
-  else if(d.type==="table"){if(!tabs.has(d.id))tabs.set(d.id,{re:d.re,im:d.im,lg:L.logCache(d.re,d.im),lv:null,lvSp:-1});lastKey="";kick();}
-  else if(d.type==="params"){want=d;kick();}
+  if(d.type==="port"){port=d.port;port.onmessage=ev=>{const m=ev.data;
+      if(m&&m.type==="recycle"&&m.buf){pool.push(m.buf);if(pool.length>6)pool.shift();}
+      else if(m&&m.type==="need"){need=m.mask>>>0;if(lazy()&&(need&~mask(built)))kick();}};lastKey="";kick();}
+  else if(d.type==="table"){if(!tabs.has(d.id))tabs.set(d.id,{re:d.re,im:d.im,lg:L.logCache(d.re,d.im),lv:null,lvSp:-1});lastKey="";cacheKey="";kick();}
+  else if(d.type==="params"){const was=lazy();want=d;if(!was&&lazy())need=0;kick();}   // a mask from before lazy mode is stale (no polls ran)
 };
+// the worklet answers from its port handler, never from process() (it posts nothing there)
+setInterval(()=>{if(port&&lazy())port.postMessage({type:"need"});},15);
 // corner level sets: every frame's levels for one table, kept while the spacing holds (strategy (a)'s data, used by (b))
-function levelSet(t){if(t.lv&&t.lvSp===lay.sp)return t.lv;const lv=new Float32Array(16*lay.stride);const re=new Float64Array(1025),im=new Float64Array(1025);
-  for(let f=0;f<16;f++){for(let n=1;n<=1024;n++){re[n]=t.re[f*1025+n];im[n]=t.im[f*1025+n];}L.synthLevels(re,im,lay,lv,f*lay.stride,1);}
+function levelSet(t){if(t.lv&&t.lvSp===lay.sp)return t.lv;const lv=new Float32Array(16*lay.stride);const r=new Float64Array(1025),i=new Float64Array(1025);
+  for(let f=0;f<16;f++){for(let n=1;n<=1024;n++){r[n]=t.re[f*1025+n];i[n]=t.im[f*1025+n];}L.synthLevels(r,i,lay,lv,f*lay.stride,1);}
   t.lv=lv;t.lvSp=lay.sp;return lv;}
 // K-weighted Gram entries between two tables, per frame: the Linear blend's loudness comes from them exactly (WT-16)
 function gm(a,b){const k=a<b?a+"|"+b:b+"|"+a;let g=gram.get(k);if(g)return g;const A=tabs.get(a),B=tabs.get(b);g=new Float64Array(16);
   for(let f=0;f<16;f++){let s=0;for(let n=1;n<=L.nK;n++){const j=f*1025+n;s+=L.KW[n]*(A.re[j]*B.re[j]+A.im[j]*B.im[j]);}g[f]=s;}gram.set(k,g);return g;}
+// one Spectral-log frame at integer frame f: WT-12's blend of the corners' frame f (so WT-3's frame rule never runs), its levels, WT-16's gain
+let lim=0,cap=0;
+function slFrame(tb,ws,f,out,base,gains){const S=lay.stride,top=lay.H.length-1,tOff=lay.off[top]+L.G,tN=lay.N[top];
+  L.frameBlend(tb,ws,1,f/15,re,im);const r=L.loudGain(re,im);let g=r.g;if(r.capped)cap++;
+  L.synthLevels(re,im,lay,out,base,1);let pk=0;for(let k=base+tOff;k<base+tOff+tN;k++){const v=Math.abs(out[k]);if(v>pk)pk=v;}
+  if(g*pk>L.PEAK){g=L.PEAK/pk;lim++;}for(let k=base;k<base+S;k++)out[k]*=g;gains[f]=g;}
 function build(){sched=false;const p=want;if(!p||!port)return;
-  if(p.spacing!==lay.sp)lay=L.makeLayout(p.spacing);
+  if(p.spacing!==lay.sp){lay=L.makeLayout(p.spacing);cacheKey="";}
   const ids=[],ws=[];for(let c=0;c<4;c++){const w=p.w[c];if(!(w>0))continue;const k=ids.indexOf(p.ids[c]);if(k<0){ids.push(p.ids[c]);ws.push(w);}else ws[k]+=w;} // identical recipes pool (WT-53)
   if(!ids.length){postMessage({type:"skip"});return;}for(const id of ids)if(!tabs.has(id)){postMessage({type:"skip"});return;}
-  const key=JSON.stringify([ids,ws,p.law,p.law===1?p.frame:0,lay.sp]);if(key===lastKey){postMessage({type:"skip"});return;}lastKey=key;  // a static patch rebuilds zero times
-  const t0=performance.now(),S=lay.stride,top=lay.H.length-1,tOff=lay.off[top]+L.G,tN=lay.N[top];
-  let buf,nF,lim=0,cap=0;const gains=new Float32Array(16);
-  if(p.law===0){nF=16;buf=take(16*S);const lvs=ids.map(id=>levelSet(tabs.get(id))),T=lvs.length;
-    const a0=lvs[0],a1=lvs[1]||a0,a2=lvs[2]||a0,a3=lvs[3]||a0,w0=ws[0],w1=ws[1]||0,w2=ws[2]||0,w3=ws[3]||0;
-    for(let f=0;f<16;f++){let E=0;for(let a=0;a<T;a++)for(let b=0;b<T;b++)E+=ws[a]*ws[b]*gm(ids[a],ids[b])[f];
-      let g=E>0?Math.sqrt(L.Eref/E):L.GCAP;if(g>L.GCAP){g=L.GCAP;cap++;}
-      const fb=f*S;let pk=0;for(let k=fb+tOff;k<fb+tOff+tN;k++){const v=Math.abs(w0*a0[k]+w1*a1[k]+w2*a2[k]+w3*a3[k]);if(v>pk)pk=v;}
-      if(g*pk>L.PEAK){g=L.PEAK/pk;lim++;}gains[f]=g;
-      // one fused pass per frame, gain folded in (absent corners carry weight 0 on a duplicate array)
-      const c0=g*w0,c1=g*w1,c2=g*w2,c3=g*w3,e=fb+S;
-      if(T===1)for(let k=fb;k<e;k++)buf[k]=c0*a0[k];
-      else if(T===2)for(let k=fb;k<e;k++)buf[k]=c0*a0[k]+c1*a1[k];
-      else if(T===3)for(let k=fb;k<e;k++)buf[k]=c0*a0[k]+c1*a1[k]+c2*a2[k];
-      else for(let k=fb;k<e;k++)buf[k]=c0*a0[k]+c1*a1[k]+c2*a2[k]+c3*a3[k];}
-  }else{nF=1;buf=take(S);const tb=ids.map(id=>tabs.get(id));const re=new Float64Array(1025),im=new Float64Array(1025);
-    L.frameBlend(tb,ws,1,p.frame,re,im);let r=L.loudGain(re,im),g=r.g;if(r.capped)cap++;
-    L.synthLevels(re,im,lay,buf,0,1);let pk=0;for(let k=tOff;k<tOff+tN;k++){const v=Math.abs(buf[k]);if(v>pk)pk=v;}
-    if(g*pk>L.PEAK){g=L.PEAK/pk;lim++;}for(let k=0;k<S;k++)buf[k]*=g;gains.fill(g);}
-  count++;port.postMessage({type:"set",buf,nF,sp:lay.sp},[buf.buffer]);
-  postMessage({type:"built",ms:performance.now()-t0,count,gains,lim,cap,law:p.law,nIds:ids.length});
+  const mode=p.law===0?"lin":p.slmode===2?"shared":p.slmode===1?"lazy":"all16";
+  const key=JSON.stringify([ids,ws,p.law,mode,mode==="shared"?p.frame:0,lay.sp]);
+  const S=lay.stride,top=lay.H.length-1,tOff=lay.off[top]+L.G,tN=lay.N[top];
+  let buf,nF=16,nb=0,bm=null;const gains=new Float32Array(16);lim=0;cap=0;const t0=performance.now();
+  if(mode==="lazy"){
+    if(key!==cacheKey){cacheKey=key;built.fill(0);if(!cache||cache.length!==16*S)cache=new Float32Array(16*S);}
+    let f0=Math.min(14,Math.floor(15*p.frame));const todo=(need|(3<<f0))&~mask(built)&0xffff;   // the voices' frames, plus the oscillator's own so a new note never waits
+    if(!todo&&key===lastKey){postMessage({type:"skip"});return;}lastKey=key;
+    const tb=ids.map(id=>tabs.get(id));
+    for(let f=0;f<16;f++)if(todo&(1<<f)){slFrame(tb,ws,f,cache,f*S,cacheGains);built[f]=1;nb++;}
+    buf=take(16*S);buf.set(cache);gains.set(cacheGains);bm=built.slice();
+  }else{
+    if(key===lastKey){postMessage({type:"skip"});return;}lastKey=key;   // a static patch rebuilds zero times
+    if(mode==="lin"){buf=take(16*S);nb=16;const lvs=ids.map(id=>levelSet(tabs.get(id))),T=lvs.length;
+      const a0=lvs[0],a1=lvs[1]||a0,a2=lvs[2]||a0,a3=lvs[3]||a0,w0=ws[0],w1=ws[1]||0,w2=ws[2]||0,w3=ws[3]||0;
+      for(let f=0;f<16;f++){let E=0;for(let a=0;a<T;a++)for(let b=0;b<T;b++)E+=ws[a]*ws[b]*gm(ids[a],ids[b])[f];
+        let g=E>0?Math.sqrt(L.Eref/E):L.GCAP;if(g>L.GCAP){g=L.GCAP;cap++;}
+        const fb=f*S;let pk=0;for(let k=fb+tOff;k<fb+tOff+tN;k++){const v=Math.abs(w0*a0[k]+w1*a1[k]+w2*a2[k]+w3*a3[k]);if(v>pk)pk=v;}
+        if(g*pk>L.PEAK){g=L.PEAK/pk;lim++;}gains[f]=g;
+        // one fused pass per frame, gain folded in (absent corners carry weight 0 on a duplicate array)
+        const c0=g*w0,c1=g*w1,c2=g*w2,c3=g*w3,e=fb+S;
+        if(T===1)for(let k=fb;k<e;k++)buf[k]=c0*a0[k];
+        else if(T===2)for(let k=fb;k<e;k++)buf[k]=c0*a0[k]+c1*a1[k];
+        else if(T===3)for(let k=fb;k<e;k++)buf[k]=c0*a0[k]+c1*a1[k]+c2*a2[k];
+        else for(let k=fb;k<e;k++)buf[k]=c0*a0[k]+c1*a1[k]+c2*a2[k]+c3*a3[k];}
+    }else if(mode==="all16"){buf=take(16*S);const tb=ids.map(id=>tabs.get(id));for(let f=0;f<16;f++)slFrame(tb,ws,f,buf,f*S,gains);nb=16;
+    }else{nF=1;nb=1;buf=take(S);const tb=ids.map(id=>tabs.get(id));
+      L.frameBlend(tb,ws,1,p.frame,re,im);let r=L.loudGain(re,im),g=r.g;if(r.capped)cap++;
+      L.synthLevels(re,im,lay,buf,0,1);let pk=0;for(let k=tOff;k<tOff+tN;k++){const v=Math.abs(buf[k]);if(v>pk)pk=v;}
+      if(g*pk>L.PEAK){g=L.PEAK/pk;lim++;}for(let k=0;k<S;k++)buf[k]*=g;gains.fill(g);}
+  }
+  count++;frames+=nb;
+  port.postMessage({type:"set",buf,nF,sp:lay.sp,built:bm},[buf.buffer]);
+  postMessage({type:"built",ms:performance.now()-t0,count,frames,nb,mode,gains,built:bm,lim,cap,law:p.law,nIds:ids.length});
 }`;
+
+/* The worklet's per-oscillator slots, and how a route moves each (law, lo, hi in the slot's own unit; the page sends
+   levels as linear gains, so LVL's dB law runs on a gain). One list, injected into the worklet, so they cannot drift. */
+const SLOT_NAMES = ["ON","LVL","FRAME","FSPR","SYNCIN","SYNC","SYNCHZ","WIN","ASYM","BEND","PM","UNI","DET","CPL","WID","TR","SEED"];
+const SLOT = Object.fromEntries(SLOT_NAMES.map((n, i) => [n, i])), NPS = SLOT_NAMES.length, NR = 6;
+const SLOT_LAW = {LVL: [3, -60, 6], FRAME: [0, 0, 1], FSPR: [0, -1, 1], SYNC: [1, 1, 16], SYNCHZ: [1, 20, 12000], WIN: [0, 0, 1],
+  ASYM: [0, -1, 1], BEND: [0, -1, 1], PM: [2, 0, 10], DET: [0, 0, 1], CPL: [0, -1, 1], WID: [0, 0, 1], TR: [4, -1, 1]};
+const SLOT_LAW_FLAT = SLOT_NAMES.flatMap(n => SLOT_LAW[n] || [-1, 0, 1]);
 
 /* =====================================================================================================
    Worklet: 8 voices × 2 oscillators × up to 9 members. Nothing in process() allocates.
@@ -494,7 +579,7 @@ function build(){sched=false;const p=want;if(!p||!port)return;
 const WORKLET_SRC = `"use strict";
 const L=(${wtlib.toString()})();
 const LAY=[L.makeLayout(0),L.makeLayout(1)];
-const MAXV=8,MAXM=9,BS=128,SUB=16,TS=4096,TAU=2*Math.PI,KW=0.9/TAU,E5=Math.exp(-5);
+const MAXV=8,MAXM=9,BS=128,SUB=16,TS=4096,TAU=2*Math.PI,KW=0.9/TAU,E5=Math.exp(-5),NR=${NR},MAXP=32;
 const SINT=new Float32Array(TS+2);for(let i=0;i<=TS+1;i++)SINT[i]=Math.sin(TAU*i/TS);
 function SIN(p){const x=p*TS,i=x|0,f=x-i;return SINT[i]+(SINT[i+1]-SINT[i])*f;}
 function COS(p){let q=p+0.25;if(q>=1)q-=1;return SIN(q);}
@@ -508,8 +593,16 @@ function rd6(b,j0,j1,ff,N,p){const q=p*N;let i=q|0;const t=q-i;if(i>=N)i-=N;cons
   let j=j0+i;const y=l0*b[j-2]+l1*b[j-1]+l2*b[j]+l3*b[j+1]+l4*b[j+2]+l5*b[j+3];if(ff===0)return y;
   j=j1+i;const z=l0*b[j-2]+l1*b[j-1]+l2*b[j]+l3*b[j+1]+l4*b[j+2]+l5*b[j+3];return y+(z-y)*ff;}
 // per-oscillator parameter slots (the page sends targets; smoothed per block, steps copied)
-const ON=0,LVL=1,FRAME=2,FSPR=3,FENV=4,SYNCIN=5,SYNC=6,SYNCHZ=7,WIN=8,ASYM=9,BEND=10,PM=11,UNI=12,DET=13,CPL=14,WID=15,TR=16,SEED=17,NP=18;
-const STEP=[SYNCIN,UNI,TR,SEED];
+// (generated from the page's SLOT_NAMES so the two cannot drift; ENV 2 → frame is a route now, B651)
+const ${SLOT_NAMES.map((n, i) => n + "=" + i).join(",")},NP=${SLOT_NAMES.length};
+const STEP=[SYNCIN,UNI,SEED];
+// how a route moves each slot, in its normalised form (MS-12: a depth is in v): [law, lo, hi] per slot;
+// law 0 lin, 1 log, 2 pow, 3 dB on a linear gain (−∞ at v < 0.01), 4 added in semitones over hi − lo, −1 not a destination
+const DLAW=new Float64Array(${JSON.stringify(SLOT_LAW_FLAT)});
+function toV(j,x){const c=DLAW[3*j],lo=DLAW[3*j+1],hi=DLAW[3*j+2];if(c===1)return Math.log(x/lo)/Math.log(hi/lo);if(c===2)return Math.sqrt(Math.max(0,(x-lo)/(hi-lo)));
+  if(c===3)return x<=0?0:0.02+0.98*(20*Math.log10(x)-lo)/(hi-lo);return (x-lo)/(hi-lo);}
+function fromV(j,v){const c=DLAW[3*j],lo=DLAW[3*j+1],hi=DLAW[3*j+2];if(c===1)return lo*Math.pow(hi/lo,v);if(c===2)return lo+(hi-lo)*v*v;
+  if(c===3)return v<0.01?0:Math.pow(10,(lo+(hi-lo)*Math.max(0,(v-0.02)/0.98))/20);return lo+(hi-lo)*v;}
 const A1=0,D1=1,S1=2,R1=3,A2=4,D2=5,S2=6,R2=7,OUT=8,POLY=9,INTERP=10,XF=11,NG=12;
 // balanced seats: members alternate from the extremes inward, so pitch order is not pan order
 const SEAT=[];for(let U=0;U<=MAXM;U++){const q=[];let lo=0,hi=U-1;while(lo<=hi){q.push(lo++);if(lo<=hi)q.push(hi--);}const s=new Float32Array(MAXM);for(let i=0;i<U;i++){const k=q[i];s[i]=U>1?-1+2*k/(U-1):0;}SEAT.push(s);}
@@ -529,18 +622,31 @@ class WT extends AudioWorkletProcessor{
   this.envBuf=new Float32Array(BS);this.aL=new Float32Array(BS);this.aR=new Float32Array(BS);this.y2=new Float32Array(MAXM*BS);
   this.vst=new Float32Array(MAXV*48);this.seeds=[-1,-1];this.rng=[null,null];
   this.dcx=[0,0];this.dcy=[0,0];this.clip=0;this.accMs=0;this.accN=0;this.outPk=0;
+  // B651: per-voice values (the smoothed targets plus this voice's routes), the routes, two drawn LFOs, the frames voices read
+  this.VP=new Float64Array(2*NP);this.MD=new Float64Array(2*NP);
+  this.rSrc=new Int8Array(NR);this.rDst=new Int16Array(NR).fill(-1);this.rT=new Float64Array(NR);this.rS=new Float64Array(NR);
+  this.lfP=[new Float64Array(3*MAXP),new Float64Array(3*MAXP)];this.lfN=[0,0];this.lfRate=[0,0];this.lfT0=[0,0];this.lfPh0=[0,0];this.lv=new Float64Array(2);
+  this.need=[0,0];
   this.port.onmessage=e=>{const d=e.data;
    if(d.type==="ports"){this.op=[d.p1,d.p2];d.p1.onmessage=ev=>this.onSet(0,ev.data);d.p2.onmessage=ev=>this.onSet(1,ev.data);}
    else if(d.type==="params"){for(let i=0;i<2*NP;i++)this.T[i]=d.osc[i];for(let i=0;i<NG;i++)this.GT[i]=d.glob[i];
-     if(!this.init){this.S.set(this.T);this.GS.set(this.GT);this.init=true;}
+     for(let r=0;r<NR;r++){this.rSrc[r]=d.rs[r];this.rDst[r]=d.rd[r];this.rT[r]=d.rk[r];}
+     if(!this.init){this.S.set(this.T);this.GS.set(this.GT);this.rS.set(this.rT);this.init=true;}
      for(let o=0;o<2;o++){const sd=this.T[o*NP+SEED];if(sd!==this.seeds[o]){this.seeds[o]=sd;this.rng[o]=L.mulberry32(sd>>>0);}}}
+   else if(d.type==="lfo"){const n=d.n,c=Math.min(MAXP,d.count);for(let i=0;i<3*c;i++)this.lfP[n][i]=d.pts[i];this.lfN[n]=c;this.lfRate[n]=d.rate;this.lfT0[n]=d.t0;this.lfPh0[n]=d.ph0;}
    else if(d.type==="on")this.noteOn(d.id,d.note,d.vel);
    else if(d.type==="off")this.noteOff(d.id);
    else if(d.type==="alloff"){for(let v=0;v<MAXV;v++){if(this.vAct[v]&&this.vGate[v])this.release(v);this.pId[v]=-1;}}
    else if(d.type==="clearclip")this.clip=0;
    else if(d.type==="poll"){this.fill(d.buf);this.port.postMessage({type:"stats",buf:d.buf},[d.buf.buffer]);}
    this.flush();};}
- onSet(o,m){if(!m||m.type!=="set")return;const s={buf:m.buf,nF:m.nF,lay:LAY[m.sp]};
+ onSet(o,m){if(!m)return;
+   // lazy Spectral log: the worker asks which frames sounding voices read; answered here, never from process()
+   if(m.type==="need"){if(this.op[o])this.op[o].postMessage({type:"need",mask:this.need[o]});this.need[o]=0;return;}
+   if(m.type!=="set")return;
+   // near[f]: the nearest frame this set holds (a lazy set holds only the frames in use; reading another reads its nearest)
+   const near=new Int8Array(16);for(let f=0;f<16;f++){near[f]=f;if(m.built&&!m.built[f]){let best=-1;for(let d=1;d<16&&best<0;d++){if(f-d>=0&&m.built[f-d])best=f-d;else if(f+d<16&&m.built[f+d])best=f+d;}if(best>=0)near[f]=best;}}
+   const s={buf:m.buf,nF:m.nF,lay:LAY[m.sp],near};
    if(this.pend[o])this.retire(o,this.pend[o]);   // a set arriving while one waits replaces it (WT-15)
    this.pend[o]=s;this.flush();}
  retire(o,s){if(this.rqn[o]<4)this.rq[o][this.rqn[o]++]=s;}
@@ -565,11 +671,11 @@ class WT extends AudioWorkletProcessor{
  levelFor(set,rr,c,pi,mi,k){const lay=set.lay,H=lay.H,nL=H.length;const hmax=c/rr;let kk=0;while(kk+1<nL&&H[kk+1]<=hmax)kk++;
    let kb=kk,mix=0;if(kk>0&&H[kk]<=hmax){const hiH=kk+1<nL?H[kk+1]:H[kk]*2;const lo=c/hiH,hi=c/H[kk];const t=Math.log(rr/lo)/Math.log(hi/lo);
      if(t>2/3){const x=Math.min(1,(t-2/3)*3);mix=0.5-0.5*Math.cos(Math.PI*x);kb=kk-1;}}
-   let f0=0,f1=0,ff=0;if(set.nF===16){const u=15*pi;f0=Math.min(14,Math.floor(u));ff=u-f0;f1=f0+1;}
+   let f0=0,f1=0,ff=0;if(set.nF===16){const u=15*pi;f0=Math.min(14,Math.floor(u));ff=u-f0;f1=set.near[f0+1];f0=set.near[f0];}
    const S=lay.stride,g=L.G;mi[k]=f0*S+lay.off[kk]+g;mi[k+1]=f1*S+lay.off[kk]+g;mi[k+2]=lay.N[kk];
    mi[k+3]=f0*S+lay.off[kb]+g;mi[k+4]=f1*S+lay.off[kb]+g;mi[k+5]=lay.N[kb];mi[k+6]=mix;mi[k+7]=ff;mi[k+8]=H[kk];mi[k+9]=H[kb];}
- renderOsc(o,v,f0,e2,n,on2,U2){
-  const P=this.S,b=o*NP,on=P[b+ON];const set=this.cur[o];if(!set)return false;
+ renderOsc(o,v,f0,n,on2,U2){
+  const P=this.VP,b=o*NP,on=P[b+ON];const set=this.cur[o];if(!set)return false;
   if(on<1e-4&&!(o===1&&this.pmNeed))return false;
   const old=this.xr[o]?this.old[o]:null,gx=this.gx[o];
   const U=Math.max(1,Math.min(MAXM,P[b+UNI]|0)),fo=f0*Math.pow(2,P[b+TR]/12);
@@ -578,12 +684,13 @@ class WT extends AudioWorkletProcessor{
   const pmK=(o===0&&this.pmVoice)?P[PM]/TAU:0;
   const c=Math.min(20000,0.45*sampleRate),RD=this.GS[INTERP]>=6?rd6:rd4;
   const lg=P[b+LVL]*on/Math.sqrt(U);
-  const pV=clamp01(P[b+FRAME]+P[b+FENV]*e2),det=P[b+DET],wid=P[b+WID],fsp=P[b+FSPR];
+  const pV=clamp01(P[b+FRAME]),det=P[b+DET],wid=P[b+WID],fsp=P[b+FSPR];
   const base=(o*MAXV+v)*MAXM,mi=this.MI,seat=SEAT[U],cb=set.buf,ob=old?old.buf:null;
   for(let i=0;i<U;i++){const s=U>1?-1+2*i/(U-1):0,fi=fo*Math.pow(2,s*det*100/1200),k=i*24;
     const pan=wid*seat[i],ang=(pan+1)*Math.PI/4;
     const r=syncIn===1?P[b+SYNC]:syncIn===2?Math.max(1,P[b+SYNCHZ]/fi):1;
     const rr=fi*r*slope,pi=clamp01(pV+fsp*s);
+    if(set.nF===16)this.need[o]|=3<<Math.min(14,Math.floor(15*pi));   // the adjacent pair this member reads
     this.levelFor(set,rr,c,pi,mi,k);if(old)this.levelFor(old,rr,c,pi,mi,k+10);
     mi[k+20]=fi;mi[k+21]=Math.cos(ang)*lg;mi[k+22]=Math.sin(ang)*lg;mi[k+23]=r;
     // the restart's value step, for the polyBLEP (ED-1's job in the engine; the corner correction is not in the lab)
@@ -621,6 +728,9 @@ class WT extends AudioWorkletProcessor{
   const al=1-Math.exp(-n/(0.012*sampleRate));
   for(let i=0;i<2*NP;i++){const j=i%NP;if(STEP.indexOf(j)>=0||j===UNI)this.S[i]=this.T[i];else this.S[i]+=(this.T[i]-this.S[i])*al;}
   for(let i=0;i<NG;i++){if(i===POLY||i===INTERP||i===XF)this.GS[i]=this.GT[i];else this.GS[i]+=(this.GT[i]-this.GS[i])*al;}
+  let nR=0;for(let r=0;r<NR;r++){this.rS[r]+=(this.rT[r]-this.rS[r])*al;if(this.rSrc[r]>0&&this.rDst[r]>=0)nR++;}
+  // the drawn LFOs, global and free-running: phase in closed form on the audio clock, so the page's copy reads the same phase
+  for(let k=0;k<2;k++){let ph=this.lfPh0[k]+this.lfRate[k]*(currentTime-this.lfT0[k]);ph-=Math.floor(ph);this.lv[k]=this.lfN[k]>1?L.shapeFlat(this.lfP[k],this.lfN[k],ph):0;}
   const XFn=Math.max(16,this.GS[XF]);
   for(let o=0;o<2;o++){
    if(!this.cur[o]&&this.pend[o]){this.cur[o]=this.pend[o];this.pend[o]=null;}
@@ -628,7 +738,7 @@ class WT extends AudioWorkletProcessor{
    if(this.xr[o]){const inc=1/XFn,g=this.gx[o];let x=this.xp[o];for(let s=0;s<n;s++){x+=inc;const xc=x>1?1:x;g[s]=0.5-0.5*COS(xc*0.5);}this.xp[o]=x;if(x>=1)this.retireAfter[o]=1;}}
   const P=this.S,GS=this.GS,sr=sampleRate;
   const on2=P[NP+ON],U2=Math.max(1,Math.min(MAXM,P[NP+UNI]|0));
-  this.pmOn=P[PM]>1e-4&&on2>1e-4;this.pmNeed=this.pmOn;
+  this.pmOn=on2>1e-4;this.pmNeed=this.pmOn;   // osc 2 runs whenever it is on, so a route can open PM from 0
   const aInc=1/(Math.max(0.0005,GS[A1])*sr),dc=Math.exp(-4/(Math.max(0.005,GS[D1])*sr)),Su=GS[S1],rc=Math.exp(-5/(Math.max(0.005,GS[R1])*sr)),stl=1/(0.003*sr);
   for(let v=0;v<MAXV;v++){if(!this.vAct[v])continue;
    let env=this.vEnv[v],st=this.vSt[v],q=this.vQ[v];const e0=this.vE0[v],eb=this.envBuf;
@@ -639,16 +749,22 @@ class WT extends AudioWorkletProcessor{
     else if(st===4){env-=stl;if(env<=0){env=0;st=5;}}
     else env=0;eb[s]=env;}
    this.vEnv[v]=env;this.vSt[v]=st;this.vQ[v]=q;
-   // ENV 2, the frame envelope, per block
+   // ENV 2, a route source (per voice), per block
    let e2=this.vE2[v];const s2=this.vE2St[v];
    if(s2===0){e2+=n/(Math.max(0.0005,GS[A2])*sr);if(e2>=1){e2=1;this.vE2St[v]=1;}}
    else if(s2===1){e2=GS[S2]+(e2-GS[S2])*Math.exp(-4*n/(Math.max(0.005,GS[D2])*sr));}
    else e2*=Math.exp(-5*n/(Math.max(0.005,GS[R2])*sr));
    this.vE2[v]=e2;
+   // this voice's values: the targets plus its routes, added in each destination's normalised form and clamped (MS-12)
+   const VP=this.VP;VP.set(P);
+   if(nR){const MD=this.MD;MD.fill(0);let any=false;
+     for(let r=0;r<NR;r++){const sc=this.rSrc[r],ds=this.rDst[r];if(sc===0||ds<0)continue;const a=this.rS[r]*(sc===1?this.lv[0]:sc===2?this.lv[1]:e2);if(a!==0){MD[ds]+=a;any=true;}}
+     if(any)for(let i=0;i<2*NP;i++){const a=MD[i];if(a===0)continue;const j=i%NP,c=DLAW[3*j];if(c<0)continue;
+       if(c===4)VP[i]+=(DLAW[3*j+2]-DLAW[3*j+1])*a;else VP[i]=fromV(j,clamp01(toV(j,VP[i])+a));}}
    this.aL.fill(0);this.aR.fill(0);
    const f0=440*Math.pow(2,(this.vNote[v]-69)/12);
-   const r2=this.renderOsc(1,v,f0,e2,n,on2,U2);this.pmVoice=r2&&this.pmOn;   // osc 2 first: it is osc 1's PM modulator (WT-30, CONTRACT §1.8)
-   this.renderOsc(0,v,f0,e2,n,on2,U2);
+   const r2=this.renderOsc(1,v,f0,n,on2,U2);this.pmVoice=r2&&this.pmOn;   // osc 2 first: it is osc 1's PM modulator (WT-30, CONTRACT §1.8)
+   this.renderOsc(0,v,f0,n,on2,U2);
    const vel=this.vVel[v];for(let s=0;s<n;s++){const g=eb[s]*vel;oL[s]+=this.aL[s]*g;oR[s]+=this.aR[s]*g;}
    if(st===5){if(this.pId[v]>=0){const g=this.pGate[v];this.start(v,this.pId[v],this.pNote[v],this.pVel[v],true);this.pId[v]=-1;if(!g)this.release(v);}else{this.vAct[v]=0;this.vId[v]=-1;}}}
   for(let o=0;o<2;o++){if(this.retireAfter[o]){this.retireAfter[o]=0;this.xr[o]=0;if(this.old[o]){this.retire(o,this.old[o]);this.old[o]=null;}}}
@@ -773,166 +889,297 @@ function buildCap(recipe){
 }
 function buildRecipe(recipe){ const b = recipe.kind === "cap" ? buildCap(recipe) : buildGen(recipe); return addTable(recipe, b.re, b.im, b.gate, b.depth); }
 
-/* ---------------- the patch ---------------- */
-const OPENING = () => ({
-  osc: [
-    {on: 1, level: 0, law: 0, frame: 0.35, frameSpread: 0.25, fenv: 0, syncIn: 0, sync: 2, syncHz: 880, window: 0, asym: 0, bend: 0, pm: 0,
-     unison: 5, detune: 0.18, coupling: 0.15, width: 0.75, octave: 0, semitone: 0, fine: 0, seed: 1234, corners: []},
-    {on: 0, level: -6, law: 0, frame: 0.5, frameSpread: 0, fenv: 0, syncIn: 0, sync: 2, syncHz: 880, window: 0, asym: 0, bend: 0, pm: 0,
-     unison: 3, detune: 0.1, coupling: 0, width: 0.5, octave: 0, semitone: 0, fine: 0, seed: 1235, corners: []}],
-  morph: {x: 0.3, y: 0.3},
-  lfo: {rate: 0.15, shape: 0, dx: 0, dy: 0, yph: 90, seed: 1},
-  walk: {on: 0, tau: 1.5, sigma: 0.45, depth: 0.5, seed: 7},
-  env1: {a: 0.004, d: 0.4, s: 0.85, r: 0.28},
-  env2: {a: 0.001, d: 0.6, s: 0, r: 0.3},
-  out: {level: 0}, poly: 8,
-  lab: {spacing: 0, interp: 4, xfade: 0},
-  vizOsc: 0,
-});
-let ST = OPENING();
-const OPEN_CORNERS = [["factory/sine-saw","factory/vowel","factory/pulse","factory/comb"],["factory/sync","factory/fm","factory/fold","factory/organ"]];
-const genIdOf = g => FACT_IDS[FACTORY.findIndex(f => f.gen === g)];
-
-/* ---------------- control definitions (CONTRACT §2.1 rows, SPEC-ENGINE 5.x rows, and stand-ins) ---------------- */
+/* ---------------- the patch: every setting has a value in each corner (B651) ----------------
+   As in horde (SPEC-ENGINE 5.1's classes, Appendix D): a Morphable row (M) blends over the corners at the morph
+   weights, in its normalised form v (MO-9: so a log-law time row blends on the log taper, 10 ms and 1 s meet near
+   100 ms); a Structural row (S) resolves to one corner's value by its quantum pick and latch under every law (MO-13);
+   a Device row (D) stays outside the morph. ST.cv[key] holds the four corner values, A B C D. */
 const fmtPct = v => Math.round(v*100) + " %";
 const fmtSgn = v => (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(2);
 const fmtDb = v => v === -Infinity ? "−∞" : (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(1) + " dB";
 const fmtS = v => v < 1 ? Math.round(v*1000) + " ms" : v.toFixed(2) + " s";
 const fmtHz = v => v < 1000 ? v.toFixed(v < 1 ? 2 : v < 100 ? 1 : 0) + " Hz" : (v/1000).toFixed(2) + " kHz";
-// wt rows: offset in the oscillator's block (osc 1 0x1030.., osc 2 0x2030..)
+// wt rows: offset in the oscillator's block (osc 1 0x1030.., osc 2 0x2030..); class from CONTRACT §2.1
 const WT_ROWS = {
-  law:         {off: 0x030, key: "wt.law", label: "Blend", law: "step", range: "Linear, Spectral log", def: "Linear", doc: "How the corner tables combine (WT-11, WT-12). Changes by the rebuild crossfade (WT-15)."},
-  frame:       {off: 0x031, key: "wt.frame", label: "Frame", law: "lin", lo: 0, hi: 1, def: 0, fmt: v => (1 + 15*v).toFixed(1), range: "0..1 (shown 1–16)", doc: "Where in each table the members read (WT-22). Per voice under Linear; shared (the newest held note's) under Spectral log."},
-  frameSpread: {off: 0x032, key: "wt.frameSpread", label: "Frame spread", law: "lin", lo: -1, hi: 1, def: 0, fmt: fmtSgn, range: "−1..1", doc: "Fans the frame across the members (WT-22). Needs Linear and unison > 1."},
-  syncIn:      {off: 0x033, key: "wt.syncIn", label: "Sync", law: "step", range: "off, × pitch, Hz", def: "off", doc: "Turns sync on, following the note or fixed (WT-32). Changes by PA-5's 5 ms crossfade in the engine."},
-  sync:        {off: 0x034, key: "wt.sync", label: "Sync ratio", law: "log", lo: 1, hi: 16, def: 2, fmt: v => "×" + v.toFixed(2), range: "1..16", doc: "Table cycles per member cycle (WT-32). Live at × pitch."},
-  syncHz:      {off: 0x035, key: "wt.syncHz", label: "Sync Hz", law: "log", lo: 20, hi: 12000, def: 880, fmt: fmtHz, range: "20..12 000 Hz", doc: "The fixed sync frequency: a formant (WT-32, WT-33). Live at Hz. The label on the page is \"Sync\" with unit Hz."},
-  window:      {off: 0x036, key: "wt.window", label: "Window", law: "lin", lo: 0, hi: 1, def: 0, fmt: fmtPct, range: "0..1", doc: "Hard sync (0) to windowed bursts (1) (WT-33). Live while sync is on."},
-  asym:        {off: 0x037, key: "wt.asym", label: "Asym", law: "lin", lo: -1, hi: 1, def: 0, fmt: fmtSgn, range: "−1..1", doc: "Moves the half-cycle point to 0.307 / 0.693 at ±1 (WT-34)."},
-  bend:        {off: 0x038, key: "wt.bend", label: "Bend", law: "lin", lo: -1, hi: 1, def: 0, fmt: fmtSgn, range: "−1..1", doc: "Bends time toward the cycle's start or away (WT-34). With asym, one smooth warp."},
-  pm:          {off: 0x039, key: "wt.pm", label: "PM from osc 2", law: "pow", lo: 0, hi: 10, def: 0, fmt: v => v.toFixed(2), range: "0..10 index", doc: "osc 2 modulates osc 1's read phase (WT-30). osc 1 only; osc2.wt.pm is reserved. Needs osc 2 on (its level may be −∞)."},
+  law:         {off: 0x030, key: "wt.law", cls: "S", label: "Blend", law: "step", options: ["Linear", "Spectral log"], range: "Linear, Spectral log", def: 0, doc: "How the corner tables combine (WT-11, WT-12). Structural: one corner's law, by its pick. Changes by the rebuild crossfade (WT-15)."},
+  frame:       {off: 0x031, key: "wt.frame", cls: "M", label: "Frame", law: "lin", lo: 0, hi: 1, def: 0, fmt: v => (1 + 15*v).toFixed(1), range: "0..1 (shown 1–16)", doc: "Where in each table the members read (WT-22). Per voice under both laws here (B651: Spectral log pre-blends all 16 frames), except in the old shared-frame mode."},
+  frameSpread: {off: 0x032, key: "wt.frameSpread", cls: "M", label: "Frame spread", law: "lin", lo: -1, hi: 1, def: 0, fmt: fmtSgn, range: "−1..1", doc: "Fans the frame across the members (WT-22). Needs unison > 1."},
+  syncIn:      {off: 0x033, key: "wt.syncIn", cls: "S", label: "Sync", law: "step", options: ["off", "× pitch", "Hz"], range: "off, × pitch, Hz", def: 0, doc: "Turns sync on, following the note or fixed (WT-32). Structural: flips at its quantum boundary (PA-5's 5 ms crossfade in the engine)."},
+  sync:        {off: 0x034, key: "wt.sync", cls: "M", label: "Sync ratio", law: "log", lo: 1, hi: 16, def: 2, fmt: v => "×" + v.toFixed(2), range: "1..16", doc: "Table cycles per member cycle (WT-32). Live at × pitch."},
+  syncHz:      {off: 0x035, key: "wt.syncHz", cls: "M", label: "Sync Hz", law: "log", lo: 20, hi: 12000, def: 880, fmt: fmtHz, range: "20..12 000 Hz", doc: "The fixed sync frequency: a formant (WT-32, WT-33). Live at Hz."},
+  window:      {off: 0x036, key: "wt.window", cls: "M", label: "Window", law: "lin", lo: 0, hi: 1, def: 0, fmt: fmtPct, range: "0..1", doc: "Hard sync (0) to windowed bursts (1) (WT-33). Live while sync is on."},
+  asym:        {off: 0x037, key: "wt.asym", cls: "M", label: "Asym", law: "lin", lo: -1, hi: 1, def: 0, fmt: fmtSgn, range: "−1..1", doc: "Moves the half-cycle point to 0.307 / 0.693 at ±1 (WT-34)."},
+  bend:        {off: 0x038, key: "wt.bend", cls: "M", label: "Bend", law: "lin", lo: -1, hi: 1, def: 0, fmt: fmtSgn, range: "−1..1", doc: "Bends time toward the cycle's start or away (WT-34). With asym, one smooth warp."},
+  pm:          {off: 0x039, key: "wt.pm", cls: "M", label: "PM from osc 2", law: "pow", lo: 0, hi: 10, def: 0, fmt: v => v.toFixed(2), range: "0..10 index", doc: "osc 2 modulates osc 1's read phase (WT-30). osc 1 only; osc2.wt.pm is reserved. Needs osc 2 on (its level may be −∞)."},
 };
 const OSC_ROWS = {
-  unison:   {key: "unison", label: "Unison", law: "int", lo: 1, hi: 9, def: 7, fmt: v => String(v), range: "1..9 members", doc: "SPEC-ENGINE 5.3. The members the table is the waveform of."},
-  detune:   {key: "detune", label: "Detune", law: "lin", lo: 0, hi: 1, def: 0.28, fmt: v => "±" + Math.round(v*100) + " c", range: "0..1 (cents law ×1: outermost ±100·v c)", doc: "SPEC-ENGINE 5.3, C.3. Lab: even distribution."},
-  coupling: {key: "coupling", label: "Coupling", law: "lin", lo: -1, hi: 1, def: 0, fmt: fmtSgn, range: "−1..1", doc: "SPEC-ENGINE 5.3. Positive pulls the members' phases together (lab: plain Kuramoto mean field, no C.1 taper); negative splays them."},
-  width:    {key: "width", label: "Width", law: "lin", lo: 0, hi: 1, def: 0.8, fmt: fmtPct, range: "0..1", doc: "SPEC-ENGINE 5.3. Stereo spread of the members (balanced seats)."},
-  octave:   {key: "octave", label: "Octave", law: "int", lo: -4, hi: 4, def: 0, fmt: v => (v > 0 ? "+" : "") + v, range: "−4..+4", doc: "SPEC-ENGINE 5.3."},
-  semitone: {key: "semitone", label: "Semitone", law: "int", lo: -12, hi: 12, def: 0, fmt: v => (v > 0 ? "+" : "") + v + " st", range: "−12..+12", doc: "SPEC-ENGINE 5.3. Sets the PM ratio between the oscillators."},
-  fine:     {key: "fine", label: "Fine", law: "lin", lo: -100, hi: 100, def: 0, fmt: v => (v > 0 ? "+" : "") + v.toFixed(0) + " c", range: "−100..+100 cents", doc: "SPEC-ENGINE 5.3."},
+  unison:   {key: "unison", cls: "S", label: "Unison", law: "int", lo: 1, hi: 9, def: 7, fmt: v => String(v), range: "1..9 members", doc: "SPEC-ENGINE 5.3. Structural: one corner's count, by its pick (PA-6's fades in the engine; a step here)."},
+  detune:   {key: "detune", cls: "M", label: "Detune", law: "lin", lo: 0, hi: 1, def: 0.28, fmt: v => "±" + Math.round(v*100) + " c", range: "0..1 (cents law ×1: outermost ±100·v c)", doc: "SPEC-ENGINE 5.3, C.3. Lab: even distribution."},
+  coupling: {key: "coupling", cls: "M", label: "Coupling", law: "lin", lo: -1, hi: 1, def: 0, fmt: fmtSgn, range: "−1..1", doc: "SPEC-ENGINE 5.3. Positive pulls the members' phases together (lab: plain Kuramoto mean field, no C.1 taper); negative splays them."},
+  width:    {key: "width", cls: "M", label: "Width", law: "lin", lo: 0, hi: 1, def: 0.8, fmt: fmtPct, range: "0..1", doc: "SPEC-ENGINE 5.3. Stereo spread of the members (balanced seats)."},
+  octave:   {key: "octave", cls: "S", label: "Octave", law: "int", lo: -4, hi: 4, def: 0, fmt: v => (v > 0 ? "+" : "") + v, range: "−4..+4", doc: "SPEC-ENGINE 5.3. Structural."},
+  semitone: {key: "semitone", cls: "S", label: "Semitone", law: "int", lo: -12, hi: 12, def: 0, fmt: v => (v > 0 ? "+" : "") + v + " st", range: "−12..+12", doc: "SPEC-ENGINE 5.3. Structural. Sets the PM ratio between the oscillators."},
+  fine:     {key: "fine", cls: "M", label: "Fine", law: "lin", lo: -100, hi: 100, def: 0, fmt: v => (v > 0 ? "+" : "") + v.toFixed(0) + " c", range: "−100..+100 cents", doc: "SPEC-ENGINE 5.3."},
 };
+const PDEF = new Map();   // key → definition; the order is the resolver's and the export's
+function reg(key, d){ PDEF.set(key, Object.assign({key, fullKey: key}, d)); }
+for (let o = 0; o < 2; o++){ const N = o + 1, blk = N << 12;
+  for (const [nm, r] of Object.entries(WT_ROWS)){ if (nm === "pm" && o === 1) continue; reg(`osc${N}.${r.key}`, Object.assign({}, r, {id: blk | r.off, osc: o, nm})); }
+  for (const [nm, r] of Object.entries(OSC_ROWS)) reg(`osc${N}.${r.key}`, Object.assign({}, r, {osc: o, nm}));
+  reg(`mix.osc${N}`, {cls: "M", label: `Osc ${N} level`, law: "db", lo: -60, hi: 6, def: 0, fmt: fmtDb, range: "−∞, −60..+6 dB", doc: "SPEC-ENGINE 5.2 (the mixer). At −∞ osc 2 is silent but still modulates osc 1 (WT-30).", osc: o, nm: "level"});
+}
+reg("osc2.on", {cls: "S", label: "Osc 2 on", law: "step", options: ["off", "on"], range: "off, on", def: 0, doc: "osc2.on · gate, class S, default off. Under Blend it fades as a level, the sum of the weights of the corners where it is on (MO-26 (1)); under Quantum it takes its pick. A source that is off costs nothing (PF-6).", osc: 1, nm: "on"});
+const ENV_ROWS = {attack: ["Attack", "log", 0.0005, 10, 0.004], decay: ["Decay", "log", 0.005, 30, 0.4], sustain: ["Sustain", "lin", 0, 1, 0.85], release: ["Release", "log", 0.005, 30, 0.28]};
+for (const E of ["env1", "env2"]) for (const [k, [label, law, lo, hi, def]] of Object.entries(ENV_ROWS))
+  reg(`${E}.${k}`, {cls: "M", label, law, lo, hi, def, fmt: k === "sustain" ? fmtPct : fmtS, range: `${lo}..${hi}${k === "sustain" ? "" : " s"}`, doc: `SPEC-ENGINE 5.2, class M${law === "log" ? ": blends on the log taper" : ""}. Curves are not in the lab (linear attack, exponential decay and release).`});
+for (const n of [1, 2]) reg(`lfo${n}.rate`, {cls: "M", label: "Rate", law: "log", lo: 0.02, hi: 40, def: 1, fmt: fmtHz, range: "0.02..40 Hz", doc: "SPEC-ENGINE E.5, LF-4: a Morphable modulator key (MS-27), blended on its log taper. Hz only: the lab has no host tempo."});
+for (let r = 1; r <= NR; r++) reg(`mod.r${r}.depth`, {cls: "M", label: "Depth", law: "lin", lo: -1, hi: 1, def: 0, fmt: fmtSgn, range: "−1..1", doc: "The route's depth, a corner value (it blends). Added in the destination's normalised form: 1 sweeps the whole range (morph.x / morph.y: ±0.5 of the pad)."});
 
-/* ---------------- generic controls ---------------- */
-const CTLS = [];
+// the drawn LFO model (ADR-349, LF-7, LF-8): one point list shared by the four corners, each corner its own t, v, u per point
+const lfoFrom = lists => ({nextId: lists[0].length, pts: lists[0].map((_, j) => ({id: j, c: lists.map(L4 => ({t: L4[j][0], v: L4[j][1], u: L4[j][2], parked: false}))}))});
+const SINE5 = [[0, 0, .5], [.25, 1, -.5], [.5, 0, .5], [.75, -1, -.5], [1, 0, 0]];
+const LFO_OPEN = [
+  [SINE5, [[0, 0, .8], [.1, 1, -.3], [.5, .2, .5], [.6, -1, -.6], [1, 0, 0]], [[0, 0, 2.5], [.25, 1, -2.5], [.5, 0, 2.5], [.75, -1, -2.5], [1, 0, 0]], [[0, -1, 0], [.25, -.5, 0], [.5, 0, 0], [.75, .5, 0], [1, 1, 0]]],
+  [[[0, 0, 0], [.25, 1, 0], [.5, 0, 0], [.75, -1, 0], [1, 0, 0]], [[0, .8, 0], [.45, .8, 2.5], [.5, -.8, 0], [.95, -.8, 2.5], [1, .8, 0]], [[0, 1, 0], [.25, .5, 0], [.5, 0, 0], [.75, -.5, 0], [1, -1, 0]], [[0, -1, 1.5], [.25, .2, 0], [.5, 1, -1.5], [.75, .2, 0], [1, -1, 0]]]];
+// route sources: 0 none, 1 LFO 1, 2 LFO 2, 3 ENV 2 (per voice)
+const SRC_NAMES = ["—", "LFO 1", "LFO 2", "ENV 2"];
+const DESTS = [];   // {code, label, key (the row whose value it moves), slot (worklet index, −1 for the pad)}
+[["wt.frame", "FRAME", "Frame"], ["wt.frameSpread", "FSPR", "Frame spread"], ["wt.sync", "SYNC", "Sync ratio"], ["wt.syncHz", "SYNCHZ", "Sync Hz"], ["wt.window", "WIN", "Window"],
+ ["wt.asym", "ASYM", "Asym"], ["wt.bend", "BEND", "Bend"], ["wt.pm", "PM", "PM"], ["detune", "DET", "Detune"], ["coupling", "CPL", "Coupling"], ["width", "WID", "Width"], ["fine", "TR", "Pitch (±2 st)"], ["level", "LVL", "Level"]]
+  .forEach(([k, sl, lab]) => [0, 1].forEach(o => { if (k === "wt.pm" && o === 1) return; const N = o + 1;
+    DESTS.push({code: `osc${N}.${k}`, label: `Osc ${N} · ${lab}`, key: k === "level" ? `mix.osc${N}` : `osc${N}.${k}`, slot: o*NPS + SLOT[sl], osc: o}); }));
+DESTS.sort((a, b) => a.osc - b.osc);
+DESTS.push({code: "morph.x", label: "Morph x (global LFOs only)", key: null, slot: -1}, {code: "morph.y", label: "Morph y (global LFOs only)", key: null, slot: -1});
+const destOf = code => DESTS.find(d => d.code === code);
+
+const blankCV = () => { const cv = {}; for (const [k, d] of PDEF) if (d.cls !== "D") cv[k] = [d.def, d.def, d.def, d.def]; return cv; };
+function PRESET(name){
+  const cv = blankCV(), set = (k, v) => { if (!cv[k]) throw new Error("no key " + k); cv[k] = Array.isArray(v) ? v.slice() : [v, v, v, v]; };
+  const st = {cv, osc: [{seed: 1234}, {seed: 1235}], routes: Array.from({length: NR}, () => ({src: 0, dst: "osc1.wt.frame"})),
+    lfo: name === "init" ? [lfoFrom([SINE5, SINE5, SINE5, SINE5]), lfoFrom([SINE5, SINE5, SINE5, SINE5])] : LFO_OPEN.map(lfoFrom)};
+  set("mix.osc2", -6); set("osc2.unison", 3); set("osc2.detune", 0.1); set("osc2.width", 0.5); set("osc2.wt.frame", 0.5);
+  if (name === "init"){ set("osc1.unison", 5); set("osc1.detune", 0.18); return st; }
+  if (name === "opening"){
+    set("osc1.wt.frame", [.35, .7, .1, .9]); set("osc1.wt.frameSpread", [.25, 0, .5, -.3]); set("osc1.wt.syncIn", [0, 1, 0, 1]);
+    set("osc1.wt.sync", [2, 2.5, 2, 4]); set("osc1.wt.window", [0, .3, 0, .6]); set("osc1.wt.asym", [0, .3, -.4, 0]); set("osc1.wt.bend", [0, 0, .5, -.4]);
+    set("osc1.unison", [5, 7, 3, 9]); set("osc1.detune", [.18, .3, .08, .45]); set("osc1.coupling", [.15, 0, .5, -.2]); set("osc1.width", [.75, .9, .4, 1]);
+    set("mix.osc1", [0, -2, 0, -3]);
+    set("env1.attack", [.004, .03, .002, .15]); set("env1.decay", [.4, .8, .25, 1.2]); set("env1.sustain", [.85, .7, .6, .9]); set("env1.release", [.28, .5, .2, .9]);
+    set("env2.attack", .001); set("env2.decay", [.6, .3, 1.2, .8]); set("env2.sustain", 0); set("env2.release", .3);
+    set("lfo1.rate", [.5, 2, .25, 5]); set("lfo2.rate", [.2, .35, .8, .12]);
+    st.routes[0] = {src: 1, dst: "osc1.wt.frame"}; set("mod.r1.depth", [.08, .2, 0, .3]);
+    st.routes[1] = {src: 2, dst: "osc1.wt.asym"}; set("mod.r2.depth", [0, .25, .3, 0]);
+    st.routes[2] = {src: 1, dst: "morph.x"}; st.routes[3] = {src: 2, dst: "morph.y"};
+    st.routes[4] = {src: 3, dst: "osc1.wt.frame"};
+    return st; }
+  // pluck: Spectral log, ENV 2 → frame, per voice; with B651's pre-blend it rebuilds nothing per note
+  set("osc1.wt.law", 1); set("osc1.wt.frame", [0, 0, .05, 0]); set("osc1.unison", [3, 5, 3, 5]); set("osc1.detune", [.1, .15, .08, .2]); set("osc1.width", .7);
+  set("env1.attack", .002); set("env1.decay", [.5, .7, .4, .9]); set("env1.sustain", 0); set("env1.release", .35);
+  set("env2.attack", .001); set("env2.decay", [.25, .35, .18, .5]); set("env2.sustain", 0); set("env2.release", .3);
+  set("lfo1.rate", [.5, 2, .25, 5]); set("lfo2.rate", [.2, .35, .8, .12]);
+  st.routes[0] = {src: 3, dst: "osc1.wt.frame"}; set("mod.r1.depth", [.85, .7, .95, .6]);
+  st.routes[1] = {src: 1, dst: "osc1.wt.asym"}; st.routes[2] = {src: 1, dst: "morph.x"}; st.routes[3] = {src: 2, dst: "morph.y"};
+  return st;
+}
+const OPENING = () => Object.assign(PRESET("opening"), {
+  morph: {x: 0.3, y: 0.3, law: 0, temperature: 1, cohesion: 0.3, seed: 1024, glide: 0.008},
+  walk: {on: 0, tau: 1.5, sigma: 0.45, depth: 0.5, seed: 7},
+  out: {level: 0}, poly: 8,
+  lab: {spacing: 0, interp: 4, xfade: 0, slFrames: 0},
+  vizOsc: 0, preset: "opening",
+});
+let ST = OPENING();
+const OPEN_CORNERS = [["factory/sine-saw","factory/vowel","factory/pulse","factory/comb"],["factory/sync","factory/fm","factory/fold","factory/organ"]];
+const genIdOf = g => FACT_IDS[FACTORY.findIndex(f => f.gen === g)];
+
+/* ---------------- the resolver: a simple deterministic stand-in for MO-6 to MO-8 ----------------
+   Each key's draws are MO-6's: mulberry32 seeded by FNV-1a of "morph/key/<key>" then the seed's four bytes, four
+   Gumbel draws g = −ln(−ln u); the shared draws come from "morph/shared". A corner scores ln(w)/T + (1 − h)·g_key + h·g_shared
+   (MO-7; h = cohesion, T = temperature); the pick is the highest. Structural keys hold their corner until another
+   beats it by ln(0.55/0.45)/T (MO-8's latch, a 0.1-wide band on an edge). Morphable keys have no latch. It is a
+   stand-in: no region locks, waypoints, counts, Stepped, Exempt or MO-26's restriction of blends to on corners. */
+const RES = {}, GLIDE = {}, LATCH = {}, DRAWS = new Map();
+let TW = [[1, 0, 0, 0], [1, 0, 0, 0]];   // each oscillator's table weights (Blend: the morph's; Quantum: one-hot at the table key's pick)
+function drawsFor(purpose, seed){ const k = purpose + "|" + seed; let g = DRAWS.get(k); if (g) return g;
+  let h = 0x811c9dc5; for (const b of [...new TextEncoder().encode(purpose), seed & 255, (seed >>> 8) & 255, (seed >>> 16) & 255, (seed >>> 24) & 255]){ h ^= b; h = Math.imul(h, 0x01000193) >>> 0; }
+  const r = L.mulberry32(h); g = [0, 1, 2, 3].map(() => { const u = Math.min(1 - 1e-9, Math.max(1e-9, r())); return -Math.log(-Math.log(u)); });
+  DRAWS.set(k, g); return g; }
+function scores(purpose, w){ const T = Math.max(0.02, ST.morph.temperature), h = ST.morph.cohesion, seed = ST.morph.seed >>> 0;
+  const gk = drawsFor(purpose, seed), gs = drawsFor("morph/shared", seed);
+  return w.map((x, c) => (x > 1e-9 ? Math.log(x)/T : -1e12) + (1 - h)*gk[c] + h*gs[c]); }
+const argmax = s => { let b = 0; for (let c = 1; c < 4; c++) if (s[c] > s[b]) b = c; return b; };
+const pick = (purpose, w) => argmax(scores(purpose, w));
+function pickLatched(purpose, w){ const s = scores(purpose, w), b = argmax(s), m = Math.log(0.55/0.45)/Math.max(0.02, ST.morph.temperature);
+  const held = LATCH[purpose]; if (held == null || s[b] > s[held] + m){ LATCH[purpose] = b; return b; } return held; }
+const oneHot = c => [0, 1, 2, 3].map(i => i === c ? 1 : 0);
+// the drawn shape's law (C.12 per segment), on [{t, v, u}]
+function shapeAt(pts, t){ const n = pts.length; if (t <= pts[0].t) return pts[0].v;
+  for (let i = 0; i < n - 1; i++){ const a = pts[i], b = pts[i + 1]; if (t <= b.t){ const sp = b.t - a.t; if (sp <= 1e-12) return b.v; return a.v + (b.v - a.v)*L.segCurve((t - a.t)/sp, a.u); } }
+  return pts[n - 1].v; }
+/* ADR-349's shape model, ported from the design system's ShapeMorph (GUI-37) with stable point ids for the picks.
+   A point added in one corner parks in the others ON THEIR CURVES: a segment of bend u split at f becomes u·f and u·(1 − f),
+   exact under C.12. A point deleted in a corner parks there; parked in all four, it leaves the list. */
+const SM = {
+  MAXPTS: 32,
+  corner: (m, i) => m.pts.map(p => ({t: p.c[i].t, v: p.c[i].v, u: p.c[i].u})),
+  add(m, i, k, f, t, v){ if (m.pts.length >= SM.MAXPTS) return false; const id = m.nextId++;
+    const cs = [0, 1, 2, 3].map(c => { const a = m.pts[k].c[c], b = m.pts[k + 1].c[c], at = a.t + (b.t - a.t)*f, val = shapeAt(SM.corner(m, c), at), u = a.u; a.u = u*f;
+      return {t: c === i ? t : at, v: c === i ? v : val, u: u*(1 - f), parked: c !== i}; });
+    m.pts.splice(k + 1, 0, {id, c: cs}); return true; },
+  park(m, i, j){ const p = m.pts[j]; if (!p || j === 0 || j === m.pts.length - 1) return;
+    const a = m.pts[j - 1].c[i], q = p.c[i], b = m.pts[j + 1].c[i], u = a.u + q.u, f = (q.t - a.t)/((b.t - a.t) || 1);
+    a.u = u*f; q.u = u*(1 - f); q.v = shapeAt([{t: 0, v: a.v, u}, {t: 1, v: b.v, u: 0}], f); q.parked = true;
+    if (p.c.every(c => c.parked)){ for (let c = 0; c < 4; c++) m.pts[j - 1].c[c].u += p.c[c].u; m.pts.splice(j, 1); } },
+};
+const LRES = [[], []], LGL = [new Map(), new Map()];
+// LF-8: Blend moves each point's t, v, u by the weights (t linearly, in cycles); Quantum picks per point (purpose
+// "morph/lfoN/point/<id>", cohesion 1 = whole-shape flip); both glided by the morph glide; re-sorted so it never runs backward.
+function resolveLfo(n, w, q, a){ const m = ST.lfo[n];
+  const out = m.pts.map(p => { let t = 0, v = 0, u = 0;
+    if (q){ const z = p.c[pick(`morph/lfo${n + 1}/point/${p.id}`, w)]; t = z.t; v = z.v; u = z.u; }
+    else for (let c = 0; c < 4; c++){ t += w[c]*p.c[c].t; v += w[c]*p.c[c].v; u += w[c]*p.c[c].u; }
+    let g = LGL[n].get(p.id); if (!g || a >= 1) g = {t, v, u}; else { g.t += (t - g.t)*a; g.v += (v - g.v)*a; g.u += (u - g.u)*a; }
+    LGL[n].set(p.id, g); return {id: p.id, t: g.t, v: g.v, u: g.u}; });
+  out.sort((x, y) => x.t - y.t || x.id - y.id); LRES[n] = out; }
+function resolve(dt){
+  const w = bilinear(heard.x, heard.y), q = ST.morph.law === 1, gl = ST.morph.glide, a = gl > 0 && dt > 0 ? 1 - Math.exp(-dt/gl) : 1;
+  for (const [key, d] of PDEF){ if (d.cls === "D") continue; const v = ST.cv[key];
+    if (key === "osc2.on"){ RES[key] = q ? v[pickLatched("morph/key/" + key, w)] : w.reduce((s, x, c) => s + (v[c] ? x : 0), 0); continue; }   // MO-26 (1): fades as a level under Blend
+    if (d.cls === "S"){ RES[key] = v[pickLatched("morph/key/" + key, w)]; continue; }
+    const tgt = q ? toPos(d, v[pick("morph/key/" + key, w)]) : w.reduce((s, x, c) => s + x*toPos(d, v[c]), 0);   // MO-9: blended in v
+    let g = GLIDE[key]; g = g == null ? tgt : g + (tgt - g)*a; if (Math.abs(g - tgt) < 1e-6) g = tgt; GLIDE[key] = g;
+    RES[key] = fromPos(d, g); }
+  for (let o = 0; o < 2; o++) TW[o] = q ? oneHot(pickLatched(`morph/key/osc${o + 1}.wt.table`, w)) : w.slice();
+  for (let n = 0; n < 2; n++) resolveLfo(n, w, q, a);
+}
+
+/* ---------------- generic controls (each corner control edits the selected corner, or all four) ---------------- */
+const CTLS = [], MARKS = [];
+let SEL = 0;   // 0..3 the corner being edited, 4 all corners
 function toPos(d, v){ const {lo, hi} = d;
-  switch (d.law){ case "log": return Math.log(v/lo)/Math.log(hi/lo); case "pow": return Math.sqrt((v - lo)/(hi - lo));
+  switch (d.law){ case "log": return Math.log(v/lo)/Math.log(hi/lo); case "pow": return Math.sqrt(Math.max(0, (v - lo)/(hi - lo)));
     case "db": return v === -Infinity ? 0 : 0.02 + 0.98*(v - lo)/(hi - lo); default: return (v - lo)/(hi - lo); } }
 function fromPos(d, s){ const {lo, hi} = d;
   switch (d.law){ case "log": return lo*Math.pow(hi/lo, s); case "pow": return lo + (hi - lo)*s*s;
     case "db": return s < 0.01 ? -Infinity : lo + (hi - lo)*Math.max(0, (s - 0.02)/0.98);
     case "int": return Math.round(lo + (hi - lo)*s); default: return lo + (hi - lo)*s; } }
+const cval = key => SEL === 4 ? RES[key] : ST.cv[key][SEL];
+function cdef(key, extra){ const d = Object.assign({}, PDEF.get(key), extra || {}); d.corner = key;
+  d.get = () => cval(key); d.set = v => { if (SEL === 4) ST.cv[key].fill(v); else ST.cv[key][SEL] = v; }; return d; }
+const CLS_TXT = {M: "class M: blends over the corners at the morph weights (MO-9), or picks under Quantum", S: "class S: one corner's value, its quantum pick with a latch, under every law (MO-13)", D: "device: outside the morph"};
 function tipFor(d){ const id = d.id != null ? " · id 0x" + d.id.toString(16).toUpperCase().padStart(4, "0") : "";
-  const df = d.defText != null ? d.defText : (d.fmt ? d.fmt(d.def) : d.def);
-  return `${d.fullKey}${id}\nrange ${d.range} · law ${d.law === "int" ? "step" : d.law} · default ${df}${d.doc ? "\n" + d.doc : ""}`; }
+  const df = d.options ? d.options[d.def] : d.defText != null ? d.defText : (d.fmt ? d.fmt(d.def) : d.def);
+  return `${d.fullKey}${id}\nrange ${d.range} · law ${d.law === "int" ? "step" : d.law} · default ${df}${d.corner ? "\n" + CLS_TXT[d.cls] : ""}${d.doc ? "\n" + d.doc : ""}`; }
+const liveSync = (d, row, why) => { if (d.live){ const w = d.live(); row.classList.toggle("inert", !!w); why.hidden = !w; why.textContent = w || ""; } };
 function slider(parent, d){
   const row = el("div", "ctl"), lab = el("label"), inp = document.createElement("input"), out = el("span", "cv");
-  const uid = "c" + CTLS.length; inp.id = uid; lab.htmlFor = uid; lab.textContent = d.label;
+  const uid = "c" + CTLS.length; inp.id = uid; lab.htmlFor = uid; lab.textContent = d.label; if (d.corner && d.cls === "S") lab.append(el("span", "cls", "S"));
   inp.type = "range"; inp.min = 0; inp.max = 1000; inp.step = 1; row.title = tipFor(d); inp.setAttribute("aria-label", d.label + " (" + d.fullKey + ")");
   const why = el("div", "inertwhy"); why.hidden = true;
-  row.append(lab, inp, out, why); parent.append(row);
-  const c = {row, d, sync(){ const v = d.get(); inp.value = Math.round(clamp01(toPos(d, v))*1000); out.textContent = d.fmt ? d.fmt(v) : String(v);
-      if (d.live){ const w = d.live(); row.classList.toggle("inert", !!w); why.hidden = !w; why.textContent = w || ""; } }};
+  let box = inp;
+  if (d.corner){ box = el("div", "rng"); const mk = el("div", "mk");
+    const ticks = [0, 1, 2, 3].map(c => { const i = el("i", c < 2 ? "t" : "b"); i.style.background = `var(--c${KEYS[c]})`; mk.append(i); return i; });
+    const bar = el("b"); mk.append(bar); box.append(inp, mk);
+    const m = {last: "", update(){ const cv = ST.cv[d.corner], ps = cv.map(v => clamp01(toPos(d, v))), r = clamp01(toPos(d, RES[d.corner]));
+      const k = ps.map(p => p.toFixed(3)).join() + r.toFixed(3) + SEL; if (k === m.last) return; m.last = k;
+      ps.forEach((p, c) => { ticks[c].style.left = (p*100).toFixed(2) + "%"; ticks[c].classList.toggle("sel", SEL === c); });
+      bar.style.left = (r*100).toFixed(2) + "%"; if (SEL === 4) syncOne(); }};
+    MARKS.push(m); }
+  row.append(lab, box, out, why); parent.append(row);
+  const syncOne = () => { const v = d.get(); if (v == null || Number.isNaN(v)) return; inp.value = Math.round(clamp01(toPos(d, v))*1000); out.textContent = d.fmt ? d.fmt(v) : String(v); liveSync(d, row, why); };
+  const c = {row, d, sync: syncOne};
   inp.addEventListener("input", () => { d.set(fromPos(d, inp.value/1000)); changed(); });
   inp.addEventListener("dblclick", () => { d.set(d.def); changed(); });
   CTLS.push(c); return c;
 }
 function seg(parent, d){
   const row = el("div", "ctl wide"), lab = el("span", "cl", d.label), box = el("div", "seg"); row.title = tipFor(d);
+  if (d.corner && d.cls === "S") lab.append(el("span", "cls", "S"));
   const why = el("div", "inertwhy"); why.hidden = true;
-  const btns = d.options.map((o, i) => { const b = el("button", "btn", o); b.type = "button"; b.addEventListener("click", () => { d.set(i); changed(); }); box.append(b); return b; });
+  const btns = d.options.map((o, i) => { const b = el("button", "btn", o); b.type = "button"; const cd = el("span", "cd"); if (d.corner) b.append(cd); b._cd = cd;
+    b.addEventListener("click", () => { d.set(i); changed(); }); box.append(b); return b; });
   row.append(lab, box, why); parent.append(row);
-  const c = {row, d, sync(){ const v = d.get(); btns.forEach((b, i) => b.setAttribute("aria-pressed", i === v));
-      if (d.live){ const w = d.live(); row.classList.toggle("inert", !!w); why.hidden = !w; why.textContent = w || ""; } }};
+  const c = {row, d, sync(){ const v = d.get(); btns.forEach((b, i) => b.setAttribute("aria-pressed", Math.round(v) === i)); liveSync(d, row, why); }};
+  if (d.corner){ const m = {last: "", update(){ const cv = ST.cv[d.corner], r = RES[d.corner], k = cv.join() + "|" + r + SEL; if (k === m.last) return; m.last = k;
+      btns.forEach((b, i) => { b.classList.toggle("res", d.corner === "osc2.on" ? (i === 1 ? r > 1e-4 : r <= 1e-4) : r === i); b._cd.textContent = "";
+        cv.forEach((x, cc) => { if (x === i){ const dot = el("i"); dot.style.background = `var(--c${KEYS[cc]})`; dot.title = "corner " + KEYS[cc]; b._cd.append(dot); } }); });
+      if (SEL === 4) c.sync(); }}; MARKS.push(m); }
   CTLS.push(c); return c;
 }
 const H3 = (p, t) => p.append(el("h3", null, t));
+function updateMarks(){ for (const m of MARKS) m.update(); }
 
 /* ---------------- oscillator panels ---------------- */
+const SLF = ["pre-blend all 16", "lazy: frames in use", "shared frame (old)"];
 function buildOscPanel(o){
-  const P = $("osc" + o + "panel"), S = () => ST.osc[o], N = o + 1, blk = N << 12;
+  const P = $("osc" + o + "panel"), N = o + 1, K = k => `osc${N}.${k}`;
   const head = el("div", "oschead"); head.append(el("h2", null, "Osc " + N));
-  const sub = el("span", "hint", o === 0 ? "member waveform: the table · always on in this lab" : "osc 2 can be off; off, it cannot modulate osc 1");
-  head.append(sub);
-  if (o === 1){ const b = el("button", "btn", "On"); b.id = "osc2on"; b.title = "osc2.on · gate, class S · default off. A source that is off costs nothing (PF-6).";
-    b.addEventListener("click", () => { S().on = S().on ? 0 : 1; changed(); }); head.append(b);
-    CTLS.push({sync(){ b.setAttribute("aria-pressed", !!S().on); b.textContent = S().on ? "On" : "Off"; $("osc1panel").querySelectorAll(".cgrid").forEach(g => g.style.opacity = S().on ? 1 : .55); }}); }
+  head.append(el("span", "hint", o === 0 ? "member waveform: the table · always on in this lab" : "osc 2 can be off; off, it cannot modulate osc 1"));
   P.append(head);
-  const W = (name, extra) => { const r = WT_ROWS[name]; return Object.assign({fullKey: `osc${N}.${r.key}`, id: blk | r.off, get: () => S()[name], set: v => S()[name] = v}, r, extra || {}); };
-  const O = (name, extra) => { const r = OSC_ROWS[name]; return Object.assign({fullKey: `osc${N}.${r.key}`, get: () => S()[name], set: v => S()[name] = v}, r, extra || {}); };
+  if (o === 1){ const g0 = el("div", "cgrid"); P.append(g0); seg(g0, cdef("osc2.on"));
+    CTLS.push({sync(){ $("osc1panel").querySelectorAll(".cgrid").forEach((g, i) => { if (i > 0) g.style.opacity = RES["osc2.on"] > 1e-4 ? 1 : .55; }); }}); }
+  const inertAt = () => SEL === 4 ? "here" : "at " + KEYS[SEL];
   H3(P, "Table");
   let g = el("div", "cgrid"); P.append(g);
-  seg(g, W("law", {options: ["Linear", "Spectral log"], defText: "Linear"}));
-  slider(g, W("frame"));
-  slider(g, W("frameSpread", {live: () => S().law === 1 ? "inert: Spectral log's frame is shared, one per oscillator (WT-22)" : S().unison < 2 ? "inert: needs unison > 1" : ""}));
-  slider(g, {fullKey: `env2 → osc${N}.wt.frame (route depth)`, label: "Frame env", law: "lin", lo: -1, hi: 1, def: 0, fmt: fmtSgn, range: "−1..1",
-    doc: "Lab stand-in for a modulation route from ENV 2 to wt.frame (MS-12 (a), per-voice). Set ENV 2's decay short and this positive for a pluck that scans its table.", get: () => S().fenv, set: v => S().fenv = v});
+  seg(g, cdef(K("wt.law")));
+  slider(g, cdef(K("wt.frame")));
+  slider(g, cdef(K("wt.frameSpread"), {live: () => cval(K("wt.law")) === 1 && ST.lab.slFrames === 2 ? "inert: the old shared-frame mode has one frame per oscillator (WT-22)" : cval(K("unison")) < 2 ? `inert ${inertAt()}: needs unison > 1` : ""}));
   const lawNote = el("p", "note"); P.append(lawNote);
-  CTLS.push({sync(){ lawNote.textContent = S().law === 0
-    ? "Linear: each voice reads its own frame (frame + its envelope), and frame spread fans it across the members. Opposed phases can thin the centre of the pad; loudness restores the level."
-    : "Spectral log: one shared frame per oscillator, the newest held note's (WT-22), so a per-note frame envelope moves every voice. Frame spread is inert. Between frames it interpolates in the log domain, so peaks move instead of crossfading."; }});
+  CTLS.push({sync(){ const sl = RES[K("wt.law")] === 1;
+    lawNote.textContent = !sl ? "Linear (resolved here): each voice reads its own frame, and frame spread fans it across the members. Opposed phases can thin the centre of the pad; loudness restores the level."
+    : ST.lab.slFrames === 2 ? "Spectral log, shared frame (the old mode): one frame per oscillator, the newest held note's (WT-22), so a frame envelope rebuilds the table on every note."
+    : "Spectral log (resolved here): all frames are log-blended at the morph position and each voice crossfades its two adjacent frames, so the frame, frame spread and a frame envelope are per voice and rebuild nothing (B651). Frame envelope: route ENV 2 → wt.frame in the mod matrix."; }});
   H3(P, "Swarm (members)");
   g = el("div", "cgrid"); P.append(g);
-  slider(g, O("unison", {def: 7})); slider(g, O("detune")); slider(g, O("coupling")); slider(g, O("width"));
-  slider(g, O("octave")); slider(g, O("semitone")); slider(g, O("fine"));
-  slider(g, {fullKey: `mix.osc${N}`, label: `Osc ${N} level`, law: "db", lo: -60, hi: 6, def: 0, fmt: fmtDb, range: "−∞, −60..+6 dB", doc: "SPEC-ENGINE 5.2 (the mixer). At −∞ osc 2 is silent but still modulates osc 1 (WT-30).", get: () => S().level, set: v => S().level = v});
+  ["unison", "detune", "coupling", "width", "octave", "semitone", "fine"].forEach(k => slider(g, cdef(K(k))));
+  slider(g, cdef(`mix.osc${N}`));
   H3(P, "Transformations");
   g = el("div", "cgrid"); P.append(g);
-  seg(g, W("syncIn", {options: ["off", "× pitch", "Hz"], defText: "off"}));
-  slider(g, W("sync", {live: () => S().syncIn !== 1 ? "inert: needs Sync at × pitch" : ""}));
-  slider(g, W("syncHz", {live: () => S().syncIn !== 2 ? "inert: needs Sync at Hz" : ""}));
-  slider(g, W("window", {live: () => S().syncIn === 0 ? "inert: live while sync is on" : ""}));
-  slider(g, W("asym")); slider(g, W("bend"));
-  if (o === 0) slider(g, W("pm", {live: () => !ST.osc[1].on ? "inert: turn osc 2 on (MO-26); its level may be −∞" : ""}));
-  else { const r = el("div", "hint", "osc2.wt.pm (0x2039) is reserved: PM from osc 1 into osc 2 needs the two swarms interleaved per sample (CONTRACT §7 E2)."); g.append(r); }
+  seg(g, cdef(K("wt.syncIn")));
+  slider(g, cdef(K("wt.sync"), {live: () => cval(K("wt.syncIn")) !== 1 ? `inert ${inertAt()}: needs Sync at × pitch` : ""}));
+  slider(g, cdef(K("wt.syncHz"), {live: () => cval(K("wt.syncIn")) !== 2 ? `inert ${inertAt()}: needs Sync at Hz` : ""}));
+  slider(g, cdef(K("wt.window"), {live: () => cval(K("wt.syncIn")) === 0 ? `inert ${inertAt()}: live while sync is on` : ""}));
+  slider(g, cdef(K("wt.asym"))); slider(g, cdef(K("wt.bend")));
+  if (o === 0) slider(g, cdef(K("wt.pm"), {live: () => !(RES["osc2.on"] > 1e-4) ? "inert here: turn osc 2 on (MO-26); its level may be −∞" : ""}));
+  else g.append(el("div", "hint", "osc2.wt.pm (0x2039) is reserved: PM from osc 1 into osc 2 needs the two swarms interleaved per sample (CONTRACT §7 E2)."));
+  P.append(el("p", "note", "Ticks: each corner's value (A B above the track, C D below; the edited corner outlined). Pink line: the value resolved at the morph position, before modulation. S marks a Structural row: it never blends, it takes one corner's value."));
 }
 
-/* ---------------- motion, envelopes, lab switches, random panel ---------------- */
+/* ---------------- morph, motion, envelopes, lab switches, random panel ---------------- */
+const dev = (fullKey, o) => Object.assign({fullKey}, o);
 function buildMotion(){
-  const P = $("motionCtl"), lf = () => ST.lfo, wk = () => ST.walk;
-  H3(P, "Global LFO → morph.x / morph.y");
+  const P = $("motionCtl"), mo = () => ST.morph, wk = () => ST.walk;
+  H3(P, "The morph's law (D.3)");
   let g = el("div", "cgrid"); P.append(g);
-  slider(g, {fullKey: "lfo1.rate", label: "Rate", law: "log", lo: 0.02, hi: 40, def: 1, fmt: fmtHz, range: "0.02..40 Hz", doc: "SPEC-ENGINE E.5, LF-4. Lab opens at 0.15 Hz. Advances on the audio clock.", get: () => lf().rate, set: v => lf().rate = v});
-  seg(g, {fullKey: "lfo1 shape (lab stand-in for LF-6's drawn shape / LF-9 S&H)", label: "Shape", options: ["sine", "triangle", "S&H"], law: "step", range: "sine, triangle, S&H", defText: "sine", doc: "horde's LFO shape is drawn (LF-6); these three stand in. S&H draws from a mulberry32 stream at lfo1.seed.", get: () => lf().shape, set: v => lf().shape = v});
-  slider(g, {fullKey: "route lfo1 → morph.x (depth)", label: "Depth X", law: "lin", lo: -1, hi: 1, def: 0, fmt: fmtSgn, range: "−1..1", doc: "MS-12 (d): a global LFO may move the morph position (MS-29). 1 = ±0.5 of the pad.", get: () => lf().dx, set: v => lf().dx = v});
-  slider(g, {fullKey: "route lfo1 → morph.y (depth)", label: "Depth Y", law: "lin", lo: -1, hi: 1, def: 0, fmt: fmtSgn, range: "−1..1", doc: "MS-12 (d), MS-29.", get: () => lf().dy, set: v => lf().dy = v});
-  slider(g, {fullKey: "lab only (Y's phase offset)", label: "Y phase", law: "lin", lo: 0, hi: 360, def: 90, fmt: v => Math.round(v) + "°", range: "0..360°", doc: "Lab only: Y reads the same LFO this far ahead, so equal depths draw a circle. In horde this would be a second LFO.", get: () => lf().yph, set: v => lf().yph = v});
+  seg(g, dev("morph.law (lab: Blend, Quantum)", {label: "Law", options: ["Blend", "Quantum"], law: "step", range: "Blend, Quantum", defText: "Blend", doc: "Blend: Morphable rows blend, Structural rows pick (MO-9, MO-13). Quantum: every key picks its corner (MO-7), Morphable values glided by the morph glide. Stepped is not in the lab.", get: () => mo().law, set: v => mo().law = v}));
+  slider(g, dev("morph.temperature", {label: "Temperature", law: "log", lo: 0.02, hi: 4, def: 1, fmt: v => v.toFixed(2), range: "0.02..4", doc: "MO-7: how sharply each corner owns the pad under Quantum, and how wide the picks' dither is everywhere.", get: () => mo().temperature, set: v => mo().temperature = v}));
+  slider(g, dev("morph.cohesion", {label: "Cohesion", law: "lin", lo: 0, hi: 1, def: 0.3, fmt: fmtPct, range: "0..1", doc: "MO-7: how far all keys pick the same corner together (1: one shared draw; for a drawn LFO, the whole-shape flip).", get: () => mo().cohesion, set: v => mo().cohesion = v}));
+  slider(g, dev("morph.seed", {label: "Morph seed", law: "int", lo: 1, hi: 9999, def: 1024, fmt: v => String(v), range: "1..9 999", doc: "MO-6: seeds every key's draw. The same seed always picks the same corners at the same position.", get: () => mo().seed, set: v => mo().seed = v}));
+  slider(g, dev("morph.glide", {label: "Morph glide", law: "pow", lo: 0, hi: 2, def: 0.008, fmt: fmtS, range: "0..2 s (spec 0..5)", doc: "MO-5 (b): glides the Morphable values and the LFO points (a Quantum flip slides over it). Runs at the page's ~30 ms tick, then the worklet's 12 ms smoother.", get: () => mo().glide, set: v => mo().glide = v}));
   H3(P, "2-D random (Walk) → morph position");
   g = el("div", "cgrid"); P.append(g);
-  seg(g, {fullKey: "route xy → morph.x, morph.y", label: "Walk", options: ["off", "on"], law: "step", range: "off, on", defText: "off", doc: "The 2-D random in Walk (E.8, MR-1..MR-10), routed to the position (MS-29). Lab: an Ornstein–Uhlenbeck walk around the puck, 200 steps per second of audio.", get: () => wk().on, set: v => wk().on = v});
-  slider(g, {fullKey: "xy.tau", label: "Walk speed τ", law: "log", lo: 0.05, hi: 20, def: 1.5, fmt: fmtS, range: "0.05..20 s", doc: "E.8.", get: () => wk().tau, set: v => wk().tau = v, live: () => wk().on ? "" : "inert: Walk is off"});
-  slider(g, {fullKey: "xy.sigma", label: "Walk range σ", law: "log", lo: 0.02, hi: 1.5, def: 0.45, fmt: v => v.toFixed(2), range: "0.02..1.5", doc: "E.8. The walk's stationary spread.", get: () => wk().sigma, set: v => wk().sigma = v, live: () => wk().on ? "" : "inert: Walk is off"});
-  slider(g, {fullKey: "route xy → morph (depth)", label: "Walk depth", law: "lin", lo: 0, hi: 1, def: 0.5, fmt: fmtPct, range: "0..1", doc: "The route's depth.", get: () => wk().depth, set: v => wk().depth = v, live: () => wk().on ? "" : "inert: Walk is off"});
-  slider(g, {fullKey: "xy seed (X50: its own seed)", label: "Walk seed", law: "int", lo: 0, hi: 99, def: 7, fmt: v => String(v), range: "0..99 in the lab", doc: "Seeds the walk's mulberry32 stream; the same seed replays the same walk from Reset.", get: () => wk().seed, set: v => { wk().seed = v; resetWalk(); }, live: () => wk().on ? "" : "inert: Walk is off"});
-  const rb = el("button", "btn small", "Reset motion"); rb.title = "Restart the LFO at phase 0 and the walk at its seed (MS-7's reset, for the motion only)."; rb.addEventListener("click", () => { lfoPh = 0; resetWalk(); }); P.append(rb);
+  seg(g, dev("route xy → morph.x, morph.y", {label: "Walk", options: ["off", "on"], law: "step", range: "off, on", defText: "off", doc: "The 2-D random in Walk (E.8, MR-1..MR-10), routed to the position (MS-29). Lab: an Ornstein–Uhlenbeck walk around the puck, 200 steps per second of audio. Global, not a corner value.", get: () => wk().on, set: v => wk().on = v}));
+  const off = () => wk().on ? "" : "inert: Walk is off";
+  slider(g, dev("xy.tau", {label: "Walk speed τ", law: "log", lo: 0.05, hi: 20, def: 1.5, fmt: fmtS, range: "0.05..20 s", doc: "E.8.", get: () => wk().tau, set: v => wk().tau = v, live: off}));
+  slider(g, dev("xy.sigma", {label: "Walk range σ", law: "log", lo: 0.02, hi: 1.5, def: 0.45, fmt: v => v.toFixed(2), range: "0.02..1.5", doc: "E.8. The walk's stationary spread.", get: () => wk().sigma, set: v => wk().sigma = v, live: off}));
+  slider(g, dev("route xy → morph (depth)", {label: "Walk depth", law: "lin", lo: 0, hi: 1, def: 0.5, fmt: fmtPct, range: "0..1", doc: "The route's depth.", get: () => wk().depth, set: v => wk().depth = v, live: off}));
+  slider(g, dev("xy seed (X50: its own seed)", {label: "Walk seed", law: "int", lo: 0, hi: 99, def: 7, fmt: v => String(v), range: "0..99 in the lab", doc: "Seeds the walk's mulberry32 stream; the same seed replays the same walk from Reset.", get: () => wk().seed, set: v => { wk().seed = v; resetWalk(); }, live: off}));
+  const rb = el("button", "btn small", "Reset motion"); rb.title = "Restart both LFOs at phase 0 and the walk at its seed (MS-7's reset, for the motion only)."; rb.addEventListener("click", () => { resetLfoPhases(); resetWalk(); }); P.append(rb);
 }
 function buildEnv(){
-  const P = $("envCtl"), e1 = () => ST.env1, e2 = () => ST.env2;
-  const env = (g, pre, get, nm) => {
-    slider(g, {fullKey: pre + ".attack", label: "Attack", law: "log", lo: 0.0005, hi: 10, def: 0.004, fmt: fmtS, range: "0.0005..10 s", doc: nm, get: () => get().a, set: v => get().a = v});
-    slider(g, {fullKey: pre + ".decay", label: "Decay", law: "log", lo: 0.005, hi: 30, def: 0.4, fmt: fmtS, range: "0.005..30 s", doc: nm, get: () => get().d, set: v => get().d = v});
-    slider(g, {fullKey: pre + ".sustain", label: "Sustain", law: "lin", lo: 0, hi: 1, def: 0.85, fmt: fmtPct, range: "0..1", doc: nm, get: () => get().s, set: v => get().s = v});
-    slider(g, {fullKey: pre + ".release", label: "Release", law: "log", lo: 0.005, hi: 30, def: 0.28, fmt: fmtS, range: "0.005..30 s", doc: nm + " The release ends at exactly zero.", get: () => get().r, set: v => get().r = v}); };
-  H3(P, "Amp envelope (ENV 1)"); let g = el("div", "cgrid"); P.append(g); env(g, "env1", e1, "SPEC-ENGINE 5.2. Curves are not in the lab (linear attack, exponential decay and release).");
-  H3(P, "ENV 2 (drives Frame env)"); g = el("div", "cgrid"); P.append(g); env(g, "env2", e2, "SPEC-ENGINE 5.2, ENV 2. Routed to each oscillator's wt.frame by its Frame env depth.");
-  H3(P, "Voice & output"); g = el("div", "cgrid"); P.append(g);
-  slider(g, {fullKey: "voice.polyphony", label: "Polyphony", law: "int", lo: 1, hi: 8, def: 8, fmt: v => String(v), range: "1..8 in the lab", doc: "Lab cap 8 (PF-3's chord). The oldest note is stolen with a 3 ms fade.", get: () => ST.poly, set: v => ST.poly = v});
-  slider(g, {fullKey: "out.level", label: "Level", law: "db", lo: -60, hi: 26, def: 0, fmt: fmtDb, range: "−∞, −60..+26 dB", doc: "SPEC-ENGINE 5.2, OU-1: the output is 0.14 × 10^(level/20) × the voices; no limiter, a clip latch.", get: () => ST.out.level, set: v => ST.out.level = v});
+  const P = $("envCtl");
+  H3(P, "Amp envelope (ENV 1)"); let g = el("div", "cgrid"); P.append(g); ["attack", "decay", "sustain", "release"].forEach(k => slider(g, cdef("env1." + k)));
+  H3(P, "ENV 2 (a per-voice route source)"); g = el("div", "cgrid"); P.append(g); ["attack", "decay", "sustain", "release"].forEach(k => slider(g, cdef("env2." + k)));
+  H3(P, "Voice & output (device: global)"); g = el("div", "cgrid"); P.append(g);
+  slider(g, dev("voice.polyphony", {label: "Polyphony", law: "int", lo: 1, hi: 8, def: 8, fmt: v => String(v), range: "1..8 in the lab", doc: "Device (D). Lab cap 8 (PF-3's chord). The oldest note is stolen with a 3 ms fade.", get: () => ST.poly, set: v => ST.poly = v}));
+  slider(g, dev("out.level", {label: "Level", law: "db", lo: -60, hi: 26, def: 0, fmt: fmtDb, range: "−∞, −60..+26 dB", doc: "SPEC-ENGINE 5.2, OU-1: the output is 0.14 × 10^(level/20) × the voices; no limiter, a clip latch. Global in this lab.", get: () => ST.out.level, set: v => ST.out.level = v}));
 }
 function buildLab(){
   const P = $("labCtl"); const g = el("div", "cgrid"); P.append(g);
-  seg(g, {fullKey: "lab: level spacing ρ (CONTRACT §7 C1)", label: "Levels", options: ["per octave (built)", "per half-octave"], law: "step", range: "ρ = 2, ρ = 2^½", defText: "per octave", doc: "WT-4. One level per octave is the build; half-octave tops the band fuller (WT-F2) for about twice the memory. Watch the mip ladder change.", get: () => ST.lab.spacing, set: v => ST.lab.spacing = v});
-  seg(g, {fullKey: "lab: the member's read (WT-6)", label: "Read", options: ["4-point cubic", "6-point Lagrange"], law: "step", range: "4-point, 6-point", defText: "4-point", doc: "The spec builds 6-point Lagrange at N = min(8192, max(2048, 16·H)). The lab opens on 4-point on the same layout for browser CPU; switch to hear the spec's read and watch the DSP load.", get: () => ST.lab.interp === 6 ? 1 : 0, set: v => ST.lab.interp = v ? 6 : 4});
-  seg(g, {fullKey: "lab: published-set crossfade (WT-15)", label: "Set crossfade", options: ["R (spec)", "1024 samples"], law: "step", range: "R = 4 control intervals, 1024 samples", defText: "R", doc: "WT-15: each new published set crossfades in over R (116 samples at 44.1 kHz, 128 at 48 kHz). The lab can only publish about 60 sets a second, so motion is a staircase of R-long fades; the long setting smooths it, for comparison only.", get: () => ST.lab.xfade, set: v => ST.lab.xfade = v});
+  seg(g, dev("lab: Spectral log frames (B651)", {label: "Spectral log frames", options: SLF, law: "step", range: SLF.join(", "), defText: SLF[0], doc: "B651. pre-blend all 16: at the morph position every frame is log-blended once (16 frames per rebuild) and each voice crossfades two adjacent frames; a frame envelope or a note rebuilds nothing. lazy: only the adjacent pair each sounding voice reads, polled from the worklet every 15 ms (a frame not built yet reads its nearest built frame). shared frame: the old WT-22 mode, one frame, rebuilt as the newest note's frame moves.", get: () => ST.lab.slFrames, set: v => ST.lab.slFrames = v}));
+  seg(g, dev("lab: level spacing ρ (CONTRACT §7 C1)", {label: "Levels", options: ["per octave (built)", "per half-octave"], law: "step", range: "ρ = 2, ρ = 2^½", defText: "per octave", doc: "WT-4. One level per octave is the build; half-octave tops the band fuller (WT-F2) for about twice the memory. Watch the mip ladder change.", get: () => ST.lab.spacing, set: v => ST.lab.spacing = v}));
+  seg(g, dev("lab: the member's read (WT-6)", {label: "Read", options: ["4-point cubic", "6-point Lagrange"], law: "step", range: "4-point, 6-point", defText: "4-point", doc: "The spec builds 6-point Lagrange at N = min(8192, max(2048, 16·H)). The lab opens on 4-point on the same layout for browser CPU; switch to hear the spec's read and watch the DSP load.", get: () => ST.lab.interp === 6 ? 1 : 0, set: v => ST.lab.interp = v ? 6 : 4}));
+  seg(g, dev("lab: published-set crossfade (WT-15)", {label: "Set crossfade", options: ["R (spec)", "1024 samples"], law: "step", range: "R = 4 control intervals, 1024 samples", defText: "R", doc: "WT-15: each new published set crossfades in over R (116 samples at 44.1 kHz, 128 at 48 kHz). The lab can only publish about 60 sets a second, so motion is a staircase of R-long fades; the long setting smooths it, for comparison only.", get: () => ST.lab.xfade, set: v => ST.lab.xfade = v}));
 }
 const RND = Object.assign({}, RND_DEF);
 function buildRnd(){
@@ -946,20 +1193,121 @@ function buildRnd(){
   seg(g, {fullKey: "random.set.phase (placeholder)", label: "Phases", options: ["sine", "seeded"], law: "step", range: "sine, seeded", defText: "sine", doc: "Every harmonic in sine phase, or each at a seeded phase.", get: () => RND.phase, set: v => { RND.phase = v; rndDirty = true; }});
 }
 
+/* ---------------- the two drawn LFOs (global, free-running) ---------------- */
+const lfoUI = [];
+function buildLfo(n){
+  const P = $(`lfo${n + 1}Card`);
+  const h = el("h2", null, `LFO ${n + 1}`); h.append(el("span", "hint", "drawn · global, free-running")); P.append(h);
+  const cv = el("canvas", "lfoed"); cv.tabIndex = 0; cv.setAttribute("aria-label", `LFO ${n + 1} shape for the selected corner`);
+  cv.title = "Drag a point to move it (in the selected corner). Drag a segment up or down to bend it. Double-click empty space to add a point (it parks in the other corners on their curves); double-click or right-click a point to remove it from this corner.";
+  P.append(cv);
+  const read = el("div", "hint"); P.append(read);
+  const g = el("div", "cgrid"); P.append(g); slider(g, cdef(`lfo${n + 1}.rate`));
+  const acts = el("div", "formrow"); P.append(acts);
+  const cp = el("button", "btn small", "Copy this corner's shape to all"); cp.title = "Writes the selected corner's times, levels and bends into the other three corners";
+  cp.addEventListener("click", () => { const s = SEL === 4 ? 0 : SEL; ST.lfo[n].pts.forEach(p => { const z = p.c[s]; for (let c = 0; c < 4; c++) p.c[c] = {t: z.t, v: z.v, u: z.u, parked: z.parked}; }); changed(); });
+  acts.append(cp, el("span", "hint", "faint: the other corners · thick: the edited corner · pink: the shape resolved at the morph position, live"));
+  const ui = {cv, read, drag: null}; lfoUI.push(ui);
+  const geo = () => { const r = cv.getBoundingClientRect(), pad = 8; return {r, pad, X: t => pad + t*(r.width - 2*pad), Y: v => r.height/2 - v*(r.height/2 - pad), T: x => (x - pad)/(r.width - 2*pad), V: y => (r.height/2 - y)/(r.height/2 - pad)}; };
+  const edC = () => SEL === 4 ? 0 : SEL;
+  const corners = () => SEL === 4 ? [0, 1, 2, 3] : [SEL];
+  const hit = e => { const G = geo(), x = e.clientX - G.r.left, y = e.clientY - G.r.top, m = ST.lfo[n], pts = SM.corner(m, edC());
+    for (let j = 0; j < pts.length; j++) if (Math.hypot(G.X(pts[j].t) - x, G.Y(pts[j].v) - y) < 9) return {kind: "pt", j, x, y, G};
+    const t = G.T(x); for (let k = 0; k < pts.length - 1; k++) if (t >= pts[k].t && t <= pts[k + 1].t && Math.abs(G.Y(shapeAt(pts, t)) - y) < 14) return {kind: "seg", k, x, y, G, u0: pts[k].u, dir: Math.sign(pts[k + 1].v - pts[k].v) || 1};
+    return {kind: "none", x, y, G}; };
+  cv.addEventListener("pointerdown", e => { const h = hit(e); if (h.kind === "none") return; cv.setPointerCapture(e.pointerId); ui.drag = h; });
+  cv.addEventListener("pointermove", e => { const d = ui.drag; if (!d) return; const m = ST.lfo[n], G = d.G, x = e.clientX - G.r.left, y = e.clientY - G.r.top;
+    if (d.kind === "pt"){ const j = d.j, last = m.pts.length - 1, v = Math.max(-1, Math.min(1, G.V(y)));
+      for (const c of corners()){ const q = m.pts[j].c[c]; q.v = v; q.parked = false;
+        if (j > 0 && j < last) q.t = Math.max(m.pts[j - 1].c[c].t, Math.min(m.pts[j + 1].c[c].t, G.T(x))); } }
+    else { const u = Math.max(-2.5, Math.min(2.5, d.u0 + d.dir*(d.y - y)/30)); for (const c of corners()) m.pts[d.k].c[c].u = u; }
+    changed(); });
+  const up = () => { ui.drag = null; }; cv.addEventListener("pointerup", up); cv.addEventListener("pointercancel", up);
+  const remove = j => { const m = ST.lfo[n]; if (j === 0 || j === m.pts.length - 1) return false; const id = m.pts[j].id;
+    for (const c of corners()){ const k = m.pts.findIndex(p => p.id === id); if (k < 0) break; SM.park(m, c, k); } changed(); return true; };
+  cv.addEventListener("dblclick", e => { const h = hit(e), m = ST.lfo[n];
+    if (h.kind === "pt"){ remove(h.j); return; }
+    const t = Math.max(1e-4, Math.min(1 - 1e-4, h.G.T(h.x))), v = Math.max(-1, Math.min(1, h.G.V(h.y))), c0 = edC(), pts = SM.corner(m, c0);
+    let k = 0; while (k < pts.length - 2 && pts[k + 1].t <= t) k++;
+    const a = pts[k], b = pts[k + 1], f = b.t > a.t ? (t - a.t)/(b.t - a.t) : 0.5;
+    if (!SM.add(m, c0, k, f, t, v)){ read.textContent = `Refused: ${SM.MAXPTS} points is the cap (ADR-349).`; return; }
+    if (SEL === 4) for (let c = 1; c < 4; c++){ const q = m.pts[k + 1].c[c]; q.t = Math.max(m.pts[k].c[c].t, Math.min(m.pts[k + 2].c[c].t, t)); q.v = v; q.parked = false; }
+    changed(); });
+  cv.addEventListener("contextmenu", e => { const h = hit(e); if (h.kind === "pt"){ e.preventDefault(); remove(h.j); } });
+}
+function drawLfo(n){
+  const ui = lfoUI[n], [g, W, H] = fit(ui.cv), pad = 8, X = t => pad + t*(W - 2*pad), Y = v => H/2 - v*(H/2 - pad), m = ST.lfo[n];
+  g.fillStyle = T["--well"]; g.fillRect(0, 0, W, H);
+  g.strokeStyle = T["--hair"]; g.lineWidth = 1; g.beginPath(); g.moveTo(0, H/2 + .5); g.lineTo(W, H/2 + .5); [.25, .5, .75].forEach(t => { g.moveTo(Math.round(X(t)) + .5, 0); g.lineTo(Math.round(X(t)) + .5, H); }); g.stroke();
+  const curve = (pts, col, lw, alpha) => { g.globalAlpha = alpha; g.strokeStyle = col; g.lineWidth = lw; g.beginPath(); for (let i = 0; i <= 160; i++){ const t = i/160, x = X(t), y = Y(shapeAt(pts, t)); i ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); g.globalAlpha = 1; };
+  const ed = SEL === 4 ? 0 : SEL;
+  for (let c = 0; c < 4; c++) if (c !== ed) curve(SM.corner(m, c), T[VARS[c]], 1.2, .35);
+  const pts = SM.corner(m, ed); curve(pts, T[VARS[ed]], 2.4, 1);
+  pts.forEach((p, j) => { const x = X(p.t), y = Y(p.v); if (m.pts[j].c[ed].parked){ g.strokeStyle = T["--hint"]; g.lineWidth = 1.2; g.beginPath(); g.arc(x, y, 3.2, 0, TAU); g.stroke(); }
+    else { g.fillStyle = T[VARS[ed]]; g.strokeStyle = T["--ink"]; g.lineWidth = 1; g.fillRect(x - 3.5, y - 3.5, 7, 7); g.strokeRect(x - 3.5, y - 3.5, 7, 7); } });
+  const rs = LRES[n]; if (rs.length > 1){ curve(rs, T["--value"], 2, .95);
+    const ph = lfoPhase(n), y = Y(shapeAt(rs, ph)); g.fillStyle = T["--meter"]; g.strokeStyle = T["--ink"]; g.beginPath(); g.arc(X(ph), y, 4.5, 0, TAU); g.fill(); g.stroke(); }
+  const parkedHere = m.pts.filter(p => p.c[ed].parked).length;
+  ui.read.textContent = `${m.pts.length} of ${SM.MAXPTS} points · ${parkedHere} parked in ${SEL === 4 ? "A (editing all corners)" : "corner " + KEYS[ed]} · ${ST.morph.law ? "Quantum: each point picks its corner" : "Blend: the points travel"} · ${fmtHz(LF[n].rate)} · phase ${lfoPhase(n).toFixed(2)} · now ${fmtSgn(lfoValue(n))}`;
+}
+
+/* ---------------- the mod matrix ---------------- */
+const routeUI = [];
+function buildMatrix(){
+  const P = $("matrix");
+  for (let r = 0; r < NR; r++){
+    const row = el("div", "rt"), src = document.createElement("select"), dst = document.createElement("select"), now = el("span", "now", "");
+    src.setAttribute("aria-label", `route ${r + 1} source`); dst.setAttribute("aria-label", `route ${r + 1} destination`);
+    SRC_NAMES.forEach((s, i) => { const op = el("option", null, s); op.value = i; src.append(op); });
+    let grp = null, last = null; DESTS.forEach(d => { const gname = d.slot < 0 ? "Morph (MS-29)" : `Osc ${d.osc + 1}`; if (gname !== last){ grp = document.createElement("optgroup"); grp.label = gname; dst.append(grp); last = gname; }
+      const op = el("option", null, d.label.replace(/^Osc \d · /, "")); op.value = d.code; grp.append(op); });
+    src.addEventListener("change", () => { ST.routes[r].src = +src.value; changed(); });
+    dst.addEventListener("change", () => { ST.routes[r].dst = dst.value; changed(); });
+    row.append(el("span", "rn", String(r + 1)), src, dst, now); P.append(row);
+    const dd = el("div", "rtd"); P.append(dd);
+    slider(dd, cdef(`mod.r${r + 1}.depth`, {label: "Depth", live: () => { const R = ST.routes[r]; return !R.src ? "inert: pick a source" : R.src === 3 && destOf(R.dst).slot < 0 ? "refused: only global LFOs move the morph (MS-29); ENV 2 is per voice" : ""; }}));
+    routeUI.push({src, dst, now});
+    CTLS.push({sync(){ src.value = ST.routes[r].src; dst.value = ST.routes[r].dst; }});
+  }
+  P.append(el("p", "note", "Sources: LFO 1 and 2 (global, so they may move the morph) and ENV 2 (per voice). Depth is added in the destination's normalised form, so 1 sweeps its whole range; on the pad 1 is ±0.5. As the morph moves, both the shapes and these depths transform. Applied per 128-sample block in the worklet."));
+}
+// a route's value now, for the newest held voice (ENV 2 mirrored on the page)
+function routeAmount(r){ const R = ST.routes[r]; if (!R.src) return 0; const dep = RES[`mod.r${r + 1}.depth`] || 0;
+  const s = R.src === 3 ? (newestEnv2() || 0) : lfoValue(R.src - 1); return dep*s; }
+function drawMatrix(){ routeUI.forEach((u, r) => { const R = ST.routes[r], d = destOf(R.dst);
+  u.now.textContent = !R.src ? "" : (R.src === 3 && d.slot < 0) ? "refused" : "now " + fmtSgn(routeAmount(r)*(d.slot < 0 ? 0.5 : 1)); }); }
+// a destination's value for the newest voice: the resolved value plus every route to it (in its normalised form), for the pictures
+function modulated(key, code){ const d = PDEF.get(key); let v = toPos(d, RES[key]);
+  ST.routes.forEach((R, r) => { if (R.src && R.dst === code && !(R.src === 3 && destOf(code).slot < 0)) v += routeAmount(r); });
+  return fromPos(d, clamp01(v)); }
+
 /* ---------------- corners ---------------- */
 const cornerUI = [];
+function selectCorner(c){ SEL = c; changed(); }
+function buildCornerSel(){
+  const box = $("cornerSel");
+  [...KEYS, "All"].forEach((K, c) => { const b = el("button", "btn small" + (c < 4 ? " k" : ""), c < 4 ? K : "All corners"); b.type = "button";
+    if (c < 4) b.style.background = `var(--c${K})`;
+    b.title = c < 4 ? `Edit corner ${K}: every control shows and writes corner ${K}'s value` : "Write one value into every corner (controls show the resolved value)";
+    b.addEventListener("click", () => selectCorner(c)); box.append(b); CTLS.push({sync(){ b.setAttribute("aria-pressed", SEL === c); }}); });
+  const lb = $("lawSel");
+  ["Blend", "Quantum"].forEach((t, i) => { const b = el("button", "btn small", t); b.type = "button";
+    b.title = i ? "Quantum: every key picks one corner (MO-7), Morphable values glide to it; each LFO point picks its own corner (LF-8)" : "Blend: Morphable rows and the LFO points blend; Structural rows take their quantum pick (MO-9, MO-13, LF-8)";
+    b.addEventListener("click", () => { ST.morph.law = i; changed(); }); lb.append(b); CTLS.push({sync(){ b.setAttribute("aria-pressed", ST.morph.law === i); }}); });
+}
 function buildCorners(){
   KEYS.forEach((K, c) => {
     const C = $("corner" + K);
-    const h = el("div", "ch"), chip = el("span", "chip", K); chip.style.background = `var(--c${K})`;
+    const h = el("div", "ch"), chip = el("span", "chip", K); chip.style.background = `var(--c${K})`; chip.title = `Edit corner ${K}`; chip.addEventListener("click", () => selectCorner(c));
     const wb = el("div", "wbar"), wi = el("i"); wi.style.background = `var(--c${K})`; wb.append(wi); const wn = el("span", "num hint", "0.00");
     h.append(chip, el("span", "hint", "corner " + K), wb, wn); C.append(h);
     const rows = [0, 1].map(o => { const r = el("div", "orow"); const lab = el("span", "ol", "OSC " + (o + 1)); const box = el("div");
       const sel = document.createElement("select"); sel.setAttribute("aria-label", `osc ${o + 1} table at corner ${K}`);
-      sel.title = `osc${o + 1}.wt.table at corner ${K}: a recipe id held in the morph's corner state (WT-51), not a host parameter.`;
+      sel.title = `osc${o + 1}.wt.table at corner ${K}: a recipe id held in the morph's corner state (WT-51), not a host parameter. Blend weights the tables by the morph; Quantum takes one corner's (CONTRACT §4.2).`;
       sel.addEventListener("change", () => assignCorner(o, c, sel.value));
       const cv = el("canvas", "stack"); box.append(sel, cv); r.append(lab, box); C.append(r); return {r, sel, cv}; });
-    cornerUI.push({wi, wn, rows});
+    cornerUI.push({C, wi, wn, rows});
+    CTLS.push({sync(){ C.classList.toggle("selc", SEL === c || SEL === 4); }});
   });
 }
 function optLabel(t){ return t.name + (LIBRARY.includes(t.id) || FACT_IDS.includes(t.id) ? "" : " (not in library)"); }
@@ -986,11 +1334,15 @@ function assignCorner(o, c, id, quiet){
    Audio graph, workers, messages
    ===================================================================================================== */
 let ctx = null, node = null, analyser = null, starting = null, workers = [null, null], sentTo = [new Set(), new Set()];
-const workerInfo = [{count: 0, ms: 0, gains: null, lim: 0, cap: 0, busy: false, law: 0}, {count: 0, ms: 0, gains: null, lim: 0, cap: 0, busy: false, law: 0}];
+const workerInfo = [0, 1].map(() => ({count: 0, frames: 0, ms: 0, nb: 0, mode: "", gains: null, built: null, lim: 0, cap: 0, busy: false, law: 0, log: []}));
+let noteSnap = [0, 0];   // each worker's set count at the last note-on: "rebuilds since the last note"
 function makeWorkers(){
   const url = URL.createObjectURL(new Blob([WORKER_SRC], {type: "application/javascript"}));
   for (let o = 0; o < 2; o++){ const w = new Worker(url); workers[o] = w;
-    w.onmessage = e => { const d = e.data; if (d.type === "built"){ Object.assign(workerInfo[o], {count: d.count, ms: d.ms, gains: d.gains, lim: d.lim, cap: d.cap, busy: false, law: d.law}); vizDirty = true; } else if (d.type === "skip") workerInfo[o].busy = false; };
+    w.onmessage = e => { const d = e.data, wi = workerInfo[o];
+      if (d.type === "built"){ Object.assign(wi, {count: d.count, frames: d.frames, ms: d.ms, nb: d.nb, mode: d.mode, gains: d.gains, built: d.built, lim: d.lim, cap: d.cap, busy: false, law: d.law});
+        wi.log.push([d.ms, d.nb, d.mode]); if (wi.log.length > 400) wi.log.shift(); vizDirty = true; }
+      else if (d.type === "skip") wi.busy = false; };
     w.onerror = e => showWarn("audioWarn", "A table worker failed: " + (e.message || e)); }
 }
 function sendTable(o, id){ if (!workers[o] || sentTo[o].has(id)) return; const t = DICT.get(id); if (!t) return;
@@ -998,7 +1350,9 @@ function sendTable(o, id){ if (!workers[o] || sentTo[o].has(id)) return; const t
 async function ensureAudio(){
   if (node) return true; if (starting) return starting;
   starting = (async () => { try {
+    const ph = [lfoPhase(0), lfoPhase(1)];
     ctx = new (window.AudioContext || window.webkitAudioContext)({latencyHint: "interactive"});
+    LF.forEach((l, n) => { l.ph0 = ph[n]; l.t0 = ctx.currentTime; }); lastClock = null;   // the LFOs move onto the audio clock without a jump
     const url = URL.createObjectURL(new Blob([WORKLET_SRC], {type: "application/javascript"}));
     await ctx.audioWorklet.addModule(url);
     node = new AudioWorkletNode(ctx, "horde-wt", {numberOfInputs: 0, outputChannelCount: [2]});
@@ -1009,7 +1363,7 @@ async function ensureAudio(){
     node.port.postMessage({type: "ports", p1: ch[0].port1, p2: ch[1].port1}, [ch[0].port1, ch[1].port1]);
     for (let o = 0; o < 2; o++) workers[o].postMessage({type: "port", port: ch[o].port2}, [ch[o].port2]);
     for (let o = 0; o < 2; o++) ST.osc[o].corners.forEach(id => sendTable(o, id));
-    pushParams(true); lastWorkerKey = ["", ""];
+    lastParamKey = ""; lfoKey = ["", ""]; lastWorkerKey = ["", ""]; pushParams(); pushLfos();
     if (ctx.state !== "running") await ctx.resume();
     const b = $("startAudio"); b.textContent = "● Audio on · " + (ctx.sampleRate/1000).toFixed(1) + " kHz"; b.classList.add("on");
     return true;
@@ -1018,26 +1372,53 @@ async function ensureAudio(){
 }
 function showWarn(id, t){ const w = $(id); w.hidden = false; w.textContent = t; }
 const dbLin = v => v === -Infinity ? 0 : Math.pow(10, v/20);
-// one flat array per oscillator, in the worklet's slot order (ON, LVL, FRAME, FSPR, FENV, SYNCIN, SYNC, SYNCHZ, WIN, ASYM, BEND, PM, UNI, DET, CPL, WID, TR, SEED)
+// the resolved values, one flat array per oscillator in the worklet's slot order (SLOT_NAMES), the envelopes, the routes
+let lastParamKey = "";
 function pushParams(){
   if (!node) return;
-  const osc = new Float64Array(36);
-  ST.osc.forEach((s, o) => { const b = o*18, on = o === 0 ? 1 : s.on;
-    [on, dbLin(s.level), s.frame, s.law === 1 ? 0 : s.frameSpread, s.fenv, s.syncIn, s.sync, s.syncHz, s.window, s.asym, s.bend, s.pm,
-     s.unison, s.detune, s.coupling, s.width, s.octave*12 + s.semitone + s.fine/100, s.seed].forEach((v, i) => osc[b + i] = v); });
-  const fs = ctx.sampleRate, R = 4*Math.round(fs/1512);   // WT-14: R = 4 control intervals (116 at 44.1 kHz, 128 at 48 kHz)
-  const glob = new Float64Array([ST.env1.a, ST.env1.d, ST.env1.s, ST.env1.r, ST.env2.a, ST.env2.d, ST.env2.s, ST.env2.r, dbLin(ST.out.level), ST.poly, ST.lab.interp, ST.lab.xfade ? 1024 : R]);
-  node.port.postMessage({type: "params", osc, glob});
+  const osc = new Float64Array(2*NPS);
+  for (let o = 0; o < 2; o++){ const N = o + 1, R = k => RES[`osc${N}.${k}`], b = o*NPS;
+    const vals = {ON: o === 0 ? 1 : RES["osc2.on"], LVL: dbLin(RES[`mix.osc${N}`]), FRAME: R("wt.frame"), FSPR: R("wt.law") === 1 && ST.lab.slFrames === 2 ? 0 : R("wt.frameSpread"),
+      SYNCIN: R("wt.syncIn"), SYNC: R("wt.sync"), SYNCHZ: R("wt.syncHz"), WIN: R("wt.window"), ASYM: R("wt.asym"), BEND: R("wt.bend"), PM: o === 0 ? R("wt.pm") : 0,
+      UNI: R("unison"), DET: R("detune"), CPL: R("coupling"), WID: R("width"), TR: R("octave")*12 + R("semitone") + R("fine")/100, SEED: ST.osc[o].seed};
+    SLOT_NAMES.forEach((nm, i) => osc[b + i] = vals[nm]); }
+  const fs = ctx.sampleRate, Rx = 4*Math.round(fs/1512);   // WT-14: R = 4 control intervals (116 at 44.1 kHz, 128 at 48 kHz)
+  const E = k => RES[k];
+  const glob = new Float64Array([E("env1.attack"), E("env1.decay"), E("env1.sustain"), E("env1.release"), E("env2.attack"), E("env2.decay"), E("env2.sustain"), E("env2.release"),
+    dbLin(ST.out.level), ST.poly, ST.lab.interp, ST.lab.xfade ? 1024 : Rx]);
+  const rs = new Int8Array(NR), rd = new Int16Array(NR), rk = new Float64Array(NR);
+  ST.routes.forEach((R, r) => { const d = destOf(R.dst); rs[r] = R.src === 3 && d.slot < 0 ? 0 : R.src; rd[r] = d.slot; rk[r] = RES[`mod.r${r + 1}.depth`]; });
+  const key = osc.join() + "|" + glob.join() + "|" + rs.join() + rd.join() + "|" + rk.join();
+  if (key === lastParamKey) return; lastParamKey = key;
+  node.port.postMessage({type: "params", osc, glob, rs, rd, rk});
 }
 let lastWorkerKey = ["", ""];
 function pushWorkers(){
   if (!node) return;
-  const w = heardWeights();
-  for (let o = 0; o < 2; o++){ const s = ST.osc[o];
-    const msg = {type: "params", ids: s.corners, w, law: s.law, frame: sharedFrame(o), spacing: ST.lab.spacing};
-    const key = JSON.stringify([msg.ids, w, msg.law, msg.law === 1 ? msg.frame : 0, msg.spacing]);
+  for (let o = 0; o < 2; o++){ const N = o + 1, law = RES[`osc${N}.wt.law`], sl = ST.lab.slFrames, w = TW[o].map(round4);
+    const frame = law === 1 && sl === 2 ? sharedFrame(o) : round4(RES[`osc${N}.wt.frame`]);
+    const msg = {type: "params", ids: ST.osc[o].corners, w, law, frame, slmode: sl, spacing: ST.lab.spacing};
+    const key = JSON.stringify([msg.ids, w, law, law === 1 ? sl : 0, law === 1 && sl === 2 ? frame : law === 1 && sl === 1 ? Math.min(14, Math.floor(15*frame)) : 0, msg.spacing]);
     if (key !== lastWorkerKey[o]){ lastWorkerKey[o] = key; workers[o].postMessage(msg); workerInfo[o].busy = true; } }
 }
+
+/* ---------------- the LFOs' clock: phase in closed form, φ = φ₀ + rate·(t − t₀) on the audio clock ----------------
+   The page and the worklet compute the same phase from the same anchor, so the pad and the sound agree. A rate change
+   re-anchors (φ₀ ← φ now, t₀ ← now), so the phase never jumps. */
+const LF = [{ph0: 0, t0: 0, rate: 1}, {ph0: 0.25, t0: 0, rate: 1}];
+const clockNow = () => ctx ? ctx.currentTime : performance.now()/1000;
+const lfoPhaseAt = (n, t) => frac(LF[n].ph0 + LF[n].rate*(t - LF[n].t0));
+const lfoPhase = n => lfoPhaseAt(n, clockNow());
+const lfoValue = n => LRES[n].length > 1 ? shapeAt(LRES[n], lfoPhase(n)) : 0;
+function setLfoRate(n, r){ if (!(r > 0) || Math.abs(r - LF[n].rate) < 1e-9) return; const now = clockNow(); LF[n].ph0 = lfoPhaseAt(n, now); LF[n].t0 = now; LF[n].rate = r; }
+function resetLfoPhases(){ const now = clockNow(); LF.forEach((l, n) => { l.ph0 = n ? 0.25 : 0; l.t0 = now; }); }
+let lfoKey = ["", ""];
+function pushLfos(){ if (!node) return;
+  for (let n = 0; n < 2; n++){ const pts = LRES[n], l = LF[n];
+    const key = pts.map(p => p.t.toFixed(5) + "," + p.v.toFixed(5) + "," + p.u.toFixed(4)).join(";") + "|" + l.rate + "|" + l.t0 + "|" + l.ph0;
+    if (key === lfoKey[n]) continue; lfoKey[n] = key;
+    const a = new Float64Array(3*pts.length); pts.forEach((p, i) => { a[3*i] = p.t; a[3*i + 1] = p.v; a[3*i + 2] = p.u; });
+    node.port.postMessage({type: "lfo", n, pts: a, count: pts.length, rate: l.rate, t0: l.t0, ph0: l.ph0}); } }
 
 /* ---------------- notes ---------------- */
 let noteSeq = 1; const noteIds = new Map(); const held = [];   // held: {key, note, t0}
@@ -1047,40 +1428,40 @@ async function noteOn(key, note, vel){
   node.port.postMessage({type: "on", id: noteIds.get(key), note, vel: vel || 0.85});
   const i = held.findIndex(h => h.key === key); if (i >= 0) held.splice(i, 1);
   held.push({key, note, t0: ctx.currentTime});
+  noteSnap = workerInfo.map(w => w.count);
 }
 function noteOff(key){ if (!node || !noteIds.has(key)) return; node.port.postMessage({type: "off", id: noteIds.get(key)});
   const i = held.findIndex(h => h.key === key); if (i >= 0) held.splice(i, 1); }
-// ENV 2 of the newest held note, mirrored on the page (attack linear, decay exponential to sustain), for the shared frame (WT-22)
-let lastShared = [null, null];
-function env2At(t){ const e = ST.env2; if (t < e.a) return t/e.a; return e.s + (1 - e.s)*Math.exp(-4*(t - e.a)/e.d); }
-function newestEnv2(){ if (!held.length || !ctx) return null; return env2At(ctx.currentTime - held[held.length - 1].t0); }
-function sharedFrame(o){ const s = ST.osc[o], e = newestEnv2();
-  if (e != null) lastShared[o] = clamp01(s.frame + s.fenv*e); else if (lastShared[o] == null || s.fenv === 0) lastShared[o] = s.frame;
-  return round4(lastShared[o]); }
+// ENV 2 of the newest held note, mirrored on the page (attack linear, decay exponential to sustain); with none held, the last value (WT-22)
+let lastE2 = 0;
+function env2At(t){ const a = RES["env2.attack"], d = RES["env2.decay"], s = RES["env2.sustain"]; if (t < a) return t/a; return s + (1 - s)*Math.exp(-4*(t - a)/d); }
+function newestEnv2(){ if (held.length && ctx) lastE2 = env2At(ctx.currentTime - held[held.length - 1].t0); return lastE2; }
+// the old shared-frame mode's one frame: the resolved frame plus every route to it, at the newest held note
+function sharedFrame(o){ const k = `osc${o + 1}.wt.frame`; return round4(modulated(k, k)); }
 
 /* ---------------- morph motion (on the audio clock) ---------------- */
-let lfoPh = 0, lastClock = null, walkO = [0, 0], walkTicks = 0, walkRng = null, walkG = null;
+let lastClock = null, walkO = [0, 0], walkTicks = 0, walkRng = null, walkG = null;
 function resetWalk(){ walkO = [0, 0]; walkRng = L.mulberry32(ST.walk.seed >>> 0); walkG = null; }
 function gauss(){ if (walkG != null){ const g = walkG; walkG = null; return g; } const u = Math.max(1e-12, walkRng()), v = walkRng();
   const r = Math.sqrt(-2*Math.log(u)); walkG = r*Math.sin(TAU*v); return r*Math.cos(TAU*v); }
-function lfoShape(ph){ const sh = ST.lfo.shape, x = frac(ph);
-  if (sh === 0) return Math.sin(TAU*x); if (sh === 1) return 1 - 4*Math.abs(frac(x + 0.25) - 0.5);
-  return 2*L.mulberry32((ST.lfo.seed ^ Math.imul(Math.floor(ph) + 1, 0x9E3779B1)) >>> 0)() - 1; }
+const morphRouted = () => ST.routes.some((R, r) => (R.src === 1 || R.src === 2) && (R.dst === "morph.x" || R.dst === "morph.y") && Math.abs(RES[`mod.r${r + 1}.depth`] || 0) > 1e-6);
 let heard = {x: 0.3, y: 0.3}; const trail = [];
+// the position the laws read: the puck plus the global LFO routes (depths resolved one tick earlier: MS-34's interval late) plus the walk (MS-29)
 function stepMotion(){
-  const now = ctx ? ctx.currentTime : performance.now()/1000;   // the audio clock once audio runs (the page's motion only)
+  const now = clockNow();
   let dt = lastClock == null ? 0 : now - lastClock; lastClock = now; if (dt < 0 || dt > 0.25) dt = 0;
-  lfoPh += ST.lfo.rate*dt;
+  for (let n = 0; n < 2; n++) setLfoRate(n, RES[`lfo${n + 1}.rate`]);
   let x = ST.morph.x, y = ST.morph.y;
-  if (ST.lfo.dx || ST.lfo.dy){ x += 0.5*ST.lfo.dx*lfoShape(lfoPh); y += 0.5*ST.lfo.dy*lfoShape(lfoPh + ST.lfo.yph/360); }
+  ST.routes.forEach((R, r) => { if (R.src !== 1 && R.src !== 2) return; const a = 0.5*(RES[`mod.r${r + 1}.depth`] || 0)*lfoValue(R.src - 1);
+    if (R.dst === "morph.x") x += a; else if (R.dst === "morph.y") y += a; });
   if (ST.walk.on){ if (!walkRng) resetWalk(); const tick = 1/200; walkTicks += dt/tick;
     const W = ST.walk, a = tick/W.tau, sd = W.sigma*Math.sqrt(2*a);
     while (walkTicks >= 1){ walkTicks -= 1; walkO[0] += -a*walkO[0] + sd*gauss(); walkO[1] += -a*walkO[1] + sd*gauss(); }
     x += W.depth*0.5*walkO[0]; y += W.depth*0.5*walkO[1]; }
   const nh = {x: round4(clamp01(x)), y: round4(clamp01(y))};
   const moved = nh.x !== heard.x || nh.y !== heard.y; heard = nh;
-  if (ST.lfo.dx || ST.lfo.dy || ST.walk.on){ trail.push([nh.x, nh.y]); if (trail.length > 160) trail.shift(); } else if (trail.length) trail.shift();
-  return moved;
+  if (morphRouted() || ST.walk.on){ trail.push([nh.x, nh.y]); if (trail.length > 160) trail.shift(); } else if (trail.length) trail.shift();
+  return {moved, dt};
 }
 const heardWeights = () => bilinear(heard.x, heard.y);
 
@@ -1112,8 +1493,8 @@ const VARS = ["--cA-tx","--cB-tx","--cC-tx","--cD-tx"];
 function drawCorners(){
   const w = heardWeights();
   cornerUI.forEach((u, c) => { u.wi.style.width = (w[c]*100).toFixed(1) + "%"; u.wn.textContent = w[c].toFixed(2);
-    u.rows.forEach((row, o) => { const off = o === 1 && !ST.osc[1].on; row.r.classList.toggle("off", off);
-      drawStack(row.cv, DICT.get(ST.osc[o].corners[c]), T[VARS[c]], displayFrame(o), w[c], off); }); });
+    u.rows.forEach((row, o) => { const off = o === 1 && !(RES["osc2.on"] > 1e-4); row.r.classList.toggle("off", off);
+      drawStack(row.cv, DICT.get(ST.osc[o].corners[c]), T[VARS[c]], displayFrame(o), TW[o][c], off); }); });
 }
 function drawPad(){
   const cv = $("pad"), [g, W, H] = fit(cv), w = heardWeights();
@@ -1128,8 +1509,11 @@ function drawPad(){
   const pos = [[8, 16, "left"], [W - 8, 16, "right"], [8, H - 8, "left"], [W - 8, H - 8, "right"]];
   pos.forEach(([px, py, al], i) => { g.textAlign = al; g.fillStyle = T[VARS[i]]; g.fillText(`${KEYS[i]} ${w[i].toFixed(2)}`, px, py);
     g.font = `400 9px ${T.mono || "monospace"}`; g.fillStyle = T["--hint"];
-    const n1 = DICT.get(ST.osc[0].corners[i]).name, n2 = ST.osc[1].on ? DICT.get(ST.osc[1].corners[i]).name : null;
+    const n1 = DICT.get(ST.osc[0].corners[i]).name, n2 = RES["osc2.on"] > 1e-4 ? DICT.get(ST.osc[1].corners[i]).name : null;
     g.fillText(n1, px, py + (i < 2 ? 12 : -24)); if (n2) g.fillText(n2, px, py + (i < 2 ? 23 : -13)); g.font = `600 11px ${T.mono || "monospace"}`; });
+  // the corner being edited: a ring at its pad corner
+  if (SEL < 4){ const cx = SEL % 2 ? W : 0, cy = SEL > 1 ? H : 0; g.beginPath(); g.arc(cx, cy, 22, 0, TAU); g.lineWidth = 3; g.strokeStyle = T["--value"]; g.stroke(); }
+  g.font = `600 10px ${T.mono || "monospace"}`; g.textAlign = "center"; g.fillStyle = T["--t2"]; g.fillText(ST.morph.law ? "QUANTUM" : "BLEND", W/2, 14);
   const X = ST.morph.x*W, Y = ST.morph.y*H, hx = heard.x*W, hy = heard.y*H;
   g.setLineDash([3, 4]); g.strokeStyle = T["--ink"]; g.globalAlpha = .35; g.beginPath(); g.moveTo(hx, 0); g.lineTo(hx, H); g.moveTo(0, hy); g.lineTo(W, hy); g.stroke(); g.setLineDash([]); g.globalAlpha = 1;
   g.beginPath(); g.arc(X, Y, 12, 0, TAU); g.lineWidth = 2; g.strokeStyle = T["--ink"]; g.stroke();
@@ -1138,15 +1522,23 @@ function drawPad(){
   $("heardRead").textContent = (heard.x !== ST.morph.x || heard.y !== ST.morph.y) ? `heard x ${heard.x.toFixed(2)} · y ${heard.y.toFixed(2)}` : "";
 }
 // what the visuals show: the newest voice's frame (the page mirrors ENV 2), or the frame knob when nothing is held
-function displayFrame(o){ const s = ST.osc[o]; if (s.law === 1) return sharedFrame(o); const e = newestEnv2(); return clamp01(s.frame + (e != null ? s.fenv*e : 0)); }
+function displayFrame(o){ const k = `osc${o + 1}.wt.frame`; return clamp01(modulated(k, k)); }
+const lawOf = o => RES[`osc${o + 1}.wt.law`];
 const vRe = new Float64Array(1025), vIm = new Float64Array(1025), cyc = new Float64Array(2048);
 function drawOutput(){
-  const o = ST.vizOsc, s = ST.osc[o], p = displayFrame(o), {tabs, ws} = pooled(s.corners, heardWeights());
-  L.frameBlend(tabs, ws, s.law, p, vRe, vIm);
-  const lg = L.loudGain(vRe, vIm); let g = lg.g;
+  const o = ST.vizOsc, s = ST.osc[o], law = lawOf(o), p = displayFrame(o), {tabs, ws} = pooled(s.corners, TW[o]);
+  let lg, g;
+  if (law === 1 && ST.lab.slFrames !== 2){
+    // what B651's Spectral log plays: the two adjacent log-blended frames, each at its own loudness gain, crossfaded linearly (C6)
+    const u = 15*p, i = Math.min(14, Math.floor(u)), f = u - i;
+    L.frameBlend(tabs, ws, 1, i/15, vRe, vIm); const ga = L.loudGain(vRe, vIm); const aR = vRe.slice(), aI = vIm.slice();
+    L.frameBlend(tabs, ws, 1, (i + 1)/15, vRe, vIm); const gb = L.loudGain(vRe, vIm);
+    for (let n = 0; n <= NH; n++){ vRe[n] = (1 - f)*ga.g*aR[n] + f*gb.g*vRe[n]; vIm[n] = (1 - f)*ga.g*aI[n] + f*gb.g*vIm[n]; }
+    lg = {g: 1, capped: ga.capped || gb.capped}; g = 1;
+  } else { L.frameBlend(tabs, ws, law, p, vRe, vIm); lg = L.loudGain(vRe, vIm); g = lg.g; }
   L.render(vRe, vIm, 0, 2048, NH, cyc); let pk = 0; for (let k = 0; k < 2048; k++) pk = Math.max(pk, Math.abs(cyc[k]));
   let limited = false; if (g*pk > L.PEAK){ g = L.PEAK/pk; limited = true; }
-  $("vizFrame").textContent = `frame ${(1 + 15*p).toFixed(2)} · ${s.law ? "Spectral log" : "Linear"}${o === 1 && !s.on ? " · osc 2 is off" : ""}`;
+  $("vizFrame").textContent = `frame ${(1 + 15*p).toFixed(2)} · ${law ? "Spectral log" + (ST.lab.slFrames === 2 ? " (shared frame)" : " (pre-blended frames, linear between)") : "Linear"}${o === 1 && !(RES["osc2.on"] > 1e-4) ? " · osc 2 is off" : ""}`;
   // cycle
   { const [c, W, H] = fit($("cyc")); c.clearRect(0, 0, W, H); const m = H/2, sc = (H/2 - 6)/2.6;
     c.strokeStyle = T["--hair"]; c.lineWidth = 1; c.beginPath(); c.moveTo(0, m + .5); c.lineTo(W, m + .5);
@@ -1215,7 +1607,9 @@ const loudHist = []; let lastPeak = 0;
 function drawLoud(){
   const [c, W, H] = fit($("loud")); c.clearRect(0, 0, W, H);
   const o = ST.vizOsc, wi = workerInfo[o]; let gdb = null;
-  if (wi.gains){ const p = displayFrame(o), f = wi.law === 1 ? 0 : Math.round(15*p); gdb = 20*Math.log10(wi.gains[f]); }
+  if (wi.gains){ const p = displayFrame(o); let f = wi.mode === "shared" ? 0 : Math.round(15*p);
+    if (wi.built && !wi.built[f]){ for (let d = 1; d < 16; d++){ if (f - d >= 0 && wi.built[f - d]){ f -= d; break; } if (f + d < 16 && wi.built[f + d]){ f += d; break; } } }
+    gdb = 20*Math.log10(wi.gains[f]); }
   let rms = -Infinity; if (analyser){ const a = anaBuf; analyser.getFloatTimeDomainData(a); let s = 0; for (let k = 0; k < a.length; k++) s += a[k]*a[k]; rms = 10*Math.log10(s/a.length + 1e-20); }
   loudHist.push([gdb, rms]); if (loudHist.length > 300) loudHist.shift();
   const yG = v => H/2 - v/24*(H/2 - 8), yR = v => 8 + (-v)/60*(H - 16);
@@ -1271,10 +1665,12 @@ function loadLib(){ let data = null; try { data = JSON.parse(localStorage.getIte
 function flashMsg(id, t, ok){ const m = $(id); m.textContent = t; m.className = "msg " + (ok ? "ok" : "no"); }
 
 function capture(){
-  const o = +$("capOsc").value, s = ST.osc[o], scope = $("capScope").value;
-  const frame = scope === "all" ? "all" : round4(s.law === 1 ? sharedFrame(o) : s.frame);
+  const o = +$("capOsc").value, s = ST.osc[o], scope = $("capScope").value, law = lawOf(o);
+  const frame = scope === "all" ? "all" : round4(law === 1 && ST.lab.slFrames === 2 ? sharedFrame(o) : RES[`osc${o + 1}.wt.frame`]);
+  // the heard table weights: Blend's position, or under Quantum the picked corner's own coordinates (one-hot)
+  const pc = TW[o].indexOf(1), cx = ST.morph.law === 1 && pc >= 0 ? pc % 2 : heard.x, cy = ST.morph.law === 1 && pc >= 0 ? (pc > 1 ? 1 : 0) : heard.y;
   const name = ($("capName").value.trim() || `Capture ${LIBRARY.filter(id => DICT.get(id).recipe.kind === "cap").length + 1}`).slice(0, 40);
-  const recipe = {v: 1, kind: "cap", src: s.corners.slice(), x: heard.x, y: heard.y, frame, law: s.law ? "spectral-log" : "linear", lawV: 1, name};
+  const recipe = {v: 1, kind: "cap", src: s.corners.slice(), x: cx, y: cy, frame, law: law ? "spectral-log" : "linear", lawV: 1, name};
   const depth = 1 + Math.max(...recipe.src.map(id => DICT.get(id).depth));
   if (depth > 8){ flashMsg("capMsg", `Refused: capture depth would be ${depth} (bound 8, WT-44).`, false); return; }
   const id = recipeId(recipe);
@@ -1305,8 +1701,10 @@ function buildNotes(){ try { NOTES = JSON.parse(localStorage.getItem(LSNOTES) ||
     lab.append(ta); box.append(lab); }); }
 function exportJSON(){
   const recipes = {}; for (const id of patchRecipes([LIBRARY, ST.osc[0].corners, ST.osc[1].corners])) recipes[id] = DICT.get(id).recipe;
-  return JSON.stringify({lab: "horde wavetable lab", brief: "B650", spec: "b649-wavetable-spec 279d253e", notes: NOTES,
-    settings: ST, heard, sampleRate: ctx ? ctx.sampleRate : null, read: ST.lab.interp + "-point", dictionary: recipes, library: LIBRARY,
+  // settings.cv holds every corner key's four values, A B C D; resolved is what sounded at the heard position
+  const resolved = Object.fromEntries([...PDEF.keys()].map(k => [k, RES[k]]));
+  return JSON.stringify({lab: "horde wavetable lab", brief: "B650, B651", spec: "SPEC-WAVETABLE / CONTRACT on main", notes: NOTES,
+    settings: ST, corners: "settings.cv[key] = [A, B, C, D]; settings.lfo[n].pts[j].c[corner] = {t, v, u, parked}", resolved, lfoResolved: LRES, heard, sampleRate: ctx ? ctx.sampleRate : null, read: ST.lab.interp + "-point", dictionary: recipes, library: LIBRARY,
     names: Object.fromEntries(Object.entries(recipes).map(([id, r]) => [id, r.name]))}, null, 2);
 }
 
@@ -1338,11 +1736,12 @@ function changed(){ CTLS.forEach(c => c.sync()); paramsDirty = true; stackDirty 
 // The sound-side work (motion, params, worker pushes) also runs on a 30 ms timer, so it never waits on rAF,
 // which a hidden or throttled pane can starve; drawing stays on rAF.
 let lastMoved = false;
-function tick(){ if (stepMotion()) lastMoved = true; if (paramsDirty){ paramsDirty = false; pushParams(); } pushWorkers(); }
+// every tick: the position (with last tick's route depths), then the resolver at it, then the worklet's values, the LFO shapes and the workers
+function tick(){ const m = stepMotion(); if (m.moved) lastMoved = true; resolve(m.dt); pushParams(); pushLfos(); pushWorkers(); }
 function frame(){
   tick(); const moved = lastMoved; lastMoved = false;
-  if (moved || stackDirty || held.length || ST.lfo.dx || ST.lfo.dy || ST.walk.on){ drawCorners(); stackDirty = false; }
-  drawPad();
+  if (moved || stackDirty || held.length || morphRouted() || ST.walk.on || ST.routes.some(R => R.src && R.dst.endsWith("wt.frame"))){ drawCorners(); stackDirty = false; }
+  drawPad(); updateMarks(); drawLfo(0); drawLfo(1); drawMatrix();
   drawOutput(); drawMip(); drawPhase(); drawLoud(); drawMeter();
   if (libDirty){ libDirty = false; drawLib(); }
   if (rndDirty) rndPreview();
@@ -1351,14 +1750,17 @@ function frame(){
   if (!node){ st.className = "pill"; stt.textContent = "Ready · audio off"; }
   else if (busy){ st.className = "pill busy"; stt.textContent = "Rebuilding tables…"; }
   else { st.className = "pill ok"; stt.textContent = "Playing"; }
-  $("rebuildRead").textContent = workerInfo.map((w, o) => `osc ${o + 1}: ${w.count} rebuilds, last ${w.ms.toFixed(1)} ms`).join(" · ") + " — a static patch rebuilds zero times (WT-14).";
+  $("rebuildRead").textContent = workerInfo.map((w, o) => `osc ${o + 1}: ${w.count} rebuilds (${w.frames} frames built), last ${w.ms.toFixed(1)} ms for ${w.nb} frame${w.nb === 1 ? "" : "s"}${w.mode ? " · " + w.mode : ""} · since the last note-on: ${w.count - noteSnap[o]}`).join(" — ") + ". A static patch rebuilds zero times (WT-14); under Spectral log a note or a frame envelope rebuilds nothing unless the frames mode is shared.";
   requestAnimationFrame(frame);
 }
 function wire(){
   $("startAudio").addEventListener("click", () => ensureAudio());
   const pad = $("pad"); let drag = false;
   const setXY = e => { const r = pad.getBoundingClientRect(); ST.morph.x = round4(clamp01((e.clientX - r.left)/r.width)); ST.morph.y = round4(clamp01((e.clientY - r.top)/r.height)); stackDirty = true; };
-  pad.addEventListener("pointerdown", e => { drag = true; pad.setPointerCapture(e.pointerId); setXY(e); ensureAudio(); });
+  pad.addEventListener("pointerdown", e => { drag = true; pad.setPointerCapture(e.pointerId); setXY(e); ensureAudio();
+    // near a pad corner: select it for editing and put the puck on it, so the edited corner is the one heard
+    const r = pad.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
+    for (let c = 0; c < 4; c++){ const cx = c % 2 ? r.width : 0, cy = c > 1 ? r.height : 0; if (Math.hypot(px - cx, py - cy) < 26){ ST.morph.x = c % 2; ST.morph.y = c > 1 ? 1 : 0; drag = false; selectCorner(c); break; } } });
   pad.addEventListener("pointermove", e => { if (drag) setXY(e); });
   pad.addEventListener("pointerup", () => drag = false); pad.addEventListener("pointercancel", () => drag = false);
   pad.addEventListener("keydown", e => { const d = e.shiftKey ? .1 : .02, m = {ArrowLeft: [-d, 0], ArrowRight: [d, 0], ArrowUp: [0, -d], ArrowDown: [0, d]}[e.key];
@@ -1376,6 +1778,8 @@ function wire(){
   window.addEventListener("keyup", e => { const k = e.key.toLowerCase(); if (!kbDown.has(k)) return; kbDown.delete(k); noteOff("k" + k); markKb(); });
   window.addEventListener("blur", () => { kbDown.forEach(k => noteOff("k" + k)); kbDown.clear(); markKb(); });
   $("capBtn").addEventListener("click", capture);
+  $("presetLoad").addEventListener("click", () => loadPreset($("preset").value));
+  $("preset").addEventListener("change", () => loadPreset($("preset").value));
   $("rndSeed").addEventListener("input", () => rndDirty = true);
   $("rndRoll").addEventListener("click", () => { $("rndSeed").value = (Math.floor(+$("rndSeed").value || 0) + 1) >>> 0; rndDirty = true; });
   $("rndAdd").addEventListener("click", () => { const r = rndRecipe(), id = recipeId(r);
@@ -1390,11 +1794,19 @@ function wire(){
   setInterval(poll, 50);
   setInterval(() => { if (FACT_IDS.length === FACTORY.length) tick(); }, 30);
 }
+// a preset replaces the corner values, the routes and the LFO shapes; the corner tables, the library, the morph
+// settings and the lab switches stay
+function loadPreset(name){ const P = PRESET(name); ST.cv = P.cv; ST.routes = P.routes; ST.lfo = P.lfo; ST.osc.forEach((s, o) => s.seed = P.osc[o].seed); ST.preset = name;
+  for (const k in GLIDE) delete GLIDE[k]; for (const k in LATCH) delete LATCH[k]; LGL.forEach(m => m.clear()); resolve(0); changed(); }
 function about(){
   const lay = L.makeLayout(0);
   $("aboutBody").innerHTML = `
   <p><b>What it is.</b> The wavetable member of horde's swarm (SPEC-WAVETABLE draft, B649, 279d253e): every member of an oscillator's swarm reads one band-limited cycle from a table set the oscillator shares. There is one engine (GUI-1); this lab never offers the table as an alternative to anything. Each oscillator has its own four corner tables; the corners are horde's morph corners and the pad is the morph position (ADR-384 #5). Blending different tables across the corners is the 1.0 design (ADR-385).</p>
-  <p><b>How it is built here.</b> Tables are 16 frames × 1,024 harmonics, stored as spectra and peak-normalised per frame at 8,192 points (WT-1, WT-2). Two workers (one per oscillator) rebuild the published set only when a corner, the weights, the law or (under Spectral log) the shared frame changes (WT-14), building every level each time (WT-9): Linear sums the corners' level sets for all 16 frames (WT-23 (b), so the per-voice frame and frame spread are read-time), Spectral log blends one frame in the log domain (WT-3's built rule, WT-12) and inverse-FFTs its levels. Levels: one per octave, H = 1…1,024, N = min(8192, max(2048, 16·H)) (${lay.stride} samples per level set, ${(lay.stride*4/1024).toFixed(0)} KiB). Loudness: K-weighted at C3 against the ±1 saw, peak limit 2.6, +24 dB cap (WT-16). The worklet crossfades each new set in over R = 4 control intervals (WT-15, scheme (ii): one fused read of both sets), picks each member's level for its read rate (sync ratio and warp slope included, WT-36) under c = min(20 kHz, 0.45·fs), and mixes toward the darker level in the upper third of each range (WT-5).</p>
+  <p><b>How it is built here.</b> Tables are 16 frames × 1,024 harmonics, stored as spectra and peak-normalised per frame at 8,192 points (WT-1, WT-2). Two workers (one per oscillator) rebuild the published set only when a corner, the weights, the law or (in the old shared-frame mode only) the shared frame changes (WT-14), building every level each time (WT-9): Linear sums the corners' level sets for all 16 frames (WT-23 (b), so the per-voice frame and frame spread are read-time), Spectral log blends each of the 16 frames in the log domain (WT-12) and inverse-FFTs its levels, or, in the old mode, one shared frame by WT-3's log rule. Levels: one per octave, H = 1…1,024, N = min(8192, max(2048, 16·H)) (${lay.stride} samples per level set, ${(lay.stride*4/1024).toFixed(0)} KiB). Loudness: K-weighted at C3 against the ±1 saw, peak limit 2.6, +24 dB cap (WT-16). The worklet crossfades each new set in over R = 4 control intervals (WT-15, scheme (ii): one fused read of both sets), picks each member's level for its read rate (sync ratio and warp slope included, WT-36) under c = min(20 kHz, 0.45·fs), and mixes toward the darker level in the upper third of each range (WT-5).</p>
+  <p><b>Corners (B651).</b> As in horde, every setting has a value in each of the four corners (SPEC-ENGINE 5.1's classes, Appendix D). Morphable rows (class M: the frame, spread, sync ratio and Hz, window, asym, bend, PM, detune, coupling, width, fine, the levels, both envelopes, the LFO rates, the route depths) blend over the corners at the bilinear weights in their normalised form (MO-9), so time rows blend on their log taper. Structural rows (class S: <code>wt.law</code>, <code>wt.syncIn</code>, unison, octave, semitone) take one corner's value under every law (MO-13). osc 2's on switch fades as a level under Blend (MO-26 (1)). Device rows (polyphony, output level, the oscillator seeds, the morph's own settings, the walk, the lab switches) stay global. <b>Quantum</b>: every key picks its corner and Morphable values glide to it (morph glide); the tables take one corner (CONTRACT §4.2).</p>
+  <p><b>The picks are a stand-in for MO-6 to MO-8</b>, simple but exact where it matters: each key's four draws are Gumbel draws from mulberry32 seeded by FNV-1a of <code>morph/key/&lt;key&gt;</code> and the morph seed; a corner scores ln(w)/T + (1 − cohesion)·g<sub>key</sub> + cohesion·g<sub>shared</sub>; Structural keys hold their corner until another beats it by ln(0.55/0.45)/T (the latch). Not in the lab: Stepped, Count Two, Exempt, waypoints, region locks, MO-26's restriction of blends to on corners, PA-5's crossfade on a Structural flip (a 12 ms parameter smoother instead).</p>
+  <p><b>The drawn LFOs</b> follow ADR-349 and LF-8: one point list (up to 32) shared by the four corners, each corner its own time, level and bend per point. Under Blend each point's time (in cycles, linearly), level and bend blend over the corners and the list is re-sorted by time (id breaking a tie); under Quantum each point picks its corner by the draw <code>morph/lfoN/point/&lt;id&gt;</code> (cohesion 1 is the whole-shape flip), glided. Adding a point in one corner parks it in the others on their curves (C.12's exact split: bend u at fraction f becomes u·f and u·(1 − f)). The shape law and editing are ported from the design system's ShapeMorph (GUI-37). Both LFOs are <b>global and free-running</b> here (not per note), so they may move the morph (MS-29); their phase is computed in closed form on the audio clock on the page and in the worklet alike.</p>
+  <p><b>Spectral log without per-note rebuilds (B651).</b> Spectral log's blend, exp(Σ w ln|c|) per harmonic, is nonlinear but does not depend on the frame except through which frame it blends, so at the morph position all 16 frames are log-blended once and each voice crossfades its two adjacent frames in the time domain, as Linear's strategy (b) does. A rebuild happens only when the morph position, a corner table or the law changes, never for a note or a frame envelope; the frame, frame spread and ENV 2 → frame work per voice under both laws. The cost moves to the morph: a move rebuilds 16 frames instead of 1. The lazy switch builds only the adjacent pair each sounding voice reads (the worker polls the worklet every 15 ms; a frame not built yet is read as its nearest built frame until it arrives). <b>Between integer frames this interpolates linearly between two log-blended frames, not in the log domain</b> (CONTRACT §7 C6 is still open; a this-frame capture at a fractional frame bakes the log-domain rule, so it can differ slightly from what was heard). The old shared frame stays on the switch for A/B.</p>
   <p><b>The read: 4-point cubic (Catmull-Rom) by default</b>, on the 6-point layout, for browser CPU. The spec builds 6-point Lagrange (WT-6); the Read switch plays it.</p>
   <p><b>The swarm here</b> is a sketch of SW-1..17: members with even detune (cents law), balanced stereo seats, seeded start phases (mulberry32 at <code>oscN.seed</code>), and a plain Kuramoto mean-field coupling (the members' phases pull together as coupling rises; R is the order parameter). No drift, inertia, onset scatter or C.1 taper.</p>
   <p><b>Determinism.</b> No <code>Math.random</code> anywhere: start phases, the S&amp;H LFO, the 2-D random and the random table draw from mulberry32 streams with visible seeds. Table ids are the 64-bit FNV-1a hash of each recipe's canonical text (CONTRACT §3.1). Morph motion advances on the audio clock.</p>
@@ -1404,7 +1816,8 @@ function about(){
     <li>Sync's restart step is corrected by a 2-sample polyBLEP (ED-1's job); the slope corner (ED-6) is not corrected, and <code>bandLimit</code> is not in the lab. Every member runs one sample late so the correction can reach back.</li>
     <li>DC from sync, the warp and the window is removed by one 8 Hz blocker at the output (WT-25's fallback), not by the exact cycle means.</li>
     <li>Parameters are smoothed per 128-sample block (about 12 ms), not glided by PA-1; unison changes during a note are not crossfaded (PA-6); <code>wt.syncIn</code> and the law step at a block edge (the law then crossfades by WT-15).</li>
-    <li>The frame envelope is a lab route from ENV 2; the morph's LFO is one LFO with a Y phase offset and three stock shapes; the 2-D random is a seeded Ornstein–Uhlenbeck walk. Only Blend is shown of the morph's laws; Quantum, Stepped and Count are not in the lab.</li>
+    <li>Routes are applied once per 128-sample block (about 2.9 ms) in the worklet, added to the smoothed values; the LFOs have no per-note mode, sync, S&amp;H or random kinds, and the lab has no host tempo (rates in Hz). Route sources are LFO 1, LFO 2 and ENV 2 only. The 2-D random is a seeded Ornstein–Uhlenbeck walk and is not a corner value. Stepped and Count Two of the morph's laws are not in the lab.</li>
+    <li>The resolver runs on the page at its ~30 ms tick (and each animation frame); the morph glide is applied there, then the worklet's 12 ms smoother. A Structural flip (unison, sync, octave) steps at a block edge, without PA-5's crossfade or PA-6's fades, so it may click; the table law flips by the rebuild crossfade.</li>
     <li>The "DSP load" readout is an estimate from <code>Date.now()</code> (1 ms resolution, averaged); analyser meters cannot see audio-thread underruns, so only your ears can confirm there is no crackle.</li>
     <li>The user library lives in this browser's storage as recipes (rebuilt on load); WT-45's device-wide folder and exported preset files are not in the lab.</li>
     <li>Not measured here: aliasing (WT-F1), the top of the band (WT-F2), clicks (WT-F4), CPU (WT-P1). Those are the C++ build's gates.</li>
@@ -1415,7 +1828,7 @@ function about(){
 (async function boot(){
   try { const q = new URLSearchParams(location.search).get("theme"); if (q === "light" || q === "dark") document.documentElement.setAttribute("data-theme", q); } catch (e){ /* no query: follow the system */ }
   readTheme();
-  buildCorners(); buildOscPanel(0); buildOscPanel(1); buildMotion(); buildEnv(); buildLab(); buildRnd(); buildNotes(); buildKb(); about(); wire();
+  buildCornerSel(); buildCorners(); buildOscPanel(0); buildOscPanel(1); buildLfo(0); buildLfo(1); buildMatrix(); buildMotion(); buildEnv(); buildLab(); buildRnd(); buildNotes(); buildKb(); about(); wire();
   makeWorkers();
   const stt = $("statusText");
   for (let i = 0; i < FACTORY.length; i++){ stt.textContent = `Building factory tables… ${i + 1}/${FACTORY.length} (${FACTORY[i].name})`; await sleep0();
@@ -1424,7 +1837,7 @@ function about(){
   stt.textContent = "Loading your library…"; await sleep0();
   loadLib();
   ST.osc.forEach((s, o) => s.corners = OPEN_CORNERS[o].map(genIdOf));
-  refreshMenus(); renderLib(); changed();
+  resolve(0); refreshMenus(); renderLib(); changed();
   requestAnimationFrame(frame);
 })();
 </script>
