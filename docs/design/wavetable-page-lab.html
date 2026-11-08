@@ -1,0 +1,335 @@
+<!doctype html>
+<!-- wavetable-page-lab: how the wavetable member reaches GUI 3's pages. horde, 2026-11-08, row GB37. Origin: the lead's handover (ADR-387: the wavetable
+     member replaces the blades in 1.0, three oscillators; INTEGRATION.md section 7), and the human, "Wavetable page", then, asked where an oscillator's four
+     corner tables and the 3 x 3 PM matrix should live: "Let's audition a few options, including any creative approaches we haven't yet considered" and
+     "Let's try a few options".
+
+     WHAT'S ALREADY ANSWERED, AND IS BUILT AS ANSWERED. The Osc page's lead picture, where the blade waveform you dragged sat, is the BLENDED FRAME STACK: the
+     table the oscillator reads at the puck, its frame line, and under it the blended cycle and the harmonics (the human, 2026-11-08).
+
+     WHAT'S OPEN, AND IS WHAT THIS ASKS. Q1, where an oscillator's four corner tables are picked and seen (six ways). Q2, where the PM matrix lives (five ways).
+
+     WHAT IS REAL. The window's size (980 x 720), the tokens and the corner colours are the design system's. The rows named are the wavetable spec's
+     (`oscN.wt.*`, the matrix of ADR-385 A1, the diagonal being each oscillator's feedback).
+     WHAT ISN'T. Every table is a MOCK, drawn here from eight seeded generators named after the factory set's; none is the engine's or the lab's bank. The
+     blend is Linear only. No audio. The swarm's pictures on the left are grey stand-ins: they don't change with this question. Nothing here edits gui3*,
+     arp-face/ or the master, and a ruling goes through the chain (ADR-316).
+
+     HOUSE RULES. No Math.random (seeded mulberry32). No clock: motion is a frame count. No wheel listener (B301). -->
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="lab-part" content="Presentation">
+<title>Wavetable page lab</title>
+<link rel="stylesheet" href="arp-face/tokens.css">
+<link rel="stylesheet" href="arp-face/bundle.css">
+<style>
+  html, body { background: var(--bg); }
+  body { margin: 0; padding: 20px 16px 60px; color: var(--ink); font: 13px/1.5 var(--font-sans); }
+  .col { max-width: 1012px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+  h1 { font: 800 19px/1.2 var(--font-sans); margin: 0 0 6px; }
+  h2 { font: 800 14px/1.2 var(--font-sans); margin: 0 0 6px; }
+  p { margin: 0 0 6px; max-width: 86ch; }
+  .note { color: var(--hint); font-size: 12px; }
+  .card { border: 1.5px solid var(--ink); border-radius: var(--radius); padding: 12px; background: var(--panel); }
+  .picker { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px; margin: 8px 0 10px; }
+  .opt { all: unset; box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; gap: 2px; padding: 7px 8px; border: 1px solid var(--div); border-radius: var(--radius); }
+  .opt:hover { border-color: var(--ink); }
+  .opt:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .opt[aria-pressed="true"] { border: 2px solid var(--ink); padding: 6px 7px; }
+  .opt b { font: 700 12px/1.25 var(--font-sans); }
+  .opt span { color: var(--hint); font-size: 11.5px; line-height: 1.35; }
+  .opt i { font-style: normal; color: var(--value); font: 700 9.5px/1 var(--font-mono); letter-spacing: .06em; }
+  .why { min-height: 40px; }
+
+  /* the horde window, at its real size */
+  .win { position: relative; width: 980px; height: 720px; max-width: 100%; box-sizing: border-box; overflow: hidden; border: 1.5px solid var(--ink); border-radius: var(--radius-window); background: var(--bg); display: flex; flex-direction: column; }
+  .wbar { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; padding: 8px 10px 2px; }
+  .wbar .logo { font: 900 22px/1 var(--font-sans); letter-spacing: -.02em; background: linear-gradient(135deg, var(--cA), var(--cB) 60%, var(--cD)); -webkit-background-clip: text; background-clip: text; color: transparent; margin-right: 10px; }
+  .tab { padding: 3px 11px; border: 1.5px solid var(--ink); border-radius: var(--radius-capsule); font: 600 12px/1.2 var(--font-sans); background: var(--panel); }
+  .tab.on { background: var(--ink); color: var(--bg); }
+  .sub { flex: 0 0 auto; display: flex; gap: 14px; padding: 4px 0 6px 108px; font: 500 11px/1.2 var(--font-sans); color: var(--t2); border-bottom: 1px solid var(--div); }
+  .sub .on { color: var(--ink); font-weight: 700; border-bottom: 2px solid var(--ink); padding-bottom: 3px; }
+  .wbody { flex: 1 1 auto; display: flex; gap: 8px; padding: 8px 10px; min-height: 0; }
+  .foot { flex: 0 0 78px; display: flex; gap: 6px; padding: 0 10px 8px; }
+  .foot > div { flex: 1 1 0; border: 1px solid var(--div); border-radius: var(--radius); background: var(--panel); color: var(--hint); font: 500 10px/1.3 var(--font-mono); padding: 6px; }
+  .stand { border: 1px dashed var(--div); border-radius: var(--radius); color: var(--hint); font: 500 10px/1.3 var(--font-mono); padding: 6px; background: var(--well); }
+  .left { flex: 0 0 250px; display: flex; flex-direction: column; gap: 6px; }
+  .right { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+  .pane { border: 1px solid var(--div); border-radius: var(--radius); background: var(--panel); padding: 6px 8px; min-width: 0; }
+  .ph { display: flex; align-items: baseline; gap: 6px; font: 800 10.5px/1.2 var(--font-sans); letter-spacing: .06em; text-transform: uppercase; margin-bottom: 4px; }
+  .ph .h { font: 500 10px/1.2 var(--font-mono); letter-spacing: 0; text-transform: none; color: var(--hint); }
+  canvas.cv { display: block; width: 100%; background: var(--well); border-radius: 4px; }
+  .sel { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 1px 6px; border: 1px solid var(--ink); border-radius: var(--radius); background: var(--panel); font: 600 10.5px/1.5 var(--font-sans); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sel::after { content: '▾'; font-size: 9px; }
+  .sel:focus-visible { outline: 2px solid var(--ink); }
+  .chip { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 4px; font: 800 10px/1 var(--font-sans); color: #111; flex: 0 0 auto; }
+  .row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .wt { font: 600 10px/1 var(--font-mono); color: var(--hint); margin-left: auto; }
+  .ctlrow { display: flex; flex-wrap: wrap; gap: 4px 10px; font: 500 10px/1.3 var(--font-mono); color: var(--t2); }
+  .ctlrow b { color: var(--ink); font-weight: 700; }
+  .menu { position: absolute; z-index: 20; min-width: 170px; padding: 4px; border: 1.5px solid var(--ink); border-radius: var(--radius); background: var(--panel); box-shadow: var(--shadow-hover); }
+  .menu button { all: unset; box-sizing: border-box; display: flex; gap: 6px; align-items: center; width: 100%; padding: 3px 6px; border-radius: 4px; cursor: pointer; font: 500 11px/1.3 var(--font-sans); }
+  .menu button:hover, .menu button:focus-visible { background: var(--well); }
+  .menu canvas { width: 46px; height: 18px; background: var(--well); border-radius: 3px; }
+  .pmcell { all: unset; box-sizing: border-box; cursor: ns-resize; display: grid; place-items: center; border: 1px solid var(--div); border-radius: 4px; background: var(--well); font: 700 11px/1 var(--font-mono); position: relative; overflow: hidden; touch-action: none; }
+  .pmcell .fill { position: absolute; left: 0; right: 0; bottom: 0; background: var(--value); opacity: .35; }
+  .pmcell span { position: relative; }
+  .pmcell.diag { border-style: dashed; }
+  .pmcell:focus-visible { outline: 2px solid var(--ink); }
+  .pill { all: unset; cursor: pointer; padding: 1px 7px; border: 1px solid var(--ink); border-radius: var(--radius-capsule); font: 600 10px/1.5 var(--font-sans); }
+  .pill[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+  #say { min-height: 18px; font-size: 12px; }
+  #selfcheck { font: 500 11px/1.4 var(--font-mono); white-space: pre-wrap; color: var(--hint); }
+</style>
+</head>
+<body>
+<div class="col">
+  <header>
+    <h1>Wavetable page lab</h1>
+    <p>The wavetable member replaces the blades in 1.0, and there are three oscillators (ADR-387). This lab asks where two of the new things go, each shown inside a horde window at its real size. The Osc page's lead picture is already yours: the <b>blended frame stack</b> the oscillator reads at the puck, with its cycle and harmonics.</p>
+    <p class="note">Drag the small pad's puck, or the puck in any variant that has one, and every picture follows: the tables blend by the corner weights, Linear. Every table is a MOCK drawn from eight seeded generators named after the factory set's. No audio. The grey boxes on the left are the swarm's pictures, unchanged by these questions.</p>
+  </header>
+
+  <section class="card" aria-labelledby="q1">
+    <h2 id="q1">Q1 · Where an oscillator's four corner tables are picked and seen</h2>
+    <div class="picker" id="pick1" role="group" aria-label="Q1 variants"></div>
+    <p class="why note" id="why1"></p>
+    <div class="win" id="win1" aria-label="horde window for Q1"></div>
+  </section>
+
+  <section class="card" aria-labelledby="q2">
+    <h2 id="q2">Q2 · Where the 3 × 3 PM matrix lives</h2>
+    <p class="note">Rows are the modulated oscillator, columns the modulator; the diagonal is each oscillator's own feedback (WT-61). Every cell is a corner value like every other control, so it blends across the pad. Drag a cell, or a wire, up or down to set its depth.</p>
+    <div class="picker" id="pick2" role="group" aria-label="Q2 variants"></div>
+    <p class="why note" id="why2"></p>
+    <div class="win" id="win2" aria-label="horde window for Q2"></div>
+  </section>
+
+  <section class="card">
+    <h2>Telling me your picks</h2>
+    <p>Answer in the chat: one Q1 variant and one Q2 variant, or a mix ("V3's corners, but with V6's weights"). Anything you'd change, say so: each answer becomes a GUI ruling and goes into the design master before GUI 3.</p>
+    <div id="say" aria-live="polite"></div>
+    <details><summary class="note">Self-check</summary><div id="selfcheck">running…</div></details>
+  </section>
+</div>
+<script>
+(function () {
+'use strict';
+const $ = id => document.getElementById(id);
+const VAR = n => { try { return getComputedStyle(document.documentElement).getPropertyValue(n).trim() || '#888'; } catch (e) { return '#888'; } };
+const C = () => ({ A: VAR('--cA'), B: VAR('--cB'), Cc: VAR('--cC'), D: VAR('--cD'), ink: VAR('--ink'), hint: VAR('--hint'), div: VAR('--div'), well: VAR('--well'), value: VAR('--value'), meter: VAR('--meter-ink'), panel: VAR('--panel') });
+const CORNER = ['A', 'B', 'C', 'D'], CVAR = ['--cA', '--cB', '--cC', '--cD'];
+const N = 256, FR = 16;   // a mock table: 16 frames of 256 samples (the engine's are 2048; the picture doesn't need them)
+
+/* ===== the mock tables: eight seeded generators named after the factory set's. MOCK, not the engine's or the wavetable lab's bank. ===== */
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const TAU = Math.PI * 2;
+function additive(amp) { const o = new Float32Array(N); for (let i = 0; i < N; i++) { let s = 0; for (let h = 1; h < amp.length; h++) if (amp[h]) s += amp[h] * Math.sin(TAU * h * i / N); o[i] = s; } return o; }
+const GEN = {
+  'Sine → saw': f => additive(Array.from({ length: 2 + Math.round(f * 2.2) }, (_, h) => h ? 1 / h : 0)),
+  'Hard sync 1 → 6': f => { const r = 1 + 5 * f / (FR - 1), o = new Float32Array(N); for (let i = 0; i < N; i++) o[i] = ((i / N * r) % 1) * 2 - 1; return o; },
+  'Vowel ah → ee': f => { const t = f / (FR - 1), F1 = 7 - 4 * t, F2 = 11 + 16 * t; return additive(Array.from({ length: 40 }, (_, h) => h ? (Math.exp(-((h - F1) ** 2) / 4) + .7 * Math.exp(-((h - F2) ** 2) / 6)) / Math.sqrt(h) : 0)); },
+  'FM index 0 → 8': f => { const I = 8 * f / (FR - 1), o = new Float32Array(N); for (let i = 0; i < N; i++) o[i] = Math.sin(TAU * i / N + I * Math.sin(TAU * 2 * i / N)); return o; },
+  'Triangle fold': f => { const g = 1 + f * .45, o = new Float32Array(N); for (let i = 0; i < N; i++) { let x = (1 - Math.abs((i / N * 4 + 1) % 4 - 2)) * g; while (Math.abs(x) > 1) x = Math.sign(x) * 2 - x; o[i] = x; } return o; },
+  'Drawbar registrations': f => { const bars = [0, 1, 1, .8, .6, 0, .5, 0, .4], t = f / (FR - 1); return additive(bars.map((v, h) => v * (h < 3 ? 1 - .5 * t : .3 + .7 * t))); },
+  'PWM 50 → 5 %': f => { const w = .5 - .45 * f / (FR - 1), o = new Float32Array(N); for (let i = 0; i < N; i++) o[i] = i / N < w ? .9 : -.9; return o; },
+  'Rolled #17': f => { const g = mulberry32(17), base = Array.from({ length: 32 }, (_, h) => h ? g() / h ** .6 : 0), g2 = mulberry32(99); const tilt = Array.from({ length: 32 }, () => g2()); return additive(base.map((v, h) => v * (1 - f / (FR - 1) + tilt[h] * f / (FR - 1)))); }
+};
+const NAMES = Object.keys(GEN), CACHE = {};
+function table(name) { if (CACHE[name]) return CACHE[name]; const fr = []; for (let f = 0; f < FR; f++) { const o = GEN[name](f); let m = 0; o.forEach(v => { m = Math.max(m, Math.abs(v)); }); fr.push(o.map(v => v / (m || 1))); } return (CACHE[name] = fr); }
+
+/* ===== the state: three oscillators, each with four corner tables and a frame; one puck ===== */
+const S = { x: .34, y: .42, sel: 0, osc: [
+  { corners: ['Sine → saw', 'Hard sync 1 → 6', 'Vowel ah → ee', 'FM index 0 → 8'], frame: 7.9 },
+  { corners: ['Sine → saw', 'Triangle fold', 'Vowel ah → ee', 'Drawbar registrations'], frame: 5.2 },
+  { corners: ['PWM 50 → 5 %', 'Rolled #17', 'Triangle fold', 'Sine → saw'], frame: 10.4 }],
+  pm: [[0, .22, 0], [.4, .1, 0], [0, .6, 0]], alg: 'custom', open: 0 };
+const weights = () => [(1 - S.x) * (1 - S.y), S.x * (1 - S.y), (1 - S.x) * S.y, S.x * S.y];
+function blended(o) { const w = weights(), tb = S.osc[o].corners.map(table), out = []; for (let f = 0; f < FR; f++) { const v = new Float32Array(N); for (let k = 0; k < 4; k++) if (w[k] > 1e-6) for (let i = 0; i < N; i++) v[i] += w[k] * tb[k][f][i]; out.push(v); } return out; }
+function frameAt(fr, f) { const a = Math.floor(f), b = Math.min(FR - 1, a + 1), t = f - a, o = new Float32Array(N); for (let i = 0; i < N; i++) o[i] = fr[a][i] * (1 - t) + fr[b][i] * t; return o; }
+
+/* ===== the drawings ===== */
+function fit(cv) { const r = cv.getBoundingClientRect(), d = window.devicePixelRatio || 1, w = Math.max(1, Math.round(r.width * d)), h = Math.max(1, Math.round(r.height * d)); if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; } const g = cv.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0); return [g, r.width, r.height]; }
+// the frame stack, as the wavetable lab draws it: back frames faint, offset up and right; the read frame thick in its colour
+function drawStack(cv, fr, f, col, o) {
+  o = o || {}; const [g, W, H] = fit(cv), k = C(); g.clearRect(0, 0, W, H);
+  const dx = (o.dx === undefined ? .22 : o.dx) * W / FR, dy = -(o.dy === undefined ? .42 : o.dy) * H / FR, w = W - dx * FR - 8, amp = H * (o.amp || .2), y0 = H - amp - 6;
+  const line = (s, ox, oy) => { g.beginPath(); for (let i = 0; i < N; i += 2) { const x = 4 + ox + i / (N - 1) * w, y = y0 + oy - s[i] * amp; i ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); };
+  g.lineWidth = 1; g.strokeStyle = k.hint; g.globalAlpha = .38;
+  for (let j = FR - 1; j >= 0; j--) line(fr[j], dx * j, dy * j);
+  g.globalAlpha = 1; g.lineWidth = o.thin ? 1.5 : 2.2; g.strokeStyle = col; line(frameAt(fr, f), dx * f, dy * f);
+  if (o.label !== false && W > 120) { g.fillStyle = k.hint; g.font = '500 9px ui-monospace, Menlo, monospace'; g.textAlign = 'right'; g.fillText('frame ' + f.toFixed(1), W - 4, 11); }
+}
+function drawCycle(cv, s, col) { const [g, W, H] = fit(cv), k = C(); g.clearRect(0, 0, W, H); g.strokeStyle = k.div; g.lineWidth = 1; g.beginPath(); g.moveTo(0, H / 2 + .5); g.lineTo(W, H / 2 + .5); g.stroke(); g.strokeStyle = col; g.lineWidth = 1.8; g.beginPath(); for (let i = 0; i < N; i++) { const x = i / (N - 1) * W, y = H / 2 - s[i] * (H / 2 - 4); i ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); }
+function harmonics(s, n) { const a = []; for (let h = 1; h <= n; h++) { let re = 0, im = 0; for (let i = 0; i < N; i++) { re += s[i] * Math.cos(TAU * h * i / N); im += s[i] * Math.sin(TAU * h * i / N); } a.push(Math.hypot(re, im) * 2 / N); } return a; }
+function drawHarm(cv, s) { const [g, W, H] = fit(cv), k = C(), a = harmonics(s, 48), bw = W / 48; g.clearRect(0, 0, W, H); a.forEach((v, i) => { const db = Math.max(-60, 20 * Math.log10(v + 1e-9)), hgt = (1 + db / 60) * (H - 4); g.fillStyle = i === 0 ? k.value : k.meter; g.fillRect(i * bw + 1, H - hgt, Math.max(1, bw - 2), hgt); }); }
+function drawMiniPad(cv) { const [g, W, H] = fit(cv), k = C(), cs = [k.A, k.B, k.Cc, k.D]; g.clearRect(0, 0, W, H); g.strokeStyle = k.div; g.lineWidth = 1; for (let i = 1; i < 4; i++) { g.beginPath(); g.moveTo(i * W / 4, 0); g.lineTo(i * W / 4, H); g.moveTo(0, i * H / 4); g.lineTo(W, i * H / 4); g.stroke(); } [[0, 0], [W, 0], [0, H], [W, H]].forEach(([x, y], i) => { g.fillStyle = cs[i]; g.beginPath(); g.arc(x, y, 9, 0, TAU); g.fill(); }); g.fillStyle = k.value; g.strokeStyle = k.ink; g.lineWidth = 1.5; g.beginPath(); g.arc(S.x * W, S.y * H, 6, 0, TAU); g.fill(); g.stroke(); }
+// the puck: any canvas marked .padcv drags it
+function padDrag(cv) { cv.style.cursor = 'crosshair'; cv.style.touchAction = 'none'; cv.addEventListener('pointerdown', e => { e.preventDefault(); try { cv.setPointerCapture(e.pointerId); } catch (_) {} const mv = ev => { const r = cv.getBoundingClientRect(); S.x = Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width)); S.y = Math.min(1, Math.max(0, (ev.clientY - r.top) / r.height)); paint(); }; mv(e); cv.onpointermove = ev => { if (ev.buttons) mv(ev); }; cv.onpointerup = () => { cv.onpointermove = null; }; }); }
+
+/* ===== small builders ===== */
+const h = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; };
+const cv = (hgt, cls) => { const c = h('canvas', 'cv' + (cls ? ' ' + cls : '')); c.style.height = hgt + 'px'; return c; };
+const chip = i => { const c = h('span', 'chip', CORNER[i]); c.style.background = 'var(' + CVAR[i] + ')'; return c; };
+const pct = v => Math.round(v * 100) + ' %';
+let menu = null;
+function closeMenu() { if (menu) { menu.remove(); menu = null; } }
+document.addEventListener('pointerdown', e => { if (menu && !menu.contains(e.target)) closeMenu(); }, true);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu(); });
+// a table picker: the library, each entry with a thumbnail of its middle frame
+function picker(o, k, label) {
+  const b = h('button', 'sel'); b.type = 'button'; b.setAttribute('aria-haspopup', 'menu'); b.setAttribute('aria-label', (label || 'Osc ' + (o + 1) + ', corner ' + CORNER[k]) + ' table: ' + S.osc[o].corners[k]);
+  b.textContent = S.osc[o].corners[k];
+  b.addEventListener('click', () => {
+    closeMenu(); const win = b.closest('.win'), r = b.getBoundingClientRect(), wr = win.getBoundingClientRect(); menu = h('div', 'menu'); menu.setAttribute('role', 'menu');
+    NAMES.forEach(n => { const it = h('button'); it.type = 'button'; it.setAttribute('role', 'menuitem'); const t = h('canvas'); it.append(t, h('span', null, n)); it.addEventListener('click', () => { S.osc[o].corners[k] = n; closeMenu(); say('Osc ' + (o + 1) + ', corner ' + CORNER[k] + ': ' + n); render(); }); menu.append(it); requestAnimationFrame(() => drawCycle(t, table(n)[8], C().ink)); });
+    menu.style.left = Math.min(r.left - wr.left, wr.width - 190) + 'px'; menu.style.top = Math.min(r.bottom - wr.top + 2, wr.height - 300) + 'px'; win.append(menu); menu.querySelector('button').focus();
+  });
+  return b;
+}
+const say = t => { $('say').textContent = t; };
+
+/* ===== the window's chrome ===== */
+function chrome(win, page, sub) {
+  win.replaceChildren(); const bar = h('div', 'wbar'); bar.append(h('span', 'logo', 'horde'));
+  ['Main', 'Osc', 'FX', 'Mod', 'Arp', 'Morph', 'Random', 'Mix', 'History', 'Set'].forEach(t => bar.append(h('span', 'tab' + (t === page ? ' on' : ''), t)));
+  const sb = h('div', 'sub'); (page === 'Osc' ? ['Dashboard', 'Osc 1', 'Osc 2', 'Osc 3', 'Sub', 'Noise', 'Filters'].concat(sub === 'FM' ? ['FM'] : []) : page === 'Morph' ? ['Morph'] : [page]).forEach(t => sb.append(h('span', t === sub ? 'on' : '', t)));
+  const body = h('div', 'wbody'), foot = h('div', 'foot'); ['INFO', 'the selected control', 'MAC · MODS', 'summed scope · spectrum'].forEach(t => foot.append(h('div', null, t)));
+  win.append(bar, sb, body, foot); return body;
+}
+function leftStandIns(body) { const l = h('div', 'left'); l.append(Object.assign(h('div', 'stand', 'the ring (the swarm), unchanged'), { style: 'height:150px' }), Object.assign(h('div', 'stand', 'its spectrum'), { style: 'height:70px' }), Object.assign(h('div', 'stand', 'phase carpet · voice map'), { style: 'height:70px' })); body.append(l); return l; }
+// the lead picture, answered: the blended frame stack, with the cycle and harmonics under it
+function leadPicture(parent, o, hgt) {
+  const p = h('div', 'pane'), hd = h('div', 'ph'); hd.append(document.createTextNode('Osc ' + (o + 1) + ' · the table it reads'), h('span', 'h', 'blended at the puck · Linear · frame ' + S.osc[o].frame.toFixed(1)));
+  const st = cv(hgt || 150), row = h('div', 'row'), cy = cv(46), hm = cv(46); row.style.alignItems = 'stretch'; cy.style.flex = hm.style.flex = '1 1 0';
+  row.append(cy, hm); p.append(hd, st, row); parent.append(p);
+  draws.push(() => { const fr = blended(o); drawStack(st, fr, S.osc[o].frame, C().value); const s = frameAt(fr, S.osc[o].frame); drawCycle(cy, s, C().value); drawHarm(hm, s); });
+  return p;
+}
+function weightBar(k) { const b = h('div'); b.style.cssText = 'height:4px;border-radius:2px;background:var(--well);overflow:hidden;flex:1 1 auto'; const i = h('div'); i.style.cssText = 'height:100%;background:var(' + CVAR[k] + ')'; b.append(i); draws.push(() => { i.style.width = pct(weights()[k]); }); return b; }
+
+/* ===== Q1: six ways to show an oscillator's four corner tables ===== */
+const Q1 = [
+  { id: 'V1', name: 'Around a pad', tag: 'the lab’s', why: 'The wavetable lab’s layout on the Osc page: the four tables as frame stacks in their pad positions, A B over C D, with a small pad between them. The blend is visible as the puck moves toward a corner. Costs the most height.',
+    build(body) { leftStandIns(body); const r = h('div', 'right'); body.append(r); leadPicture(r, 0, 118);
+      const g = h('div'); g.style.cssText = 'display:grid;grid-template-columns:1fr 112px 1fr;grid-template-rows:1fr 1fr;gap:6px;flex:1 1 auto;min-height:0';
+      const tile = k => { const p = h('div', 'pane'), hd = h('div', 'row'); p.style.cssText = 'display:flex;flex-direction:column;gap:4px'; hd.append(chip(k), picker(0, k), h('span', 'wt')); const c = cv(58); c.style.flex = '1 1 auto'; p.append(hd, c); draws.push(() => { hd.lastChild.textContent = pct(weights()[k]); drawStack(c, table(S.osc[0].corners[k]), S.osc[0].frame, C()[['A', 'B', 'Cc', 'D'][k]], { label: false }); }); return p; };
+      const pad = cv(112, 'padcv'); pad.style.gridRow = '1 / 3'; pad.style.gridColumn = '2'; pad.style.alignSelf = 'center'; padDrag(pad); draws.push(() => drawMiniPad(pad));   // the column is explicit, or auto-placement puts the row-spanning pad in column 1
+      g.append(tile(0), pad, tile(1), tile(2), tile(3)); r.append(g); } },
+  { id: 'V2', name: 'One at a time', tag: 'more room', why: 'One large frame stack for the corner you pick, with its menu, and four thumbnails to switch corners; each thumbnail carries its weight. The most room for one table, the least for comparing.',
+    build(body) { leftStandIns(body); const r = h('div', 'right'); body.append(r); leadPicture(r, 0, 118);
+      const p = h('div', 'pane'), th = h('div'); th.style.cssText = 'display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:6px';
+      [0, 1, 2, 3].forEach(k => { const b = h('button', 'pane'); b.type = 'button'; b.style.cssText = 'all:unset;box-sizing:border-box;cursor:pointer;border:1px solid var(--div);border-radius:var(--radius);padding:4px;display:flex;flex-direction:column;gap:3px'; b.setAttribute('aria-pressed', String(S.open === k)); const rw = h('div', 'row'); rw.append(chip(k), h('span', 'note', ''), weightBar(k)); rw.children[1].style.cssText = 'font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'; const c = cv(30); b.append(rw, c); b.addEventListener('click', () => { S.open = k; render(); }); if (S.open === k) b.style.border = '2px solid var(--ink)'; draws.push(() => { rw.children[1].textContent = S.osc[0].corners[k]; drawCycle(c, frameAt(table(S.osc[0].corners[k]), S.osc[0].frame), C()[['A', 'B', 'Cc', 'D'][k]]); }); th.append(b); });
+      const hd = h('div', 'row'); hd.append(chip(S.open), picker(0, S.open), h('span', 'wt', 'corner ' + CORNER[S.open])); const big = cv(150); p.append(th, hd, big); r.append(p);
+      draws.push(() => drawStack(big, table(S.osc[0].corners[S.open]), S.osc[0].frame, C()[['A', 'B', 'Cc', 'D'][S.open]])); } },
+  { id: 'V3', name: 'Corners on the stack', tag: 'new', why: 'No separate area: the four corner tables sit as small chips at the four corners of the lead picture itself, where they are on the pad. Each shows its cycle and weight; a click opens its menu. The page keeps its height for the controls below.',
+    build(body) { leftStandIns(body); const r = h('div', 'right'); body.append(r); const lp = leadPicture(r, 0, 200); lp.style.position = 'relative';
+      [0, 1, 2, 3].forEach(k => { const c = h('div', 'pane'); c.style.cssText = 'position:absolute;width:170px;padding:3px 5px;box-shadow:var(--shadow-rest);' + (k < 2 ? 'top:22px;' : 'top:154px;') + (k % 2 ? 'right:8px;' : 'left:8px;'); const rw = h('div', 'row'); rw.append(chip(k), picker(0, k)); const mini = cv(20), wb = h('div', 'row'); wb.append(weightBar(k), h('span', 'wt')); c.append(rw, mini, wb); lp.append(c); draws.push(() => { wb.lastChild.textContent = pct(weights()[k]); drawCycle(mini, frameAt(table(S.osc[0].corners[k]), S.osc[0].frame), C()[['A', 'B', 'Cc', 'D'][k]]); }); });
+      const ctl = h('div', 'stand', 'the Osc section’s controls (Face / All / +Adv), the envelope, and the transformations follow here'); ctl.style.flex = '1 1 auto'; r.append(ctl); } },
+  { id: 'V4', name: 'Morph terrain', tag: 'new', why: 'The table drawn across the whole pad: a 5 × 5 field of cycles, each what the oscillator reads at that pad point. The four corner cells are the corner tables, with their menus; the puck is a ring you drag over the field. Shows how the sound transforms, not just its ends.',
+    build(body) { leftStandIns(body); const r = h('div', 'right'); body.append(r); const row = h('div', 'row'); row.style.cssText = 'align-items:stretch;gap:6px;flex:1 1 auto;min-height:0'; r.append(row);
+      const p = h('div', 'pane'); p.style.cssText = 'flex:0 0 330px'; const hd = h('div', 'ph'); hd.append(document.createTextNode('Osc 1 across the pad'), h('span', 'h', 'drag the ring')); const t = cv(300, 'padcv'); padDrag(t); p.append(hd, t);
+      const pk = h('div'); pk.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:6px'; [0, 1, 2, 3].forEach(k => { const rw = h('div', 'row'); rw.append(chip(k), picker(0, k)); pk.append(rw); }); p.append(pk); row.append(p);
+      const side = h('div', 'right'); row.append(side); leadPicture(side, 0, 140); const ctl = h('div', 'stand', 'the Osc section’s controls follow here'); ctl.style.flex = '1 1 auto'; side.append(ctl);
+      draws.push(() => { const [g, W, H] = fit(t), k = C(), n = 5, cw = W / n, ch = H / n, tb = S.osc[0].corners.map(table); g.clearRect(0, 0, W, H);
+        for (let a = 0; a < n; a++) for (let b = 0; b < n; b++) { const x = a / (n - 1), y = b / (n - 1), w = [(1 - x) * (1 - y), x * (1 - y), (1 - x) * y, x * y], s = new Float32Array(N); for (let q = 0; q < 4; q++) if (w[q]) { const f = frameAt(tb[q], S.osc[0].frame); for (let i = 0; i < N; i++) s[i] += w[q] * f[i]; }
+          const corner = (a === 0 || a === n - 1) && (b === 0 || b === n - 1), ci = (b ? 2 : 0) + (a ? 1 : 0); g.strokeStyle = corner ? [k.A, k.B, k.Cc, k.D][ci] : k.hint; g.lineWidth = corner ? 2 : 1.2; g.beginPath(); for (let i = 0; i < N; i += 4) { const px = a * cw + 6 + i / (N - 1) * (cw - 12), py = b * ch + ch / 2 - s[i] * (ch / 2 - 8); i ? g.lineTo(px, py) : g.moveTo(px, py); } g.stroke(); }
+        g.strokeStyle = k.value; g.lineWidth = 2.5; g.beginPath(); g.arc(S.x * W, S.y * H, Math.min(cw, ch) * .55, 0, TAU); g.stroke(); }); } },
+  { id: 'V5', name: 'Twelve on the Morph page', tag: 'the lead’s list', why: 'All twelve pickers on the Morph page, an oscillator a row and a corner a column, beside the pad; each Osc page shows only what it reads. The place to compare oscillators, and where Save current sound and capture already are.',
+    build(body) { chrome($('win1'), 'Morph', 'Morph'); body = $('win1').querySelector('.wbody'); const l = h('div', 'left'); l.style.flex = '0 0 240px'; const pad = cv(236, 'padcv'); padDrag(pad); draws.push(() => drawMiniPad(pad)); l.append(pad, Object.assign(h('div', 'stand', 'the law’s note · the corners’ names'), { style: 'flex:1 1 auto' })); body.append(l);
+      const r = h('div', 'right'); body.append(r); const p = h('div', 'pane'), hd = h('div', 'ph'); hd.append(document.createTextNode('Corner tables'), h('span', 'h', '3 oscillators × 4 corners · weights at the puck')); p.append(hd);
+      const g = h('div'); g.style.cssText = 'display:grid;grid-template-columns:44px repeat(4,1fr);gap:5px;align-items:center'; g.append(h('span')); [0, 1, 2, 3].forEach(k => { const c = h('div', 'row'); c.append(chip(k), weightBar(k)); g.append(c); });
+      [0, 1, 2].forEach(o => { g.append(h('b', null, 'Osc ' + (o + 1))); [0, 1, 2, 3].forEach(k => { const c = h('div'); c.style.cssText = 'display:flex;flex-direction:column;gap:2px;min-width:0'; const m = cv(54); c.append(picker(o, k), m); g.append(c); draws.push(() => drawStack(m, table(S.osc[o].corners[k]), S.osc[o].frame, C()[['A', 'B', 'Cc', 'D'][k]], { label: false, thin: true })); }); });
+      p.append(g); r.append(p); r.append(Object.assign(h('div', 'stand', 'the Selected row card and the Morph field follow, as today'), { style: 'flex:1 1 auto' })); } },
+  { id: 'V6', name: 'Crossfade lanes', tag: 'new', why: 'The four tables as lanes feeding the blended stack, like a mixer: each lane its corner chip, menu, a strip of its frames and its live weight, drawn brighter the more it counts. The blend reads as a sum, which is what Linear is.',
+    build(body) { leftStandIns(body); const r = h('div', 'right'); body.append(r); const row = h('div', 'row'); row.style.cssText = 'align-items:stretch;gap:6px'; r.append(row);
+      const lanes = h('div', 'pane'); lanes.style.cssText = 'flex:0 0 300px;display:flex;flex-direction:column;gap:5px'; lanes.append(Object.assign(h('div', 'ph'), { textContent: 'Corner lanes' }));
+      [0, 1, 2, 3].forEach(k => { const ln = h('div'); ln.style.cssText = 'display:grid;grid-template-columns:auto 1fr 38px;gap:4px;align-items:center'; const strip = cv(26); strip.style.gridColumn = '1 / 4'; ln.append(chip(k), picker(0, k), h('span', 'wt'), strip); lanes.append(ln);
+        draws.push(() => { const w = weights()[k]; ln.children[2].textContent = pct(w); strip.style.opacity = String(.25 + .75 * Math.min(1, w * 2)); const [g, W, H] = fit(strip), t = table(S.osc[0].corners[k]); g.clearRect(0, 0, W, H); g.strokeStyle = C()[['A', 'B', 'Cc', 'D'][k]]; g.lineWidth = 1.2; for (let f = 0; f < FR; f += 2) { const x0 = f / FR * W; g.beginPath(); for (let i = 0; i < N; i += 8) { const x = x0 + i / N * (W / 8 - 2), y = H / 2 - t[f][i] * (H / 2 - 3); i ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); } }); });
+      const pad = cv(96, 'padcv'); pad.style.width = '96px'; padDrag(pad); draws.push(() => drawMiniPad(pad)); lanes.append(pad); row.append(lanes);
+      const side = h('div', 'right'); row.append(side); leadPicture(side, 0, 190); r.append(Object.assign(h('div', 'stand', 'the Osc section’s controls follow here'), { style: 'flex:1 1 auto' })); } }
+];
+
+/* ===== Q2: five places for the PM matrix ===== */
+const ALG = { custom: null, parallel: [[0, 0, 0], [0, 0, 0], [0, 0, 0]], 'stack 3→2→1': [[0, .5, 0], [0, 0, .5], [0, 0, 0]], '2 + 3 → 1': [[0, .5, .5], [0, 0, 0], [0, 0, 0]], 'ring 1→2→3→1': [[0, 0, .4], [.4, 0, 0], [0, .4, 0]], 'all feedback': [[.3, 0, 0], [0, .3, 0], [0, 0, .3]] };
+function algPills(parent) { const r = h('div', 'row'); r.style.flexWrap = 'wrap'; Object.keys(ALG).forEach(n => { const b = h('button', 'pill', n); b.type = 'button'; b.setAttribute('aria-pressed', String(S.alg === n)); b.addEventListener('click', () => { if (ALG[n]) S.pm = ALG[n].map(r => r.slice()); S.alg = n; say('Algorithm: ' + n + (ALG[n] ? ', written into the matrix as ordinary values' : '')); render(); }); r.append(b); }); parent.append(r); }
+function depthDrag(el, get, set) { el.addEventListener('pointerdown', e => { e.preventDefault(); try { el.setPointerCapture(e.pointerId); } catch (_) {} const y0 = e.clientY, v0 = get(); el.onpointermove = ev => { if (ev.buttons) { set(Math.min(1, Math.max(0, v0 + (y0 - ev.clientY) / 120))); S.alg = 'custom'; paint(); } }; el.onpointerup = () => { el.onpointermove = null; render(); }; }); el.addEventListener('keydown', e => { const d = e.key === 'ArrowUp' ? .05 : e.key === 'ArrowDown' ? -.05 : 0; if (d) { e.preventDefault(); set(Math.min(1, Math.max(0, get() + d))); S.alg = 'custom'; paint(); } }); }
+function grid(parent, big) {
+  const g = h('div'); g.style.cssText = 'display:grid;grid-template-columns:' + (big ? '64px repeat(3,1fr)' : '44px repeat(3,1fr)') + ';gap:4px;align-items:stretch';
+  g.append(h('span', 'note', 'by →')); [1, 2, 3].forEach(c => g.append(h('b', 'note', 'osc ' + c)));
+  [0, 1, 2].forEach(rw => { g.append(h('b', 'note', 'osc ' + (rw + 1))); [0, 1, 2].forEach(c => { const cell = h('button', 'pmcell' + (rw === c ? ' diag' : '')); cell.type = 'button'; cell.style.height = (big ? 58 : 34) + 'px'; const f = h('div', 'fill'), v = h('span'); cell.append(f, v); cell.setAttribute('aria-label', rw === c ? 'osc ' + (rw + 1) + ' feedback' : 'osc ' + (c + 1) + ' modulates osc ' + (rw + 1));
+    depthDrag(cell, () => S.pm[rw][c], x => { S.pm[rw][c] = x; }); draws.push(() => { f.style.height = pct(S.pm[rw][c]); v.textContent = rw === c ? (S.pm[rw][c] ? 'fb ' + S.pm[rw][c].toFixed(2) : 'fb') : S.pm[rw][c] ? S.pm[rw][c].toFixed(2) : '·'; }); g.append(cell); }); });
+  parent.append(g);
+}
+function modScope(parent, o, hgt) { const c = cv(hgt || 40); parent.append(c); draws.push(() => { const [g, W, H] = fit(c), k = C(), r = [3, 1, 2][o]; g.clearRect(0, 0, W, H); g.strokeStyle = k.value; g.lineWidth = 1.5; g.beginPath(); for (let i = 0; i < 128; i++) { const x = i / 127 * W, y = H / 2 - Math.sin(TAU * r * i / 128) * (H / 2 - 4); i ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); g.strokeStyle = k.meter; g.beginPath(); for (let i = 0; i < 128; i++) { const x = i / 127 * W, y = H / 2 - Math.cos(TAU * r * i / 128) * (H / 2 - 4) * .6; i ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); }); }
+function internal(parent, o) { const p = h('div', 'pane'), hd = h('div', 'ph'); hd.append(document.createTextNode('Internal modulator · osc ' + (o + 1)), h('span', 'h', 'scope: modulator (pink), deviation (teal), MOCK')); const cr = h('div', 'ctlrow'); cr.innerHTML = 'shape <b>sine</b> · rate <b>× ' + [3, 1, 2][o] + '.00</b> · depth <b>0.40</b> · mix <b>100 %</b> · per member <b>decorrelated</b>'; p.append(hd, cr); modScope(p, o, 34); parent.append(p); }
+const Q2 = [
+  { id: 'P1', name: 'A row per Osc page, grid on the Dashboard', why: 'Each Osc page shows what modulates it: three depths (osc 1, osc 2, osc 3, its own being feedback) beside its internal modulator and scope. The whole 3 × 3 grid and the named algorithms are a card on the Osc dashboard.',
+    build() { const body = chrome($('win2'), 'Osc', 'Osc 1'); leftStandIns(body); const r = h('div', 'right'); body.append(r); leadPicture(r, 0, 100);
+      const p = h('div', 'pane'), hd = h('div', 'ph'); hd.append(document.createTextNode('FM / PM · what modulates osc 1'), h('span', 'h', 'drag a depth')); p.append(hd); const g = h('div'); g.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:4px';
+      [0, 1, 2].forEach(c => { const cell = h('button', 'pmcell' + (c === 0 ? ' diag' : '')); cell.type = 'button'; cell.style.height = '36px'; const f = h('div', 'fill'), v = h('span'); cell.append(f, v); depthDrag(cell, () => S.pm[0][c], x => { S.pm[0][c] = x; }); draws.push(() => { f.style.height = pct(S.pm[0][c]); v.textContent = (c === 0 ? 'feedback ' : 'osc ' + (c + 1) + ' ') + S.pm[0][c].toFixed(2); }); g.append(cell); }); p.append(g); r.append(p); internal(r, 0);
+      const dash = h('div', 'pane'); dash.style.cssText = 'position:absolute;right:14px;bottom:92px;width:300px;box-shadow:var(--shadow-hover)'; const dh = h('div', 'ph'); dh.append(document.createTextNode('Osc dashboard card'), h('span', 'h', 'the whole matrix')); dash.append(dh); grid(dash); algPills(dash); $('win2').append(dash); } },
+  { id: 'P2', name: 'Its own Osc ▸ FM page', why: 'A new tab under Osc with everything about modulation between oscillators: the large grid, the named algorithms, and the three internal modulators with their scopes. One place to design an FM patch.',
+    build() { const body = chrome($('win2'), 'Osc', 'FM'); const l = h('div', 'right'); l.style.flex = '0 0 430px'; body.append(l); const p = h('div', 'pane'), hd = h('div', 'ph'); hd.append(document.createTextNode('The PM matrix'), h('span', 'h', 'rows: modulated · columns: modulator · diagonal: feedback')); p.append(hd); grid(p, true); p.append(h('div', 'note', 'Algorithms write ordinary matrix values (CONTRACT §7 H1); editing a cell leaves the algorithm as Custom.')); algPills(p); l.append(p);
+      const r = h('div', 'right'); body.append(r); [0, 1, 2].forEach(o => internal(r, o)); } },
+  { id: 'P3', name: 'Operator graph', tag: 'new', why: 'The three oscillators as nodes, every modulation a wire whose thickness is its depth, and feedback a loop on its node. Drag a wire up or down to set its depth. Reads like an FM algorithm diagram, and shows at a glance who feeds whom.',
+    build() { const body = chrome($('win2'), 'Osc', 'Dashboard'); const p = h('div', 'pane'); p.style.cssText = 'flex:0 0 470px;position:relative'; const hd = h('div', 'ph'); hd.append(document.createTextNode('Who modulates whom'), h('span', 'h', 'drag a wire · arrow keys on a focused wire')); const c = cv(330); p.append(hd, c); algPills(p); body.append(p);
+      const r = h('div', 'right'); body.append(r); [0, 1, 2].forEach(o => internal(r, o));
+      const pos = [[.5, .82], [.18, .2], [.82, .2]], hit = [];
+      draws.push(() => { const [g, W, H] = fit(c), k = C(), P = pos.map(([x, y]) => [x * W, y * H]); g.clearRect(0, 0, W, H); hit.length = 0;
+        for (let rw = 0; rw < 3; rw++) for (let cl = 0; cl < 3; cl++) { const d = S.pm[rw][cl]; if (rw === cl) { const [x, y] = P[rw], ly = y + (rw ? -38 : 38); g.strokeStyle = d ? k.value : k.div; g.lineWidth = 1 + d * 7; g.beginPath(); g.arc(x, ly, 16, 0, TAU); g.stroke(); hit.push({ rw, cl, x, y: ly }); continue; }
+          const [x1, y1] = P[cl], [x2, y2] = P[rw], mx = (x1 + x2) / 2 + (y2 - y1) * .12, my = (y1 + y2) / 2 - (x2 - x1) * .12; g.strokeStyle = d ? k.value : k.div; g.globalAlpha = d ? 1 : .6; g.lineWidth = 1 + d * 8; g.beginPath(); g.moveTo(x1, y1); g.quadraticCurveTo(mx, my, x2, y2); g.stroke(); g.globalAlpha = 1;
+          const ax = .8, bx = (1 - ax) ** 2 * x1 + 2 * (1 - ax) * ax * mx + ax * ax * x2, by = (1 - ax) ** 2 * y1 + 2 * (1 - ax) * ax * my + ax * ax * y2; g.fillStyle = d ? k.value : k.div; g.beginPath(); g.arc(bx, by, 3 + d * 3, 0, TAU); g.fill(); hit.push({ rw, cl, x: mx, y: my });
+          if (d) { g.fillStyle = k.ink; g.font = '700 10px ui-monospace, Menlo, monospace'; g.textAlign = 'center'; g.fillText(d.toFixed(2), mx, my - 6); } }
+        P.forEach(([x, y], i) => { g.fillStyle = k.panel; g.strokeStyle = k.ink; g.lineWidth = 2; g.beginPath(); g.arc(x, y, 26, 0, TAU); g.fill(); g.stroke(); g.fillStyle = k.ink; g.font = '800 12px system-ui, sans-serif'; g.textAlign = 'center'; g.fillText('osc ' + (i + 1), x, y + 4); }); });
+      c.style.touchAction = 'none'; c.addEventListener('pointerdown', e => { const r0 = c.getBoundingClientRect(), x = e.clientX - r0.left, y = e.clientY - r0.top; let best = null, bd = 30; hit.forEach(q => { const d = Math.hypot(q.x - x, q.y - y); if (d < bd) { bd = d; best = q; } }); if (!best) return; e.preventDefault(); try { c.setPointerCapture(e.pointerId); } catch (_) {} const v0 = S.pm[best.rw][best.cl], y0 = e.clientY; say(best.rw === best.cl ? 'osc ' + (best.rw + 1) + ' feedback' : 'osc ' + (best.cl + 1) + ' → osc ' + (best.rw + 1)); c.onpointermove = ev => { if (ev.buttons) { S.pm[best.rw][best.cl] = Math.min(1, Math.max(0, v0 + (y0 - ev.clientY) / 120)); S.alg = 'custom'; paint(); } }; c.onpointerup = () => { c.onpointermove = null; render(); }; }); } },
+  { id: 'P4', name: 'In the signal flow', tag: 'new', why: 'GUI-57 ruled the Osc dashboard as the signal flow: the sources in a column wired into the filters. Here the PM wires run between the oscillator rows on that column’s left edge, each with its depth, so modulation is part of the same picture as routing.',
+    build() { const body = chrome($('win2'), 'Osc', 'Dashboard'); const p = h('div', 'pane'); p.style.cssText = 'flex:1 1 auto;position:relative'; const hd = h('div', 'ph'); hd.append(document.createTextNode('Signal flow'), h('span', 'h', 'GUI-57 r3’s dashboard, with PM drawn in · drag a wire’s depth')); const c = cv(400); p.append(hd, c); algPills(p); body.append(p);
+      const hit = [];
+      draws.push(() => { const [g, W, H] = fit(c), k = C(), rows = ['osc 1', 'osc 2', 'osc 3', 'sub', 'noise'], ry = i => 30 + i * (H - 60) / 4, bx = 150, bw = 200; g.clearRect(0, 0, W, H); hit.length = 0;
+        [['filter 1', .3], ['filter 2', .7]].forEach(([n, f]) => { const fy = f * H; g.strokeStyle = k.ink; g.lineWidth = 1.5; g.strokeRect(W - 220, fy - 22, 150, 44); g.fillStyle = k.ink; g.font = '700 11px system-ui, sans-serif'; g.textAlign = 'center'; g.fillText(n, W - 145, fy + 4); rows.forEach((_, i) => { g.strokeStyle = k.div; g.lineWidth = 1; g.beginPath(); g.moveTo(bx + bw, ry(i)); g.bezierCurveTo(bx + bw + 120, ry(i), W - 340, fy, W - 220, fy); g.stroke(); }); });
+        rows.forEach((n, i) => { g.fillStyle = k.panel; g.strokeStyle = k.ink; g.lineWidth = 1.5; g.beginPath(); g.roundRect(bx, ry(i) - 18, bw, 36, 6); g.fill(); g.stroke(); g.fillStyle = k.ink; g.font = '800 12px system-ui, sans-serif'; g.textAlign = 'left'; g.fillText(n, bx + 10, ry(i) + 4); if (i < 3) { const fr = blended(i), s = frameAt(fr, S.osc[i].frame); g.strokeStyle = k.value; g.lineWidth = 1.2; g.beginPath(); for (let j = 0; j < N; j += 4) { const x = bx + 70 + j / N * 120, y = ry(i) - s[j] * 12; j ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); } });
+        for (let rw = 0; rw < 3; rw++) for (let cl = 0; cl < 3; cl++) { const d = S.pm[rw][cl]; if (rw === cl) { const x = bx - 14, y = ry(rw); g.strokeStyle = d ? k.value : k.div; g.lineWidth = 1 + d * 6; g.beginPath(); g.arc(x, y, 9, 0, TAU); g.stroke(); hit.push({ rw, cl, x, y }); continue; }
+          // each direction its own lane (downward wires inside, upward outside) and its own end of the box, so a pair never overlaps; the dot marks the modulated end
+          const up = cl > rw, y1 = ry(cl) + (up ? -9 : 9), y2 = ry(rw) + (up ? 9 : -9), span = Math.abs(rw - cl), x = bx - 26 - span * 30 - (up ? 34 : 0), my = (y1 + y2) / 2;
+          g.strokeStyle = d ? k.value : k.div; g.globalAlpha = d ? 1 : .55; g.lineWidth = 1 + d * 7; g.beginPath(); g.moveTo(bx, y1); g.bezierCurveTo(x, y1, x, y2, bx, y2); g.stroke(); g.globalAlpha = 1;
+          g.fillStyle = d ? k.value : k.div; g.beginPath(); g.arc(bx - 3, y2, 3 + d * 3, 0, TAU); g.fill(); const lx = x + .25 * (bx - x); hit.push({ rw, cl, x: lx, y: my });
+          if (d) { g.fillStyle = k.ink; g.font = '700 10px ui-monospace, Menlo, monospace'; g.textAlign = up ? 'right' : 'left'; g.fillText(d.toFixed(2), up ? x - 4 : x + 5, my + 3); } } });   // the outer (upward) wire's label outside it, the inner one's inside
+      c.style.touchAction = 'none'; c.addEventListener('pointerdown', e => { const r0 = c.getBoundingClientRect(), x = e.clientX - r0.left, y = e.clientY - r0.top; let best = null, bd = 26; hit.forEach(q => { const d = Math.hypot(q.x - x, q.y - y); if (d < bd) { bd = d; best = q; } }); if (!best) return; e.preventDefault(); try { c.setPointerCapture(e.pointerId); } catch (_) {} const v0 = S.pm[best.rw][best.cl], y0 = e.clientY; c.onpointermove = ev => { if (ev.buttons) { S.pm[best.rw][best.cl] = Math.min(1, Math.max(0, v0 + (y0 - ev.clientY) / 120)); S.alg = 'custom'; paint(); } }; c.onpointerup = () => { c.onpointermove = null; render(); }; }); } },
+  { id: 'P5', name: 'Only on the Dashboard', why: 'The grid and algorithms as one card on the Osc dashboard, and nothing about other oscillators on an Osc page: each keeps just its own internal modulator. The quietest Osc pages; FM between oscillators is one click further away.',
+    build() { const body = chrome($('win2'), 'Osc', 'Dashboard'); const l = h('div', 'right'); l.style.flex = '0 0 330px'; body.append(l); const p = h('div', 'pane'), hd = h('div', 'ph'); hd.append(document.createTextNode('PM matrix'), h('span', 'h', 'a dashboard card')); p.append(hd); grid(p); algPills(p); l.append(p); l.append(Object.assign(h('div', 'stand', 'the other dashboard cards (sources, filters)'), { style: 'flex:1 1 auto' }));
+      const r = h('div', 'right'); body.append(r); r.append(Object.assign(h('div', 'stand', 'the signal flow (GUI-57 r3) fills the rest'), { style: 'flex:1 1 auto' })); } }
+];
+
+/* ===== rendering ===== */
+let draws = [], v1 = 'V1', v2 = 'P1';
+function opts(host, list, cur, pick) { host.replaceChildren(); list.forEach(v => { const b = h('button', 'opt'); b.type = 'button'; b.setAttribute('aria-pressed', String(v.id === cur)); b.append(h('i', null, v.id + (v.tag ? ' · ' + v.tag : '')), h('b', null, v.name)); b.addEventListener('click', () => pick(v.id)); host.append(b); }); }
+function render() {
+  closeMenu(); draws = [];
+  opts($('pick1'), Q1, v1, id => { v1 = id; render(); }); opts($('pick2'), Q2, v2, id => { v2 = id; render(); });
+  const a = Q1.find(v => v.id === v1), b = Q2.find(v => v.id === v2); $('why1').textContent = a.why; $('why2').textContent = b.why;
+  a.build(chrome($('win1'), 'Osc', 'Osc 1')); b.build();
+  paint();
+}
+function paint() { draws.forEach(f => f()); }
+addEventListener('resize', paint);
+
+/* ===== self-check: every variant builds and draws inside its window, the blend follows the puck, and a table change reaches the lead picture ===== */
+function selfcheck() {
+  const out = [], ok = (c, t) => out.push((c ? 'OK     ' : 'FAILED ') + t), x0 = S.x, y0 = S.y, keep1 = v1, keep2 = v2;
+  Q1.forEach(v => { v1 = v.id; render(); const w = $('win1').getBoundingClientRect(), over = [...$('win1').querySelectorAll('.pane, canvas')].filter(e => { const r = e.getBoundingClientRect(); return r.width && (r.right > w.right + 1 || r.bottom > w.bottom + 1); }); ok(!over.length && $('win1').querySelectorAll('canvas').length >= 3, v.id + ' builds inside the window' + (over.length ? ' (OVER: ' + over.length + ')' : '')); });
+  Q2.forEach(v => { v2 = v.id; render(); const w = $('win2').getBoundingClientRect(), over = [...$('win2').querySelectorAll('.pane, canvas')].filter(e => { const r = e.getBoundingClientRect(); return r.width && (r.right > w.right + 1 || r.bottom > w.bottom + 1); }); ok(!over.length, v.id + ' builds inside the window' + (over.length ? ' (OVER: ' + over.length + ')' : '')); });
+  S.x = 0; S.y = 0; const atA = blended(0)[8].slice(), tA = table(S.osc[0].corners[0])[8]; S.x = 1; S.y = 1; const atD = blended(0)[8], tD = table(S.osc[0].corners[3])[8];
+  const same = (p, q) => p.every((v, i) => Math.abs(v - q[i]) < 1e-6); ok(same(atA, tA) && same(atD, tD) && !same(atA, atD), 'the blend is corner A’s table at A and D’s at D (control: they differ)');
+  S.x = x0; S.y = y0; const was = S.osc[0].corners[0], before = blended(0)[8].slice(); S.osc[0].corners[0] = was === 'PWM 50 → 5 %' ? 'Sine → saw' : 'PWM 50 → 5 %'; const after = blended(0)[8]; S.osc[0].corners[0] = was; ok(!same(before, after), 'a corner’s table change reaches the blended table');
+  const g1 = mulberry32(17)(), g2 = mulberry32(17)(); ok(g1 === g2, 'the rolled table is seeded (the same seed draws the same)');
+  v1 = keep1; v2 = keep2; render(); $('selfcheck').textContent = out.join('\n'); return out;
+}
+render(); window.WT_PAGE_LAB = { S, selfcheck, render };
+requestAnimationFrame(() => requestAnimationFrame(selfcheck));
+})();
+</script>
+</body>
+</html>

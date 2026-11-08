@@ -12493,6 +12493,25 @@ The layout is the shell's.
 
 **FX device (ADR-254).** Ruling 3 serves it as it serves every page. Rulings 1 and 2 are the Morph page's, and it has none.
 
+
+## GUI-62 — RULED by the human: the Osc page's lead picture is the blended frame stack (GB37; 2026-11-08)
+
+**The human, 2026-11-08.** The lead handed over the wavetable page (ADR-387: the wavetable member replaces the blades in 1.0, and there are three oscillators; `docs/wavetable/INTEGRATION.md` §7). Asked what should take the Osc page's top-right area, where the blade waveform you dragged sat, the human chose **"The blended frame stack"**.
+
+**What changes.** Each Osc page leads with the table the oscillator reads at the puck:
+- its frames as a stack, the wavetable lab's 3-D picture, with the read frame drawn bold;
+- the frame's position;
+- under it, the blended cycle and its harmonics.
+
+The blade view and its drag roles retire with the blades (INTEGRATION.md §7.1).
+
+**Still open in the lab** (`docs/design/wavetable-page-lab.html`, exploring): where an oscillator's four corner tables are picked and seen (six variants), and where the 3 × 3 PM matrix lives (five variants). The human asked to audition them, "including any creative approaches we haven't yet considered".
+
+**State (GUI-27).** None: a picture.
+
+**Engine impact.** GN-57: the frames of the table each oscillator reads at the puck, as cycles, across the bridge.
+
+**FX device (ADR-254).** None: it has no oscillators.
 ## ADR-365 — RULED by the human: the 8 Hz blocker for FM free in pitch FM; item 7.8's table remade; spec round 58 (B621, B623; 2026-11-04)
 
 **Context.** FM free in pitch FM runs an accumulator that never restarts, while each of C.16's readings starts it at 0, so the estimate cannot see its mean and BL-19 cannot hold by the law alone (Q-TA-71: engine-free, 95 of its 144 one-member cases over 0.003, up to 0.046). ADR-363 sent this to a scratch trial of C.16's existing blocker, with clips for the human. Separately, item 7.8's reference R2 places FM free's modulator half a cycle from round 56's start, and 7.8 plays before its settings settle (Q-TA-77).
