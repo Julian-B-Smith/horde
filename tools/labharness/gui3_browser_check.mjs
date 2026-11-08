@@ -123,6 +123,8 @@ async function runSelect(chrome, url) {
   try {
     await b.call('Page.navigate', { url });
     let ready = false; for (let i = 0; i < 60 && !ready; i++) { await sleep(500); try { ready = await b.evalIn(`/Ready/.test((document.getElementById('status') || {}).textContent || '')`); } catch {} }
+    // GUI-54's splash covers the window for its first 2.5 s and takes the first press, so the drags wait for it to go
+    for (let i = 0; i < 40 && ready && await b.evalIn(`!!document.querySelector('.hd-splash')`); i++) await sleep(200);
     return ready ? await selectProbe(b) : { missing: 'loaded page' };
   } finally { b.ws.close(); b.proc.kill(); await sleep(200); await rm(dir, { recursive: true, force: true }); }
 }
@@ -136,6 +138,69 @@ async function run(chrome, url, plant) {
     const thrown = b.events.filter(e => e.method === 'Runtime.exceptionThrown').map(e => (e.params.exceptionDetails.exception || {}).description || e.params.exceptionDetails.text);
     return { st, thrown, pics: await b.evalIn(MEASURE) };
   } finally { b.ws.close(); b.proc.kill(); await sleep(200); await rm(dir, { recursive: true, force: true }); }
+}
+
+/* GUI-54 (the human): the Mindlathe logo over the window when it first opens, fading on the first press or after 2.5 s. Real mouse through CDP, and the
+   splash's life timestamped by a MutationObserver installed before the page loads (added, starts fading, removed), so the timings hold under load.
+   - press: the art is painted (cyan and magenta pixels, under the plug-in page's policy too: no image loads, the bytes are decoded), the splash covers
+     the window, a real click on the Mix tab under it changes no page and starts the fade, and the splash goes. CONTROL: the same click once it has
+     gone opens Mix, so the first click was swallowed, not missed.
+   - timer: with no input the fade starts 2 to 4 s after the splash is SEEN (the observer stamps "added" when its callback runs, after the shell's
+     first script, so a 2.5 s timer reads about 2.4 s). CONTROL: it is still up, not fading, at 1.2 s.
+   - reduce: under prefers-reduced-motion a press removes it at once, with no fade.
+   - plug-in: hello's answer with first_open false takes it away before any fade; with first_open true (the CONTROL) it fades on its timer. */
+const SPLOG = `window.__splash = []; new MutationObserver(ms => { const t = performance.now(), is = n => n && n.classList && n.classList.contains('hd-splash');
+  for (const m of ms) { m.addedNodes.forEach(n => { if (is(n)) window.__splash.push(['add', t]); }); m.removedNodes.forEach(n => { if (is(n)) window.__splash.push(['remove', t]); });
+    if (m.type === 'attributes' && is(m.target) && m.target.classList.contains('out')) window.__splash.push(['out', t]); } }).observe(document, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] });`;
+const SPLASH = `(() => { const s = document.querySelector('.hd-splash'), c = s && s.querySelector('canvas'), w = document.getElementById('win'); if (!s) return { up: false, log: window.__splash };
+  const R = s.getBoundingClientRect(), B = w.getBoundingClientRect(), W = { left: B.left + w.clientLeft, top: B.top + w.clientTop, width: w.clientWidth, height: w.clientHeight },   // the window's inside: its border stays
+    covers = Math.abs(R.left - W.left) < 1 && Math.abs(R.top - W.top) < 1 && Math.abs(R.width - W.width) < 1 && Math.abs(R.height - W.height) < 1;
+  let op = 0, cy = 0, mg = 0; if (c && c.width) { const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; for (let i = 3; i < d.length; i += 28) if (d[i] > 200) { op++; const r = d[i - 3], g = d[i - 2], b = d[i - 1]; if (b > 200 && g > 170 && r < 170) cy++; if (r > 200 && b > 200 && g < 150) mg++; } }
+  return { up: true, out: s.classList.contains('out'), covers, op, cy, mg, log: window.__splash }; })()`;
+const PAGE = `(document.querySelector('.page:not([hidden])') || {}).id || ''`, MIXAT = `(() => { const e = [...document.querySelectorAll('button,[role=tab]')].find(e => e.textContent.trim() === 'Mix'); if (!e) return null; const r = e.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }; })()`;
+const span = (log, a, b) => { const x = log.find(e => e[0] === a), y = log.find(e => e[0] === b); return x && y ? Math.round(y[1] - x[1]) : null; };
+async function click(b, at) { await b.call('Input.dispatchMouseEvent', { type: 'mouseMoved', x: at.x, y: at.y }); await b.call('Input.dispatchMouseEvent', { type: 'mousePressed', x: at.x, y: at.y, button: 'left', buttons: 1, clickCount: 1 }); await b.call('Input.dispatchMouseEvent', { type: 'mouseReleased', x: at.x, y: at.y, button: 'left', buttons: 0, clickCount: 1 }); }
+async function runSplash(chrome, url, mode, hello) {
+  const dir = await mkdtemp(join(tmpdir(), 'gui3-splash-')), b = await cdp(chrome, dir);
+  try {
+    if (mode === 'reduce') await b.call('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+    await b.call('Page.addScriptToEvaluateOnNewDocument', { source: SPLOG + (hello ? hello : '') });
+    await b.call('Page.navigate', { url });
+    let s = null; for (let i = 0; i < 120; i++) { await sleep(50); try { s = await b.evalIn(SPLASH); } catch { continue; } if (s.up || (s.log || []).some(e => e[0] === 'remove')) break; }
+    for (let i = 0; i < 30 && s && s.up && !s.op && !s.out; i++) { await sleep(50); s = await b.evalIn(SPLASH); }   // the art decodes after it appears; a splash that never paints is still pressed
+    const first = s || { up: false };
+    if (mode === 'press' || mode === 'reduce') {
+      const p0 = await b.evalIn(PAGE), at = await b.evalIn(MIXAT); if (!at || !first.up) return { first };
+      await click(b, at); await sleep(60); const mid = await b.evalIn(SPLASH), p1 = await b.evalIn(PAGE);
+      for (let i = 0; i < 40 && (await b.evalIn(SPLASH)).up; i++) await sleep(50);
+      const gone = !(await b.evalIn(SPLASH)).up; await click(b, at); await sleep(300); const p2 = await b.evalIn(PAGE);
+      return { first, mid, swallowed: p1 === p0, gone, control: p2 !== p0 && /mix/i.test(p2), log: (await b.evalIn(SPLASH)).log };
+    }
+    for (let i = 0; i < 160 && !(await b.evalIn(`(window.__splash || []).some(e => e[0] === 'remove')`)); i++) await sleep(50);
+    return { first, log: await b.evalIn('window.__splash'), csp: await b.evalIn('window.__csp || []').catch(() => []) };
+  } finally { b.ws.close(); b.proc.kill(); await sleep(200); await rm(dir, { recursive: true, force: true }); }
+}
+function splashVerdict(sp, red) {
+  const P = 'splash (GUI-54): ', f = sp.press.first;
+  if (!f.up) red.push(P + 'no splash over the lab page at load');
+  else {
+    if (!f.covers) red.push(P + 'it does not cover the window');
+    if (f.op < 1000 || f.cy < 50 || f.mg < 50) red.push(P + `the art is not painted (${f.op} opaque samples, ${f.cy} cyan, ${f.mg} magenta)`);
+    if (!sp.press.swallowed) red.push(P + 'a click on the Mix tab under it changed the page: the first click must do nothing else');
+    if (!sp.press.mid || !(sp.press.mid.out || !sp.press.mid.up)) red.push(P + 'a click did not start the fade');
+    if (!sp.press.gone) red.push(P + 'it was still up 2 s after a click');
+    if (!sp.press.control) red.push('CONTROL: ' + P + 'the same click on Mix once it had gone did not open Mix, so the swallow proves nothing');
+  }
+  const o = span(sp.timer.log, 'add', 'out'), still = sp.timer.log.filter(e => e[0] === 'out' || e[0] === 'remove').every(e => e[1] - sp.timer.log[0][1] > 1200);
+  if (o === null || o < 2000 || o > 4000) red.push(P + `with no input the fade started ${o === null ? 'never' : o + ' ms'} after it appeared, not at 2.5 s`);
+  if (!still) red.push('CONTROL: ' + P + 'it was gone or fading before 1.2 s with no input');
+  const rl = sp.reduce.log || []; if (!sp.reduce.first.up || rl.some(e => e[0] === 'out') || !sp.reduce.gone) red.push(P + 'under reduced motion a press ' + (rl.some(e => e[0] === 'out') ? 'faded it instead of removing it at once' : 'did not remove it'));
+  const n = sp.notFirst.log || [], y = sp.first.log || [], nr = span(n, 'add', 'remove');
+  if (n.some(e => e[0] === 'out') || nr === null || nr > 2000) red.push(P + `on the plug-in, hello's first_open false ${nr === null ? 'never took it away' : 'took it away only after ' + (n.some(e => e[0] === 'out') ? 'a fade' : nr + ' ms')}`);
+  const yo = span(y, 'add', 'out'); if (yo === null || yo < 2000) red.push('CONTROL: ' + P + `on the plug-in with first_open true it ${yo === null ? 'never faded' : 'faded at ' + yo + ' ms'}, not on its timer`);
+  if (sp.first.first.up && (sp.first.first.op < 1000 || sp.first.first.mg < 50)) red.push(P + 'under the plug-in page’s policy the art is not painted');
+  (sp.first.csp || []).concat(sp.notFirst.csp || []).forEach(v => red.push(P + 'blocked by the page policy: ' + v));
+  return `${f.op} opaque samples`;
 }
 
 /* THE BRIDGE'S PAGE SIDE (B628, docs/proposals/gui-on-engine.md section 7). The page loads on GUI3_REPLAY, the frames the plug-in's
@@ -207,8 +272,8 @@ async function runReplay(chrome, url, frames, frozen) {
    that answers `hello` with the first frame, its build and no mismatch. Asserted: the page is in plug-in mode (the lab's header,
    description and status are gone and the device sits at the view's top-left); hello went out first with shell-data's hash;
    the build label reads the bridge's build; a mismatch the bridge reports shows as a banner naming a row, and goes when cleared. */
-const NATIVE = frames => `window.__sent = []; window.hordeNativeSend = t => { const m = JSON.parse(t); window.__sent.push(m);
-  if (m.type === 'hello') setTimeout(() => window.hordeNativeSnapshot(Object.assign({}, ${JSON.stringify(frames[0])}, { ack: m.seq, hello: { build: 'stand-in', manifest_hash: m.manifest_hash }, mismatch: null, plugin: { build: 'stand-in' } })), 0); };`;
+const NATIVE = (frames, more) => `window.__sent = []; window.hordeNativeSend = t => { const m = JSON.parse(t); window.__sent.push(m);
+  if (m.type === 'hello') setTimeout(() => window.hordeNativeSnapshot(Object.assign({}, ${JSON.stringify(frames[0])}, { ack: m.seq, hello: Object.assign({ build: 'stand-in', manifest_hash: m.manifest_hash }, ${JSON.stringify(more || {})}), mismatch: null, plugin: { build: 'stand-in' } })), 0); };`;
 const NPROBE = `(async () => {
   const wait = ms => new Promise(r => setTimeout(r, ms)), R = e => e ? e.getBoundingClientRect() : null, vis = e => !!e && getComputedStyle(e).display !== 'none' && e.getClientRects().length > 0;
   const win = R(document.getElementById('win')), first = window.__sent[0] || null;
@@ -305,9 +370,14 @@ try {
   replayVerdict(await runReplay(chrome, eb, frames, false), await runReplay(chrome, eb, frames, true), frames, red);
   const nat = await runNative(chrome, eb, frames); nativeVerdict(nat, red, frames);
   nativeVerdict(await runNative(chrome, eb, frames, true), red, frames, true);
+  const csp = 'window.__csp = []; document.addEventListener("securitypolicyviolation", e => window.__csp.push(e.violatedDirective + " " + (e.blockedURI || "inline")));';
+  const sp = { press: await runSplash(chrome, base + '?fast#osc1', 'press'), timer: await runSplash(chrome, base + '?fast#osc1', 'timer'), reduce: await runSplash(chrome, base + '?fast#osc1', 'reduce'),
+    notFirst: await runSplash(chrome, eb, 'plugin', NATIVE(frames, { first_open: false }) + csp), first: await runSplash(chrome, eb, 'plugin', NATIVE(frames, { first_open: true }) + csp) };
+  splashVerdict(sp, red);
   console.log(red.length ? 'gui3_browser_check: RED\n  ' + red.join('\n  ')
     : `gui3_browser_check: GREEN -- ${r.st.ok} self-checks pass in a real browser, ${MOVERS.join(', ')} move after them, and with frames stopped they read frozen (control); ` +
       `a knob and the Morph pad dragged onto a paragraph make the page unselectable mid-drag and selectable again on release, where a drag across the paragraph sets nothing and selects ${r.sel.control.sel} characters (control; headless Chrome can't show the WebKit bug itself); ` +
+      `the Mindlathe splash covers the window painted (under the plug-in's policy too), swallows the first click and fades, fades on its own at 2.5 s, goes at once under reduced motion, and goes at once when hello says it isn't the first opening (controls: a later click opens Mix, it's still up at 1.2 s, and first_open true keeps it); ` +
       `the plug-in's one-file page runs under its policy with no violation, its bridge side holds on ${recorded ? 'the recorded' : 'SYNTHETIC'} frames, and a frozen replay reads frozen (control); ` +
       `in plug-in mode the ${nat.n.w} x ${nat.n.h} device fills the view's top-left with no lab chrome, says hello with its hash, shows and clears a mismatch, and paints its bank and build with no frames drawn`);
 } finally { srv.close(); }

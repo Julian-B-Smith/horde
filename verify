@@ -250,6 +250,9 @@ fast() {
   # each time. How many needs no ROADMAP row cites yet is printed, and never fails.
   python3 tools/engine_needs_check.py || ok=1
 
+  # GUI-54's splash art (added under ADR-180 §1): the base64 the bundle carries is the master's PNG, byte for byte, with no metadata chunk.
+  python3 tools/splash_art_check.py || ok=1
+
   # ONE UNIFIED ENGINE (GUI-1; added under ADR-180 §1): nothing in the design master, the shell or a lab offers swarm and SCALPEL as
   # engines to choose between, because samples get copied and that is how the notion comes back. Python only, well under 1 s.
   python3 tools/engine_words_check.py || ok=1

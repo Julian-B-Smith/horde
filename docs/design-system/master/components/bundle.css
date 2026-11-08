@@ -1690,3 +1690,7 @@ canvas.hd-ring { outline:none; }
 .hd-fxpatch .fc-view:first-child svg { cursor:crosshair; touch-action:none; }
 .hd-fxpatch .fx-cell { cursor:pointer; }
 .fp-ghost { stroke:var(--value); stroke-width:2; stroke-dasharray:4 3; pointer-events:none; }
+/* GUI-54: the Mindlathe splash over the window on its first opening; the art is a canvas (see Horde.Splash for why) */
+.hd-splash { position:absolute; inset:0; z-index:1000; display:grid; place-items:center; background:var(--bg); opacity:1; transition:opacity 400ms ease; cursor:default; }
+.hd-splash.out { opacity:0; }
+.hd-splash-art { display:block; width:min(62%, 600px); height:auto; }

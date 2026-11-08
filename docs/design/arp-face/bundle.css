@@ -1,4 +1,4 @@
-/* vendored from the horde Design System artifact, version 1794113431-06a5, 2026-11-07; do not edit, re-vendor */
+/* vendored from the horde Design System artifact, version 1794163020-0651, 2026-11-08; do not edit, re-vendor */
 @import url("https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;800&family=Roboto+Mono:wght@400;500;600&display=swap");
 /* horde house components. Every colour is a token (tokens.json); nothing here is a hex.
    Sources: UI Spec §3-4 (values), gui2.html §4 skins, the SCALPEL lab (980×720 chassis),
@@ -1691,3 +1691,7 @@ canvas.hd-ring { outline:none; }
 .hd-fxpatch .fc-view:first-child svg { cursor:crosshair; touch-action:none; }
 .hd-fxpatch .fx-cell { cursor:pointer; }
 .fp-ghost { stroke:var(--value); stroke-width:2; stroke-dasharray:4 3; pointer-events:none; }
+/* GUI-54: the Mindlathe splash over the window on its first opening; the art is a canvas (see Horde.Splash for why) */
+.hd-splash { position:absolute; inset:0; z-index:1000; display:grid; place-items:center; background:var(--bg); opacity:1; transition:opacity 400ms ease; cursor:default; }
+.hd-splash.out { opacity:0; }
+.hd-splash-art { display:block; width:min(62%, 600px); height:auto; }

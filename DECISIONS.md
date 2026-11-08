@@ -12134,6 +12134,29 @@ A plant of an even weight (0.25) turned it red: 29 % against 37 %, then 54 %.
 **Engine impact.** GN-54: "once per Live session" outlives the page, which dies with the window, so the plug-in tells the page at `hello` whether this is the first opening since it loaded.
 
 **FX device (ADR-254).** The same, as a Mindlathe plug-in.
+### GUI-54 A1 — BUILT, with two choices by the human: the saturated header PNG, decoded to a canvas (GB30; 2026-11-08)
+
+**The human, 2026-11-08:** "Realizing we never added the Mindlathe logo." Two questions followed:
+- **Which art.** Offered the colour SVG from the Mindlathe brand's masters, the human answered: "The PNG version is the one I would like to use", the saturated header graphic. It is a public repo, so it is now published here.
+- **How it reaches the page.** The plug-in's page runs under `default-src 'none'`, and `gui_sink_check` forbids any `data:` source, so no image can show there. The human chose **"Decode into a canvas"** over loosening the policy. The PNG's bytes ride in the bundle as base64 and are decoded to pixels in script, which loads nothing, so the policy and its check are unchanged.
+
+**What is built.**
+- **The master's `Splash`.** It covers the window's inside on the chassis colour, with the art centred at 62 % of the width (600 px at most).
+- **Dismissing.** The first press, any button, fades it over 400 ms. That press, its click, a double-click, a context menu and a wheel turn stop there, and it still takes presses while it fades.
+- **Timing.** It fades on its own at 2.5 s, and under reduced motion it goes at once, with no fade.
+- **The art.** It is `assets/Logos/mindlathe-saturated.png`, the human's PNG scaled from 1492 to 960 px wide, with every chunk but the image data dropped. It was not redrawn.
+- **The drift check.** `tools/splash_art_check.py`, new in `./verify fast`, holds the base64 to the PNG byte for byte, in the master and the vendored bundle.
+
+**State (recorded per GUI-27).** Nothing persists and nothing is undoable: the splash is the page's own, and it dies with the window. "Once per Live session" is the plug-in's to know (GN-54): the page reads `first_open` in hello's answer, and false takes the splash away at once.
+
+**Readings (the GUI session's, open to the human).**
+- **Until the bridge sends `first_open`,** the splash shows at every opening of the plug-in's window, not never. On the lab page every load is a first opening.
+- **"Fade on first click"** is read as the first press of any button, and that press does nothing else.
+
+**Engine impact.** GN-54, unchanged in substance. Its message is now named: `first_open` in hello's answer.
+
+**FX device (ADR-254).** The same, as a Mindlathe plug-in.
+
 ## GUI-42 — DIRECTED by the human: the Morph page fits beside its pad; pictures keep moving; the waveform's name (amends GUI-40 and GUI-33; 2026-11-05)
 
 **The human, 2026-11-05:** "The morph grid still gets cut off at the bottom of the scroll by the morph box. I feel like we need to reformat a little to fit everything on the page more sensibly." And: "Also the osc visualizers are all freezing".

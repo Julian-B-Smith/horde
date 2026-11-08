@@ -172,6 +172,10 @@
   {
    "version": "1794113431-06a5",
    "evidence": "docs/design/arp-face/README.md: the share bar in the Morph inspector, GUI-56 r3, 2026-11-07"
+  },
+  {
+   "version": "1794163020-0651",
+   "evidence": "docs/design/arp-face/README.md: the Mindlathe splash, its art decoded to a canvas, GUI-54, 2026-11-08"
   }
  ],
  "vendoring": {
@@ -7299,18 +7303,18 @@
   },
   {
    "port_tab": null,
-   "component": null,
-   "bundle": null,
-   "shell": null,
+   "component": "Splash",
+   "bundle": "Splash",
+   "shell": "docs/design/gui3.html: H.Splash($('win'), { reduce: S.reduce })",
    "via": null,
    "superseded_by": null,
-   "state": "ruled",
-   "master_version": null,
+   "state": "in-shell",
+   "master_version": "1794163020-0651",
    "lab": null,
    "id": "gui54-splash",
    "adr": "GUI-54",
    "clause": "the Mindlathe logo covers the window on its first opening per Live session, fading on the first click or after 2.5 s",
-   "note": "FX device: the same."
+   "note": "Master: Splash, with the human's PNG (assets/Logos/mindlathe-saturated.png) carried as base64 and decoded to a canvas, since the plug-in page's policy loads no image (the human, 2026-11-08). tools/splash_art_check.py holds the base64 to the PNG. On the plug-in, hello's first_open false takes it away at once; until GN-54 sends it, it shows at every opening (GUI-54 A1). Browser check: painted, swallow, fade, timer, reduced motion, first_open, each with a control; three plants red. FX device: the same."
   },
   {
    "port_tab": null,
