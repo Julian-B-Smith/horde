@@ -72,7 +72,8 @@ lists as protected.
 
 ## §Domain — HYPERSAW
 
-**What this is.** One unified engine (GUI-1): every oscillator is a swarm cut by blades, and nothing offers
+**What this is.** One unified engine (GUI-1): every oscillator is a swarm whose members read wavetables (ADR-387: the
+wavetable member replaces blades for 1.0; three oscillators in 1.0), and nothing offers
 swarm and SCALPEL as engines to choose between. The family described next is how it got here, and the
 candidates are history unless a row says otherwise. A synthesizer built from a family of experimental, responsive
 engines with dynamical characteristics, whose central innovation is its morph logic

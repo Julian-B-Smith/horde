@@ -8475,6 +8475,10 @@
   {
    "adr": "ADR-386",
    "reason": "A CANDIDATE generator reference and the three-oscillator plan for the wavetable build; no design element until a ruling ports them (a Tables tab in Random would then be the GUI session's)."
+  },
+  {
+   "adr": "ADR-387",
+   "reason": "An engine-direction ruling (wavetables replace blades; three oscillators). Its page changes reach this ledger as the GUI session's own GUI-n rulings, from B656's GUI-needs handover; nothing here is drawn yet."
   }
  ],
  "engine_impact": {
