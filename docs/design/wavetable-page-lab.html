@@ -34,6 +34,15 @@
      remembered per machine, never with a patch (as BladeView's are). The picture follows the rows: sync, window, asym and bend warp every frame
      (a MOCK of WT-32 to WT-34's shapes), frame spread fans L6's members; the PM rows move the readout only.
 
+     ROUND 4 (the human, 2026-11-08). The viewer's sideways drag no longer touches sync: "it might be a little annoying for sideways drag to activate or
+     increase sync, but maybe shift+sideways drag would be better", and plain sideways is Bend (asked, answered "Bend"). And sync is ALWAYS ON now (the human:
+     "I've updated the spec and sync is now always on so morphs can be continuous"; the lead's lab, B661: `wt.syncIn` is x pitch or Hz with no off,
+     `wt.sync` defaults to 1, ratio 1 is no sync, and `wt.syncSoft` tapers the restart, its depth fading in from ratio 1 to 1.25). So shift-sideways
+     sweeps the ratio up from x1 with nothing to switch on, and softness joins the mappable rows. The mapping's
+     stored key is new, so a remembered round-3 mapping can't keep the old default. Q1 is RULED (GUI-64): Q3's row of four under the viewer, "V1 if it gets
+     condensed". Q2 is RULED in place (GUI-65): a card on the Osc dashboard AND a row on each Osc page (P1 whole), and the signal flow (P4), each with visual
+     options; the global signal flow is its own lab (GB38), so this lab now auditions only the card (C1-C4) and the row (R1-R3).
+
      HOUSE RULES. No Math.random (seeded mulberry32). No clock: motion is a frame count (L.tick). No wheel listener (B301). Reduced motion starts Still. -->
 <html lang="en" data-theme="dark">
 <head>
@@ -115,6 +124,12 @@
   .pmcell span { position: relative; }
   .pmcell.diag { border-style: dashed; }
   .pmcell:focus-visible { outline: 2px solid var(--ink); }
+  .pmhit { all: unset; box-sizing: border-box; position: absolute; width: 24px; height: 24px; border-radius: 50%; cursor: ns-resize; touch-action: none; }
+  .pmcellhit { position: static; width: auto; height: auto; border-radius: 4px; }
+  .pmhit:focus-visible { outline: 2px solid var(--ink); }
+  .pmbar { all: unset; box-sizing: border-box; display: block; height: 12px; border: 1px solid var(--div); border-radius: var(--radius-track, 6px); background: var(--well); overflow: hidden; cursor: ns-resize; touch-action: none; }
+  .pmbar > div { height: 100%; background: var(--value); opacity: .6; }
+  .pmbar:focus-visible { outline: 2px solid var(--ink); }
   .pill { all: unset; cursor: pointer; padding: 1px 7px; border: 1px solid var(--ink); border-radius: var(--radius-capsule); font: 600 10px/1.5 var(--font-sans); }
   .pill[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
   .banner { padding: 6px 10px; border: 1px dashed var(--ink); border-radius: var(--radius); font-size: 12px; margin-bottom: 8px; }
@@ -143,7 +158,7 @@
 <body>
 <div class="col" id="lab">
   <header>
-    <h1>Wavetable page lab · round 2</h1>
+    <h1>Wavetable page lab · round 4</h1>
     <p>The wavetable member replaces the blades in 1.0, and there are three oscillators (ADR-387). Each picture below is shown inside a horde window at its real size. Already yours: the Osc page leads with the <b>blended frame stack</b> (GUI-62), and from your note today, <b>morph off shows one table; morph on shows the four corner tables, with no pad or morph grid among them</b> (GUI-63).</p>
     <p class="note">New this round: every table is drawn on horde's own screen, in the Screen scheme's colours, with scanlines and glow, so it follows the scheme and the chassis. Corner colours sit on the chassis, on each tile's frame and chip, never inside the glass. Every table is a MOCK, made by eight seeded generators. No audio.</p>
   </header>
@@ -160,32 +175,34 @@
   </div>
 
   <section class="card" aria-labelledby="q3">
-    <h2 id="q3">Q3 · The viewer: six views, switched on the glass, and an XY you drag (round 3)</h2>
-    <p class="note"><b>Switch views</b> with the pips (or the name, set by Switch above) at the glass's top left, or with the cards below. <b>Drag the glass:</b> up and down scrubs the frame, left and right sets the sync ratio, and Shift with left and right sets the window. Hold Option (Alt) to move a quarter as far. Each drag is one undo step. With the glass focused, the arrow keys do the same. <b>The pill at the bottom right</b> shows what each direction moves; click it to map any of the nine wavetable controls to each, or to invert one. The view and the mapping are one choice for every viewer, remembered on this machine. With morph on, the corner tables sit in a plain row under the viewer; where they go is Q1's question. Every shape here is a MOCK.</p>
+    <h2 id="q3">Q3 · The viewer: six views, switched on the glass, and an XY you drag (GUI-66; which views stay is open)</h2>
+    <p class="note"><b>Switch views</b> with the pips (or the name, set by Switch above) at the glass's top left, or with the cards below. <b>Drag the glass:</b> up and down scrubs the frame, left and right bends it, and Shift with left and right sweeps the sync ratio up from ×1, which is no sync: sync is always on now, so a morph between ratios is continuous. Hold Option (Alt) to move a quarter as far. Each drag is one undo step. With the glass focused, the arrow keys do the same. <b>The pill at the bottom right</b> shows what each direction moves; click it to map any of the nine wavetable controls to each, or to invert one. The view and the mapping are one choice for every viewer, remembered on this machine. With morph on, the corner tables sit in a plain row under the viewer; where they go is Q1's question. Every shape here is a MOCK.</p>
     <div class="picker" id="pick3" role="group" aria-label="Q3 looks"></div>
     <p class="why note" id="why3"></p>
     <div class="win" id="win3" aria-label="horde window for Q3"></div>
   </section>
 
   <section class="card" aria-labelledby="q1">
-    <h2 id="q1">Q1 · Where an oscillator's four corner tables are picked and seen (morph on)</h2>
-    <div id="off1"></div>
-    <div class="picker" id="pick1" role="group" aria-label="Q1 variants"></div>
-    <p class="why note" id="why1"></p>
-    <div class="win" id="win1" aria-label="horde window for Q1"></div>
+    <h2 id="q1">Q1 · Ruled (GUI-64): the corner tables sit in a row of four under the viewer</h2>
+    <p class="note">Your pick: Q3's layout, "V1 if it gets condensed". Each tile has its corner's chip, menu, weight and glass, and they show only while morph is on (GUI-63). See it in Q3's window and in Q2's Osc 1 page below. Closed: V1 In pad positions (condensed into the row), V2 One at a time, V3 Corners on the stack, V5 Twelve on the Morph page and V6 Crossfade lanes (not chosen), and V4 Morph terrain (retired by GUI-63).</p>
   </section>
 
   <section class="card" aria-labelledby="q2">
-    <h2 id="q2">Q2 · Where the 3 × 3 PM matrix lives</h2>
-    <p class="note">Rows are the oscillator being modulated, columns the modulator. The diagonal is each oscillator's own feedback (WT-61). Every cell is a corner value like any other control, so it blends across the pad. Drag a cell, or a wire, up or down to set its depth.</p>
-    <div class="picker" id="pick2" role="group" aria-label="Q2 variants"></div>
-    <p class="why note" id="why2"></p>
-    <div class="win" id="win2" aria-label="horde window for Q2"></div>
+    <h2 id="q2">Q2 · The PM matrix: a card on the Osc dashboard and a row on each Osc page (GUI-65)</h2>
+    <p class="note">Your pick: P1 whole (the dashboard card and the Osc-page row) and the signal flow. The global signal flow touches too much for this lab and gets its own (GB38). Here are visual options for the other two. Rows are the oscillator being modulated, columns the modulator, and the diagonal is each oscillator's own feedback (WT-61). Every depth is a corner value like any other control. Drag any depth up or down; the card and the row share the same values.</p>
+    <h2 style="margin-top:10px">The dashboard card</h2>
+    <div class="picker" id="pickC" role="group" aria-label="Card options"></div>
+    <p class="why note" id="whyC"></p>
+    <div class="win" id="win2" aria-label="horde window: the Osc dashboard"></div>
+    <h2 style="margin-top:14px">The row on each Osc page: what modulates this oscillator</h2>
+    <div class="picker" id="pickR" role="group" aria-label="Row options"></div>
+    <p class="why note" id="whyR"></p>
+    <div class="win" id="win4" aria-label="horde window: Osc 1"></div>
   </section>
 
   <section class="card">
     <h2>Telling me your picks</h2>
-    <p>Answer in the chat with a Q3 look, and if you like, a Q1 and a Q2 variant. Mixes are welcome, for example "L2's ridges with L6's members". Anything you'd change, say so. Each answer becomes a GUI ruling and goes into the design master before GUI 3.</p>
+    <p>Still open: which views stay in the viewer's switch, pips or a name, whether the view and the mapping stay per machine, and a card (C1–C4) and a row (R1–R3) for the PM matrix. Mixes are welcome. Each answer becomes a GUI ruling and goes into the design master before GUI 3.</p>
     <div id="say" aria-live="polite"></div>
     <details><summary class="note">Self-check</summary><div id="selfcheck">running…</div></details>
   </section>
@@ -229,8 +246,8 @@ const S = { x: .34, y: .42, osc: [
   pm: [[0, .22, 0], [.4, .1, 0], [0, .6, 0]], alg: 'custom', open: 0 };
 let reduce = false; try { reduce = matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
 const L = { morph: true, audible: 0, motion: !reduce, tick: 0, sw: 'pips', steps: 0 };
-// each oscillator's continuous wt rows (CONTRACT section 2.1). Lab defaults differ from the engine's in one place, said on the bench: osc 1's sync is on (x pitch) so the default drag is heard; the engine's default is off
-S.osc.forEach((o, i) => { o.wt = { frameSpread: 0, syncIn: i === 0 ? 'pitch' : 'off', sync: 2, syncHz: 880, window: 0, asym: 0, bend: 0 }; });
+// each oscillator's continuous wt rows (CONTRACT section 2.1)
+S.osc.forEach(o => { o.wt = { frameSpread: 0, syncIn: 'pitch', sync: 1, syncHz: 880, window: 0, syncSoft: 0, asym: 0, bend: 0 }; });   // sync always on (B661): x pitch at ratio 1 is no sync
 const others = o => [0, 1, 2].filter(x => x !== o);
 const ROWS = {
   frame: { label: 'Frame', min: 0, max: FR - 1, law: 'lin', fmt: v => (v + 1).toFixed(1), get: o => S.osc[o].frame, set: (o, v) => { S.osc[o].frame = v; } },
@@ -238,6 +255,7 @@ const ROWS = {
   sync: { label: 'Sync ratio', min: 1, max: 16, law: 'log', fmt: v => '×' + v.toFixed(2) },
   syncHz: { label: 'Sync Hz', min: 20, max: 12000, law: 'log', fmt: v => Math.round(v) + ' Hz' },
   window: { label: 'Window', min: 0, max: 1, law: 'lin', fmt: v => Math.round(v * 100) + ' %' },
+  syncSoft: { label: 'Sync softness', min: 0, max: 1, law: 'lin', fmt: v => Math.round(v * 100) + ' %' },   // B661's lab row, no CONTRACT offset yet
   asym: { label: 'Asym', min: -1, max: 1, law: 'lin', fmt: v => (v >= 0 ? '+' : '') + v.toFixed(2) },
   bend: { label: 'Bend', min: -1, max: 1, law: 'lin', fmt: v => (v >= 0 ? '+' : '') + v.toFixed(2) },
   pmA: { label: 'PM from the first other osc', min: 0, max: 10, law: 'pow', fmt: v => v.toFixed(2), get: o => S.pm[o][others(o)[0]] * 10, set: (o, v) => { S.pm[o][others(o)[0]] = v / 10; } },
@@ -246,11 +264,11 @@ Object.keys(ROWS).forEach(k => { const r = ROWS[k]; r.key = k; if (!r.get) { r.g
 const toN = (r, v) => r.law === 'log' ? Math.log(v / r.min) / Math.log(r.max / r.min) : r.law === 'pow' ? Math.sqrt((v - r.min) / (r.max - r.min)) : (v - r.min) / (r.max - r.min);
 const fromN = (r, n) => { n = Math.min(1, Math.max(0, n)); return r.law === 'log' ? r.min * Math.pow(r.max / r.min, n) : r.law === 'pow' ? r.min + (r.max - r.min) * n * n : r.min + (r.max - r.min) * n; };
 // the mapping: three slots, BladeView's (vertical, horizontal, shift + horizontal), each a row and an invert. One for every viewer, per machine
-const MAP_DEFAULT = { v: { row: 'frame', inv: false }, h: { row: 'sync', inv: false }, sh: { row: 'window', inv: false } };
+const MAP_DEFAULT = { v: { row: 'frame', inv: false }, h: { row: 'bend', inv: false }, sh: { row: 'sync', inv: false } };   // round 4: Bend sideways, sync on shift
 const SLOT = { v: '↕', h: '↔', sh: '⇧↔' };
 const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
-let MAP = (() => { try { const m = JSON.parse(store.get('horde-wtlab-xymap')); if (m && ['v', 'h', 'sh'].every(s => m[s] && ROWS[m[s].row])) return m; } catch (e) {} return JSON.parse(JSON.stringify(MAP_DEFAULT)); })();
-const saveMap = () => store.set('horde-wtlab-xymap', JSON.stringify(MAP));
+let MAP = (() => { try { const m = JSON.parse(store.get('horde-wtlab-xymap2')); if (m && ['v', 'h', 'sh'].every(s => m[s] && ROWS[m[s].row])) return m; } catch (e) {} return JSON.parse(JSON.stringify(MAP_DEFAULT)); })();
+const saveMap = () => store.set('horde-wtlab-xymap2', JSON.stringify(MAP));   // '2': a new default on a remembered control needs a new key, or round 3's stored mapping would keep sync sideways
 const weights = () => [(1 - S.x) * (1 - S.y), S.x * (1 - S.y), (1 - S.x) * S.y, S.x * S.y];
 // the blend is memoised on its inputs, so a still puck hands every look the same frames (and the sonogram's harmonics cache holds)
 const BL = [{}, {}, {}];
@@ -260,12 +278,15 @@ function blended(o) { const key = S.x + ',' + S.y + ',' + S.osc[o].corners.join(
 const tableOf = o => L.morph ? blended(o) : table(S.osc[o].corners[L.audible]);
 function frameAt(fr, f) { const a = Math.floor(f), b = Math.min(FR - 1, a + 1), t = f - a, o = new Float32Array(N); for (let i = 0; i < N; i++) o[i] = fr[a][i] * (1 - t) + fr[b][i] * t; return o; }
 // what sync, window, asym and bend do to a cycle: a MOCK of WT-32 to WT-34's shapes, so the picture answers the drag. Identity at their defaults (checked)
-function syncRatio(o) { const w = S.osc[o].wt; return w.syncIn === 'off' ? 1 : w.syncIn === 'hz' ? Math.min(32, Math.max(1, w.syncHz / 220)) : w.sync; }
+function syncRatio(o) { const w = S.osc[o].wt; return w.syncIn === 'hz' ? Math.min(32, Math.max(1, w.syncHz / 220)) : w.sync; }   // always on: ratio 1 reads the table unsynced
 function warp1(s, w, r) { const o = new Float32Array(N), a = .5 + .45 * w.asym, e = Math.pow(4, -w.bend);
   for (let i = 0; i < N; i++) { let p = i / N; p = p < a ? p * .5 / a : .5 + (p - a) * .5 / (1 - a); p = Math.pow(p, e); const x = ((p * r) % 1) * N, i0 = Math.floor(x) % N, t = x - Math.floor(x); let v = s[i0] * (1 - t) + s[(i0 + 1) % N] * t;
-    if (w.window) v *= 1 - w.window + w.window * (.5 - .5 * Math.cos(TAU * i / N)); o[i] = v; } return o; }
+    const dep = Math.min(1, Math.max(0, (r - 1) / .25)), q = i / N, tau = w.syncSoft / 2;   // B661: the edge laws fade in from ratio 1 to 1.25, so ratio 1 is untouched
+    if (w.window) v *= 1 - w.window * dep + w.window * dep * (.5 - .5 * Math.cos(TAU * q));
+    if (tau > 0 && dep) { const e2 = Math.min(q, 1 - q); if (e2 < tau) v *= 1 - dep * .5 * (1 + Math.cos(Math.PI * e2 / tau)); }   // the Tukey taper at each end of the member's cycle
+    o[i] = v; } return o; }
 const WP = [{}, {}, {}];
-function warped(fr, o) { const w = S.osc[o].wt, r = syncRatio(o), k = [r, w.window, w.asym, w.bend].join(); if (WP[o].fr === fr && WP[o].k === k) return WP[o].out;
+function warped(fr, o) { const w = S.osc[o].wt, r = syncRatio(o), k = [r, w.window, w.syncSoft, w.asym, w.bend].join(); if (WP[o].fr === fr && WP[o].k === k) return WP[o].out;
   const out = r === 1 && !w.window && !w.asym && !w.bend ? fr : fr.map(s => warp1(s, w, r)); WP[o] = { fr, k, out }; return out; }
 // Motion: a MOCK LFO on the frame position and a phase that runs along the cycle; both are frame counts, never a clock
 const frameNow = o => Math.max(0, Math.min(FR - 1, S.osc[o].frame + (L.motion ? 3.2 * Math.sin(L.tick * .021 + o * 1.7) : 0)));
@@ -369,6 +390,7 @@ const cv = (hgt, cls) => { const c = h('canvas', 'cv' + (cls ? ' ' + cls : ''));
 function glass(hgt, cls) { const d = h('div', 'hd-viz glass' + (cls ? ' ' + cls : '')); d.style.height = hgt + 'px'; const c = h('canvas'); d.append(c); d.cv = c; return d; }
 const chip = i => { const c = h('span', 'chip'); c.style.background = 'var(' + CVAR[i] + ')'; c.innerHTML = HZ.glyph(i, 8, '#111') + CORNER[i]; c.setAttribute('aria-label', 'corner ' + CORNER[i]); return c; };
 const pct = v => Math.round(v * 100) + ' %';
+const cssPct = v => (v * 100) + '%';   // for styles: pct's thin space is for reading, and CSS rejects '22 %', which left every fill at full size until round 4
 let menu = null;
 function closeMenu() { if (menu) { menu.remove(); menu = null; } }
 document.addEventListener('pointerdown', e => { if (menu && !menu.contains(e.target)) closeMenu(); }, true);
@@ -408,8 +430,7 @@ function leadPicture(parent, o, hgt, under) {
 }
 /* ===== THE VIEWER: the switch, the XY drag (BladeView's pattern) and the legend that opens the mapping ===== */
 function readout(K, o, drag) { const parts = [], moving = drag ? drag.moving : null;
-  ['v', 'h', 'sh'].forEach(sl => { const r = ROWS[MAP[sl].row]; if (moving ? moving.includes(sl) : sl !== 'sh' || r.key !== 'window' || S.osc[o].wt.window) parts.push(r.label.toUpperCase().replace('PM FROM THE ', 'PM ').replace(' OTHER OSC', '') + ' ' + r.fmt(r.get(o))); });
-  if (!moving && S.osc[o].wt.syncIn === 'off' && ['sync', 'syncHz'].some(k => ['v', 'h', 'sh'].some(sl => MAP[sl].row === k))) parts.push('SYNC OFF');
+  ['v', 'h', 'sh'].forEach(sl => { const r = ROWS[MAP[sl].row]; if (!moving || moving.includes(sl)) parts.push(r.label.toUpperCase().replace('PM FROM THE ', 'PM ').replace(' OTHER OSC', '') + ' ' + r.fmt(r.get(o))); });
   const t = parts.join('  ·  '); K.g.font = '600 ' + (9 * K.V) + 'px ' + MONO(); const w = K.g.measureText(t).width;
   K.g.fillStyle = K.c('ground', .78 / K.sc.alpha); K.g.fillRect(K.W - w - 10 * K.V, 2 * K.V, w + 8 * K.V, 13 * K.V); label(K, t, K.W - 6 * K.V, 12 * K.V, 'right', moving ? 'physics' : 'grid'); }
 function viewer(st, o) {
@@ -427,8 +448,12 @@ function viewer(st, o) {
     const x0 = e.clientX, y0 = e.clientY, n0 = {}; ['v', 'h', 'sh'].forEach(sl => { const r = ROWS[MAP[sl].row]; n0[sl] = toN(r, r.get(o)); }); const before = JSON.stringify(snapRows(o));
     st.drag = { moving: [] };
     c.onpointermove = ev => { if (!ev.buttons) return; const k = (ev.altKey ? .25 : 1) / 420, dy = (y0 - ev.clientY) * k, dx = (ev.clientX - x0) * k, hs = ev.shiftKey ? 'sh' : 'h', rest = ev.shiftKey ? 'h' : 'sh';
-      const put = (sl, d) => { const r = ROWS[MAP[sl].row]; r.set(o, fromN(r, n0[sl] + (MAP[sl].inv ? -d : d))); };
-      put(rest, 0); put('v', dy); put(hs, dx); st.drag.moving = [dy ? 'v' : null, dx ? hs : null].filter(Boolean); paint(); };
+      /* each ROW moves once, by the sum of its slots' moves: two slots mapped to one row (both Bend, say) add up, where writing slot by slot let a still
+         slot's zero overwrite the moving one (found by the real-mouse probe, round 4) */
+      const dd = { v: dy, h: 0, sh: 0 }; dd[hs] = dx; const byRow = {};
+      ['v', 'h', 'sh'].forEach(sl => { const key = MAP[sl].row; if (!byRow[key]) byRow[key] = { sl, d: 0 }; byRow[key].d += MAP[sl].inv ? -dd[sl] : dd[sl]; });
+      Object.keys(byRow).forEach(key => { const { sl, d } = byRow[key], r = ROWS[key]; r.set(o, fromN(r, n0[sl] + d)); });
+      st.drag.moving = [dy ? 'v' : null, dx ? hs : null].filter(Boolean); paint(); };
     c.onpointerup = () => { c.onpointermove = null; c.onpointerup = null; st.drag = null; if (JSON.stringify(snapRows(o)) !== before) { L.steps++; say('One undo step: ' + legText()); } paint(); }; });
   c.addEventListener('keydown', e => { const d = { ArrowUp: ['v', 1], ArrowDown: ['v', -1], ArrowRight: [e.shiftKey ? 'sh' : 'h', 1], ArrowLeft: [e.shiftKey ? 'sh' : 'h', -1] }[e.key]; if (!d) return; e.preventDefault();
     const r = ROWS[MAP[d[0]].row], step = (e.altKey ? .005 : .02) * d[1] * (MAP[d[0]].inv ? -1 : 1); r.set(o, fromN(r, toN(r, r.get(o)) + step)); L.steps++; paint(); });
@@ -446,7 +471,7 @@ function mapBox(st) { closeMap(); const win = st.closest('.win'), r = st.getBoun
     sel.addEventListener('change', () => { MAP[sl].row = sel.value; saveMap(); render(); mapBox(document.querySelector('#win3 .vw')); });
     const inv = h('label'); const cb = h('input'); cb.type = 'checkbox'; cb.checked = MAP[sl].inv; cb.addEventListener('change', () => { MAP[sl].inv = cb.checked; saveMap(); render(); mapBox(document.querySelector('#win3 .vw')); }); inv.append(cb, document.createTextNode(' invert'));
     row.append(Object.assign(h('span'), { textContent: SLOT[sl] + ' ' + name }), sel, inv); mbox.append(row); });
-  const ft = h('div', 'ft'), def = h('button', 'pill', 'Default'); def.type = 'button'; def.addEventListener('click', () => { MAP = JSON.parse(JSON.stringify(MAP_DEFAULT)); saveMap(); render(); say('Mapping back to its default: up and down Frame, sideways Sync ratio, shift Window'); });
+  const ft = h('div', 'ft'), def = h('button', 'pill', 'Default'); def.type = 'button'; def.addEventListener('click', () => { MAP = JSON.parse(JSON.stringify(MAP_DEFAULT)); saveMap(); render(); say('Mapping back to its default: up and down Frame, sideways Bend, shift Sync ratio'); });
   ft.append(def, Object.assign(h('span', 'note'), { textContent: 'Esc closes' })); mbox.append(ft);
   mbox.style.left = Math.max(4, Math.min(r.right - wr.left - 300, wr.width - 306)) + 'px'; mbox.style.top = Math.min(r.bottom - wr.top + 4, wr.height - 200) + 'px'; win.append(mbox); }
 // a corner's tile: chip and picker on the chassis, the corner's colour on its frame, its table on the glass
@@ -456,57 +481,26 @@ function cornerTile(o, k, hgt, opts) {
   draws.push(() => { wt.textContent = pct(weights()[k]); drawCornerGlass(gl.cv, o, k); });
   return p;
 }
-function weightBar(k) { const b = h('div'); b.style.cssText = 'height:4px;border-radius:2px;background:var(--well);overflow:hidden;flex:1 1 auto'; const i = h('div'); i.style.cssText = 'height:100%;background:var(' + CVAR[k] + ')'; b.append(i); draws.push(() => { i.style.width = pct(weights()[k]); }); return b; }
 function morphOffPage(body) { leftStandIns(body); const r = h('div', 'right'); body.append(r); leadPicture(r, 0, 220); r.append(Object.assign(h('div', 'stand', 'morph is off: one table, so no corner tables. The Osc section’s controls (Face / All / +Adv), the envelope and the transformations follow here'), { style: 'flex:1 1 auto' })); }
 
-/* ===== Q3's window: Osc 1 in the chosen look; the corner tiles in a plain row while morph is on (where they go is Q1's) ===== */
+/* ===== Q3's window: Osc 1 in the chosen look; the corner tiles in a row of four under it while morph is on (GUI-64) ===== */
 function buildQ3() { const body = chrome($('win3'), 'Osc', 'Osc 1');
   if (!L.morph) { morphOffPage(body); return; }
   leftStandIns(body); const r = h('div', 'right'); body.append(r); leadPicture(r, 0, 240);
   const g = h('div'); g.style.cssText = 'display:grid;grid-template-columns:repeat(4,1fr);gap:6px'; [0, 1, 2, 3].forEach(k => g.append(cornerTile(0, k, 74))); r.append(g);
   r.append(Object.assign(h('div', 'stand', 'the Osc section’s controls follow here'), { style: 'flex:1 1 auto' })); }
 
-/* ===== Q1: where the four corner tables go, with morph on. No variant puts a pad or a morph grid among them (GUI-63) ===== */
-const Q1 = [
-  { id: 'V1', name: 'In pad positions', tag: 'no pad now', why: 'The four tiles under the lead picture in their pad positions, A and B over C and D, with nothing between them (GUI-63: the Morph page has the pad). Each corner brightens as the puck nears it.',
-    build(body) { leftStandIns(body); const r = h('div', 'right'); body.append(r); leadPicture(r, 0, 150);
-      const g = h('div'); g.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:6px;flex:1 1 auto;min-height:0';
-      [0, 1, 2, 3].forEach(k => { const t = cornerTile(0, k, 74); g.append(t); }); r.append(g); } },
-  { id: 'V2', name: 'One at a time', tag: 'more room', why: 'One large glass for the corner you pick, with its menu, and four small glasses to switch corners, each with its weight. The most room for one table, the least for comparing.',
-    build(body) { leftStandIns(body); const r = h('div', 'right'); body.append(r); leadPicture(r, 0, 130);
-      const p = h('div', 'pane'), th = h('div'); th.style.cssText = 'display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:6px';
-      [0, 1, 2, 3].forEach(k => { const b = h('button', 'pane'); b.type = 'button'; b.style.cssText = 'all:unset;box-sizing:border-box;cursor:pointer;border:' + (S.open === k ? 2 : 1) + 'px solid var(' + CVAR[k] + ');border-radius:var(--radius);padding:4px;display:flex;flex-direction:column;gap:3px'; b.setAttribute('aria-pressed', String(S.open === k)); const rw = h('div', 'row'); rw.append(chip(k), weightBar(k)); const gl = glass(30, 'cglass'); b.append(rw, gl); b.addEventListener('click', () => { S.open = k; render(); }); draws.push(() => drawCornerGlass(gl.cv, 0, k)); th.append(b); });
-      const hd = h('div', 'row'); hd.append(chip(S.open), picker(0, S.open), h('span', 'wt', 'corner ' + CORNER[S.open])); const big = glass(150, 'cglass'); big.style.borderColor = 'var(' + CVAR[S.open] + ')'; p.append(th, hd, big); r.append(p);
-      draws.push(() => { const K = kit(big.cv); LOOK().draw(K, table(S.osc[0].corners[S.open]), frameNow(0), 0, false); }); } },
-  { id: 'V3', name: 'Corners on the stack', tag: 'new', why: 'No separate area: the four corner tables sit as small cards at the four corners of the lead picture itself, where they are on the pad. Each shows its table and weight, and a click opens its menu. The page keeps its height for the controls below.',
-    build(body) { leftStandIns(body); const r = h('div', 'right'); body.append(r); const lp = leadPicture(r, 0, 236); lp.style.position = 'relative';
-      [0, 1, 2, 3].forEach(k => { const c = h('div', 'pane ctile'); c.style.cssText = 'position:absolute;width:168px;padding:3px 5px;box-shadow:var(--shadow-rest);border-color:var(' + CVAR[k] + ');--ccol:var(' + CVAR[k] + ');' + (k < 2 ? 'top:46px;' : 'top:150px;') + (k % 2 ? 'right:12px;' : 'left:12px;'); const rw = h('div', 'row'); rw.append(chip(k), picker(0, k)); const mini = glass(26, 'cglass'), wb = h('div', 'row'); wb.append(weightBar(k), h('span', 'wt')); c.append(rw, mini, wb); lp.append(c); draws.push(() => { wb.lastChild.textContent = pct(weights()[k]); drawCornerGlass(mini.cv, 0, k); }); });
-      r.append(Object.assign(h('div', 'stand', 'the Osc section’s controls (Face / All / +Adv), the envelope, and the transformations follow here'), { style: 'flex:1 1 auto' })); } },
-  { id: 'V4', name: 'Morph terrain', tag: 'retired', retired: true, why: 'Retired by your note (GUI-63): it was a morph grid, a 5 × 5 field of cycles across the pad, and the Morph page has the pad.' },
-  { id: 'V5', name: 'Twelve on the Morph page', tag: 'the lead’s list', why: 'All twelve pickers on the Morph page, beside its own pad, an oscillator a row and a corner a column. Each Osc page shows only what it reads. The place to compare oscillators, and where Save current sound and capture already are.',
-    build() { const body = chrome($('win1'), 'Morph', 'Morph'); const l = h('div', 'left'); l.style.flex = '0 0 240px'; const pad = glass(236, 'padglass'); pad.cv.classList.add('padcv'); padDrag(pad.cv); draws.push(() => drawPad(pad.cv)); l.append(Object.assign(h('div', 'note', 'the Morph page’s own pad'), { style: 'font-size:10px' }), pad, Object.assign(h('div', 'stand', 'the law’s note · the corners’ names'), { style: 'flex:1 1 auto' })); body.append(l);
-      const r = h('div', 'right'); body.append(r); const p = h('div', 'pane'), hd = h('div', 'ph'); hd.append(document.createTextNode('Corner tables'), h('span', 'h', '3 oscillators × 4 corners · weights at the puck')); p.append(hd);
-      const g = h('div'); g.style.cssText = 'display:grid;grid-template-columns:44px repeat(4,1fr);gap:5px;align-items:center'; g.append(h('span')); [0, 1, 2, 3].forEach(k => { const c = h('div', 'row'); c.append(chip(k), weightBar(k)); g.append(c); });
-      [0, 1, 2].forEach(o => { g.append(h('b', null, 'Osc ' + (o + 1))); [0, 1, 2, 3].forEach(k => { const c = h('div'); c.style.cssText = 'display:flex;flex-direction:column;gap:2px;min-width:0'; const m = glass(54, 'cglass'); m.style.borderColor = 'var(' + CVAR[k] + ')'; c.append(picker(o, k), m); g.append(c); draws.push(() => drawCornerGlass(m.cv, o, k)); }); });
-      p.append(g); r.append(p); r.append(Object.assign(h('div', 'stand', 'the Selected row card and the Morph field follow, as today'), { style: 'flex:1 1 auto' })); } },
-  { id: 'V6', name: 'Crossfade lanes', tag: 'no pad now', why: 'The four tables as lanes feeding the lead picture, like a mixer. Each lane has its corner chip, menu, a strip of its frames on glass and its live weight, and glows brighter the more it counts. The blend reads as a sum, which is what Linear is.',
-    build(body) { leftStandIns(body); const r = h('div', 'right'); body.append(r); const row = h('div', 'row'); row.style.cssText = 'align-items:stretch;gap:6px'; r.append(row);
-      const lanes = h('div', 'pane'); lanes.style.cssText = 'flex:0 0 300px;display:flex;flex-direction:column;gap:6px'; lanes.append(Object.assign(h('div', 'ph'), { textContent: 'Corner lanes' }));
-      [0, 1, 2, 3].forEach(k => { const ln = h('div'); ln.style.cssText = 'display:grid;grid-template-columns:auto 1fr 38px;gap:4px;align-items:center'; const strip = glass(40, 'cglass'); strip.style.gridColumn = '1 / 4'; strip.style.borderColor = 'var(' + CVAR[k] + ')'; ln.append(chip(k), picker(0, k), h('span', 'wt'), strip); lanes.append(ln);
-        draws.push(() => { ln.children[2].textContent = pct(weights()[k]); const K = kit(strip.cv), { g, W, H, V } = K, t = table(S.osc[0].corners[k]); K.tube(); K.scan(); const fn = frameNow(0);
-          for (let f = 0; f < FR; f += 2) { const x0 = 3 * V + f / FR * (W - 6 * V), near = Math.abs(f - fn) < 1.01; g.strokeStyle = K.c(near ? 'value' : 'physics', near ? 1 : .55); g.lineWidth = (near ? 1.6 : 1) * V; poly(g, N / 8, i => x0 + i * 8 / N * ((W - 6 * V) / 8 - 3 * V), i => H / 2 - t[f][i * 8] * (H / 2 - 4 * V)); g.stroke(); }
-          const w = weights()[k]; g.fillStyle = K.c('ground', (1 - Math.min(1, w * 1.6)) * .62 / K.sc.alpha); g.fillRect(0, 0, W, H); label(K, CORNER[k], 4 * V, 10 * V, 'left', 'physics'); }); });
-      row.append(lanes); const side = h('div', 'right'); row.append(side); leadPicture(side, 0, 230); r.append(Object.assign(h('div', 'stand', 'the Osc section’s controls follow here'), { style: 'flex:1 1 auto' })); } }
-];
+/* ===== Q1 is RULED (GUI-64): the corner tables sit in a row of four under the viewer, Q3's layout (V1 condensed). Its variants' code is in git
+   history at the round-3 commit; the closed list is in the page. ===== */
 
-/* ===== the pad: the bench's stand-in for the Morph page's pad, and V5's. A screen, so its corners are letters in the glass's ink ===== */
+/* ===== the pad: the bench's stand-in for the Morph page's pad. A screen, so its corners are letters in the glass's ink ===== */
 function drawPad(c) { const K = kit(c), { g, W, H, V } = K; K.tube(); K.scan(); g.strokeStyle = K.c('grid', .3); g.lineWidth = V;
   for (let i = 1; i < 4; i++) { g.beginPath(); g.moveTo(i * W / 4, 0); g.lineTo(i * W / 4, H); g.moveTo(0, i * H / 4); g.lineTo(W, i * H / 4); g.stroke(); }
   const pad = 6 * V; [[pad, 12 * V, 'left'], [W - pad, 12 * V, 'right'], [pad, H - pad, 'left'], [W - pad, H - pad, 'right']].forEach(([x, y, al], i) => label(K, CORNER[i], x, y, al, 'physics'));
   dot(K, S.x * W, S.y * H, 4.5 * V, 'value'); }
 function padDrag(c) { c.style.cursor = 'crosshair'; c.style.touchAction = 'none'; c.addEventListener('pointerdown', e => { e.preventDefault(); try { c.setPointerCapture(e.pointerId); } catch (_) {} const mv = ev => { const r = c.getBoundingClientRect(); S.x = Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width)); S.y = Math.min(1, Math.max(0, (ev.clientY - r.top) / r.height)); paint(); }; mv(e); c.onpointermove = ev => { if (ev.buttons) mv(ev); }; c.onpointerup = () => { c.onpointermove = null; }; }); }
 
-/* ===== Q2: five places for the PM matrix (unchanged this round, but its scopes are screens now) ===== */
+/* ===== the PM helpers (the algorithms, the depth drag, the grid, the internal modulator and its scope) ===== */
 const ALG = { custom: null, parallel: [[0, 0, 0], [0, 0, 0], [0, 0, 0]], 'stack 3→2→1': [[0, .5, 0], [0, 0, .5], [0, 0, 0]], '2 + 3 → 1': [[0, .5, .5], [0, 0, 0], [0, 0, 0]], 'ring 1→2→3→1': [[0, 0, .4], [.4, 0, 0], [0, .4, 0]], 'all feedback': [[.3, 0, 0], [0, .3, 0], [0, 0, .3]] };
 function algPills(parent) { const r = h('div', 'row'); r.style.flexWrap = 'wrap'; Object.keys(ALG).forEach(n => { const b = h('button', 'pill', n); b.type = 'button'; b.setAttribute('aria-pressed', String(S.alg === n)); b.addEventListener('click', () => { if (ALG[n]) S.pm = ALG[n].map(r => r.slice()); S.alg = n; say('Algorithm: ' + n + (ALG[n] ? ', written into the matrix as ordinary values' : '')); render(); }); r.append(b); }); parent.append(r); }
 function depthDrag(el, get, set) { el.addEventListener('pointerdown', e => { e.preventDefault(); try { el.setPointerCapture(e.pointerId); } catch (_) {} const y0 = e.clientY, v0 = get(); el.onpointermove = ev => { if (ev.buttons) { set(Math.min(1, Math.max(0, v0 + (y0 - ev.clientY) / 120))); S.alg = 'custom'; paint(); } }; el.onpointerup = () => { el.onpointermove = null; render(); }; }); el.addEventListener('keydown', e => { const d = e.key === 'ArrowUp' ? .05 : e.key === 'ArrowDown' ? -.05 : 0; if (d) { e.preventDefault(); set(Math.min(1, Math.max(0, get() + d))); S.alg = 'custom'; paint(); } }); }
@@ -514,7 +508,7 @@ function grid(parent, big) {
   const g = h('div'); g.style.cssText = 'display:grid;grid-template-columns:' + (big ? '64px repeat(3,1fr)' : '44px repeat(3,1fr)') + ';gap:4px;align-items:stretch';
   g.append(h('span', 'note', 'by →')); [1, 2, 3].forEach(c => g.append(h('b', 'note', 'osc ' + c)));
   [0, 1, 2].forEach(rw => { g.append(h('b', 'note', 'osc ' + (rw + 1))); [0, 1, 2].forEach(c => { const cell = h('button', 'pmcell' + (rw === c ? ' diag' : '')); cell.type = 'button'; cell.style.height = (big ? 58 : 34) + 'px'; const f = h('div', 'fill'), v = h('span'); cell.append(f, v); cell.setAttribute('aria-label', rw === c ? 'osc ' + (rw + 1) + ' feedback' : 'osc ' + (c + 1) + ' modulates osc ' + (rw + 1));
-    depthDrag(cell, () => S.pm[rw][c], x => { S.pm[rw][c] = x; }); draws.push(() => { f.style.height = pct(S.pm[rw][c]); v.textContent = rw === c ? (S.pm[rw][c] ? 'fb ' + S.pm[rw][c].toFixed(2) : 'fb') : S.pm[rw][c] ? S.pm[rw][c].toFixed(2) : '·'; }); g.append(cell); }); });
+    pmHit(cell, rw, c); draws.push(() => { f.style.height = cssPct(S.pm[rw][c]); v.textContent = rw === c ? (S.pm[rw][c] ? 'fb ' + S.pm[rw][c].toFixed(2) : 'fb') : S.pm[rw][c] ? S.pm[rw][c].toFixed(2) : '·'; }); g.append(cell); }); });
   parent.append(g);
 }
 function modScope(parent, o, hgt) { const gl = glass(hgt || 40); parent.append(gl); draws.push(() => { const K = kit(gl.cv), { g, W, H, V } = K, r = [3, 1, 2][o], ph = L.motion ? L.tick * .02 : 0; K.tube(); K.scan();
@@ -522,44 +516,71 @@ function modScope(parent, o, hgt) { const gl = glass(hgt || 40); parent.append(g
   g.strokeStyle = K.c('meter', .8); g.lineWidth = 1.3 * V; poly(g, 128, i => i / 127 * W, i => H / 2 - Math.cos(TAU * r * i / 128 + ph) * (H / 2 - 4 * V) * .6); g.stroke();
   beam(K, 'value', 1.6, () => poly(g, 128, i => i / 127 * W, i => H / 2 - Math.sin(TAU * r * i / 128 + ph) * (H / 2 - 4 * V))); }); }
 function internal(parent, o) { const p = h('div', 'pane'), hd = h('div', 'ph'); hd.append(document.createTextNode('Internal modulator · osc ' + (o + 1)), h('span', 'h', 'scope: the modulator (beam) and the pitch deviation (meter), MOCK')); const cr = h('div', 'ctlrow'); cr.innerHTML = 'shape <b>sine</b> · rate <b>× ' + [3, 1, 2][o] + '.00</b> · depth <b>0.40</b> · mix <b>100 %</b> · per member <b>decorrelated</b>'; p.append(hd, cr); modScope(p, o, 34); parent.append(p); }
-const Q2 = [
-  { id: 'P1', name: 'A row per Osc page, grid on the Dashboard', why: 'Each Osc page shows what modulates it: three depths (osc 1, osc 2 and osc 3, its own being feedback) beside its internal modulator and scope. The whole 3 × 3 grid and the named algorithms are a card on the Osc dashboard.',
-    build() { const body = chrome($('win2'), 'Osc', 'Osc 1'); leftStandIns(body); const r = h('div', 'right'); body.append(r); leadPicture(r, 0, 100, false);
-      const p = h('div', 'pane'), hd = h('div', 'ph'); hd.append(document.createTextNode('FM / PM · what modulates osc 1'), h('span', 'h', 'drag a depth')); p.append(hd); const g = h('div'); g.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:4px';
-      [0, 1, 2].forEach(c => { const cell = h('button', 'pmcell' + (c === 0 ? ' diag' : '')); cell.type = 'button'; cell.style.height = '36px'; const f = h('div', 'fill'), v = h('span'); cell.append(f, v); depthDrag(cell, () => S.pm[0][c], x => { S.pm[0][c] = x; }); draws.push(() => { f.style.height = pct(S.pm[0][c]); v.textContent = (c === 0 ? 'feedback ' : 'osc ' + (c + 1) + ' ') + S.pm[0][c].toFixed(2); }); g.append(cell); }); p.append(g); r.append(p); internal(r, 0);
-      const dash = h('div', 'pane'); dash.style.cssText = 'position:absolute;right:14px;bottom:92px;width:300px;box-shadow:var(--shadow-hover)'; const dh = h('div', 'ph'); dh.append(document.createTextNode('Osc dashboard card'), h('span', 'h', 'the whole matrix')); dash.append(dh); grid(dash); algPills(dash); $('win2').append(dash); } },
-  { id: 'P2', name: 'Its own Osc ▸ FM page', why: 'A new tab under Osc with everything about modulation between oscillators: the large grid, the named algorithms, and the three internal modulators with their scopes. One place to design an FM patch.',
-    build() { const body = chrome($('win2'), 'Osc', 'FM'); const l = h('div', 'right'); l.style.flex = '0 0 430px'; body.append(l); const p = h('div', 'pane'), hd = h('div', 'ph'); hd.append(document.createTextNode('The PM matrix'), h('span', 'h', 'rows: modulated · columns: modulator · diagonal: feedback')); p.append(hd); grid(p, true); p.append(h('div', 'note', 'Algorithms write ordinary matrix values (CONTRACT §7 H1); editing a cell leaves the algorithm as Custom.')); algPills(p); l.append(p);
-      const r = h('div', 'right'); body.append(r); [0, 1, 2].forEach(o => internal(r, o)); } },
-  { id: 'P3', name: 'Operator graph', tag: 'new', why: 'The three oscillators as nodes, every modulation a wire whose thickness is its depth, and feedback a loop on its node. Drag a wire up or down to set its depth. Reads like an FM algorithm diagram, and shows at a glance who feeds whom.',
-    build() { const body = chrome($('win2'), 'Osc', 'Dashboard'); const p = h('div', 'pane'); p.style.cssText = 'flex:0 0 470px;position:relative'; const hd = h('div', 'ph'); hd.append(document.createTextNode('Who modulates whom'), h('span', 'h', 'drag a wire · arrow keys on a focused wire')); const c = cv(330); p.append(hd, c); algPills(p); body.append(p);
-      const r = h('div', 'right'); body.append(r); [0, 1, 2].forEach(o => internal(r, o));
-      const pos = [[.5, .82], [.18, .2], [.82, .2]], hit = [];
-      draws.push(() => { const [g, W, H] = fit(c), k = C(), P = pos.map(([x, y]) => [x * W, y * H]); g.clearRect(0, 0, W, H); hit.length = 0;
-        for (let rw = 0; rw < 3; rw++) for (let cl = 0; cl < 3; cl++) { const d = S.pm[rw][cl]; if (rw === cl) { const [x, y] = P[rw], ly = y + (rw ? -38 : 38); g.strokeStyle = d ? k.value : k.div; g.lineWidth = 1 + d * 7; g.beginPath(); g.arc(x, ly, 16, 0, TAU); g.stroke(); hit.push({ rw, cl, x, y: ly }); continue; }
-          const [x1, y1] = P[cl], [x2, y2] = P[rw], mx = (x1 + x2) / 2 + (y2 - y1) * .12, my = (y1 + y2) / 2 - (x2 - x1) * .12; g.strokeStyle = d ? k.value : k.div; g.globalAlpha = d ? 1 : .6; g.lineWidth = 1 + d * 8; g.beginPath(); g.moveTo(x1, y1); g.quadraticCurveTo(mx, my, x2, y2); g.stroke(); g.globalAlpha = 1;
-          const ax = .8, bx = (1 - ax) ** 2 * x1 + 2 * (1 - ax) * ax * mx + ax * ax * x2, by = (1 - ax) ** 2 * y1 + 2 * (1 - ax) * ax * my + ax * ax * y2; g.fillStyle = d ? k.value : k.div; g.beginPath(); g.arc(bx, by, 3 + d * 3, 0, TAU); g.fill(); hit.push({ rw, cl, x: mx, y: my });
-          if (d) { g.fillStyle = k.ink; g.font = '700 10px ui-monospace, Menlo, monospace'; g.textAlign = 'center'; g.fillText(d.toFixed(2), mx, my - 6); } }
-        P.forEach(([x, y], i) => { g.fillStyle = k.panel; g.strokeStyle = k.ink; g.lineWidth = 2; g.beginPath(); g.arc(x, y, 26, 0, TAU); g.fill(); g.stroke(); g.fillStyle = k.ink; g.font = '800 12px system-ui, sans-serif'; g.textAlign = 'center'; g.fillText('osc ' + (i + 1), x, y + 4); }); });
-      c.style.touchAction = 'none'; c.addEventListener('pointerdown', e => { const r0 = c.getBoundingClientRect(), x = e.clientX - r0.left, y = e.clientY - r0.top; let best = null, bd = 30; hit.forEach(q => { const d = Math.hypot(q.x - x, q.y - y); if (d < bd) { bd = d; best = q; } }); if (!best) return; e.preventDefault(); try { c.setPointerCapture(e.pointerId); } catch (_) {} const v0 = S.pm[best.rw][best.cl], y0 = e.clientY; say(best.rw === best.cl ? 'osc ' + (best.rw + 1) + ' feedback' : 'osc ' + (best.cl + 1) + ' → osc ' + (best.rw + 1)); c.onpointermove = ev => { if (ev.buttons) { S.pm[best.rw][best.cl] = Math.min(1, Math.max(0, v0 + (y0 - ev.clientY) / 120)); S.alg = 'custom'; paint(); } }; c.onpointerup = () => { c.onpointermove = null; render(); }; }); } },
-  { id: 'P4', name: 'In the signal flow', tag: 'new', why: 'GUI-57 ruled the Osc dashboard as the signal flow: the sources in a column wired into the filters. Here the PM wires run between the oscillator rows on that column’s left edge, each with its depth, so modulation is part of the same picture as routing.',
-    build() { const body = chrome($('win2'), 'Osc', 'Dashboard'); const p = h('div', 'pane'); p.style.cssText = 'flex:1 1 auto;position:relative'; const hd = h('div', 'ph'); hd.append(document.createTextNode('Signal flow'), h('span', 'h', 'GUI-57 r3’s dashboard, with PM drawn in · drag a wire’s depth')); const c = cv(400); p.append(hd, c); algPills(p); body.append(p);
-      const hit = [];
-      draws.push(() => { const [g, W, H] = fit(c), k = C(), rows = ['osc 1', 'osc 2', 'osc 3', 'sub', 'noise'], ry = i => 30 + i * (H - 60) / 4, bx = 150, bw = 200; g.clearRect(0, 0, W, H); hit.length = 0;
-        [['filter 1', .3], ['filter 2', .7]].forEach(([n, f]) => { const fy = f * H; g.strokeStyle = k.ink; g.lineWidth = 1.5; g.strokeRect(W - 220, fy - 22, 150, 44); g.fillStyle = k.ink; g.font = '700 11px system-ui, sans-serif'; g.textAlign = 'center'; g.fillText(n, W - 145, fy + 4); rows.forEach((_, i) => { g.strokeStyle = k.div; g.lineWidth = 1; g.beginPath(); g.moveTo(bx + bw, ry(i)); g.bezierCurveTo(bx + bw + 120, ry(i), W - 340, fy, W - 220, fy); g.stroke(); }); });
-        rows.forEach((n, i) => { g.fillStyle = k.panel; g.strokeStyle = k.ink; g.lineWidth = 1.5; g.beginPath(); g.roundRect(bx, ry(i) - 18, bw, 36, 6); g.fill(); g.stroke(); g.fillStyle = k.ink; g.font = '800 12px system-ui, sans-serif'; g.textAlign = 'left'; g.fillText(n, bx + 10, ry(i) + 4); if (i < 3) { const fr = tableOf(i), s = frameAt(fr, frameNow(i)); g.strokeStyle = k.value; g.lineWidth = 1.2; g.beginPath(); for (let j = 0; j < N; j += 4) { const x = bx + 70 + j / N * 120, y = ry(i) - s[j] * 12; j ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); } });
-        for (let rw = 0; rw < 3; rw++) for (let cl = 0; cl < 3; cl++) { const d = S.pm[rw][cl]; if (rw === cl) { const x = bx - 14, y = ry(rw); g.strokeStyle = d ? k.value : k.div; g.lineWidth = 1 + d * 6; g.beginPath(); g.arc(x, y, 9, 0, TAU); g.stroke(); hit.push({ rw, cl, x, y }); continue; }
-          // each direction its own lane (downward wires inside, upward outside) and its own end of the box, so a pair never overlaps; the dot marks the modulated end
-          const up = cl > rw, y1 = ry(cl) + (up ? -9 : 9), y2 = ry(rw) + (up ? 9 : -9), span = Math.abs(rw - cl), x = bx - 26 - span * 30 - (up ? 34 : 0), my = (y1 + y2) / 2;
-          g.strokeStyle = d ? k.value : k.div; g.globalAlpha = d ? 1 : .55; g.lineWidth = 1 + d * 7; g.beginPath(); g.moveTo(bx, y1); g.bezierCurveTo(x, y1, x, y2, bx, y2); g.stroke(); g.globalAlpha = 1;
-          g.fillStyle = d ? k.value : k.div; g.beginPath(); g.arc(bx - 3, y2, 3 + d * 3, 0, TAU); g.fill(); const lx = x + .25 * (bx - x); hit.push({ rw, cl, x: lx, y: my });
-          if (d) { g.fillStyle = k.ink; g.font = '700 10px ui-monospace, Menlo, monospace'; g.textAlign = up ? 'right' : 'left'; g.fillText(d.toFixed(2), up ? x - 4 : x + 5, my + 3); } } });   // the outer (upward) wire's label outside it, the inner one's inside
-      c.style.touchAction = 'none'; c.addEventListener('pointerdown', e => { const r0 = c.getBoundingClientRect(), x = e.clientX - r0.left, y = e.clientY - r0.top; let best = null, bd = 26; hit.forEach(q => { const d = Math.hypot(q.x - x, q.y - y); if (d < bd) { bd = d; best = q; } }); if (!best) return; e.preventDefault(); try { c.setPointerCapture(e.pointerId); } catch (_) {} const v0 = S.pm[best.rw][best.cl], y0 = e.clientY; c.onpointermove = ev => { if (ev.buttons) { S.pm[best.rw][best.cl] = Math.min(1, Math.max(0, v0 + (y0 - ev.clientY) / 120)); S.alg = 'custom'; paint(); } }; c.onpointerup = () => { c.onpointermove = null; render(); }; }); } },
-  { id: 'P5', name: 'Only on the Dashboard', why: 'The grid and algorithms as one card on the Osc dashboard, and nothing about other oscillators on an Osc page: each keeps just its own internal modulator. The quietest Osc pages; FM between oscillators is one click further away.',
-    build() { const body = chrome($('win2'), 'Osc', 'Dashboard'); const l = h('div', 'right'); l.style.flex = '0 0 330px'; body.append(l); const p = h('div', 'pane'), hd = h('div', 'ph'); hd.append(document.createTextNode('PM matrix'), h('span', 'h', 'a dashboard card')); p.append(hd); grid(p); algPills(p); l.append(p); l.append(Object.assign(h('div', 'stand', 'the other dashboard cards (sources, filters)'), { style: 'flex:1 1 auto' }));
-      const r = h('div', 'right'); body.append(r); r.append(Object.assign(h('div', 'stand', 'the signal flow (GUI-57 r3) fills the rest'), { style: 'flex:1 1 auto' })); } }
+/* ===== Q2 is RULED in place (GUI-65): a card on the Osc dashboard and a row on each Osc page. These are the visual options for each.
+   Every depth control carries data-pm="row,col" so the self-check drags each one the same way. ===== */
+const pmLabel = (rw, c) => rw === c ? 'osc ' + (rw + 1) + ' feedback' : 'osc ' + (c + 1) + ' modulates osc ' + (rw + 1);
+function pmHit(el, rw, c) { el.dataset.pm = rw + ',' + c; el.setAttribute('aria-label', pmLabel(rw, c)); depthDrag(el, () => S.pm[rw][c], x => { S.pm[rw][c] = x; }); return el; }
+function hit(cls) { const b = h('button', cls); b.type = 'button'; return b; }
+// C4's graph and its hit points (P3's operator graph, smaller)
+function opGraph(host, hgt) { const wrap = h('div'); wrap.style.cssText = 'position:relative'; const c = cv(hgt); wrap.append(c); host.append(wrap); const pos = [[.5, .8], [.2, .24], [.8, .24]], pts = [];
+  for (let rw = 0; rw < 3; rw++) for (let cl = 0; cl < 3; cl++) { const b = pmHit(hit('pmhit'), rw, cl); wrap.append(b); pts.push([b, rw, cl]); }
+  draws.push(() => { const [g, W, H] = fit(c), k = C(), P = pos.map(([x, y]) => [x * W, y * H]); g.clearRect(0, 0, W, H);
+    for (const [b, rw, cl] of pts) { const d = S.pm[rw][cl]; let hx, hy;
+      if (rw === cl) { const [x, y] = P[rw], ly = y + (rw ? -30 : 30); g.strokeStyle = d ? k.value : k.div; g.lineWidth = 1 + d * 6; g.beginPath(); g.arc(x, ly, 12, 0, TAU); g.stroke(); hx = x; hy = ly; }
+      else { const [x1, y1] = P[cl], [x2, y2] = P[rw], mx = (x1 + x2) / 2 + (y2 - y1) * .14, my = (y1 + y2) / 2 - (x2 - x1) * .14; g.strokeStyle = d ? k.value : k.div; g.globalAlpha = d ? 1 : .6; g.lineWidth = 1 + d * 7; g.beginPath(); g.moveTo(x1, y1); g.quadraticCurveTo(mx, my, x2, y2); g.stroke(); g.globalAlpha = 1;
+        const t = .8, bx = (1 - t) ** 2 * x1 + 2 * (1 - t) * t * mx + t * t * x2, by = (1 - t) ** 2 * y1 + 2 * (1 - t) * t * my + t * t * y2; g.fillStyle = d ? k.value : k.div; g.beginPath(); g.arc(bx, by, 3 + d * 3, 0, TAU); g.fill(); hx = mx; hy = my; }
+      if (d) { g.fillStyle = k.ink; g.font = '700 10px ui-monospace, Menlo, monospace'; g.textAlign = 'center'; g.fillText(d.toFixed(2), hx, hy - 7); }
+      b.style.left = (hx - 12) + 'px'; b.style.top = (hy - 12) + 'px'; }
+    P.forEach(([x, y], i) => { g.fillStyle = k.panel; g.strokeStyle = k.ink; g.lineWidth = 2; g.beginPath(); g.arc(x, y, 21, 0, TAU); g.fill(); g.stroke(); g.fillStyle = k.ink; g.font = '800 11px system-ui, sans-serif'; g.textAlign = 'center'; g.fillText('osc ' + (i + 1), x, y + 4); }); }); }
+const CARDS = [
+  { id: 'C1', name: 'Cells', tag: 'P1’s', why: 'A 3 × 3 grid of cells, each filled to its depth, the diagonal dashed for feedback, and the named algorithms under it. Plain and exact: every value is printed.',
+    build(p) { grid(p); algPills(p); } },
+  { id: 'C2', name: 'Dials', tag: 'new', why: 'The same grid as nine small dials, each a ring that fills with its depth, feedback rings dashed. It reads like a bank of knobs, and the eye finds the strong routes fast.',
+    build(p) { const g = h('div'); g.style.cssText = 'display:grid;grid-template-columns:44px repeat(3,1fr);gap:4px;align-items:center;justify-items:center'; g.append(h('span', 'note', 'by →')); [1, 2, 3].forEach(c => g.append(h('b', 'note', 'osc ' + c)));
+      [0, 1, 2].forEach(rw => { g.append(h('b', 'note', 'osc ' + (rw + 1))); [0, 1, 2].forEach(c => { const d = cv(54); d.style.width = '54px'; d.style.cursor = 'ns-resize'; d.style.touchAction = 'none'; d.tabIndex = 0; pmHit(d, rw, c); g.append(d);
+        draws.push(() => { const [x, W, H] = fit(d), k = C(), v = S.pm[rw][c], r = Math.min(W, H) / 2 - 5, a0 = Math.PI * .75, a1 = a0 + Math.PI * 1.5; x.clearRect(0, 0, W, H); x.lineCap = 'round';
+          x.setLineDash(rw === c ? [3, 3] : []); x.strokeStyle = k.div; x.lineWidth = 4; x.beginPath(); x.arc(W / 2, H / 2, r, a0, a1); x.stroke(); x.setLineDash([]);
+          if (v) { x.strokeStyle = k.value; x.lineWidth = 4; x.beginPath(); x.arc(W / 2, H / 2, r, a0, a0 + (a1 - a0) * v); x.stroke(); }
+          x.fillStyle = v ? k.ink : k.hint; x.font = '700 10px ui-monospace, Menlo, monospace'; x.textAlign = 'center'; x.fillText(v ? v.toFixed(2) : rw === c ? 'fb' : '·', W / 2, H / 2 + 4); /* a feedback dial is told by its dashed ring, so its value takes the centre like any other */ }); }); });
+      p.append(g); algPills(p); } },
+  { id: 'C3', name: 'Glass bubbles', tag: 'new', why: 'The grid on a screen: each route a phosphor bubble whose size is its depth, pulsing at its modulator’s rate when Motion is on, feedback a ring. The liveliest card, and it matches the viewer.',
+    build(p) { const gl = glass(196); gl.style.position = 'relative'; const ov = h('div'); ov.style.cssText = 'position:absolute;left:28px;top:20px;right:6px;bottom:6px;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr)';
+      [0, 1, 2].forEach(rw => [0, 1, 2].forEach(c => { const b = pmHit(hit('pmhit pmcellhit'), rw, c); ov.append(b); })); gl.append(ov); p.append(gl); algPills(p);
+      draws.push(() => { const K = kit(gl.cv), { g, W, H, V } = K, x0 = 28 * V, y0 = 20 * V, cw = (W - x0 - 6 * V) / 3, ch = (H - y0 - 6 * V) / 3; K.tube(); K.scan();
+        g.strokeStyle = K.c('grid', .2); g.lineWidth = V; for (let i = 1; i < 3; i++) { g.beginPath(); g.moveTo(x0 + i * cw, y0); g.lineTo(x0 + i * cw, H - 6 * V); g.moveTo(x0, y0 + i * ch); g.lineTo(W - 6 * V, y0 + i * ch); g.stroke(); }
+        [0, 1, 2].forEach(i => { label(K, 'BY ' + (i + 1), x0 + (i + .5) * cw, 13 * V, 'center'); label(K, String(i + 1), 12 * V, y0 + (i + .5) * ch + 3 * V, 'center'); });
+        for (let rw = 0; rw < 3; rw++) for (let c = 0; c < 3; c++) { const d = S.pm[rw][c], cx = x0 + (c + .5) * cw, cy = y0 + (rw + .5) * ch, rate = [3, 1, 2][c], pulse = L.motion && d ? 1 + .08 * Math.sin(L.tick * .06 * rate) : 1, R = Math.sqrt(d) * Math.min(cw, ch) * .42 * pulse;
+          if (rw === c) { g.strokeStyle = K.c(d ? 'physics' : 'grid', d ? 1 : .35); g.lineWidth = (1 + d * 4) * V; g.setLineDash([3 * V, 3 * V]); g.beginPath(); g.arc(cx, cy, Math.max(6 * V, R), 0, TAU); g.stroke(); g.setLineDash([]); }
+          else if (d) { g.fillStyle = K.c('value', .22); g.beginPath(); g.arc(cx, cy, R * 1.35, 0, TAU); g.fill(); g.fillStyle = K.c('value', .85); g.beginPath(); g.arc(cx, cy, R, 0, TAU); g.fill(); }
+          else { g.fillStyle = K.c('grid', .35); g.beginPath(); g.arc(cx, cy, 1.6 * V, 0, TAU); g.fill(); }
+          if (d) label(K, d.toFixed(2), cx, cy + Math.max(R, 6 * V) + 10 * V, 'center', 'physics'); } }); } },
+  { id: 'C4', name: 'Operator graph', tag: 'P3’s, smaller', why: 'The three oscillators as nodes, each route a wire as thick as its depth, feedback a loop. Drag a wire’s handle up or down. Shows who feeds whom at a glance, like an FM algorithm diagram.',
+    build(p) { opGraph(p, 220); algPills(p); } }
 ];
-// a panel canvas (Q2's graphs are drawn on the panel, not on glass)
+const ROWV = [
+  { id: 'R1', name: 'Cells', tag: 'P1’s', why: 'Three cells, one per source: this oscillator’s own feedback and the two others, each filled to its depth and printed.',
+    build(p, o) { const g = h('div'); g.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:4px';
+      [0, 1, 2].forEach(c => { const cell = pmHit(h('button', 'pmcell' + (c === o ? ' diag' : '')), o, c); cell.type = 'button'; cell.style.height = '36px'; const f = h('div', 'fill'), v = h('span'); cell.append(f, v); draws.push(() => { f.style.height = cssPct(S.pm[o][c]); v.textContent = (c === o ? 'feedback ' : 'osc ' + (c + 1) + ' ') + S.pm[o][c].toFixed(2); }); g.append(cell); }); p.append(g); } },
+  { id: 'R2', name: 'Bars', tag: 'new', why: 'Three horizontal bars like the share bars, one per source, labelled at the left and valued at the right. The flattest row; it leaves the page room.',
+    build(p, o) { [0, 1, 2].forEach(c => { const r = h('div'); r.style.cssText = 'display:grid;grid-template-columns:86px 1fr 40px;gap:6px;align-items:center;margin:2px 0'; const lab = h('span', 'note', c === o ? 'feedback' : 'osc ' + (c + 1) + ' → ' + (o + 1)); lab.style.fontSize = '11px';
+      const tr = pmHit(h('button', 'pmbar'), o, c); tr.type = 'button'; const fi = h('div'); tr.append(fi); const val = h('span', 'wt'); r.append(lab, tr, val); p.append(r);
+      draws.push(() => { fi.style.width = cssPct(S.pm[o][c]); val.textContent = S.pm[o][c].toFixed(2); }); }); } },
+  { id: 'R3', name: 'Input scopes', tag: 'new', why: 'Three small screens, one per source, each drawing what that source sends into this oscillator: its cycle scaled by the depth, alive with Motion. You see the modulation, not only its number. Drag a screen up or down.',
+    build(p, o) { const g = h('div'); g.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:5px';
+      [0, 1, 2].forEach(c => { const gl = pmHit(glass(44), o, c); gl.style.cursor = 'ns-resize'; gl.style.touchAction = 'none'; gl.tabIndex = 0; g.append(gl);
+        draws.push(() => { const K = kit(gl.cv), { g: x, W, H, V } = K, d = S.pm[o][c], s = frameAt(warped(tableOf(c), c), frameNow(c)), mid = H / 2, X = i => 3 * V + i / (N - 1) * (W - 6 * V); K.tube(); K.scan();
+          x.strokeStyle = K.c('grid', .35); x.lineWidth = V; x.beginPath(); x.moveTo(0, mid); x.lineTo(W, mid); x.stroke();
+          if (d) beam(K, c === o ? 'physics' : 'value', 1.5, () => poly(x, N, X, i => mid - s[(i + Math.floor(phaseNow(c) * N)) % N] * d * (H / 2 - 6 * V)));
+          label(K, (c === o ? 'FB' : 'OSC ' + (c + 1)) + ' · ' + d.toFixed(2), 5 * V, 11 * V, 'left', d ? 'physics' : 'grid'); }); }); p.append(g); } }
+];
+let vc = 'C1', vr = 'R1';
+function buildQ2() { const body = chrome($('win2'), 'Osc', 'Dashboard'), card = CARDS.find(x => x.id === vc); const l = h('div', 'pane'); l.style.cssText = 'flex:0 0 360px;align-self:flex-start;display:flex;flex-direction:column;gap:6px';
+  const hd = h('div', 'ph'); hd.append(document.createTextNode('PM matrix'), h('span', 'h', 'rows: modulated · columns: modulator')); l.append(hd); card.build(l); body.append(l);
+  body.append(Object.assign(h('div', 'stand', 'the signal flow (GUI-57 r3), with PM drawn into it: its own lab (GB38), since it touches every source, filter and route'), { style: 'flex:1 1 auto' })); }
+function buildQ4() { const body = chrome($('win4'), 'Osc', 'Osc 1'), rv = ROWV.find(x => x.id === vr); leftStandIns(body); const r = h('div', 'right'); body.append(r); leadPicture(r, 0, 130);
+  if (L.morph) { const g = h('div'); g.style.cssText = 'display:grid;grid-template-columns:repeat(4,1fr);gap:6px'; [0, 1, 2, 3].forEach(k => g.append(cornerTile(0, k, 46))); r.append(g); }
+  const p = h('div', 'pane'), hd = h('div', 'ph'); hd.append(document.createTextNode('FM / PM · what modulates osc 1'), h('span', 'h', 'drag a depth up or down')); p.append(hd); rv.build(p, 0); r.append(p); internal(r, 0); }
+// a panel canvas (C2 and C4 are drawn on the panel, not on glass)
 function fit(c) { const r = c.getBoundingClientRect(), d = window.devicePixelRatio || 1, w = Math.max(1, Math.round(r.width * d)), hh = Math.max(1, Math.round(r.height * d)); if (c.width !== w || c.height !== hh) { c.width = w; c.height = hh; } const g = c.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0); return [g, r.width, r.height]; }
 
 /* ===== the bench ===== */
@@ -570,7 +591,7 @@ function bench() {
   pills($('bAudP'), [0, 1, 2, 3].map(i => [i, CORNER[i], HZ.glyph(i, 9, 'currentColor') + CORNER[i]]), L.audible, v => { L.audible = v; render(); });
   pills($('bMotion'), [[true, 'Live'], [false, 'Still']], L.motion, v => { L.motion = v; render(); });
   pills($('bSw'), [['pips', 'Pips'], ['name', 'Name']], L.sw, v => { L.sw = v; render(); });
-  pills($('bSync'), [['off', 'Off'], ['pitch', '× pitch'], ['hz', 'Hz']], S.osc[0].wt.syncIn, v => { S.osc[0].wt.syncIn = v; say('Osc 1 sync in: ' + v + (v === 'off' ? ' (the engine’s default; the ratio is stored, and the readout says SYNC OFF)' : '')); render(); });
+  pills($('bSync'), [['pitch', '× pitch'], ['hz', 'Hz']], S.osc[0].wt.syncIn, v => { S.osc[0].wt.syncIn = v; say('Osc 1 sync follows ' + (v === 'hz' ? 'a fixed frequency (Hz)' : 'the note (× pitch)') + '; sync is always on, and ratio 1 is no sync (B661)'); render(); });
   const th = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
   pills($('bTheme'), [['light', 'Cream'], ['dark', 'Dark']], th, v => { document.documentElement.setAttribute('data-theme', v); render(); });
   $('bAud').style.display = L.morph ? 'none' : ''; $('bPuck').style.display = L.morph ? '' : 'none';
@@ -578,17 +599,13 @@ function bench() {
 }
 
 /* ===== rendering ===== */
-let draws = [], v1 = 'V1', v2 = 'P1';
+let draws = [];
 function opts(host, list, cur, pick) { host.replaceChildren(); list.forEach(v => { const b = h('button', 'opt'); b.type = 'button'; b.setAttribute('aria-pressed', String(v.id === cur)); if (v.retired) b.setAttribute('aria-disabled', 'true'); b.append(h('i', null, v.id + (v.tag ? ' · ' + v.tag : '')), h('b', null, v.name)); b.addEventListener('click', () => { if (v.retired) { say(v.id + ' is retired: ' + v.why); return; } pick(v.id); }); host.append(b); }); }
 function render() {
   closeMenu(); closeMap(); draws = []; bench();
-  opts($('pick3'), LOOKS, look, id => { setLook(id); render(); }); opts($('pick1'), Q1, v1, id => { v1 = id; render(); }); opts($('pick2'), Q2, v2, id => { v2 = id; render(); });
-  const a = Q1.find(v => v.id === v1), b = Q2.find(v => v.id === v2); $('why3').textContent = LOOK().why; $('why2').textContent = b.why;
-  buildQ3();
-  $('off1').replaceChildren(); $('pick1').style.display = '';
-  if (L.morph) { $('why1').textContent = a.why; a.build(chrome($('win1'), 'Osc', 'Osc 1')); }
-  else { $('off1').append(Object.assign(h('div', 'banner'), { textContent: 'Morph is off, so an oscillator has one table: there are no corner tables to place, and every variant is this page. Turn Morph on above to compare them.' })); $('pick1').style.display = 'none'; $('why1').textContent = ''; morphOffPage(chrome($('win1'), 'Osc', 'Osc 1')); }
-  b.build(); draws.push(() => drawPad($('padHost').querySelector('canvas')));
+  opts($('pick3'), LOOKS, look, id => { setLook(id); render(); }); opts($('pickC'), CARDS, vc, id => { vc = id; render(); }); opts($('pickR'), ROWV, vr, id => { vr = id; render(); });
+  $('why3').textContent = LOOK().why; $('whyC').textContent = CARDS.find(x => x.id === vc).why; $('whyR').textContent = ROWV.find(x => x.id === vr).why;
+  buildQ3(); buildQ2(); buildQ4(); draws.push(() => drawPad($('padHost').querySelector('canvas')));
   paint();
 }
 function paint() { draws.forEach(f => f()); }
@@ -603,7 +620,7 @@ function inked(c) { const ref = h('canvas'); ref.style.cssText = 'position:absol
   if (a.length !== b.length) return -1; let n = 0; for (let i = 0; i < a.length; i += 4) if (Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]) > 30) n++; return n / (a.length / 4); }
 const pix = c => Array.from(c.getContext('2d').getImageData(0, 0, c.width, c.height).data);
 function selfcheck() {
-  const out = [], ok = (c, t) => out.push((c ? 'OK     ' : 'FAILED ') + t), keep = { x: S.x, y: S.y, v1, v2, look, morph: L.morph, motion: L.motion, tick: L.tick, aud: L.audible };
+  const out = [], ok = (c, t) => out.push((c ? 'OK     ' : 'FAILED ') + t), keep = { x: S.x, y: S.y, vc, vr, look, morph: L.morph, motion: L.motion, tick: L.tick, aud: L.audible };
   L.motion = false; L.morph = true;
   const inside = win => { const w = win.getBoundingClientRect(); return [...win.querySelectorAll('.pane, canvas, .hd-viz')].filter(e => { const r = e.getBoundingClientRect(); return r.width && (r.right > w.right + 1 || r.bottom > w.bottom + 1); }).length; };
   const lead = () => $('win3').querySelector('.pane .hd-viz canvas');
@@ -612,16 +629,24 @@ function selfcheck() {
   { const c = lead(), K = kit(c); K.tube(); K.scan(); ok(inked(c) === 0, 'control: an empty screen reads 0 % inked'); }
   look = keep.look; render();
   // GUI-63: morph off shows one table and no corner tables; on shows four; no pad or morph grid on an Osc page
-  L.morph = false; render(); const offSel = $('win3').querySelectorAll('.sel').length, offTiles = $('win3').querySelectorAll('.cglass').length, offQ1 = $('win1').querySelectorAll('.sel').length + $('win1').querySelectorAll('.cglass').length * 10;
+  L.morph = false; render(); const offSel = $('win3').querySelectorAll('.sel').length, offTiles = $('win3').querySelectorAll('.cglass').length, offQ1 = $('win4').querySelectorAll('.sel').length + $('win4').querySelectorAll('.cglass').length * 10;
   const same = (p, q) => p.every((v, i) => Math.abs(v - q[i]) < 1e-6); L.audible = 2; const playsC = same(tableOf(0)[8], table(S.osc[0].corners[2])[8]); L.audible = keep.aud;
   L.morph = true; render(); const onTiles = $('win3').querySelectorAll('.cglass').length;
-  ok(offSel === 1 && offTiles === 0 && offQ1 === 1 && onTiles === 4 && playsC, 'morph off: 1 table picker and 0 corner tables on Q3 and Q1 (' + offSel + ', ' + offTiles + '), the audible corner’s table plays; morph on: ' + onTiles + ' corner tables (control)');
-  let pads = 0; Q1.filter(v => !v.retired && v.id !== 'V5').forEach(v => { v1 = v.id; render(); pads += $('win1').querySelectorAll('.padcv').length; }); v1 = 'V5'; render(); const v5pad = $('win1').querySelectorAll('.padcv').length;
-  ok(pads === 0 && $('win3').querySelectorAll('.padcv').length === 0 && v5pad === 1, 'no pad or morph grid on any Osc page variant (control: the Morph page, V5, has its pad)');
-  // every variant inside its window
-  Q1.filter(v => !v.retired).forEach(v => { v1 = v.id; render(); const n = inside($('win1')); ok(!n && $('win1').querySelectorAll('canvas').length >= 3, v.id + ' builds inside the window' + (n ? ' (OVER: ' + n + ')' : '')); });
-  Q2.forEach(v => { v2 = v.id; render(); const n = inside($('win2')); ok(!n, v.id + ' builds inside the window' + (n ? ' (OVER: ' + n + ')' : '')); });
-  v1 = keep.v1; v2 = keep.v2; render();
+  ok(offSel === 1 && offTiles === 0 && offQ1 === 1 && onTiles === 4 && playsC, 'morph off: 1 table picker and 0 corner tables on Q3 and the Osc 1 page (' + offSel + ', ' + offTiles + '), the audible corner’s table plays; morph on: ' + onTiles + ' corner tables (control)');
+  ok(!$('win3').querySelectorAll('.padcv').length && !$('win4').querySelectorAll('.padcv').length && $('padHost').querySelectorAll('.padcv').length === 1, 'no pad or morph grid on either Osc page (control: the selector finds the bench’s stand-in pad)');
+  // Q1, ruled (GUI-64): the row of four under the viewer, on both Osc pages
+  { const rowOf = w => { const t = [...$(w).querySelectorAll('.ctile')].map(e => e.getBoundingClientRect()), v = $(w).querySelector('.vw').getBoundingClientRect(); return t.length === 4 && t.every(r => Math.abs(r.top - t[0].top) < 1 && r.top > v.bottom) && t[0].left < t[1].left && t[1].left < t[2].left && t[2].left < t[3].left; };
+    ok(rowOf('win3') && rowOf('win4'), 'GUI-64: the four corner tiles sit in one row under the viewer, A to D, on both Osc pages'); }
+  // Q2 (GUI-65): every card and row option builds inside its window, and a drag on its depth writes the shared matrix
+  const keepPm = JSON.stringify(S.pm), dragEl = (el, dy) => { const r = el.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2, o = { bubbles: true, cancelable: true, button: 0, pointerId: 9 }; el.dispatchEvent(new PointerEvent('pointerdown', Object.assign({ clientX: x, clientY: y, buttons: 1 }, o))); el.dispatchEvent(new PointerEvent('pointermove', Object.assign({ clientX: x, clientY: y + dy, buttons: 1 }, o))); el.dispatchEvent(new PointerEvent('pointerup', Object.assign({ clientX: x, clientY: y + dy, buttons: 0 }, o))); };
+  CARDS.forEach(v => { vc = v.id; render(); S.pm = JSON.parse(keepPm); S.pm[1][0] = .1; paint(); const n = inside($('win2')), el = $('win2').querySelector('[data-pm="1,0"]'); if (el) dragEl(el, -60); const got = S.pm[1][0];
+    ok(!n && el && Math.abs(got - .6) < 1e-6 && $('win2').querySelectorAll('[data-pm]').length === 9, v.id + ' builds inside the dashboard with 9 depths; dragging osc 1 → osc 2 up 60 px: 0.10 → ' + got.toFixed(2)); });
+  ROWV.forEach(v => { vr = v.id; render(); S.pm = JSON.parse(keepPm); S.pm[0][1] = .1; paint(); const n = inside($('win4')), el = $('win4').querySelector('[data-pm="0,1"]'); if (el) dragEl(el, -60); const got = S.pm[0][1];
+    vc = 'C1'; render(); const card = $('win2').querySelector('[data-pm="0,1"]').textContent;
+    ok(!n && el && Math.abs(got - .6) < 1e-6 && $('win4').querySelectorAll('[data-pm]').length === 3 && card === '0.60', v.id + ' builds inside Osc 1 with 3 depths; dragging osc 2 → osc 1 up 60 px gives ' + got.toFixed(2) + ', and the card reads ' + card + ' (the same value)'); });
+  { vr = 'R2'; render(); const fillAt = v => { S.pm[0][1] = v; paint(); const b = $('win4').querySelector('[data-pm="0,1"]'); return b.firstChild.getBoundingClientRect().width / b.clientWidth; }; const q = fillAt(.25), q2 = fillAt(.75);
+    ok(Math.abs(q - .25) < .02 && Math.abs(q2 - .75) < .02, 'a depth’s fill is drawn at its value: 0.25 fills ' + Math.round(q * 100) + ' % of its bar, 0.75 fills ' + Math.round(q2 * 100) + ' % (a fill CSS ignored would read 100 % both times)'); }
+  S.pm = JSON.parse(keepPm); vc = keep.vc; vr = keep.vr; render();
   // the screens follow the scheme: the ground under TUBE differs from ORCHID's (control: TUBE twice reads the same)
   scr.set('tube'); paint(); const t1 = pix(lead()).slice(0, 4).join(); scr.set('orchid'); paint(); const o1 = pix(lead()).slice(0, 4).join(); scr.set('tube'); paint(); const t2 = pix(lead()).slice(0, 4).join(); scr.set(null); paint();
   ok(t1 !== o1 && t1 === t2, 'the glass follows the Screen scheme: TUBE ' + t1 + ' vs ORCHID ' + o1 + ' (control: TUBE again reads the same)');
@@ -629,20 +654,22 @@ function selfcheck() {
   L.motion = true; paint(); const m0 = pix(lead()).join(); L.tick += 40; paint(); const m1 = pix(lead()).join(); L.motion = false; paint(); const s0 = pix(lead()).join(); L.tick += 40; paint(); const s1 = pix(lead()).join();
   ok(m0 !== m1 && s0 === s1, 'Motion live moves the picture over 40 frames; Still holds it (control)');
   // ROUND 3, THE VIEWER. The warp is the identity at its defaults (control: sync x3 changes the frames)
-  { const w = S.osc[0].wt, kw = JSON.stringify(w); Object.assign(w, { syncIn: 'off', window: 0, asym: 0, bend: 0 }); const fr = tableOf(0), id = warped(fr, 0) === fr; Object.assign(w, { syncIn: 'pitch', sync: 3 }); const ch = !same(warped(fr, 0)[8], fr[8]); Object.assign(w, JSON.parse(kw)); ok(id && ch, 'the warp is the identity with sync off and window, asym and bend at 0 (control: sync ×3 changes the frames)'); }
+  { const w = S.osc[0].wt, kw = JSON.stringify(w); Object.assign(w, { syncIn: 'pitch', sync: 1, window: 0, syncSoft: .5, asym: 0, bend: 0 }); const fr = tableOf(0), id = warped(fr, 0) === fr; Object.assign(w, { sync: 3 }); const ch = !same(warped(fr, 0)[8], fr[8]); Object.assign(w, { syncSoft: 0 }); const hard = warped(fr, 0)[8].slice(); Object.assign(w, { syncSoft: 1 }); const soft = warped(fr, 0)[8], tap = Math.abs(soft[0]) < Math.abs(hard[0]) + 1e-9 && !same(hard, soft); Object.assign(w, JSON.parse(kw)); ok(id && ch && tap, 'the warp is the identity at sync ×1 with window, asym and bend at 0, even at 50 % softness (control: sync ×3 changes the frames, and full softness tapers its restart)'); }
   // the drag, with real pointer events on Q3's viewer: BladeView's pattern
   const keepMap = JSON.stringify(MAP), keepRows = snapRows(0), keepWt = JSON.stringify(S.osc[0].wt), keepFrame = S.osc[0].frame;
-  const vc = () => $('win3').querySelector('.vw canvas'), PE = (c, t, x, y, o) => c.dispatchEvent(new PointerEvent(t, Object.assign({ bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0, buttons: t === 'pointerup' ? 0 : 1, pointerId: 7 }, o || {})));
-  const drag = (dx, dy, o) => { const c = vc(), r = c.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2; PE(c, 'pointerdown', x, y, o); PE(c, 'pointermove', x + dx, y + dy, o); PE(c, 'pointerup', x + dx, y + dy, o); };
-  const reset = () => { S.osc[0].frame = 4; Object.assign(S.osc[0].wt, { syncIn: 'pitch', sync: 2, window: 0, asym: 0, bend: 0 }); };
+  const vcv = () => $('win3').querySelector('.vw canvas'), PE = (c, t, x, y, o) => c.dispatchEvent(new PointerEvent(t, Object.assign({ bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0, buttons: t === 'pointerup' ? 0 : 1, pointerId: 7 }, o || {})));
+  const drag = (dx, dy, o) => { const c = vcv(), r = c.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2; PE(c, 'pointerdown', x, y, o); PE(c, 'pointermove', x + dx, y + dy, o); PE(c, 'pointerup', x + dx, y + dy, o); };
+  const reset = () => { S.osc[0].frame = 4; Object.assign(S.osc[0].wt, { syncIn: 'pitch', sync: 1, window: 0, syncSoft: 0, asym: 0, bend: 0 }); };
   MAP = JSON.parse(JSON.stringify(MAP_DEFAULT)); render(); reset(); let st0 = L.steps;
-  drag(84, -84); const f1 = S.osc[0].frame, sy1 = S.osc[0].wt.sync, w1 = S.osc[0].wt.window, st1 = L.steps;
-  ok(Math.abs(f1 - (4 + .2 * (FR - 1))) < 1e-6 && Math.abs(sy1 - fromN(ROWS.sync, toN(ROWS.sync, 2) + .2)) < 1e-6 && w1 === 0 && st1 === st0 + 1, 'drag up and right 84 px: frame 5.0 → ' + (f1 + 1).toFixed(1) + ', sync ×2.00 → ×' + sy1.toFixed(2) + ', window untouched, 1 undo step');
-  reset(); drag(84, 0, { shiftKey: true }); const w2 = S.osc[0].wt.window, sy2 = S.osc[0].wt.sync; reset(); drag(84, 0, { altKey: true }); const sy3 = S.osc[0].wt.sync;
-  ok(Math.abs(w2 - .2) < 1e-6 && sy2 === 2 && Math.abs(toN(ROWS.sync, sy3) - toN(ROWS.sync, 2) - .05) < 1e-6, 'shift sideways moves the window (0 → ' + Math.round(w2 * 100) + ' %) and leaves sync; Option moves a quarter as far');
-  reset(); st0 = L.steps; drag(0, 0); ok(L.steps === st0 && S.osc[0].frame === 4 && S.osc[0].wt.sync === 2, 'control: a grab with no motion writes nothing and makes no undo step');
+  drag(84, -84); const f1 = S.osc[0].frame, b1 = S.osc[0].wt.bend, sy1 = S.osc[0].wt.sync, st1 = L.steps;
+  ok(Math.abs(f1 - (4 + .2 * (FR - 1))) < 1e-6 && Math.abs(b1 - .4) < 1e-6 && sy1 === 1 && st1 === st0 + 1, 'drag up and right 84 px: frame 5.0 → ' + (f1 + 1).toFixed(1) + ', bend 0 → +' + b1.toFixed(2) + ', sync untouched at ×1 (control), 1 undo step');
+  reset(); st0 = L.steps; drag(84, 0, { shiftKey: true }); const sy2 = S.osc[0].wt.sync, b2 = S.osc[0].wt.bend, st2 = L.steps; reset(); drag(84, 0, { altKey: true }); const b3 = S.osc[0].wt.bend;
+  ok(Math.abs(sy2 - fromN(ROWS.sync, toN(ROWS.sync, 1) + .2)) < 1e-6 && b2 === 0 && st2 === st0 + 1 && Math.abs(b3 - .1) < 1e-6, 'shift sideways: sync ×1.00 (no sync) → ×' + sy2.toFixed(2) + ' in one undo step, bend untouched; Option moves a quarter as far (bend +' + b3.toFixed(2) + ')');
+  reset(); st0 = L.steps; drag(0, 0); ok(L.steps === st0 && S.osc[0].frame === 4 && S.osc[0].wt.bend === 0 && S.osc[0].wt.sync === 1, 'control: a grab with no motion writes nothing and makes no undo step');
   MAP.v = { row: 'asym', inv: false }; render(); reset(); drag(0, -84); const a1 = S.osc[0].wt.asym, f2 = S.osc[0].frame; MAP.v.inv = true; render(); reset(); drag(0, -84); const a2 = S.osc[0].wt.asym;
   ok(Math.abs(a1 - .2 * 2) < 1e-6 && f2 === 4 && Math.abs(a2 + .4) < 1e-6, 'mapped to Asym: up moves asym (+' + a1.toFixed(2) + '), not the frame (control); inverted, the same drag moves it the other way (' + a2.toFixed(2) + ')');
+  MAP = { v: { row: 'bend', inv: false }, h: { row: 'bend', inv: false }, sh: { row: 'sync', inv: false } }; render(); reset(); drag(84, -84); const bb = S.osc[0].wt.bend;
+  ok(Math.abs(bb - .8) < 1e-6, 'two directions mapped to Bend add up: up and right 84 px each move it +0.40, together +' + bb.toFixed(2) + ' (a still direction no longer overwrites a moving one)');
   MAP = JSON.parse(keepMap); render();
   // the switch: a pip changes the view and the picture; the name steps to the next
   { const before = pix(lead()).join(), pips = $('win3').querySelectorAll('.vw-sw .pip'), tgt = LOOKS[(LOOKS.findIndex(x => x.id === look) + 2) % 6].id; pips[LOOKS.findIndex(x => x.id === tgt)].click(); paint(); const after = pix(lead()).join(), lk = look, kept = store.get('horde-wtlab-view');
@@ -656,7 +683,7 @@ function selfcheck() {
   const g1 = mulberry32(17)(), g2 = mulberry32(17)(); ok(g1 === g2, 'the rolled table is seeded (the same seed draws the same)');
   L.morph = keep.morph; L.motion = keep.motion; L.tick = keep.tick; look = keep.look; render(); $('selfcheck').textContent = out.join('\n'); return out;
 }
-render(); window.WT_PAGE_LAB = { S, L, ROWS, selfcheck, render, setLook: id => { setLook(id); render(); }, get MAP() { return MAP; } };
+render(); window.WT_PAGE_LAB = { S, L, ROWS, setCard: id => { vc = id; render(); }, setRow: id => { vr = id; render(); }, selfcheck, render, setLook: id => { setLook(id); render(); }, get MAP() { return MAP; } };
 requestAnimationFrame(() => requestAnimationFrame(selfcheck));
 })();
 </script>
