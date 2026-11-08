@@ -604,6 +604,15 @@
       "value": "<1e-6 | >0.01 | >0.01 | >0.01 | <1e-6 | >0.01 | <1e-3 | >0.01"
     },
     {
+      "approved": "the human, 2026-11-08, by poll on B660: Approve",
+      "file": "tools/engine-preview/bridge_test.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/engine-preview/bridge_test.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": "<1e-3 | >1e-3 | >0.1"
+    },
+    {
       "approved": "the human, 2026-11-07, by poll on B645: Approve",
       "file": "tools/engine-preview/demo_render.cpp",
       "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
@@ -629,6 +638,33 @@
       "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
       "ref": "unattributed",
       "value": ">0.5 | >=0.5"
+    },
+    {
+      "approved": "the human, 2026-11-08, by poll on B660: Approve",
+      "file": "tools/engine-preview/post_filter.h",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/engine-preview/post_filter.h::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": "<1e-7"
+    },
+    {
+      "approved": "the human, 2026-11-08, by poll on B660: Approve",
+      "file": "tools/engine-preview/preview_plugin.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/engine-preview/preview_plugin.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": ">=0.5 | >=0.5"
+    },
+    {
+      "approved": "the human, 2026-11-08, by poll on B660: Approve",
+      "file": "tools/engine-preview/smoke.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/engine-preview/smoke.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": "<0.01 | >1e-3 | >0.9 | <0.01"
     },
     {
       "approved": "baseline 2026-10-08",

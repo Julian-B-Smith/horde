@@ -20,6 +20,26 @@ endif()
 set(HORDE_REPO_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../..)
 set(HORDE_LIBS_DIR ${HORDE_REPO_ROOT}/libs CACHE PATH "libs/ with clap and clap-wrapper")
 
+# Weir (B660), the sibling repo's header-only filter library, for the test-only post-engine filter. READ ONLY: nothing is
+# checked out or edited there. The build uses whatever is at HORDE_WEIR_DIR, so it must be exactly the commit weir.pin
+# names, and its headers must match that commit (an edited include/ is not the pin); anything else stops the configure.
+# The default is expanded here from $HOME, never written into a tracked file as an absolute path.
+set(HORDE_WEIR_DIR "$ENV{HOME}/Documents/Claude/synthetic-worlds/Weir" CACHE PATH "Weir checkout (read only), at weir.pin's commit")
+file(STRINGS ${CMAKE_CURRENT_SOURCE_DIR}/weir.pin PREVIEW_WEIR_PIN LIMIT_COUNT 1)
+execute_process(COMMAND git -C "${HORDE_WEIR_DIR}" rev-parse HEAD OUTPUT_VARIABLE PREVIEW_WEIR_HEAD RESULT_VARIABLE PREVIEW_WEIR_RC
+                OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+if(NOT PREVIEW_WEIR_RC EQUAL 0 OR NOT PREVIEW_WEIR_HEAD STREQUAL PREVIEW_WEIR_PIN)
+  message(FATAL_ERROR "Weir at ${HORDE_WEIR_DIR} is at '${PREVIEW_WEIR_HEAD}', but tools/engine-preview/weir.pin pins ${PREVIEW_WEIR_PIN}. "
+                      "Set HORDE_WEIR_DIR to a Weir checkout at that commit (read only: check it out in a worktree, never edit it here), "
+                      "or move the pin in the same change as the re-test.")
+endif()
+execute_process(COMMAND git -C "${HORDE_WEIR_DIR}" diff --quiet HEAD -- include RESULT_VARIABLE PREVIEW_WEIR_DIRTY)
+if(NOT PREVIEW_WEIR_DIRTY EQUAL 0)
+  message(FATAL_ERROR "Weir's include/ at ${HORDE_WEIR_DIR} differs from its HEAD ${PREVIEW_WEIR_PIN}: the build would not be the pinned Weir.")
+endif()
+set(PREVIEW_WEIR_INCLUDE ${HORDE_WEIR_DIR}/include)
+message(STATUS "Weir pinned at ${PREVIEW_WEIR_PIN}")
+
 # The same pinned SDK commits as the main build's CMakeLists.txt, and for the same reason: clap-wrapper's own download
 # names them by git tag, which its owner can move. Bumping one means bumping it there too.
 include(FetchContent)
@@ -100,7 +120,7 @@ add_library(preview-impl STATIC preview_plugin.cpp bridge_core.cpp morph_core.cp
 set(HORDE_PREVIEW_BUILD_LABEL "engine unknown, build 0" CACHE STRING "")
 target_compile_definitions(preview-impl PUBLIC "HORDE_PREVIEW_BUILD_LABEL=\"${HORDE_PREVIEW_BUILD_LABEL}\"")
 add_dependencies(preview-impl bank_embedded preview_page)
-target_include_directories(preview-impl PUBLIC ${CMAKE_BINARY_DIR}/generated ${CMAKE_CURRENT_SOURCE_DIR} ${HORDE_REPO_ROOT}/h2 ${PREVIEW_CHOC_DIR})
+target_include_directories(preview-impl PUBLIC ${CMAKE_BINARY_DIR}/generated ${CMAKE_CURRENT_SOURCE_DIR} ${HORDE_REPO_ROOT}/h2 ${PREVIEW_CHOC_DIR} ${PREVIEW_WEIR_INCLUDE})
 target_link_libraries(preview-impl PUBLIC clap clap-wrapper-extensions horde_engine2 ${PREVIEW_WINDOW_LIBS})
 
 make_clapfirst_plugins(
@@ -134,11 +154,14 @@ endforeach()
 #                        A only, so a factory preset after a demo keeps the demo's other corners (B645)
 #   preview-plant-morph  the pad's position dropped, from the host or the page (B636, B639), alone: every other plant here changes something
 #                        the morph's checks also read, which would let its control fail for the wrong reason
-foreach(plant preview-plant preview-plant-map preview-plant-morph)
+#   preview-plant-nofilter  the test-only filter (B660) compiled out entirely, alone: it is "the build as it was before the
+#                        filter", the reference every preset must match bit for bit with the filter off, and the no-op
+#                        filter the filter-on test must tell from the real one
+foreach(plant preview-plant preview-plant-map preview-plant-morph preview-plant-nofilter)
   add_library(${plant} MODULE preview_plugin.cpp bridge_core.cpp morph_core.cpp preview_gui.mm preview_entry.cpp)
   add_dependencies(${plant} bank_embedded)
   target_compile_definitions(${plant} PRIVATE "HORDE_PREVIEW_BUILD_LABEL=\"${HORDE_PREVIEW_BUILD_LABEL}\"")
-  target_include_directories(${plant} PRIVATE ${CMAKE_BINARY_DIR}/generated ${CMAKE_CURRENT_SOURCE_DIR} ${HORDE_REPO_ROOT}/h2 ${PREVIEW_CHOC_DIR})
+  target_include_directories(${plant} PRIVATE ${CMAKE_BINARY_DIR}/generated ${CMAKE_CURRENT_SOURCE_DIR} ${HORDE_REPO_ROOT}/h2 ${PREVIEW_CHOC_DIR} ${PREVIEW_WEIR_INCLUDE})
   target_link_libraries(${plant} PRIVATE clap horde_engine2 "-framework AppKit")
   set_target_properties(${plant} PROPERTIES PREFIX "" SUFFIX ".clap")
 endforeach()
@@ -148,6 +171,7 @@ target_compile_definitions(preview-plant PRIVATE HORDE_PREVIEW_PLANT_NO_ROUTES H
 target_compile_definitions(preview-plant-map PRIVATE HORDE_PREVIEW_PLANT_KEYMAP_SHIFT HORDE_PREVIEW_PLANT_SILENT_TAP
                            HORDE_PREVIEW_PLANT_DEMO_KEEPS_CORNERS)
 target_compile_definitions(preview-plant-morph PRIVATE HORDE_PREVIEW_PLANT_DROP_POSITION)
+target_compile_definitions(preview-plant-nofilter PRIVATE HORDE_PREVIEW_PLANT_NO_FILTER)
 
 add_executable(preview-smoke smoke.cpp morph_core.cpp)
 add_dependencies(preview-smoke bank_embedded)
@@ -161,7 +185,7 @@ target_link_libraries(preview-gui-shot PRIVATE clap "-framework AppKit" "-framew
 
 # The bridge's pure half, headless (section 7's rows). It links the engine only for its manifest.
 add_executable(preview-bridge-test bridge_test.cpp bridge_core.cpp morph_core.cpp)
-target_include_directories(preview-bridge-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${PREVIEW_CHOC_DIR})
+target_include_directories(preview-bridge-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${HORDE_REPO_ROOT}/h2 ${PREVIEW_CHOC_DIR} ${PREVIEW_WEIR_INCLUDE})
 target_link_libraries(preview-bridge-test PRIVATE horde_engine2)
 
 # The recorded frames GUI 3's ReplayTransport plays (section 7): a fixed chord through the built plug-in's bridge.
@@ -177,7 +201,7 @@ add_executable(preview-morph-probe morph_probe.cpp)
 add_library(preview-morph-wholespan MODULE preview_plugin.cpp bridge_core.cpp morph_core.cpp preview_gui.mm preview_entry.cpp)
 add_dependencies(preview-morph-wholespan bank_embedded)
 target_compile_definitions(preview-morph-wholespan PRIVATE "HORDE_PREVIEW_BUILD_LABEL=\"${HORDE_PREVIEW_BUILD_LABEL}\"" HORDE_PREVIEW_PROBE_WHOLE_SPANS)
-target_include_directories(preview-morph-wholespan PRIVATE ${CMAKE_BINARY_DIR}/generated ${CMAKE_CURRENT_SOURCE_DIR} ${HORDE_REPO_ROOT}/h2 ${PREVIEW_CHOC_DIR})
+target_include_directories(preview-morph-wholespan PRIVATE ${CMAKE_BINARY_DIR}/generated ${CMAKE_CURRENT_SOURCE_DIR} ${HORDE_REPO_ROOT}/h2 ${PREVIEW_CHOC_DIR} ${PREVIEW_WEIR_INCLUDE})
 target_link_libraries(preview-morph-wholespan PRIVATE clap horde_engine2 "-framework AppKit")
 set_target_properties(preview-morph-wholespan PROPERTIES PREFIX "" SUFFIX ".clap")
 target_include_directories(preview-morph-probe PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})

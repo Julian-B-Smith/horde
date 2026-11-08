@@ -1,7 +1,8 @@
 // horde ENGINE PREVIEW (B624): a thin CLAP around the clean-room engine, so the human can play it in Live and we
 // can see what it costs there. Throwaway on purpose: it isn't the B398 shell and owes none of ADR-186 §5's rules.
 // Its window is GUI 3's page in a web view (preview_webview.mm, B628), or the small AppKit one (preview_gui.mm) when
-// built with HORDE_PREVIEW_WEBVIEW=OFF. No filters, effects or modulation matrix: the engine has none of them yet.
+// built with HORDE_PREVIEW_WEBVIEW=OFF. No effects or modulation matrix: the engine has none of them yet, and its only
+// filter is the test-only one (B660): Weir's SVF 12 after the engine's output, six host parameters (filter_core.h), off by default.
 // Pitch bend and the bank's glide are played here, a stand-in for the pitch system (RC-3) until B504 (B632). The morph
 // is the clean room's own resolver (IF-12), hosted here (B636; see "the morph system" below).
 //
@@ -48,9 +49,11 @@
 #include "bank.h"
 #include "bridge_core.h"
 #include "bridge_ext.h"
+#include "filter_core.h"
 #include "flush_to_zero.h"
 #include "horde_engine.h"
 #include "morph_core.h"
+#include "post_filter.h"
 #include "preview_gui.h"
 
 namespace {
@@ -76,6 +79,14 @@ constexpr const char* kDefaultPreset = "Trance jitter";
 // explicit ids from a lockfile; none is committed yet, so these are the plug-in's own, in a block of its own beside
 // Preset's: above every engine id (each engine source owns a range below 0x6000) and below IF-11's 0xB00000.
 constexpr clap_id kMorphXId = 0xA00001, kMorphYId = 0xA00002;
+// B660's test-only filter: six host parameters after the morph's pair (ids from 0xA00010, filter_core.h). The smoke test's
+// must-fail build compiles all of it out, which is also what "the build without the filter" is for the bit-identity
+// control: that build and this one must render every preset to the same bits with the filter off.
+#ifdef HORDE_PREVIEW_PLANT_NO_FILTER
+constexpr int kFilterHostParams = 0;
+#else
+constexpr int kFilterHostParams = preview::filter::kParams;
+#endif
 constexpr int kMaxPoints = 65;   // one key's waypoints as the page sends them: past MO-21's 8 the resolver refuses the list
 // The morph (B636). Events one span may carry: spans are cut at every control interval while the morph moves, so one
 // boundary's worth (every key and set) fits many times over. A resolver drop past this is counted, never silent.
@@ -345,6 +356,11 @@ struct Plugin {
   const clap_host_params_t* host_params = nullptr;
 
   double sample_rate = 44100;
+  // The test-only post-engine filter (B660): host values in the host's form, written by the audio thread (events) and the
+  // main thread (a state load), read by the audio thread once a block. A plain atomic per value, as the morph's position.
+  std::atomic<double> filter_v[preview::filter::kParams];
+  preview::filter::PostFilter post_filter;   // audio thread; prepared at activation
+  bool filter_was_on = false;                // audio thread
   int max_block = kEngineMaxBlock;
   bool active = false;      // main thread
   int built_preset = -1;    // main thread
@@ -735,6 +751,14 @@ bool set_param(Plugin& s, clap_id id, double value, std::uint32_t sample = 0) {
     s.wanted_preset.store(std::clamp(int(std::lround(value)), 0, kBankSize - 1), std::memory_order_relaxed);
     return true;
   }
+#ifndef HORDE_PREVIEW_PLANT_NO_FILTER
+  if (preview::filter::is_filter_id(id)) {
+    if (!std::isfinite(value)) return false;
+    const int f = preview::filter::param_of(id);
+    s.filter_v[f].store(preview::filter::clamped(f, value), std::memory_order_relaxed);
+    return true;
+  }
+#endif
   if (id == kMorphXId || id == kMorphYId) {   // the pad's position: the resolver's, never the engine's (IF-11, IF-12)
     if (!std::isfinite(value)) return false;
     const double v = std::clamp(value, 0.0, 1.0);
@@ -764,6 +788,9 @@ bool set_param(Plugin& s, clap_id id, double value, std::uint32_t sample = 0) {
 
 bool host_parameter(clap_id id) {
   if (id == kPresetId || id == kMorphXId || id == kMorphYId) return true;
+#ifndef HORDE_PREVIEW_PLANT_NO_FILTER
+  if (preview::filter::is_filter_id(id)) return true;
+#endif
   const int m = manifest_index(id);
   return m >= 0 && rows().host_of[std::size_t(m)] >= 0;
 }
@@ -1535,6 +1562,23 @@ void note_overrun(Plugin& s, int preset, std::uint32_t frames, double share) {
 #endif
 }
 
+// B660: Weir's SVF 12 on the engine's output, in place. Off, it does nothing at all (not even a read of the buffers), so
+// the output is bit for bit what the engine rendered. Turning it on starts from cleared state: a stale ring from the last
+// time it ran would otherwise burst out.
+void apply_post_filter(Plugin& s, float* left, float* right, std::uint32_t frames, bool engine_idle = false) {
+#ifndef HORDE_PREVIEW_PLANT_NO_FILTER
+  preview::filter::State v;
+  for (int f = 0; f < preview::filter::kParams; ++f) v.v[f] = s.filter_v[f].load(std::memory_order_relaxed);
+  const bool on = v.v[preview::filter::kOn] >= 0.5;
+  if (on && !s.filter_was_on) s.post_filter.reset();
+  s.filter_was_on = on;
+  // An idle engine puts zeros in: the filter still runs while it rings (OU-4 stays cheap once it has rung out).
+  if (on && !(engine_idle && s.post_filter.rung_out())) s.post_filter.process(v, left, right, frames);
+#else
+  (void)s; (void)left; (void)right; (void)frames; (void)engine_idle;
+#endif
+}
+
 clap_process_status plugin_process(const clap_plugin_t* p, const clap_process_t* proc) {
   Plugin& s = *self(p);
   bool want_callback = false;
@@ -1569,6 +1613,7 @@ clap_process_status plugin_process(const clap_plugin_t* p, const clap_process_t*
     std::fill_n(right, frames, 0.0f);
     skip_morph(s, *s.live, frames);
     s.live->engine->skip(frames);
+    horde2::underFlushToZero([&] { apply_post_filter(s, left, right, frames, true); });   // zeros in: a resonant filter still rings out
     if (s.live->resolver && s.want_morph.load(std::memory_order_relaxed)) publish_heard_sets(s, *s.live);
     tap(s, left, right, frames);
     s.engine_silent.store(true, std::memory_order_relaxed);
@@ -1589,7 +1634,7 @@ clap_process_status plugin_process(const clap_plugin_t* p, const clap_process_t*
   const bool was_silent = s.live->engine->silent();
   s.block_moving = false;
   const auto t0 = std::chrono::steady_clock::now();
-  horde2::underFlushToZero([&] { render(s, proc, left, right, frames); });
+  horde2::underFlushToZero([&] { render(s, proc, left, right, frames); apply_post_filter(s, left, right, frames); });
   const auto t1 = std::chrono::steady_clock::now();
 
   // Output guard (Blind-Spot Armor: latch and report, never clamp silently): a bad sample must not reach the host,
@@ -1670,6 +1715,8 @@ bool plugin_activate(const clap_plugin_t* p, double sample_rate, std::uint32_t, 
   s.sample_rate = sample_rate;
   s.frames_total = 0;   // the overrun records' clock starts at each activation (B642)
   s.max_block = max_frames ? int(std::min<std::uint32_t>(max_frames, kEngineMaxBlock)) : kEngineMaxBlock;
+  s.post_filter.prepare(sample_rate);   // allocates, so here and not on the audio thread
+  s.filter_was_on = false;
   s.events.reserve(kMaxEvents + 1);
   s.morph_events.reserve(kMorphEvents);
   s.merged.reserve(kMaxEvents + 1 + kMorphEvents);
@@ -1717,6 +1764,7 @@ bool plugin_init(const clap_plugin_t* p) {
   s.heard = std::make_unique<std::atomic<double>[]>(t.all.size());
   for (std::size_t m = 0; m < t.all.size(); ++m) s.heard[m].store(t.default_v[m], std::memory_order_relaxed);
   for (int i = 0; i < kSettings; ++i) s.morph_v[i].store(preview::morph::default_v(i), std::memory_order_relaxed);
+  for (int f = 0; f < preview::filter::kParams; ++f) s.filter_v[f].store(preview::filter::default_value(f), std::memory_order_relaxed);
   s.modes.assign(t.all.size() + 2, preview::morph::KeyChoice{});
   s.waypoints.assign(t.all.size() + 2, {});
   s.lock_offsets.assign(t.all.size() + 2, {});
@@ -1740,6 +1788,7 @@ bool plugin_start_processing(const clap_plugin_t*) { return true; }
 void plugin_stop_processing(const clap_plugin_t*) {}
 void plugin_reset(const clap_plugin_t* p) {
   Plugin& s = *self(p);
+  s.post_filter.reset();
   if (!s.live) return;
   s.live->engine->reset();
   forget_voices(s);
@@ -1750,12 +1799,23 @@ void plugin_reset(const clap_plugin_t* p) {
 
 // ---- params ----------------------------------------------------------------------------------------------------
 // Preset, every engine row, then the morph's two (B639): last, so no earlier index moves.
-std::uint32_t params_count(const clap_plugin_t*) { return std::uint32_t(1 + rows().count + 2); }
+// B660's test-only filter's six follow the morph's two.
+std::uint32_t params_count(const clap_plugin_t*) { return std::uint32_t(1 + rows().count + 2 + kFilterHostParams); }
 
 bool params_get_info(const clap_plugin_t*, std::uint32_t index, clap_param_info_t* info) {
-  if (index >= std::uint32_t(1 + rows().count + 2)) return false;
+  if (index >= params_count(nullptr)) return false;
   std::memset(info, 0, sizeof *info);
   info->flags = CLAP_PARAM_IS_AUTOMATABLE;
+  if (index >= std::uint32_t(1 + rows().count + 2)) {
+    const int f = int(index) - (1 + rows().count + 2);
+    info->id = preview::filter::id_of(f);
+    if (preview::filter::stepped(f)) info->flags |= CLAP_PARAM_IS_STEPPED | (f == preview::filter::kMode ? CLAP_PARAM_IS_ENUM : 0u);
+    std::snprintf(info->name, sizeof info->name, "%s", preview::filter::param_name(f));
+    info->min_value = 0;
+    info->max_value = preview::filter::max_value(f);
+    info->default_value = preview::filter::default_value(f);
+    return true;
+  }
   if (index > std::uint32_t(rows().count)) {   // D.2's morph.x and morph.y: 0 to 1, lin, default 0 (round 61)
     const bool x = index == std::uint32_t(rows().count) + 1;
     info->id = x ? kMorphXId : kMorphYId;
@@ -1790,6 +1850,9 @@ bool params_get_value(const clap_plugin_t* p, clap_id id, double* out) {
   Plugin& s = *self(p);
   if (id == kPresetId) { *out = s.wanted_preset.load(std::memory_order_relaxed); return true; }
   if (id == kMorphXId || id == kMorphYId) { *out = (id == kMorphXId ? s.pos_x : s.pos_y).load(std::memory_order_relaxed); return true; }
+#ifndef HORDE_PREVIEW_PLANT_NO_FILTER
+  if (preview::filter::is_filter_id(id)) { *out = s.filter_v[preview::filter::param_of(id)].load(std::memory_order_relaxed); return true; }
+#endif
   const int m = manifest_index(id);
   if (m < 0 || rows().host_of[std::size_t(m)] < 0) return false;
   *out = v_to_host(*rows().all[std::size_t(m)], s.shadow[m].load(std::memory_order_relaxed));
@@ -1805,6 +1868,17 @@ bool params_value_to_text(const clap_plugin_t*, clap_id id, double value, char* 
     std::snprintf(out, size, "%.3g", value);
     return true;
   }
+#ifndef HORDE_PREVIEW_PLANT_NO_FILTER
+  if (preview::filter::is_filter_id(id)) {
+    switch (preview::filter::param_of(id)) {
+      case preview::filter::kOn: std::snprintf(out, size, "%s", value >= 0.5 ? "on" : "off"); break;
+      case preview::filter::kMode: std::snprintf(out, size, "%s", preview::filter::mode_name(int(std::lround(value)))); break;
+      case preview::filter::kCutoff: std::snprintf(out, size, "%.0f Hz", preview::filter::cutoff_hz(value)); break;
+      default: std::snprintf(out, size, "%.3g", value); break;
+    }
+    return true;
+  }
+#endif
   const int m = manifest_index(id);
   if (m < 0 || rows().host_of[std::size_t(m)] < 0) return false;
   const horde::ParamInfo& row = *rows().all[std::size_t(m)];
@@ -1945,6 +2019,9 @@ bool state_save(const clap_plugin_t* p, const clap_ostream_t* stream) {
 #ifndef HORDE_PREVIEW_PLANT_STATE_NO_MORPH   // smoke.cpp's must-fail build: the chunk forgets the morph
   saved.morph = morph_state(s, saved.preset, all_loaded);
 #endif
+#ifndef HORDE_PREVIEW_PLANT_NO_FILTER
+  for (int f = 0; f < preview::filter::kParams; ++f) saved.filter.v[f] = s.filter_v[f].load(std::memory_order_relaxed);
+#endif
   const std::string text = preview::bridge::write_state(saved);
   for (std::size_t done = 0; done < text.size();) {
     const std::int64_t wrote = stream->write(stream, text.data() + done, text.size() - done);
@@ -2029,6 +2106,9 @@ bool state_load(const clap_plugin_t* p, const clap_istream_t* stream) {
     if (m >= 0 && !t.all[std::size_t(m)]->reserved) s.shadow[m].store(std::clamp(v, 0.0, 1.0), std::memory_order_relaxed);
   }
   load_morph(s, preset, loaded, saved.morph);
+#ifndef HORDE_PREVIEW_PLANT_NO_FILTER
+  for (int f = 0; f < preview::filter::kParams; ++f) s.filter_v[f].store(saved.filter.v[f], std::memory_order_relaxed);   // no line: off
+#endif
   s.apply_shadow = true;
   s.force_build = true;
   s.session.state = text;

@@ -406,10 +406,11 @@ const char* const kStateMagic1 = "horde-engine-preview 1";
 const char* const kStateMagic2 = "horde-engine-preview 2";
 const char* const kStateMagic3 = "horde-engine-preview 3";
 const char* const kStateMagic4 = "horde-engine-preview 4";
+const char* const kStateMagic5 = "horde-engine-preview 5";
 
 std::string write_state(const SavedState& s) {
   // Version 2 whenever the morph holds nothing a load wouldn't rebuild: an untouched patch's chunk is unchanged.
-  std::string text = std::string(s.morph.empty() ? kStateMagic2 : kStateMagic4) + "\n";
+  std::string text = std::string(!s.filter.is_default() ? kStateMagic5 : s.morph.empty() ? kStateMagic2 : kStateMagic4) + "\n";
   text += "preset " + std::to_string(s.preset) + "\n";
   for (const auto& [id, v] : s.values) {
     text += std::to_string(id) + ' ';
@@ -417,6 +418,7 @@ std::string write_state(const SavedState& s) {
     text += '\n';
   }
   morph::write_lines(s.morph, text);
+  filter::write_line(s.filter, text);
   return text;
 }
 
@@ -424,7 +426,7 @@ bool read_state(std::string_view text, SavedState& out) {
   const std::size_t first = text.find('\n');
   const std::string_view magic = text.substr(0, first);
   // No promise across builds: an unknown chunk leaves the default.
-  if (magic != kStateMagic1 && magic != kStateMagic2 && magic != kStateMagic3 && magic != kStateMagic4) return false;
+  if (magic != kStateMagic1 && magic != kStateMagic2 && magic != kStateMagic3 && magic != kStateMagic4 && magic != kStateMagic5) return false;
   SavedState s;
   std::size_t at = first;
   while (at != std::string_view::npos && at + 1 < text.size()) {
@@ -433,7 +435,8 @@ bool read_state(std::string_view text, SavedState& out) {
     int n = 0;
     unsigned id = 0;
     double v = 0;
-    if (morph::read_line(line, s.morph)) {}   // first: "morph corner 1 4097 0.5" would otherwise not read as a row only by luck
+    if (filter::read_line(line, s.filter)) {}
+    else if (morph::read_line(line, s.morph)) {}   // first: "morph corner 1 4097 0.5" would otherwise not read as a row only by luck
     else if (std::sscanf(line.c_str(), "preset %d", &n) == 1) s.preset = n;
     else if (std::sscanf(line.c_str(), "voices %d", &n) == 1) {}   // the retired Voices limit: read, ignored (no `continue`: `at` must move)
     else if (std::sscanf(line.c_str(), "%u %lf", &id, &v) == 2 && std::isfinite(v)) s.values.emplace_back(id, v);
