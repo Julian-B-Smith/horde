@@ -1018,6 +1018,24 @@
       "value": "1.0"
     },
     {
+      "approved": "the human, 2026-11-07, by poll on B648: Approve",
+      "file": "tools/quadrant_cost_bench.cpp",
+      "governs": "named tolerance constant `EPS_LOG`",
+      "id": "tools/quadrant_cost_bench.cpp::EPS_LOG",
+      "locator": "(?<![\\w])EPS_LOG(?:\\s*:\\s*[\\w\\[\\], .]+?)?\\s*=(?!=)\\s*([-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)(?:\\s*[-+*/]\\s*\\(?\\s*[-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)\\)?)*)(?=\\s*(?:[;,)\\]}]|$))",
+      "ref": "unattributed",
+      "value": "1e-4f"
+    },
+    {
+      "approved": "the human, 2026-11-07, by poll on the B648 follow-up: Approve",
+      "file": "tools/quadrant_cost_bench.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/quadrant_cost_bench.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": ">1e-9f | >1e-6f | >1e-9f | >15.848932f | >1.f | >=1.f | >=1.f | >=1.f | >=1.f | <1e-4 | <1e-5 | <1e-5 | >1e-4 | <=1.0 | >1.0 | <1e-5 | >1e-5 | <1e-5 | >1e-5 | <1e-3 | <1e-4 | <=1.0 | >0.01"
+    },
+    {
       "approved": "baseline 2026-10-08",
       "file": "tools/renderer_bench.cpp",
       "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
