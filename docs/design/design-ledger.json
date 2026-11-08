@@ -8473,6 +8473,10 @@
    "reason": "The wavetable build's process, scope and budget, and ADR-377 A3 (corner tables blend in 1.0); the page's corner-table controls are the GUI session's once the build reaches the shell (the B650 lab is a bench, not the shell)."
   },
   {
+   "adr": "ADR-388",
+   "reason": "Engine, state and budget rulings for the wavetable integration (blade baking, the retired class, osc 3's block, the switch pick); hidden retired rows and a load report are page matters the GUI session takes from B656's handover."
+  },
+  {
    "adr": "ADR-386",
    "reason": "A CANDIDATE generator reference and the three-oscillator plan for the wavetable build; no design element until a ruling ports them (a Tables tab in Random would then be the GUI session's)."
   }
