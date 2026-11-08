@@ -775,9 +775,10 @@ function morphBench() {
     crossCard = card('Across the pad', 'HEARD', [cross]), blendCard = card('Blend map', 'WAYPOINTS', [blendHost]);
   const root = h('div', { class: 'mw', id: 'morphBench' },
     h('div', { class: 'mw-top' }, h('div', { class: 'mw-left' }, pad, barBanner, barScale, barLock, blendNote),
-      h('div', { class: 'mw-right' }, card('Selected row', 'CORNERS', [modeHost, insp]), crossCard, blendCard)),
-    h('div', { class: 'mw-field' }, card('Find', 'FIELD', [find]), grid));
-  mw = { root, crossCard, mounted: false, open: false, mount() {
+      h('div', { class: 'mw-right' }, card('Selected row', 'CORNERS', [modeHost, insp]), crossCard)),
+    h('div', { class: 'mw-field' }, card('Find', 'FIELD', [find]), grid),
+    blendCard);   // GUI-61 r1 (the human): Find and the Morph field come first, since they are what you spend time with; the Blend map follows them
+  mw = { root, crossCard, blendCard, mounted: false, open: false, mount() {
     if (this.mounted) return; this.mounted = true;
     const M = H.Morph.state(S), E = H.Morph.engine, add0 = S.add;
     M.mode = LAWS[dev.morphSettings().law];   // the master's state starts in 'blend'; D.2's law (Quantum by default) is the truth, before anything is drawn from it
@@ -798,7 +799,7 @@ function morphBench() {
     S.add = function (v) { const r = v.render; if (r) v.render = function () { if (page === 'morph') r.apply(v, arguments); }; return add0.call(S, v); };
     try {
       H.XYPad(pad, S, { size: 320, census: true, relative: true });
-      H.QuantumPad(pad, S);
+      H.QuantumPad(pad, S, { jumps: true });   // GUI-61 r2: a click on the Morph page's pad puts the puck there (a boundary is still dragged)
       H.QuantumBanner(barBanner, S); H.MorphScaleBar(barScale, S); H.LockBar(barLock, S);
       H.MorphInspector(insp, S);
       this.mode = H.MorphMode(modeHost, { read: () => { const k = S.selected, r = k && ROW[k]; return r && r.class !== 'D' ? keyModeState(k) : null; }, onMode: m => { setKeyMode(S.selected, m); this.mode.render(); }, onCount: n => { dev.setCount(S.selected, n); S.say(ROW[S.selected].label + ': count ' + (n || 'as the morph')); this.mode.render(); } });
@@ -820,7 +821,7 @@ function morphBench() {
       blendNote.hidden = !held; blendCard.style.display = ok ? '' : 'none'; crossCard.style.display = ok || !r || !S.params[k] ? 'none' : ''; pad.classList.toggle('bm-on', ok);
       if (!ok) { if (bm) { bm.destroy(); bm = this.bm = null; blendHost.replaceChildren(); } return; }
       const row = bmRow(k, r), sig = k + '|' + row.corners.join() + '|' + JSON.stringify(row.pins), b = dev.blendSettings();
-      if (!bm) { bmSig = sig; const box = h('div'); blendHost.replaceChildren(box); bm = this.bm = H.BlendMaps(box, { padHost: pad, row, laws: ['tps', 'tind'], law: b.law, clamp: b.clamp, onChange: e => {
+      if (!bm) { bmSig = sig; const box = h('div'); blendHost.replaceChildren(box); bm = this.bm = H.BlendMaps(box, { padHost: pad, row, laws: ['tps', 'tind'], law: b.law, clamp: b.clamp, onPad: (x, y) => { S.pad.x = x; S.pad.y = y; }, onChange: e => {
         const key = S.selected; dev.setBlendSettings(e.law, e.clamp);
         if (e.type !== 'select' && dev.setPins(key, e.pins, 'Waypoints: ' + ROW[key].label)) bmSig = key + '|' + [0, 1, 2, 3].map(i => dev.corner(key, i)).join() + '|' + JSON.stringify(dev.pins(key));
       } }); return; }
@@ -2340,6 +2341,24 @@ CLOCK.checking = true;
     dev.setMorphLaw(0, 'self-check'); tick(); const blend = says(); dev.setMorphLaw(1, 'self-check'); tick(); const quantum = says();
     dev.setMorphLaw(law0, 'self-check'); tick(); while (dev.history().past.length > keep) dev.undo(); dev.clearRedo(); tick(); selectPage(pg0);
     line(blend === 'blend' && quantum === 'quantum', 'The Morph banner follows D.2\u2019s law (the human\u2019s build 9 report): it says ' + blend + ' after the law is set to Blend and ' + quantum + ' after Quantum (control: both directions).'); }
+  // 4b3d. GUI-61 r1, r2 (the human): the Blend map follows Find and the Morph field; a click on the Morph page's pad puts the puck there, with or
+  // without the Blend map; Option-click, or ADD WAYPOINT and a click, drops a waypoint and leaves the puck; a double-click drops none. The controls:
+  // the Selected row card still precedes the field (the order is read), and each waypoint gesture's count is read against the plain click's, which adds none.
+  { const pg0 = page, sel0 = S.selected, x0 = S.pad.x, y0 = S.pad.y, keep = dev.history().past.length, law0 = dev.morphSettings().law, tick = () => { for (const v of views) if (v.page === page || v.page === '*') v.update(); };
+    selectPage('morph'); mw.mount(); const fol = (a, b) => !!a && !!b && !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING), field = mw.root.querySelector('.mw-field'), selCard = mw.root.querySelector('.mw-right .hd-card');
+    const order = fol(field, mw.blendCard) && fol(selCard, field), pad = $('morphPad');
+    const poke = (el, fx, fy, o = {}) => { const r = el.getBoundingClientRect(), x = r.left + fx * r.width, y = r.top + fy * r.height, ev = t => new PointerEvent(t, Object.assign({ clientX: x, clientY: y, button: 0, buttons: t === 'pointerup' ? 0 : 1, pointerId: 7, bubbles: true }, o)); el.dispatchEvent(ev('pointerdown')); el.dispatchEvent(ev('pointerup')); };
+    const near = (x, y) => Math.abs(S.pad.x - x) < .02 && Math.abs(S.pad.y - y) < .02;
+    S.selected = null; tick(); const layer = pad.querySelector('.hm-qp-layer'); poke(layer, .25, .7); const jumpPlain = near(.25, .7);
+    dev.setMorphLaw(0, 'self-check'); const k = Object.keys(S.params).find(x => ROW[x] && ROW[x].class === 'M' && ROW[x].law !== 'step' && dev.mode(x) === 'follow' && !dev.pins(x).length); S.selected = k; tick();
+    const cv = pad.querySelector('.bm-layer canvas'), n0 = dev.pins(k).length; poke(cv, .3, .35); const jumpMap = near(.3, .35), n1 = dev.pins(k).length;
+    poke(cv, .62, .42, { altKey: true }); const n2 = dev.pins(k).length, heldAlt = near(.3, .35);
+    const add = [...$('morphBlend').querySelectorAll('button')].find(b => b.textContent.trim() === 'Add waypoint'); add.click(); const armedOn = add.getAttribute('aria-pressed') === 'true';
+    poke(cv, .42, .68); const n3 = dev.pins(k).length, heldArm = near(.3, .35), disarmed = add.getAttribute('aria-pressed') === 'false';
+    const r = cv.getBoundingClientRect(); cv.dispatchEvent(new MouseEvent('dblclick', { clientX: r.left + .7 * r.width, clientY: r.top + .2 * r.height, bubbles: true })); const n4 = dev.pins(k).length;
+    while (dev.history().past.length > keep) dev.undo(); dev.clearRedo(); if (dev.morphSettings().law !== law0) { dev.setMorphLaw(law0, 'self-check'); while (dev.history().past.length > keep) dev.undo(); dev.clearRedo(); }
+    S.selected = sel0; S.pad.x = x0; S.pad.y = y0; tick(); selectPage(pg0);
+    line(order && !!layer && jumpPlain && !!cv && jumpMap && n1 === n0 && n2 === n0 + 1 && heldAlt && armedOn && n3 === n0 + 2 && heldArm && disarmed && n4 === n3, 'Morph page pad (GUI-61): the Blend map follows Find and the Morph field' + (order ? '' : ' (NOT)') + '; a click moves the puck ' + (jumpPlain ? 'without' : 'NOT without') + ' the Blend map and ' + (jumpMap ? 'on it' : 'NOT on it') + ', adding ' + (n1 - n0) + ' waypoints (control); Option-click added ' + (n2 - n1) + ', ADD WAYPOINT and a click ' + (n3 - n2) + (disarmed ? ', then disarmed' : ', and stayed ARMED') + ', neither moving the puck; a double-click added ' + (n4 - n3) + '.'); }
   // 4b4. GUI-28, MO-11 to MO-13: a key's mode. Controls: Follow still blends, re-picking makes no step, a locked corner refuses Exempt whole, and undo takes the mark off.
   { const pg0 = page, keep = dev.history().past.length; setMorphOn(true); dev.setMorph({ x: .3, y: .3 }); dev.scatter(SEED); selectPage('morph'); mw.mount();
     const lawKept = keyModeState(dev.params().find(x => x.class === 'M').key).countActs;   // D.2 defaults to Quantum, where a key's count can't act
@@ -2725,11 +2744,12 @@ CLOCK.checking = true;
     S.selected = keyC; mw.blend(); const lawNote = mapOut();
     dev.setMorphLaw(0); M.mode = 'blend'; mw.blend(); const shown = mapIn();
     S.selected = keyS; mw.blend(); const snapBlend = mapOut(); S.selected = keyC; mw.blend(); const backIn = mapIn();
-    const puckTo = (() => { const pk = document.querySelector('#morphPad .puck'), lay = document.querySelector('#morphPad > .bm-layer'), x1 = S.pad.x, b = pk.getBoundingClientRect(), o = { bubbles: true, clientX: b.left + b.width / 2, clientY: b.top + b.height / 2, pointerId: 9, button: 0 }; lay.querySelector('canvas').dispatchEvent(new PointerEvent('pointerdown', Object.assign({}, o, { clientX: o.clientX + 40 }))); lay.querySelector('canvas').dispatchEvent(new PointerEvent('pointerup', Object.assign({}, o, { clientX: o.clientX + 40 }))); const still = S.pad.x === x1; pk.dispatchEvent(new PointerEvent('pointerdown', o)); pk.dispatchEvent(new PointerEvent('pointermove', Object.assign({}, o, { clientX: o.clientX + 30 }))); pk.dispatchEvent(new PointerEvent('pointerup', Object.assign({}, o, { clientX: o.clientX + 30 }))); const went = S.pad.x !== x1; S.pad.x = x1; return still && went; })();
+    const puckTo = (() => { const pk = document.querySelector('#morphPad .puck'), lay = document.querySelector('#morphPad > .bm-layer'), x1 = S.pad.x, b = pk.getBoundingClientRect(), o = { bubbles: true, clientX: b.left + b.width / 2, clientY: b.top + b.height / 2, pointerId: 9, button: 0 }; lay.querySelector('canvas').dispatchEvent(new PointerEvent('pointerdown', Object.assign({}, o, { clientX: o.clientX + 40 }))); lay.querySelector('canvas').dispatchEvent(new PointerEvent('pointerup', Object.assign({}, o, { clientX: o.clientX + 40 }))); const jumped = S.pad.x > x1 + .01; S.pad.x = x1; pk.dispatchEvent(new PointerEvent('pointerdown', o)); pk.dispatchEvent(new PointerEvent('pointermove', Object.assign({}, o, { clientX: o.clientX + 30 }))); pk.dispatchEvent(new PointerEvent('pointerup', Object.assign({}, o, { clientX: o.clientX + 30 }))); const went = S.pad.x !== x1; S.pad.x = x1; return jumped && went; })();   // GUI-61 r2 reversed GUI-21's "an empty click moves nothing": a click on the map now moves the puck there
     // GUI-22: a press anywhere on this page keeps the row, so the map stays up to be used. Control: the same press on another page clears it, which is GUI-13's own check.
     const pressAt = t => { const q = t.getBoundingClientRect(), o = { bubbles: true, cancelable: true, button: 0, pointerId: 21, clientX: q.left + 2, clientY: q.top + 2 }; t.dispatchEvent(new PointerEvent('pointerdown', o)); t.dispatchEvent(new PointerEvent('pointerup', o)); };
     const lawPill = $('morphBlend').querySelector('.hd-pill'); [lawPill, $('morphBlend'), $('pages')].forEach(pressAt); mw.blend(); const keepsRow = S.selected === keyC && mapIn();
-    const addPin = [...$('morphBlend').querySelectorAll('button')].find(b => /Add pin/.test(b.textContent)), past2 = dev.history().past.length; if (addPin) addPin.click();
+    const addPin = [...$('morphBlend').querySelectorAll('button')].find(b => /Add waypoint/.test(b.textContent)), past2 = dev.history().past.length;
+    if (addPin) { addPin.click(); const c2 = document.querySelector('#morphPad > .bm-layer canvas'), q2 = c2.getBoundingClientRect(), o2 = { bubbles: true, button: 0, pointerId: 23, clientX: q2.left + .5 * q2.width, clientY: q2.top + .5 * q2.height }; c2.dispatchEvent(new PointerEvent('pointerdown', o2)); c2.dispatchEvent(new PointerEvent('pointerup', o2)); }   // GUI-61 r2: the button arms, the click drops
     const pinned = dev.pins(keyC).length === 1 && mw.bm.row().pins.length === 1, pinStep = dev.history().past.length === past2 + 1; dev.undo(); mw.blend(); const pinGone = !dev.pins(keyC).length && !mw.bm.row().pins.length; dev.clearRedo();
     // Morph off: the audible corner is what's heard, wherever the puck is, and the frozen corners refuse.
     dev.setMorph({ on: false }); const heardOff = H.Morph.hear(S, S.params[keyC]), offOk = heardOff.owner === dev.morph().audible, refused = !S.writable(S.params[keyC], (dev.morph().audible + 1) % 4); dev.setMorph({ on: true });

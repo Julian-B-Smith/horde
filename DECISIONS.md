@@ -12407,6 +12407,49 @@ The LCD's full custom-character budget wasn't raised with the human. If another 
 
 **FX device (ADR-254).** None: the FX device has no morph pad.
 
+## GUI-61 — RULED by the human: the Morph page's Blend map below the field; its pad jumps to a click; Option-click drops a waypoint; no text selected while dragging (GB36; 2026-11-07)
+
+**The human, 2026-11-07:**
+- "I think the blend map section should go below the 'find' and 'morph field' sections since they are what users will likely want to see first and spend more time with."
+- "the morph grid on the morph page should have the selector jump to where you click (unless you're clicking and dragging a waypoint), and instead of double clicking to drop a waypoint, it should be an option+click (and maybe there can be an 'add waypoint' button that you click, and then the next click on the grid drops one)".
+- "when I drag past the edges of the XY, it highlights text in the surrounding boxes. Can we prevent this? … I think it happens when I overshoot boxes while dragging knobs sometimes too."
+- Asked whether the jump holds only on the Blend map or on the Morph page's pad at all times, the human answered: "Morph page pad, always".
+
+**Rulings.**
+1. **The Blend map card follows Find and the Morph field** on the Morph page. Selected row and Across the pad stay beside the pad.
+2. **The Morph page's pad.**
+   - A click on empty pad puts the puck there, and the drag carries it. This holds with or without the Blend map, under every law.
+   - A drag that starts on a waypoint, or on a Quantum boundary, still moves that instead.
+   - **Option-click** (alt) on empty pad drops a waypoint at the value the law already gives there.
+   - **ADD WAYPOINT** arms the next click to do the same; a second press disarms.
+   - A double-click no longer drops one. Two clicks are two puck moves.
+   - The pads on other pages keep their rule: grab the puck to move it.
+3. **No text is selected while a drag holds the pointer**, anywhere on the page: a knob, a pad, a fader or a boundary.
+
+**This supersedes**, on the Morph page only, QuantumPad's B269 rule "a click on empty pad moves nothing", and GUI-21's empty click on the Blend map.
+
+**Where it lives.** Master `1794086465-fbf9`:
+- QuantumPad's `jumps` option;
+- BlendMaps' `onPad`, Option-click and armed ADD WAYPOINT (renamed from "Add pin", and "Delete waypoint" with it);
+- the Session's capture-held `hd-nosel` and its CSS.
+
+The layout is the shell's.
+
+**Tests.**
+- **Self-check 4b3d:** the order, both jumps, Option-click, the armed click, and no double-click drop.
+  - A plant of the old layout and no jump read NOT on both.
+- GUI-21's check now expects the map's empty click to move the puck. That is the ruling, not a weaker test.
+- **`gui3_browser_check` drags a knob and the Morph pad onto a paragraph with a real mouse.**
+  - Headless Chrome can't show the bug: its pointer capture already stops those selections, with or without the guard, and the plug-in's WebKit is what selects.
+  - So the check holds the mechanism: the page is unselectable mid-drag and selectable after.
+  - A drag across the paragraph is the control.
+  - A plant without the guard turned both drags red.
+  - The plug-in itself is checked by the human's hands.
+
+**Engine impact.** None: these change what a gesture does on the page, not what is sent, saved or undone. A puck move was already the position.
+
+**FX device (ADR-254).** Ruling 3 serves it as it serves every page. Rulings 1 and 2 are the Morph page's, and it has none.
+
 ## ADR-365 — RULED by the human: the 8 Hz blocker for FM free in pitch FM; item 7.8's table remade; spec round 58 (B621, B623; 2026-11-04)
 
 **Context.** FM free in pitch FM runs an accumulator that never restarts, while each of C.16's readings starts it at 0, so the estimate cannot see its mean and BL-19 cannot hold by the law alone (Q-TA-71: engine-free, 95 of its 144 one-member cases over 0.003, up to 0.046). ADR-363 sent this to a scratch trial of C.16's existing blocker, with clips for the human. Separately, item 7.8's reference R2 places FM free's modulator half a cycle from round 56's start, and 7.8 plays before its settings settle (Q-TA-77).
