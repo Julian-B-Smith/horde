@@ -1,0 +1,1432 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Wavetable Lab</title>
+<meta name="description" content="horde's wavetable member, playable: four corner tables on the morph pad, two blend laws, a per-voice frame, the swarm's unison and coupling, sync, warp and PM, capture and recipes. B650, for settling surface details before the C++ build.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;800&family=Roboto+Mono:wght@400;600&display=swap">
+<!--
+  Origin: horde lead session, 2026-11-07, ROADMAP B650 (the human: "a JS lab demonstrating the full
+  functionality and design of the wavetable system so we can work through superficial details before
+  the deeper build"). Behaviour follows specs/SPEC-WAVETABLE.md and docs/wavetable/CONTRACT.md as drafted
+  on branch b649-wavetable-spec (279d253e) and the human's proof of concept
+  reference/quadrant/quadrant-wavetable.html (ADR-384, ADR-385). Colours and type are read from
+  docs/design-system/master/tokens.json (copied, read-only). This is a lab, not the GUI 3 shell.
+
+  Threads, and why:
+    main     UI, factory/capture/random table generation (spectra), morph motion, visuals.
+    worker×2 one per oscillator: builds the published level sets at control rate (WT-14) so a
+             moving pad never stalls the page. Linear = strategy (b) from corner level sets
+             (WT-23), Spectral log = one blended frame (WT-22). Posts each set straight to the
+             worklet over a MessageChannel, transferring the buffer.
+    worklet  the voices: swarm members reading the published set. It never allocates in
+             process(); retired sets go back to their worker through the port handler.
+  Determinism: no Math.random anywhere. mulberry32 streams with visible seeds; morph motion
+  advances on the audio clock (ctx.currentTime), not the wall clock.
+-->
+<style>
+:root{
+  /* tokens.json (horde design master), light = "Cream" */
+  --bg:#f2ede2; --panel:#fcfaf4; --well:#ffffff; --well-alt:#e9e3d4; --ink:#191521; --hair:#e5dfd0;
+  --div:#d8d1c0; --t2:#494356; --hint:#6e6878; --dis:#b6afa0; --value:#f5169c; --value-ink:#d6006b;
+  --physics:#6431f0; --meter:#00d5c8; --meter-ink:#007a73; --marker:#8a6a00; --celebrate:#4e7a00;
+  --caution:#f5a300; --caution-bg:#fbe9bd; --caution-tx:#6d570b; --alarm:#c2261a; --ghost:#c9c2ff;
+  --cA:#ffd702; --cB:#ff2e88; --cC:#00d5c8; --cD:#a6f219;
+  --cA-tx:#8a6a00; --cB-tx:#d6006b; --cC-tx:#007a73; --cD-tx:#4e7a00;
+  --cA-tint:#fff9db; --cB-tint:#ffe3f0; --cC-tint:#d9f6f3; --cD-tint:#eefadd;
+  --on-corner:#191521;
+  --sans:Archivo,"Helvetica Neue",Arial,sans-serif;
+  --mono:"Roboto Mono",ui-monospace,Menlo,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#151220; --panel:#1f1b2e; --well:#0e0c16; --well-alt:#2c2740; --ink:#efe9fa; --hair:#312b47;
+  --div:#3b3455; --t2:#bdb4d4; --hint:#8a82a3; --dis:#514a6b; --value:#ff3dad; --value-ink:#ff3dad;
+  --physics:#a07cff; --meter:#2df2e2; --meter-ink:#2df2e2; --marker:#ffe04d; --celebrate:#c2f53e;
+  --caution:#ffb627; --caution-bg:#4a3a12; --caution-tx:#ffd98a; --alarm:#ff5a4d; --ghost:#5b4e8f;
+  --cA-tx:#ffe566; --cB-tx:#ff6fae; --cC-tx:#4dede3; --cD-tx:#c6f86a;
+  --cA-tint:#3a3229; --cB-tint:#3a1d39; --cC-tint:#1b3141; --cD-tint:#2f352c; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#151220; --panel:#1f1b2e; --well:#0e0c16; --well-alt:#2c2740; --ink:#efe9fa; --hair:#312b47;
+  --div:#3b3455; --t2:#bdb4d4; --hint:#8a82a3; --dis:#514a6b; --value:#ff3dad; --value-ink:#ff3dad;
+  --physics:#a07cff; --meter:#2df2e2; --meter-ink:#2df2e2; --marker:#ffe04d; --celebrate:#c2f53e;
+  --caution:#ffb627; --caution-bg:#4a3a12; --caution-tx:#ffd98a; --alarm:#ff5a4d; --ghost:#5b4e8f;
+  --cA-tx:#ffe566; --cB-tx:#ff6fae; --cC-tx:#4dede3; --cD-tx:#c6f86a;
+  --cA-tint:#3a3229; --cB-tint:#3a1d39; --cC-tint:#1b3141; --cD-tint:#2f352c; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:13px/1.45 var(--sans)}
+.wrap{max-width:1360px;margin:0 auto;padding:14px 16px 48px;display:flex;flex-direction:column;gap:14px}
+h1{font:800 22px/1 var(--sans);letter-spacing:-.01em;margin:0}
+h2{font:800 11px/1 var(--sans);letter-spacing:.1em;text-transform:uppercase;margin:0}
+h3{font:700 8.5px/14px var(--sans);letter-spacing:.12em;text-transform:uppercase;color:var(--hint);margin:6px 0 2px}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.hint{color:var(--hint);font:400 11px/1.4 var(--mono)}
+.t2{color:var(--t2)}
+header{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;justify-content:space-between}
+.hgroup{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.sub{color:var(--t2);max-width:78ch;margin:4px 0 0}
+.card{background:var(--panel);border:1.5px solid var(--ink);border-radius:10px;padding:10px 12px;min-width:0}
+.card>h2{margin-bottom:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+button,select,input,textarea{font:inherit;color:inherit}
+.btn{border:1.5px solid var(--ink);background:var(--panel);border-radius:999px;padding:5px 12px;cursor:pointer;font:600 11px/1.2 var(--mono);letter-spacing:.03em;white-space:nowrap}
+.btn:hover{background:var(--well-alt)}
+.btn[aria-pressed="true"]{background:var(--ink);color:var(--panel)}
+.btn.big{padding:9px 18px;font-size:13px;background:var(--value);color:#fff;border-color:var(--value)}
+.btn.big.on{background:var(--panel);color:var(--celebrate);border-color:var(--celebrate)}
+.btn.small{padding:2px 8px;font-size:10.5px}
+.btn:disabled{opacity:.45;cursor:default}
+:focus-visible{outline:2px solid var(--physics);outline-offset:2px}
+select{background:var(--well);border:1.5px solid var(--ink);border-radius:6px;padding:3px 5px;min-width:0;max-width:100%}
+.pill{display:inline-flex;align-items:center;gap:6px;border:1.5px solid var(--ink);border-radius:999px;padding:3px 10px;font:600 11px/1.2 var(--mono);background:var(--panel)}
+.pill .dot{width:8px;height:8px;border-radius:50%;background:var(--dis)}
+.pill.busy .dot{background:var(--caution);animation:pulse .7s infinite alternate}
+.pill.ok .dot{background:var(--celebrate)}
+.pill.bad .dot{background:var(--alarm)}
+@keyframes pulse{to{opacity:.25}}
+@media (prefers-reduced-motion:reduce){.pill.busy .dot{animation:none}}
+.banner{background:var(--caution-bg);color:var(--caution-tx);border-left:4px solid var(--caution);border-radius:6px;padding:6px 10px;font-size:12px}
+.banner[hidden]{display:none}
+
+/* stage: corners flank the pad (A top-left, B top-right, C bottom-left, D bottom-right; y = 0 at the top) */
+.stage{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,400px) minmax(0,1fr);gap:12px}
+.col{display:flex;flex-direction:column;gap:12px;min-width:0}
+.corner{display:flex;flex-direction:column;gap:6px;flex:1}
+.corner .ch{display:flex;align-items:center;gap:8px}
+.chip{width:26px;height:26px;border-radius:6px;border:1.5px solid var(--ink);display:grid;place-items:center;font:800 13px var(--sans);color:var(--on-corner);flex:none}
+.wbar{flex:1;height:6px;background:var(--well-alt);border-radius:3px;overflow:hidden}
+.wbar i{display:block;height:100%;width:0}
+.orow{display:grid;grid-template-columns:38px minmax(0,1fr);gap:6px;align-items:center}
+.orow .ol{font:700 9px/1 var(--mono);color:var(--t2);letter-spacing:.06em}
+.orow.off{opacity:.45}
+canvas{display:block;max-width:100%}
+.stack{width:100%;aspect-ratio:16/7;background:var(--well);border:1px solid var(--hair);border-radius:6px}
+.padbox{display:flex;flex-direction:column;gap:8px}
+#pad{width:100%;aspect-ratio:1;border-radius:8px;border:1.5px solid var(--ink);touch-action:none;cursor:crosshair;background:var(--well)}
+.padfoot{display:flex;flex-wrap:wrap;gap:6px 12px;justify-content:space-between;align-items:center}
+
+/* output strip */
+.outgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr) minmax(0,1fr) minmax(0,1fr);gap:12px}
+.viz{width:100%;height:150px;background:var(--well);border:1px solid var(--hair);border-radius:6px}
+.vh{display:flex;justify-content:space-between;align-items:baseline;gap:6px;margin-bottom:4px;flex-wrap:wrap}
+
+/* control panels */
+.panels{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.panels3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:2px 16px}
+.ctl{display:grid;grid-template-columns:minmax(78px,auto) minmax(0,1fr) 9.5ch;align-items:center;gap:6px;padding:3px 0;border-radius:4px}
+.ctl label,.ctl .cl{font:500 10.5px/1.15 var(--sans);color:var(--t2)}
+.ctl .cv{font:400 10.5px var(--mono);text-align:right;white-space:nowrap}
+.ctl input[type=range]{width:100%;accent-color:var(--ink);margin:0}
+.ctl.inert{opacity:.42}
+.ctl.wide{grid-template-columns:minmax(78px,auto) minmax(0,1fr);grid-column:1/-1}
+.seg{display:flex;flex-wrap:wrap;gap:4px}
+.seg .btn{padding:3px 9px;font-size:10.5px}
+.note{font-size:11px;color:var(--t2);margin:4px 0 0}
+.inertwhy{font:400 10px/1.3 var(--mono);color:var(--hint);grid-column:1/-1;margin-top:-2px}
+.oschead{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.oschead .btn{margin-left:auto}
+
+/* keyboard */
+.kb{position:relative;height:96px;user-select:none;touch-action:none;margin-top:6px}
+.kb .w,.kb .b{position:absolute;top:0;border:1.5px solid #191521;border-radius:0 0 5px 5px;cursor:pointer}
+.kb .w{background:#fcfaf4;height:100%;z-index:1}
+.kb .b{background:#191521;height:60%;z-index:2}
+.kb .down{background:var(--value)!important}
+.kb .lab{position:absolute;bottom:3px;left:0;right:0;text-align:center;font:400 9px var(--mono);color:#6e6878;pointer-events:none}
+
+/* meter */
+.meter{display:flex;flex-direction:column;gap:5px}
+.mrow{display:grid;grid-template-columns:62px minmax(0,1fr) 8ch;gap:8px;align-items:center}
+.mbar{height:10px;background:var(--well-alt);border-radius:3px;position:relative;overflow:hidden}
+.mbar i{position:absolute;left:0;top:0;bottom:0;background:var(--meter)}
+.mbar b{position:absolute;top:0;bottom:0;width:2px;background:var(--ink)}
+.clip{font:700 10px var(--mono);padding:1px 6px;border-radius:4px;border:1.5px solid var(--dis);color:var(--dis);cursor:pointer;background:none}
+.clip.lit{background:var(--alarm);border-color:var(--alarm);color:#fff}
+
+/* library */
+.libgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.lt{background:var(--well);border:1px solid var(--div);border-radius:8px;padding:8px;display:flex;flex-direction:column;gap:5px;min-width:0}
+.lt.fresh{border:1.5px solid var(--value)}
+.lt.refused{border:1.5px solid var(--alarm)}
+.lt canvas{width:100%;aspect-ratio:16/6}
+.lt .nm{font-weight:600;overflow-wrap:anywhere}
+.lt pre{margin:0;font:400 9.5px/1.35 var(--mono);color:var(--t2);white-space:pre-wrap;overflow-wrap:anywhere;max-height:7.5em;overflow:auto;background:var(--panel);border-radius:4px;padding:4px 6px}
+.lt .acts{display:flex;flex-wrap:wrap;gap:3px;align-items:center}
+.lt .gate{font:400 10px var(--mono)}
+.gate.ok{color:var(--celebrate)} .gate.no{color:var(--alarm)}
+.formrow{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.formrow input[type=text],.formrow input[type=number]{background:var(--well);border:1.5px solid var(--ink);border-radius:6px;padding:4px 7px;min-width:0}
+.msg{font:400 11px var(--mono);min-height:1.4em}
+.msg.no{color:var(--alarm)} .msg.ok{color:var(--celebrate)}
+.standin{border:1.5px dashed var(--caution);background:var(--caution-bg);color:var(--caution-tx);border-radius:6px;padding:5px 8px;font-size:11.5px;margin-bottom:6px}
+
+/* notes */
+.notesgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
+.notesgrid label{display:flex;flex-direction:column;gap:3px;font:600 11px var(--sans)}
+.notesgrid textarea{min-height:64px;resize:vertical;background:var(--well);border:1.5px solid var(--ink);border-radius:6px;padding:6px;font:400 12px/1.4 var(--sans)}
+details summary{cursor:pointer;font:800 11px var(--sans);letter-spacing:.1em;text-transform:uppercase}
+.about p,.about li{max-width:95ch}
+.about ul{margin:4px 0 8px;padding-left:18px}
+.about code{font-family:var(--mono);font-size:11px}
+.limits li{color:var(--caution-tx)}
+
+@media (max-width:1100px){
+  .outgrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .panels3{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:860px){
+  .stage{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .col{display:contents}
+  #cornerA{order:1}#cornerB{order:2}.padbox{order:3;grid-column:1/-1}#cornerC{order:4}#cornerD{order:5}
+  .panels{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:520px){
+  .stage{grid-template-columns:minmax(0,1fr)}
+  .padbox{grid-column:auto}
+  .outgrid{grid-template-columns:minmax(0,1fr)}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>horde · wavetable lab</h1>
+      <p class="sub">The swarm's member waveform, read from four corner tables on the morph pad. Drag the puck, play the keys, and write what should change in the notes at the bottom. B650 · spec draft 279d253e.</p>
+    </div>
+    <div class="hgroup">
+      <span class="pill busy" id="status"><span class="dot"></span><span id="statusText">Building factory tables…</span></span>
+      <button class="btn big" id="startAudio" title="Browsers need one click before a page can make sound. Any key or on-screen key also starts it.">▶ Click to start audio</button>
+      <button class="btn" id="theme" title="Theme: follows the system, or force light (Cream) or dark">Theme: auto</button>
+    </div>
+  </header>
+  <div class="banner" id="audioWarn" hidden></div>
+  <div class="banner" id="loadWarn" hidden></div>
+
+  <section class="stage" aria-label="The four morph corners and the pad">
+    <div class="col">
+      <div class="card corner" id="cornerA"></div>
+      <div class="card corner" id="cornerC"></div>
+    </div>
+    <div class="card padbox">
+      <h2>Morph pad <span class="hint">the pad IS the morph position (WT-50)</span></h2>
+      <canvas id="pad" tabindex="0" aria-label="Morph position. Drag to move; arrow keys nudge." title="morph.x, morph.y · 0..1 each · A top-left, B top-right, C bottom-left, D bottom-right; y = 0 at the top. Only the pad, the host, the global LFOs and the 2-D random move it (MS-29)."></canvas>
+      <div class="padfoot">
+        <span class="num" id="xyRead">x 0.30 · y 0.30</span>
+        <span class="hint" id="heardRead"></span>
+      </div>
+      <div class="hint">Ring: where you put the puck. Dot: where the morph actually sits after the LFO and the 2-D random (both global, MS-29).</div>
+    </div>
+    <div class="col">
+      <div class="card corner" id="cornerB"></div>
+      <div class="card corner" id="cornerD"></div>
+    </div>
+  </section>
+
+  <section class="card" aria-label="What the oscillators are reading">
+    <h2>What it reads <span class="seg" id="vizOsc"></span><span class="hint" id="vizFrame"></span></h2>
+    <div class="outgrid">
+      <div><div class="vh"><span class="hint">Blended cycle (after loudness)</span><span class="num hint" id="cycRead"></span></div><canvas class="viz" id="cyc"></canvas></div>
+      <div><div class="vh"><span class="hint">Harmonics · dB · log n</span><span class="num hint" id="specRead"></span></div><canvas class="viz" id="spec"></canvas></div>
+      <div><div class="vh"><span class="hint">Mip level each sounding voice reads</span><span class="num hint" id="mipRead"></span></div><canvas class="viz" id="mip"></canvas></div>
+      <div><div class="vh"><span class="hint">Member phases (about ψ) · coupling R</span><span class="num hint" id="phRead"></span></div><canvas class="viz" id="phase"></canvas></div>
+    </div>
+  </section>
+
+  <section class="panels" aria-label="The two oscillators">
+    <div class="card" id="osc0panel"></div>
+    <div class="card" id="osc1panel"></div>
+  </section>
+
+  <section class="panels3">
+    <div class="card"><h2>Morph motion <span class="hint">global sources only (MS-29)</span></h2><div id="motionCtl"></div></div>
+    <div class="card"><h2>Envelopes &amp; voice</h2><div id="envCtl"></div></div>
+    <div class="card">
+      <h2>Play</h2>
+      <div class="formrow">
+        <button class="btn" id="holdChord" aria-pressed="false" title="horde's PF-3 chord: keys 48 + 3·(k mod 8), k = 0..7 (C3 D#3 F#3 A3 C4 D#4 F#4 A4), velocity 0.85">Hold chord (PF-3)</button>
+        <button class="btn" id="panic" title="All notes off">All off</button>
+        <span class="hint" id="octRead">oct 0</span>
+      </div>
+      <p class="note">Computer keys: <span class="num">A–K</span> white, <span class="num">W E T Y U</span> black, <span class="num">Z / X</span> octave. Velocity 0.85.</p>
+      <div class="kb" id="kb" aria-label="On-screen keyboard"></div>
+      <h3>Output</h3>
+      <div class="meter">
+        <div class="mrow"><span class="hint">Peak</span><div class="mbar"><i id="mPeak"></i></div><span class="num hint" id="mPeakT">−∞</span></div>
+        <div class="mrow"><span class="hint">RMS</span><div class="mbar"><i id="mRms"></i></div><span class="num hint" id="mRmsT">−∞</span></div>
+        <div class="formrow"><button class="clip" id="clip" title="Latches on any sample over 0 dBFS (OU-1: no clamp, a latch). Click to clear.">CLIP</button><span class="hint" id="loadRead">DSP load —</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panels">
+    <div class="card">
+      <h2>Loudness <span class="hint">WT-16 · no user toggle</span></h2>
+      <p class="note">Each published frame is scaled so its K-weighted RMS (BS.1770 at C3) equals the band-limited ±1 saw's, then held under a peak limit of 2.6, with a +24 dB gain cap. Move the puck and watch the gain work while the level stays put.</p>
+      <canvas class="viz" id="loud" style="height:120px"></canvas>
+      <div class="hint" id="loudRead"></div>
+    </div>
+    <div class="card">
+      <h2>Lab switches <span class="hint">to hear spec choices side by side</span></h2>
+      <div id="labCtl"></div>
+      <div class="hint" id="rebuildRead"></div>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="libTitle">
+    <h2 id="libTitle">Tables, recipes, capture</h2>
+    <div class="panels" style="margin-bottom:10px">
+      <div>
+        <h3>Capture the blend (WT-44)</h3>
+        <div class="formrow">
+          <select id="capOsc" aria-label="Which oscillator's blend"><option value="0">Osc 1</option><option value="1">Osc 2</option></select>
+          <select id="capScope" aria-label="Capture scope"><option value="all">All 16 frames</option><option value="one">This frame only</option></select>
+          <input type="text" id="capName" maxlength="40" placeholder="Name" aria-label="Name for the captured table">
+          <button class="btn" id="capBtn">Capture</button>
+        </div>
+        <div class="msg" id="capMsg"></div>
+        <p class="note">Bakes the heard position (x, y), the law and the frame into a new table that appears in every corner's menu. Captures can be captured again. Bounds: 64 recipes per patch, depth 8, checked at capture and assignment, never at save.</p>
+      </div>
+      <div>
+        <h3>Random table <span class="hint">placeholder</span></h3>
+        <div class="standin">Stand-in for the human's own generator prototype, which plugs into this same recipe slot (generator id <code>random</code>, settings, a 32-bit seed; WT-46). Seeded mulberry32 only.</div>
+        <div id="rndCtl"></div>
+        <div class="formrow" style="margin-top:4px">
+          <label class="hint" for="rndSeed">seed</label><input type="number" id="rndSeed" min="0" max="4294967295" step="1" value="17" style="width:11ch">
+          <button class="btn" id="rndRoll" title="seed + 1, then build">Roll</button>
+          <button class="btn" id="rndAdd">Add to library</button>
+          <canvas id="rndPrev" style="width:180px;height:44px;background:var(--well);border:1px solid var(--hair);border-radius:4px"></canvas>
+        </div>
+        <div class="msg" id="rndMsg"></div>
+      </div>
+    </div>
+    <div class="libgrid" id="lib"></div>
+  </section>
+
+  <section class="card" aria-labelledby="notesTitle">
+    <h2 id="notesTitle">Notes for the lead <span class="hint">kept in this browser; Export sends them back as data</span></h2>
+    <div class="notesgrid" id="notes"></div>
+    <div class="formrow" style="margin-top:8px">
+      <button class="btn" id="exportDl">Export JSON (download)</button>
+      <button class="btn" id="exportCp">Copy JSON</button>
+      <span class="msg" id="exportMsg"></span>
+    </div>
+  </section>
+
+  <section class="card about">
+    <details id="aboutBox">
+      <summary>About this lab, and its limits</summary>
+      <div id="aboutBody"></div>
+    </details>
+  </section>
+</div>
+
+<script>
+"use strict";
+/* =====================================================================================================
+   wtlib — shared by the page, the two table workers and the worklet (injected by toString(), so it must
+   not reference anything outside itself). Spectra layout: a table is 16 frames × 1025 slots (n = 0..1024,
+   DC slot always 0), re/im Float32Array, index f·1025 + n; harmonic n contributes re·cos 2πnφ + im·sin 2πnφ.
+   ===================================================================================================== */
+function wtlib(){
+  const NH = 1024, NF = 16, EPS = 1e-4, G = 3;            // G guard samples each side of a level (6-point read needs 2 before, 3 after)
+  const PEAK = 2.6, GCAP = Math.pow(10, 24/20);           // WT-16 (PROPOSED): peak limit, +24 dB gain cap
+  const C3 = 130.8127826502993;
+  function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+  // ---- radix-2 complex FFT, plans cached per size; works in place on plan.re / plan.im ----
+  const PL = new Map();
+  function plan(N){
+    let p = PL.get(N); if (p) return p;
+    const lg = Math.round(Math.log2(N)), rev = new Uint32Array(N);
+    for (let i = 0; i < N; i++){ let r = 0, x = i; for (let b = 0; b < lg; b++){ r = (r << 1) | (x & 1); x >>= 1; } rev[i] = r; }
+    const cs = new Float64Array(N/2), sn = new Float64Array(N/2);
+    for (let i = 0; i < N/2; i++){ cs[i] = Math.cos(2*Math.PI*i/N); sn[i] = Math.sin(2*Math.PI*i/N); }
+    p = {N, rev, cs, sn, re: new Float64Array(N), im: new Float64Array(N)}; PL.set(N, p); return p;
+  }
+  // sign −1: X[n] = Σ x[k] e^{−2πink/N}; sign +1: the unnormalised inverse.
+  function fft(p, sign){
+    const {N, rev, cs, sn, re, im} = p;
+    for (let i = 0; i < N; i++){ const j = rev[i]; if (j > i){ let t = re[i]; re[i] = re[j]; re[j] = t; t = im[i]; im[i] = im[j]; im[j] = t; } }
+    for (let size = 2; size <= N; size <<= 1){
+      const half = size >> 1, step = N / size;
+      for (let s = 0; s < N; s += size){
+        for (let k = 0; k < half; k++){
+          const wr = cs[k*step], wi = sign*sn[k*step], a = s + k, b = a + half;
+          const xr = re[b]*wr - im[b]*wi, xi = re[b]*wi + im[b]*wr;
+          re[b] = re[a] - xr; im[b] = im[a] - xi; re[a] += xr; im[a] += xi;
+        }
+      }
+    }
+  }
+  // ---- the level layout (WT-4, WT-6): H per level, N = min(8192, max(2048, 16·H)) rounded to a power of 2 ----
+  // sp 0: ρ = 2, one level per octave (built). sp 1: ρ = 2^½ (CONTRACT §7 C1's alternative), duplicates removed.
+  function makeLayout(sp){
+    const H = [];
+    if (sp === 0){ for (let k = 0; k <= 10; k++) H.push(1 << k); }
+    else { let last = 0; for (let k = 0; k <= 20; k++){ const h = Math.floor(Math.pow(2, k/2) + 1e-9); if (h !== last){ H.push(h); last = h; } } }
+    const N = H.map(h => { let n = 2048; while (n < 16*h && n < 8192) n <<= 1; return n; });
+    const off = []; let o = 0; for (let k = 0; k < H.length; k++){ off.push(o); o += N[k] + 2*G; }
+    return {sp, H, N, off, stride: o};
+  }
+  // ---- K-weighting (BS.1770-4's two biquads at 48 kHz), magnitude² at each harmonic of C3 under 20 kHz ----
+  function biq(b, a, f){ const w = 2*Math.PI*f/48000, c1 = Math.cos(w), s1 = Math.sin(w), c2 = Math.cos(2*w), s2 = Math.sin(2*w);
+    const nr = b[0] + b[1]*c1 + b[2]*c2, ni = -(b[1]*s1 + b[2]*s2), dr = a[0] + a[1]*c1 + a[2]*c2, di = -(a[1]*s1 + a[2]*s2);
+    return (nr*nr + ni*ni)/(dr*dr + di*di); }
+  let nK = 0; while ((nK + 1)*C3 < 20000) nK++;
+  const KW = new Float64Array(NH + 1);
+  for (let n = 1; n <= nK; n++){ const f = n*C3;
+    KW[n] = biq([1.53512485958697,-2.69169618940638,1.19839281085285],[1,-1.69065929318241,0.73248077421585], f)
+          * biq([1,-2,1],[1,-1.99004745483398,0.99007225036621], f); }
+  let Eref = 0; for (let n = 1; n <= nK; n++){ const c = 2/(Math.PI*n); Eref += KW[n]*c*c; }   // the ±1 saw's coefficients are 2/(πn)
+  function loudGain(re, im){
+    let E = 0; for (let n = 1; n <= nK; n++) E += KW[n]*(re[n]*re[n] + im[n]*im[n]);
+    let g = E > 0 ? Math.sqrt(Eref/E) : GCAP, capped = false; if (g > GCAP){ g = GCAP; capped = true; }
+    return {g, capped};
+  }
+  function logCache(re, im){ const lg = new Float32Array(re.length); for (let j = 0; j < re.length; j++) lg[j] = Math.log(Math.hypot(re[j], im[j]) + EPS); return lg; }
+  // ---- one blended frame at position p (WT-3, WT-11, WT-12). tabs: pooled distinct corner tables {re,im,lg}; ws their weights.
+  // law 0 Linear: complex lerp between frames, weighted sum. law 1 Spectral log: log-domain frame interpolation (C6 built),
+  // |c| = max(0, exp(Σ w·L) − ε), phase arg(Σ w·c), else the heaviest corner's (the first on a tie).
+  function frameBlend(tabs, ws, law, p, oRe, oIm){
+    const u = 15*Math.min(1, Math.max(0, p)); let i = Math.floor(u); if (i > 14) i = 14; const f = u - i, T = tabs.length;
+    oRe[0] = 0; oIm[0] = 0;
+    for (let n = 1; n <= NH; n++){
+      const ia = i*1025 + n, ib = ia + 1025;
+      let sr = 0, si = 0, Ls = 0, hv = -1, hr = 0, hi = 0;
+      for (let t = 0; t < T; t++){
+        const tb = tabs[t], w = ws[t];
+        const cr = tb.re[ia] + (tb.re[ib] - tb.re[ia])*f, ci = tb.im[ia] + (tb.im[ib] - tb.im[ia])*f;
+        sr += w*cr; si += w*ci;
+        if (law === 1){ Ls += w*((1 - f)*tb.lg[ia] + f*tb.lg[ib]); if (w > hv){ hv = w; hr = cr; hi = ci; } }
+      }
+      if (law === 0){ oRe[n] = sr; oIm[n] = si; continue; }
+      const M = Math.max(0, Math.exp(Ls) - EPS);
+      let m = Math.hypot(sr, si), pr = sr, pi = si;
+      if (m < 1e-6){ pr = hr; pi = hi; m = Math.hypot(hr, hi); }
+      if (m > 0){ oRe[n] = M*pr/m; oIm[n] = M*pi/m; } else { oRe[n] = M; oIm[n] = 0; }
+    }
+  }
+  // ---- every level of one frame (WT-9: all of them, every rebuild), into out at base, guards included.
+  // Two real levels of equal N share one complex inverse FFT: S = A + iB with Hermitian A, B gives a + ib.
+  function synthLevels(re, im, lay, out, base, gain){
+    const L = lay.H.length;
+    for (let k = 0; k < L; ){
+      const N = lay.N[k]; const pair = (k + 1 < L && lay.N[k + 1] === N) ? k + 1 : -1;
+      const p = plan(N), R = p.re, I = p.im; R.fill(0); I.fill(0);
+      const Ha = Math.min(lay.H[k], NH), Hb = pair >= 0 ? Math.min(lay.H[pair], NH) : 0;
+      for (let n = 1; n <= Math.max(Ha, Hb); n++){
+        const ar = n <= Ha ? re[n]/2 : 0, ai = n <= Ha ? -im[n]/2 : 0, br = n <= Hb ? re[n]/2 : 0, bi = n <= Hb ? -im[n]/2 : 0;
+        R[n] += ar - bi; I[n] += ai + br; R[N - n] += ar + bi; I[N - n] += br - ai;
+      }
+      fft(p, 1);
+      const put = (lv, src) => { const o = base + lay.off[lv];
+        for (let j = 0; j < N; j++) out[o + G + j] = src[j]*gain;
+        for (let j = 0; j < G; j++){ out[o + j] = src[N - G + j]*gain; out[o + G + N + j] = src[j]*gain; } };
+      put(k, R); if (pair >= 0) put(pair, I);
+      k = pair >= 0 ? k + 2 : k + 1;
+    }
+  }
+  // one full-band cycle of one frame at N points (previews, peak normalisation)
+  function render(re, im, off, N, H, out){
+    const p = plan(N); p.re.fill(0); p.im.fill(0);
+    for (let n = 1; n <= H; n++){ p.re[n] = re[off + n]; p.im[n] = -im[off + n]; }
+    fft(p, 1); for (let k = 0; k < N; k++) out[k] = p.re[k]; return out;
+  }
+  return {NH, NF, EPS, G, PEAK, GCAP, C3, nK, KW, Eref, mulberry32, plan, fft, makeLayout, loudGain, logCache, frameBlend, synthLevels, render};
+}
+const L = wtlib();
+
+/* =====================================================================================================
+   Worker: one per oscillator. Builds the published set whenever an input changed (WT-14), never otherwise.
+   ===================================================================================================== */
+const WORKER_SRC = `"use strict";
+const L=(${wtlib.toString()})();
+let lay=L.makeLayout(0), port=null, want=null, lastKey="", sched=false, count=0;
+const tabs=new Map(), gram=new Map(), pool=[];
+function take(len){for(let i=0;i<pool.length;i++){if(pool[i].length===len)return pool.splice(i,1)[0];}return new Float32Array(len);}
+function kick(){if(!sched){sched=true;setTimeout(build,0);}}
+onmessage=e=>{const d=e.data;
+  if(d.type==="port"){port=d.port;port.onmessage=ev=>{const m=ev.data;if(m&&m.type==="recycle"&&m.buf){pool.push(m.buf);if(pool.length>6)pool.shift();}};lastKey="";kick();}
+  else if(d.type==="table"){if(!tabs.has(d.id))tabs.set(d.id,{re:d.re,im:d.im,lg:L.logCache(d.re,d.im),lv:null,lvSp:-1});lastKey="";kick();}
+  else if(d.type==="params"){want=d;kick();}
+};
+// corner level sets: every frame's levels for one table, kept while the spacing holds (strategy (a)'s data, used by (b))
+function levelSet(t){if(t.lv&&t.lvSp===lay.sp)return t.lv;const lv=new Float32Array(16*lay.stride);const re=new Float64Array(1025),im=new Float64Array(1025);
+  for(let f=0;f<16;f++){for(let n=1;n<=1024;n++){re[n]=t.re[f*1025+n];im[n]=t.im[f*1025+n];}L.synthLevels(re,im,lay,lv,f*lay.stride,1);}
+  t.lv=lv;t.lvSp=lay.sp;return lv;}
+// K-weighted Gram entries between two tables, per frame: the Linear blend's loudness comes from them exactly (WT-16)
+function gm(a,b){const k=a<b?a+"|"+b:b+"|"+a;let g=gram.get(k);if(g)return g;const A=tabs.get(a),B=tabs.get(b);g=new Float64Array(16);
+  for(let f=0;f<16;f++){let s=0;for(let n=1;n<=L.nK;n++){const j=f*1025+n;s+=L.KW[n]*(A.re[j]*B.re[j]+A.im[j]*B.im[j]);}g[f]=s;}gram.set(k,g);return g;}
+function build(){sched=false;const p=want;if(!p||!port)return;
+  if(p.spacing!==lay.sp)lay=L.makeLayout(p.spacing);
+  const ids=[],ws=[];for(let c=0;c<4;c++){const w=p.w[c];if(!(w>0))continue;const k=ids.indexOf(p.ids[c]);if(k<0){ids.push(p.ids[c]);ws.push(w);}else ws[k]+=w;} // identical recipes pool (WT-53)
+  if(!ids.length){postMessage({type:"skip"});return;}for(const id of ids)if(!tabs.has(id)){postMessage({type:"skip"});return;}
+  const key=JSON.stringify([ids,ws,p.law,p.law===1?p.frame:0,lay.sp]);if(key===lastKey){postMessage({type:"skip"});return;}lastKey=key;  // a static patch rebuilds zero times
+  const t0=performance.now(),S=lay.stride,top=lay.H.length-1,tOff=lay.off[top]+L.G,tN=lay.N[top];
+  let buf,nF,lim=0,cap=0;const gains=new Float32Array(16);
+  if(p.law===0){nF=16;buf=take(16*S);const lvs=ids.map(id=>levelSet(tabs.get(id))),T=lvs.length;
+    const a0=lvs[0],a1=lvs[1]||a0,a2=lvs[2]||a0,a3=lvs[3]||a0,w0=ws[0],w1=ws[1]||0,w2=ws[2]||0,w3=ws[3]||0;
+    for(let f=0;f<16;f++){let E=0;for(let a=0;a<T;a++)for(let b=0;b<T;b++)E+=ws[a]*ws[b]*gm(ids[a],ids[b])[f];
+      let g=E>0?Math.sqrt(L.Eref/E):L.GCAP;if(g>L.GCAP){g=L.GCAP;cap++;}
+      const fb=f*S;let pk=0;for(let k=fb+tOff;k<fb+tOff+tN;k++){const v=Math.abs(w0*a0[k]+w1*a1[k]+w2*a2[k]+w3*a3[k]);if(v>pk)pk=v;}
+      if(g*pk>L.PEAK){g=L.PEAK/pk;lim++;}gains[f]=g;
+      // one fused pass per frame, gain folded in (absent corners carry weight 0 on a duplicate array)
+      const c0=g*w0,c1=g*w1,c2=g*w2,c3=g*w3,e=fb+S;
+      if(T===1)for(let k=fb;k<e;k++)buf[k]=c0*a0[k];
+      else if(T===2)for(let k=fb;k<e;k++)buf[k]=c0*a0[k]+c1*a1[k];
+      else if(T===3)for(let k=fb;k<e;k++)buf[k]=c0*a0[k]+c1*a1[k]+c2*a2[k];
+      else for(let k=fb;k<e;k++)buf[k]=c0*a0[k]+c1*a1[k]+c2*a2[k]+c3*a3[k];}
+  }else{nF=1;buf=take(S);const tb=ids.map(id=>tabs.get(id));const re=new Float64Array(1025),im=new Float64Array(1025);
+    L.frameBlend(tb,ws,1,p.frame,re,im);let r=L.loudGain(re,im),g=r.g;if(r.capped)cap++;
+    L.synthLevels(re,im,lay,buf,0,1);let pk=0;for(let k=tOff;k<tOff+tN;k++){const v=Math.abs(buf[k]);if(v>pk)pk=v;}
+    if(g*pk>L.PEAK){g=L.PEAK/pk;lim++;}for(let k=0;k<S;k++)buf[k]*=g;gains.fill(g);}
+  count++;port.postMessage({type:"set",buf,nF,sp:lay.sp},[buf.buffer]);
+  postMessage({type:"built",ms:performance.now()-t0,count,gains,lim,cap,law:p.law,nIds:ids.length});
+}`;
+
+/* =====================================================================================================
+   Worklet: 8 voices × 2 oscillators × up to 9 members. Nothing in process() allocates.
+   ===================================================================================================== */
+const WORKLET_SRC = `"use strict";
+const L=(${wtlib.toString()})();
+const LAY=[L.makeLayout(0),L.makeLayout(1)];
+const MAXV=8,MAXM=9,BS=128,SUB=16,TS=4096,TAU=2*Math.PI,KW=0.9/TAU,E5=Math.exp(-5);
+const SINT=new Float32Array(TS+2);for(let i=0;i<=TS+1;i++)SINT[i]=Math.sin(TAU*i/TS);
+function SIN(p){const x=p*TS,i=x|0,f=x-i;return SINT[i]+(SINT[i+1]-SINT[i])*f;}
+function COS(p){let q=p+0.25;if(q>=1)q-=1;return SIN(q);}
+// 4-point cubic (Catmull-Rom) and 6-point Lagrange reads; one set of weights serves both frames (the fused read).
+function rd4(b,j0,j1,ff,N,p){const q=p*N;let i=q|0;const t=q-i;if(i>=N)i-=N;const t2=t*t,t3=t2*t;
+  const wm=-0.5*t+t2-0.5*t3,w0=1-2.5*t2+1.5*t3,w1=0.5*t+2*t2-1.5*t3,w2=-0.5*t2+0.5*t3;
+  let j=j0+i;const y=wm*b[j-1]+w0*b[j]+w1*b[j+1]+w2*b[j+2];if(ff===0)return y;
+  j=j1+i;const z=wm*b[j-1]+w0*b[j]+w1*b[j+1]+w2*b[j+2];return y+(z-y)*ff;}
+function rd6(b,j0,j1,ff,N,p){const q=p*N;let i=q|0;const t=q-i;if(i>=N)i-=N;const a=t+2,bb=t+1,c=t,d=t-1,e=t-2,f=t-3;
+  const l0=-bb*c*d*e*f/120,l1=a*c*d*e*f/24,l2=-a*bb*d*e*f/12,l3=a*bb*c*e*f/12,l4=-a*bb*c*d*f/24,l5=a*bb*c*d*e/120;
+  let j=j0+i;const y=l0*b[j-2]+l1*b[j-1]+l2*b[j]+l3*b[j+1]+l4*b[j+2]+l5*b[j+3];if(ff===0)return y;
+  j=j1+i;const z=l0*b[j-2]+l1*b[j-1]+l2*b[j]+l3*b[j+1]+l4*b[j+2]+l5*b[j+3];return y+(z-y)*ff;}
+// per-oscillator parameter slots (the page sends targets; smoothed per block, steps copied)
+const ON=0,LVL=1,FRAME=2,FSPR=3,FENV=4,SYNCIN=5,SYNC=6,SYNCHZ=7,WIN=8,ASYM=9,BEND=10,PM=11,UNI=12,DET=13,CPL=14,WID=15,TR=16,SEED=17,NP=18;
+const STEP=[SYNCIN,UNI,TR,SEED];
+const A1=0,D1=1,S1=2,R1=3,A2=4,D2=5,S2=6,R2=7,OUT=8,POLY=9,INTERP=10,XF=11,NG=12;
+// balanced seats: members alternate from the extremes inward, so pitch order is not pan order
+const SEAT=[];for(let U=0;U<=MAXM;U++){const q=[];let lo=0,hi=U-1;while(lo<=hi){q.push(lo++);if(lo<=hi)q.push(hi--);}const s=new Float32Array(MAXM);for(let i=0;i<U;i++){const k=q[i];s[i]=U>1?-1+2*k/(U-1):0;}SEAT.push(s);}
+function clamp01(x){return x<0?0:x>1?1:x;}
+class WT extends AudioWorkletProcessor{
+ constructor(){super();
+  this.T=new Float64Array(2*NP);this.S=new Float64Array(2*NP);this.GT=new Float64Array(NG);this.GS=new Float64Array(NG);this.init=false;
+  this.cur=[null,null];this.old=[null,null];this.pend=[null,null];this.xr=[0,0];this.xp=[0,0];this.retireAfter=[0,0];
+  this.rq=[[null,null,null,null],[null,null,null,null]];this.rqn=[0,0];this.op=[null,null];
+  this.gx=[new Float32Array(BS),new Float32Array(BS)];
+  this.vAct=new Uint8Array(MAXV);this.vGate=new Uint8Array(MAXV);this.vId=new Float64Array(MAXV).fill(-1);this.vNote=new Float64Array(MAXV);
+  this.vVel=new Float64Array(MAXV);this.vEnv=new Float64Array(MAXV);this.vSt=new Uint8Array(MAXV);this.vQ=new Float64Array(MAXV);this.vE0=new Float64Array(MAXV);
+  this.vAge=new Float64Array(MAXV);this.vE2=new Float64Array(MAXV);this.vE2St=new Uint8Array(MAXV);
+  this.pId=new Float64Array(MAXV).fill(-1);this.pNote=new Float64Array(MAXV);this.pVel=new Float64Array(MAXV);this.pGate=new Uint8Array(MAXV);
+  this.ph=new Float64Array(2*MAXV*MAXM);this.prv=new Float32Array(2*MAXV*MAXM);this.age=0;
+  this.MI=new Float64Array(MAXM*24);this.edge=new Float64Array(MAXM);
+  this.envBuf=new Float32Array(BS);this.aL=new Float32Array(BS);this.aR=new Float32Array(BS);this.y2=new Float32Array(MAXM*BS);
+  this.vst=new Float32Array(MAXV*48);this.seeds=[-1,-1];this.rng=[null,null];
+  this.dcx=[0,0];this.dcy=[0,0];this.clip=0;this.accMs=0;this.accN=0;this.outPk=0;
+  this.port.onmessage=e=>{const d=e.data;
+   if(d.type==="ports"){this.op=[d.p1,d.p2];d.p1.onmessage=ev=>this.onSet(0,ev.data);d.p2.onmessage=ev=>this.onSet(1,ev.data);}
+   else if(d.type==="params"){for(let i=0;i<2*NP;i++)this.T[i]=d.osc[i];for(let i=0;i<NG;i++)this.GT[i]=d.glob[i];
+     if(!this.init){this.S.set(this.T);this.GS.set(this.GT);this.init=true;}
+     for(let o=0;o<2;o++){const sd=this.T[o*NP+SEED];if(sd!==this.seeds[o]){this.seeds[o]=sd;this.rng[o]=L.mulberry32(sd>>>0);}}}
+   else if(d.type==="on")this.noteOn(d.id,d.note,d.vel);
+   else if(d.type==="off")this.noteOff(d.id);
+   else if(d.type==="alloff"){for(let v=0;v<MAXV;v++){if(this.vAct[v]&&this.vGate[v])this.release(v);this.pId[v]=-1;}}
+   else if(d.type==="clearclip")this.clip=0;
+   else if(d.type==="poll"){this.fill(d.buf);this.port.postMessage({type:"stats",buf:d.buf},[d.buf.buffer]);}
+   this.flush();};}
+ onSet(o,m){if(!m||m.type!=="set")return;const s={buf:m.buf,nF:m.nF,lay:LAY[m.sp]};
+   if(this.pend[o])this.retire(o,this.pend[o]);   // a set arriving while one waits replaces it (WT-15)
+   this.pend[o]=s;this.flush();}
+ retire(o,s){if(this.rqn[o]<4)this.rq[o][this.rqn[o]++]=s;}
+ flush(){for(let o=0;o<2;o++){while(this.rqn[o]>0){const s=this.rq[o][--this.rqn[o]];this.rq[o][this.rqn[o]]=null;if(this.op[o])this.op[o].postMessage({type:"recycle",buf:s.buf},[s.buf.buffer]);}}}
+ noteOn(id,note,vel){const poly=Math.max(1,Math.min(MAXV,this.GT[POLY]|0));
+   for(let v=0;v<MAXV;v++){if(this.vAct[v]&&this.vId[v]===id){this.start(v,id,note,vel,false);return;}}
+   for(let v=0;v<poly;v++){if(!this.vAct[v]){this.start(v,id,note,vel,true);return;}}
+   let best=-1,ba=1e300;for(let v=0;v<poly;v++){if(this.vSt[v]!==4&&this.vAge[v]<ba){ba=this.vAge[v];best=v;}}
+   if(best<0)best=0;this.vSt[best]=4;this.pId[best]=id;this.pNote[best]=note;this.pVel[best]=vel;this.pGate[best]=1;}  // steal: 3 ms fade, then the new note
+ start(v,id,note,vel,fresh){this.vAct[v]=1;this.vGate[v]=1;this.vId[v]=id;this.vNote[v]=note;this.vVel[v]=vel;this.vSt[v]=0;this.vAge[v]=++this.age;
+   if(fresh){this.vEnv[v]=0;this.vE2[v]=0;}this.vE2St[v]=0;
+   if(fresh)for(let o=0;o<2;o++){const r=this.rng[o];const b=(o*MAXV+v)*MAXM;for(let i=0;i<MAXM;i++){this.ph[b+i]=r?r():0;this.prv[b+i]=0;}}}  // seeded start phases (SW-10)
+ release(v){this.vGate[v]=0;this.vSt[v]=3;this.vE0[v]=this.vEnv[v];this.vQ[v]=1;this.vE2St[v]=3;}
+ noteOff(id){for(let v=0;v<MAXV;v++){if(this.vAct[v]&&this.vGate[v]&&this.vId[v]===id&&this.vSt[v]!==4)this.release(v);if(this.pId[v]===id)this.pGate[v]=0;}}
+ fill(buf){const ms=this.accN>0?this.accMs/(this.accN/sampleRate*1000):0;this.accMs=0;this.accN=0;
+   buf[0]=ms;let a=0;for(let v=0;v<MAXV;v++)if(this.vAct[v])a++;buf[1]=a;buf[2]=this.clip;buf[3]=this.outPk;this.outPk=0;
+   buf[4]=this.cur[0]?1:0;buf[5]=this.cur[1]?1:0;buf[6]=sampleRate;
+   for(let v=0;v<MAXV;v++){const o=16+v*48;this.vst[v*48]=this.vAct[v];this.vst[v*48+1]=this.vNote[v];this.vst[v*48+2]=this.vEnv[v];this.vst[v*48+31]=this.vAge[v];this.vst[v*48+32]=this.vGate[v];
+     for(let k=0;k<48;k++)buf[o+k]=this.vst[v*48+k];}}
+ // level choice for one set (WT-4, WT-5, WT-36): the brightest level whose top harmonic stays under c at this read rate,
+ // and in the upper third of its range (log read rate) a raised-cosine mix toward its darker neighbour.
+ levelFor(set,rr,c,pi,mi,k){const lay=set.lay,H=lay.H,nL=H.length;const hmax=c/rr;let kk=0;while(kk+1<nL&&H[kk+1]<=hmax)kk++;
+   let kb=kk,mix=0;if(kk>0&&H[kk]<=hmax){const hiH=kk+1<nL?H[kk+1]:H[kk]*2;const lo=c/hiH,hi=c/H[kk];const t=Math.log(rr/lo)/Math.log(hi/lo);
+     if(t>2/3){const x=Math.min(1,(t-2/3)*3);mix=0.5-0.5*Math.cos(Math.PI*x);kb=kk-1;}}
+   let f0=0,f1=0,ff=0;if(set.nF===16){const u=15*pi;f0=Math.min(14,Math.floor(u));ff=u-f0;f1=f0+1;}
+   const S=lay.stride,g=L.G;mi[k]=f0*S+lay.off[kk]+g;mi[k+1]=f1*S+lay.off[kk]+g;mi[k+2]=lay.N[kk];
+   mi[k+3]=f0*S+lay.off[kb]+g;mi[k+4]=f1*S+lay.off[kb]+g;mi[k+5]=lay.N[kb];mi[k+6]=mix;mi[k+7]=ff;mi[k+8]=H[kk];mi[k+9]=H[kb];}
+ renderOsc(o,v,f0,e2,n,on2,U2){
+  const P=this.S,b=o*NP,on=P[b+ON];const set=this.cur[o];if(!set)return false;
+  if(on<1e-4&&!(o===1&&this.pmNeed))return false;
+  const old=this.xr[o]?this.old[o]:null,gx=this.gx[o];
+  const U=Math.max(1,Math.min(MAXM,P[b+UNI]|0)),fo=f0*Math.pow(2,P[b+TR]/12);
+  const syncIn=P[b+SYNCIN]|0,win=syncIn?P[b+WIN]:0;
+  let aa=P[b+ASYM],bb=P[b+BEND];const hyp=Math.hypot(aa,bb);if(hyp>1){aa/=hyp;bb/=hyp;}const warpOn=hyp>1e-6,slope=1+0.9*Math.min(1,hyp);
+  const pmK=(o===0&&this.pmVoice)?P[PM]/TAU:0;
+  const c=Math.min(20000,0.45*sampleRate),RD=this.GS[INTERP]>=6?rd6:rd4;
+  const lg=P[b+LVL]*on/Math.sqrt(U);
+  const pV=clamp01(P[b+FRAME]+P[b+FENV]*e2),det=P[b+DET],wid=P[b+WID],fsp=P[b+FSPR];
+  const base=(o*MAXV+v)*MAXM,mi=this.MI,seat=SEAT[U],cb=set.buf,ob=old?old.buf:null;
+  for(let i=0;i<U;i++){const s=U>1?-1+2*i/(U-1):0,fi=fo*Math.pow(2,s*det*100/1200),k=i*24;
+    const pan=wid*seat[i],ang=(pan+1)*Math.PI/4;
+    const r=syncIn===1?P[b+SYNC]:syncIn===2?Math.max(1,P[b+SYNCHZ]/fi):1;
+    const rr=fi*r*slope,pi=clamp01(pV+fsp*s);
+    this.levelFor(set,rr,c,pi,mi,k);if(old)this.levelFor(old,rr,c,pi,mi,k+10);
+    mi[k+20]=fi;mi[k+21]=Math.cos(ang)*lg;mi[k+22]=Math.sin(ang)*lg;mi[k+23]=r;
+    // the restart's value step, for the polyBLEP (ED-1's job in the engine; the corner correction is not in the lab)
+    if(syncIn&&win<1){let pe=r-Math.floor(r);if(warpOn){pe+=KW*(bb*SIN(pe)+aa*(1-COS(pe)));pe-=Math.floor(pe);}
+      const vEnd=RD(cb,mi[k],mi[k+1],mi[k+7],mi[k+2],pe),vSt=RD(cb,mi[k],mi[k+1],mi[k+7],mi[k+2],0);this.edge[i]=(1-win)*(vSt-vEnd);}else this.edge[i]=0;}
+  const vs=v*48,so=o===0?3:5;this.vst[vs+so]=mi[8];this.vst[vs+so+1]=mi[6]>0?mi[6]:0;this.vst[vs+8+o]=pV;this.vst[vs+19+o*10]=U;
+  const K=P[b+CPL],aL=this.aL,aR=this.aR,y2=this.y2,env=this.envBuf,ph=this.ph,prvA=this.prv;let R=0;
+  for(let sb=0;sb<n;sb+=SUB){
+   let psi=0;R=0;
+   if(K!==0&&U>1){let zr=0,zi=0;for(let i=0;i<U;i++){const th=ph[base+i];zr+=COS(th);zi+=SIN(th);}zr/=U;zi/=U;R=Math.hypot(zr,zi);psi=Math.atan2(zi,zr)/TAU;}
+   for(let i=0;i<U;i++){const k=i*24;let th=ph[base+i];const fi=mi[k+20];
+    let dfi=0;if(K!==0&&U>1){let d=psi-th;d-=Math.floor(d);dfi=K*0.06*fo*R*SIN(d);}   // Kuramoto: dθ/dt = f + K·R·sin 2π(ψ − θ)
+    const inc=(fi+dfi)/sampleRate,r=mi[k+23],edge=this.edge[i],gL=mi[k+21],gR=mi[k+22];
+    const j0a=mi[k],j1a=mi[k+1],Na=mi[k+2],j0b=mi[k+3],j1b=mi[k+4],Nb=mi[k+5],mx=mi[k+6],ff=mi[k+7];
+    const q0a=mi[k+10],q1a=mi[k+11],Qa=mi[k+12],q0b=mi[k+13],q1b=mi[k+14],Qb=mi[k+15],qx=mi[k+16],qf=mi[k+17];
+    let prv=prvA[base+i];const ym=(i%U2)*BS;
+    for(let s=sb;s<sb+SUB;s++){
+     th+=inc;let wr=false;if(th>=1){th-=1;wr=true;}
+     let p=th;if(syncIn){p=r*th;p-=Math.floor(p);}                                         // sync (WT-32)
+     if(warpOn){p+=KW*(bb*SIN(p)+aa*(1-COS(p)));p-=Math.floor(p);}                       // asym + bend, one smooth warp (WT-34)
+     if(pmK!==0){p+=pmK*y2[ym+s]*env[s]*on2;p-=Math.floor(p);}                           // PM from osc 2 (WT-30)
+     let y=RD(cb,j0a,j1a,ff,Na,p);if(mx>0)y+=(RD(cb,j0b,j1b,ff,Nb,p)-y)*mx;               // level and its darker neighbour (WT-5)
+     if(ob!==null){let yo=RD(ob,q0a,q1a,qf,Qa,p);if(qx>0)yo+=(RD(ob,q0b,q1b,qf,Qb,p)-yo)*qx;y=yo+(y-yo)*gx[s];}  // published-set crossfade (WT-15)
+     if(syncIn){if(win>0)y*=(1-win)+win*0.5*(1-COS(th));                                 // window (WT-33)
+       if(wr&&edge!==0){const d=th/inc;prv+=edge*d*d*0.5;y-=edge*(1-d)*(1-d)*0.5;}}
+     const out=prv;prv=y;aL[s]+=out*gL;aR[s]+=out*gR;if(o===1)y2[i*BS+s]=out;}
+    ph[base+i]=th;prvA[base+i]=prv;}}
+  this.vst[vs+7+(o===0?0:23)]=R;
+  {let zr=0,zi=0;for(let i=0;i<U;i++){zr+=Math.cos(TAU*ph[base+i]);zi+=Math.sin(TAU*ph[base+i]);}const ps=Math.atan2(zi,zr)/TAU;
+   for(let i=0;i<MAXM;i++){let d=i<U?ph[base+i]-ps:0;d-=Math.floor(d);this.vst[vs+10+o*10+i]=d;}}
+  return true;}
+ process(inputs,outputs){
+  const t0=Date.now();const out=outputs[0],oL=out[0],oR=out[1]||out[0],n=oL.length;oL.fill(0);if(oR!==oL)oR.fill(0);
+  if(!this.init){return true;}
+  const al=1-Math.exp(-n/(0.012*sampleRate));
+  for(let i=0;i<2*NP;i++){const j=i%NP;if(STEP.indexOf(j)>=0||j===UNI)this.S[i]=this.T[i];else this.S[i]+=(this.T[i]-this.S[i])*al;}
+  for(let i=0;i<NG;i++){if(i===POLY||i===INTERP||i===XF)this.GS[i]=this.GT[i];else this.GS[i]+=(this.GT[i]-this.GS[i])*al;}
+  const XFn=Math.max(16,this.GS[XF]);
+  for(let o=0;o<2;o++){
+   if(!this.cur[o]&&this.pend[o]){this.cur[o]=this.pend[o];this.pend[o]=null;}
+   else if(!this.xr[o]&&this.pend[o]){this.old[o]=this.cur[o];this.cur[o]=this.pend[o];this.pend[o]=null;this.xr[o]=1;this.xp[o]=0;}
+   if(this.xr[o]){const inc=1/XFn,g=this.gx[o];let x=this.xp[o];for(let s=0;s<n;s++){x+=inc;const xc=x>1?1:x;g[s]=0.5-0.5*COS(xc*0.5);}this.xp[o]=x;if(x>=1)this.retireAfter[o]=1;}}
+  const P=this.S,GS=this.GS,sr=sampleRate;
+  const on2=P[NP+ON],U2=Math.max(1,Math.min(MAXM,P[NP+UNI]|0));
+  this.pmOn=P[PM]>1e-4&&on2>1e-4;this.pmNeed=this.pmOn;
+  const aInc=1/(Math.max(0.0005,GS[A1])*sr),dc=Math.exp(-4/(Math.max(0.005,GS[D1])*sr)),Su=GS[S1],rc=Math.exp(-5/(Math.max(0.005,GS[R1])*sr)),stl=1/(0.003*sr);
+  for(let v=0;v<MAXV;v++){if(!this.vAct[v])continue;
+   let env=this.vEnv[v],st=this.vSt[v],q=this.vQ[v];const e0=this.vE0[v],eb=this.envBuf;
+   for(let s=0;s<n;s++){
+    if(st===0){env+=aInc;if(env>=1){env=1;st=1;}}
+    else if(st===1){env=Su+(env-Su)*dc;}
+    else if(st===3){q*=rc;env=q<=E5?0:e0*(q-E5)/(1-E5);if(env<=0){env=0;st=5;}}   // release ends at exactly zero (QS-7)
+    else if(st===4){env-=stl;if(env<=0){env=0;st=5;}}
+    else env=0;eb[s]=env;}
+   this.vEnv[v]=env;this.vSt[v]=st;this.vQ[v]=q;
+   // ENV 2, the frame envelope, per block
+   let e2=this.vE2[v];const s2=this.vE2St[v];
+   if(s2===0){e2+=n/(Math.max(0.0005,GS[A2])*sr);if(e2>=1){e2=1;this.vE2St[v]=1;}}
+   else if(s2===1){e2=GS[S2]+(e2-GS[S2])*Math.exp(-4*n/(Math.max(0.005,GS[D2])*sr));}
+   else e2*=Math.exp(-5*n/(Math.max(0.005,GS[R2])*sr));
+   this.vE2[v]=e2;
+   this.aL.fill(0);this.aR.fill(0);
+   const f0=440*Math.pow(2,(this.vNote[v]-69)/12);
+   const r2=this.renderOsc(1,v,f0,e2,n,on2,U2);this.pmVoice=r2&&this.pmOn;   // osc 2 first: it is osc 1's PM modulator (WT-30, CONTRACT §1.8)
+   this.renderOsc(0,v,f0,e2,n,on2,U2);
+   const vel=this.vVel[v];for(let s=0;s<n;s++){const g=eb[s]*vel;oL[s]+=this.aL[s]*g;oR[s]+=this.aR[s]*g;}
+   if(st===5){if(this.pId[v]>=0){const g=this.pGate[v];this.start(v,this.pId[v],this.pNote[v],this.pVel[v],true);this.pId[v]=-1;if(!g)this.release(v);}else{this.vAct[v]=0;this.vId[v]=-1;}}}
+  for(let o=0;o<2;o++){if(this.retireAfter[o]){this.retireAfter[o]=0;this.xr[o]=0;if(this.old[o]){this.retire(o,this.old[o]);this.old[o]=null;}}}
+  // output stage: 0.14 × 10^(out.level/20) × the voices (OU-1), then the lab's 8 Hz DC blocker (WT-25's fallback); clip latch, no clamp
+  const g=0.14*GS[OUT],ka=1-TAU*8/sr;let pk=this.outPk;
+  for(let s=0;s<n;s++){let x=oL[s]*g;let y=x-this.dcx[0]+ka*this.dcy[0];this.dcx[0]=x;this.dcy[0]=y;oL[s]=y;
+    if(oR!==oL){x=oR[s]*g;y=x-this.dcx[1]+ka*this.dcy[1];this.dcx[1]=x;this.dcy[1]=y;oR[s]=y;}
+    const m=Math.max(Math.abs(oL[s]),Math.abs(oR[s]));if(m>pk)pk=m;if(m>1)this.clip=1;}
+  this.outPk=pk;this.accMs+=Date.now()-t0;this.accN+=n;
+  return true;}}
+registerProcessor("horde-wt",WT);`;
+
+/* =====================================================================================================
+   Page: recipes, factory generators, the table dictionary.
+   ===================================================================================================== */
+const $ = id => document.getElementById(id);
+const TAU = 2*Math.PI, NH = L.NH, NF = L.NF;
+const KEYS = ["A","B","C","D"];
+const clamp01 = x => x < 0 ? 0 : x > 1 ? 1 : x;
+const round4 = x => Math.round(x*1e4)/1e4;
+const NOTE = ["C","C♯","D","D♯","E","F","F♯","G","G♯","A","A♯","B"];
+const noteName = m => NOTE[((m % 12) + 12) % 12] + (Math.floor(m/12) - 1);
+function el(tag, cls, txt){ const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
+const sleep0 = () => new Promise(r => setTimeout(r, 0));
+
+// CONTRACT §3.1: canonical text (name removed, keys sorted, no whitespace, shortest numbers) → 64-bit FNV-1a, 16 hex digits.
+function canon(v, top){
+  if (Array.isArray(v)) return "[" + v.map(x => canon(x, false)).join(",") + "]";
+  if (v && typeof v === "object"){ const ks = Object.keys(v).filter(k => !(top && k === "name")).sort();
+    return "{" + ks.map(k => JSON.stringify(k) + ":" + canon(v[k], false)).join(",") + "}"; }
+  return JSON.stringify(v);
+}
+function fnv64(s){ let h = 0xcbf29ce484222325n; const M = 0xffffffffffffffffn;
+  for (const b of new TextEncoder().encode(s)){ h ^= BigInt(b); h = (h*0x100000001b3n) & M; } return h.toString(16).padStart(16, "0"); }
+const recipeId = r => fnv64(canon(r, true));
+function fnv32(s){ let h = 0x811c9dc5; for (let i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); } return h >>> 0; }
+// a purpose-keyed stream (DT-4's scheme in spirit): one seed, independent streams per purpose
+const stream = (seed, purpose) => L.mulberry32((seed ^ fnv32(purpose)) >>> 0);
+
+const SZ = NF*1025;
+// time-domain formula → spectrum by FFT at M points (WT-41: analysed without aliasing; M chosen so the image error is far under 1e-6 of peak)
+function analyse(fn, M, re, im, off){ const p = L.plan(M); for (let k = 0; k < M; k++){ p.re[k] = fn(k/M); p.im[k] = 0; } L.fft(p, -1);
+  for (let n = 1; n <= NH; n++){ re[off + n] = 2*p.re[n]/M; im[off + n] = -2*p.im[n]/M; } }
+const frac = x => x - Math.floor(x);
+const ORGAN = [1,2,3,4,6,8,10,12,16], REG = [[8,0,0,0,0,0,0,0,0],[8,8,6,0,0,0,0,0,0],[6,3,8,0,5,0,2,0,6],[8,8,8,8,8,8,8,8,8]];
+// The factory set (WT-40): the bench's eight, from formulas only, at 1,024 harmonics. gen(t, re, im, off) writes one frame.
+const FACTORY = [
+  {gen: "factory/sine-saw", name: "Sine → saw", g(t, re, im, o){ const k = 3.5*Math.pow(1 - t, 1.5);
+      for (let n = 1; n <= NH; n++) im[o + n] = -Math.exp(-(n - 1)*k)/n; }},   // negated: rises from −1 like the base saw (WT-20)
+  {gen: "factory/pulse", name: "Pulse width sweep", g(t, re, im, o){ const w = 0.5 - 0.44*t;
+      for (let n = 1; n <= NH; n++) re[o + n] = 2/(n*Math.PI)*Math.sin(n*Math.PI*w); }},
+  {gen: "factory/vowel", name: "Vowel ah → ee", g(t, re, im, o){ const A = [730,1090,2440], I = [270,2290,3010], B = [90,120,170], Gn = [1,.6,.32];
+      for (let n = 1; n <= NH; n++){ let a = 0.12/n; for (let j = 0; j < 3; j++){ const F = A[j] + (I[j] - A[j])*t; a += Gn[j]*Math.exp(-.5*Math.pow((n*110 - F)/B[j], 2)); } im[o + n] = a; } }},
+  // exact: a piecewise-linear cycle's coefficients from its jumps, C_n = Σ J·e^{−2πinp}/(2πin) (no slope jumps here)
+  {gen: "factory/sync", name: "Hard sync 1 → 6", g(t, re, im, o){ const r = 1 + 5*t, fr = frac(r), J = [], P = [];
+      J.push(fr > 1e-12 ? -2*fr : -2); P.push(0); for (let k = 1; k/r < 1 - 1e-12; k++){ J.push(-2); P.push(k/r); }
+      for (let n = 1; n <= NH; n++){ let cr = 0, ci = 0; for (let j = 0; j < J.length; j++){ const a = -TAU*n*P[j], er = Math.cos(a), ei = Math.sin(a);
+          // J·e/(2πin) = J·(er + i·ei)·(−i)/(2πn)
+          cr += J[j]*ei/(TAU*n); ci += -J[j]*er/(TAU*n); }
+        re[o + n] = 2*cr; im[o + n] = -2*ci; } }},
+  {gen: "factory/fm", name: "FM index 0 → 8", g(t, re, im, o){ analyse(p => Math.sin(TAU*p + 8*t*Math.sin(TAU*p)), 16384, re, im, o); }},
+  {gen: "factory/fold", name: "Triangle fold", g(t, re, im, o){ analyse(p => { const v = (1 + 6*t)*Math.sin(TAU*p); return Math.asin(Math.sin(v*Math.PI/2))*2/Math.PI; }, 32768, re, im, o); }},
+  {gen: "factory/comb", name: "Moving comb", g(t, re, im, o){ for (let n = 1; n <= NH; n++) im[o + n] = (0.5 + 0.5*Math.cos(TAU*(n/7 - t)))/n; }},
+  {gen: "factory/organ", name: "Drawbar registrations", g(t, re, im, o){ const u = t*3, i = Math.min(2, Math.floor(u)), f = u - i;
+      ORGAN.forEach((n, j) => { re[o + n] = (REG[i][j]*(1 - f) + REG[i + 1][j]*f)/8/Math.sqrt(n); }); }},
+];
+
+// WT-46: the random generator's slot. Placeholder settings; draws keyed by purpose under wt/random/.
+const RND_DEF = {tilt: -6, peaks: 3, width: 0.35, rough: 0.3, motion: 0.6, phase: 0};
+function genRandom(set, seed, re, im){
+  const sp = stream(seed, "wt/random/peaks"), sj = stream(seed, "wt/random/jitter"), sph = stream(seed, "wt/random/phase");
+  const np = Math.round(set.peaks), c0 = [], c1 = [], gn = [];
+  for (let k = 0; k < np; k++){ c0.push(1 + sp()*6.5); c1.push(1 + sp()*6.5); gn.push(0.3 + 0.9*sp()); }   // peaks in log2(n), octaves 1 to 7.5
+  const jit0 = new Float64Array(NH + 1), jit1 = new Float64Array(NH + 1), phs = new Float64Array(NH + 1);
+  for (let n = 1; n <= NH; n++){ jit0[n] = 1 + set.rough*(2*sj() - 1); jit1[n] = 1 + set.rough*(2*sj() - 1); phs[n] = set.phase ? TAU*sph() : 0; }
+  for (let f = 0; f < NF; f++){ const t = f/15, m = set.motion*t, o = f*1025;
+    for (let n = 1; n <= NH; n++){ const l2 = Math.log2(n); let a = Math.pow(n, set.tilt/6.0206);
+      for (let k = 0; k < np; k++){ const c = c0[k] + (c1[k] - c0[k])*m, d = (l2 - c)/Math.max(0.05, set.width); a += gn[k]*Math.pow(n, set.tilt/6.0206)*4*Math.exp(-0.5*d*d); }
+      a *= Math.max(0, jit0[n] + (jit1[n] - jit0[n])*t);
+      re[o + n] = a*Math.sin(phs[n]); im[o + n] = -a*Math.cos(phs[n]); } }
+}
+
+const DICT = new Map();   // id → {id, recipe, name, re, im, lg, disp, gate, depth}
+let LIBRARY = [];         // user table ids shown in every corner's menu (captures, random); factory ids are always there
+const FACT_IDS = [];
+const scratch8192 = new Float64Array(8192);
+// WT-2: per-frame peak normalisation at 8,192 points; WT-47's gates. A failing table is refused and named, never fixed.
+function finishTable(re, im, oneFrame){
+  const msgs = []; let ok = true, worstLow = 0;
+  for (let f = 0; f < NF; f++){ const o = f*1025; re[o] = 0; im[o] = 0;
+    L.render(re, im, o, 8192, NH, scratch8192); let pk = 0; for (let k = 0; k < 8192; k++){ const v = Math.abs(scratch8192[k]); if (v > pk) pk = v; }
+    if (pk < 1e-6){ ok = false; msgs.push(`frame ${f + 1} near-silent`); continue; }
+    for (let n = 1; n <= NH; n++){ re[o + n] /= pk; im[o + n] /= pk; }
+    let eLo = 0, eAll = 0; for (let n = 1; n <= NH; n++){ const e = re[o + n]*re[o + n] + im[o + n]*im[o + n]; eAll += e; if (n <= L.nK) eLo += e; }
+    const db = 10*Math.log10(eLo/eAll + 1e-30); if (db < worstLow) worstLow = db; }
+  if (ok && worstLow < -12){ ok = false; msgs.push(`energy under 20 kHz at C3 is ${worstLow.toFixed(1)} dB of the total (gate: within 12 dB)`); }
+  if (ok && !oneFrame){ let d = 0; for (let j = 1025; j < SZ; j++) d = Math.max(d, Math.abs(re[j] - re[j % 1025]), Math.abs(im[j] - im[j % 1025]));
+    if (d < 1e-6){ ok = false; msgs.push("all 16 frames identical (only a this-frame capture may be)"); } }
+  return {ok, msgs, lowDb: worstLow};
+}
+function makeDisp(re, im){ const d = new Float32Array(NF*128); for (let f = 0; f < NF; f++){ L.render(re, im, f*1025, 8192, NH, scratch8192); for (let k = 0; k < 128; k++) d[f*128 + k] = scratch8192[k*64]; } return d; }
+function addTable(recipe, re, im, gate, depth){ const id = recipeId(recipe);
+  const t = {id, recipe, name: recipe.name, re, im, lg: L.logCache(re, im), disp: makeDisp(re, im), gate, depth}; DICT.set(id, t); return t; }
+function buildGen(recipe){
+  const re = new Float32Array(SZ), im = new Float32Array(SZ);
+  if (recipe.gen === "random") genRandom(recipe.set, recipe.seed, re, im);
+  else { const F = FACTORY.find(x => x.gen === recipe.gen); if (!F) throw new Error("unknown generator " + recipe.gen); for (let f = 0; f < NF; f++) F.g(f/15, re, im, f*1025); }
+  const gate = finishTable(re, im, false); return {re, im, gate, depth: 0};
+}
+const bilinear = (x, y) => [(1 - x)*(1 - y), x*(1 - y), (1 - x)*y, x*y];
+function pooled(ids, w){ const tabs = [], ws = [], seen = [];
+  for (let c = 0; c < 4; c++){ if (!(w[c] > 0)) continue; const k = seen.indexOf(ids[c]); if (k < 0){ seen.push(ids[c]); tabs.push(DICT.get(ids[c])); ws.push(w[c]); } else ws[k] += w[c]; }
+  return {tabs, ws}; }
+function buildCap(recipe){
+  for (const s of recipe.src) if (!DICT.has(s)) throw new Error("source " + s + " not in the dictionary");
+  const {tabs, ws} = pooled(recipe.src, bilinear(recipe.x, recipe.y)), law = recipe.law === "linear" ? 0 : 1;
+  const re = new Float32Array(SZ), im = new Float32Array(SZ), fr = new Float64Array(1025), fi = new Float64Array(1025);
+  for (let f = 0; f < NF; f++){ L.frameBlend(tabs, ws, law, recipe.frame === "all" ? f/15 : recipe.frame, fr, fi); for (let n = 1; n <= NH; n++){ re[f*1025 + n] = fr[n]; im[f*1025 + n] = fi[n]; } }
+  const gate = finishTable(re, im, recipe.frame !== "all");
+  const depth = 1 + Math.max(...recipe.src.map(s => DICT.get(s).depth));
+  return {re, im, gate, depth};
+}
+function buildRecipe(recipe){ const b = recipe.kind === "cap" ? buildCap(recipe) : buildGen(recipe); return addTable(recipe, b.re, b.im, b.gate, b.depth); }
+
+/* ---------------- the patch ---------------- */
+const OPENING = () => ({
+  osc: [
+    {on: 1, level: 0, law: 0, frame: 0.35, frameSpread: 0.25, fenv: 0, syncIn: 0, sync: 2, syncHz: 880, window: 0, asym: 0, bend: 0, pm: 0,
+     unison: 5, detune: 0.18, coupling: 0.15, width: 0.75, octave: 0, semitone: 0, fine: 0, seed: 1234, corners: []},
+    {on: 0, level: -6, law: 0, frame: 0.5, frameSpread: 0, fenv: 0, syncIn: 0, sync: 2, syncHz: 880, window: 0, asym: 0, bend: 0, pm: 0,
+     unison: 3, detune: 0.1, coupling: 0, width: 0.5, octave: 0, semitone: 0, fine: 0, seed: 1235, corners: []}],
+  morph: {x: 0.3, y: 0.3},
+  lfo: {rate: 0.15, shape: 0, dx: 0, dy: 0, yph: 90, seed: 1},
+  walk: {on: 0, tau: 1.5, sigma: 0.45, depth: 0.5, seed: 7},
+  env1: {a: 0.004, d: 0.4, s: 0.85, r: 0.28},
+  env2: {a: 0.001, d: 0.6, s: 0, r: 0.3},
+  out: {level: 0}, poly: 8,
+  lab: {spacing: 0, interp: 4, xfade: 0},
+  vizOsc: 0,
+});
+let ST = OPENING();
+const OPEN_CORNERS = [["factory/sine-saw","factory/vowel","factory/pulse","factory/comb"],["factory/sync","factory/fm","factory/fold","factory/organ"]];
+const genIdOf = g => FACT_IDS[FACTORY.findIndex(f => f.gen === g)];
+
+/* ---------------- control definitions (CONTRACT §2.1 rows, SPEC-ENGINE 5.x rows, and stand-ins) ---------------- */
+const fmtPct = v => Math.round(v*100) + " %";
+const fmtSgn = v => (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(2);
+const fmtDb = v => v === -Infinity ? "−∞" : (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(1) + " dB";
+const fmtS = v => v < 1 ? Math.round(v*1000) + " ms" : v.toFixed(2) + " s";
+const fmtHz = v => v < 1000 ? v.toFixed(v < 1 ? 2 : v < 100 ? 1 : 0) + " Hz" : (v/1000).toFixed(2) + " kHz";
+// wt rows: offset in the oscillator's block (osc 1 0x1030.., osc 2 0x2030..)
+const WT_ROWS = {
+  law:         {off: 0x030, key: "wt.law", label: "Blend", law: "step", range: "Linear, Spectral log", def: "Linear", doc: "How the corner tables combine (WT-11, WT-12). Changes by the rebuild crossfade (WT-15)."},
+  frame:       {off: 0x031, key: "wt.frame", label: "Frame", law: "lin", lo: 0, hi: 1, def: 0, fmt: v => (1 + 15*v).toFixed(1), range: "0..1 (shown 1–16)", doc: "Where in each table the members read (WT-22). Per voice under Linear; shared (the newest held note's) under Spectral log."},
+  frameSpread: {off: 0x032, key: "wt.frameSpread", label: "Frame spread", law: "lin", lo: -1, hi: 1, def: 0, fmt: fmtSgn, range: "−1..1", doc: "Fans the frame across the members (WT-22). Needs Linear and unison > 1."},
+  syncIn:      {off: 0x033, key: "wt.syncIn", label: "Sync", law: "step", range: "off, × pitch, Hz", def: "off", doc: "Turns sync on, following the note or fixed (WT-32). Changes by PA-5's 5 ms crossfade in the engine."},
+  sync:        {off: 0x034, key: "wt.sync", label: "Sync ratio", law: "log", lo: 1, hi: 16, def: 2, fmt: v => "×" + v.toFixed(2), range: "1..16", doc: "Table cycles per member cycle (WT-32). Live at × pitch."},
+  syncHz:      {off: 0x035, key: "wt.syncHz", label: "Sync Hz", law: "log", lo: 20, hi: 12000, def: 880, fmt: fmtHz, range: "20..12 000 Hz", doc: "The fixed sync frequency: a formant (WT-32, WT-33). Live at Hz. The label on the page is \"Sync\" with unit Hz."},
+  window:      {off: 0x036, key: "wt.window", label: "Window", law: "lin", lo: 0, hi: 1, def: 0, fmt: fmtPct, range: "0..1", doc: "Hard sync (0) to windowed bursts (1) (WT-33). Live while sync is on."},
+  asym:        {off: 0x037, key: "wt.asym", label: "Asym", law: "lin", lo: -1, hi: 1, def: 0, fmt: fmtSgn, range: "−1..1", doc: "Moves the half-cycle point to 0.307 / 0.693 at ±1 (WT-34)."},
+  bend:        {off: 0x038, key: "wt.bend", label: "Bend", law: "lin", lo: -1, hi: 1, def: 0, fmt: fmtSgn, range: "−1..1", doc: "Bends time toward the cycle's start or away (WT-34). With asym, one smooth warp."},
+  pm:          {off: 0x039, key: "wt.pm", label: "PM from osc 2", law: "pow", lo: 0, hi: 10, def: 0, fmt: v => v.toFixed(2), range: "0..10 index", doc: "osc 2 modulates osc 1's read phase (WT-30). osc 1 only; osc2.wt.pm is reserved. Needs osc 2 on (its level may be −∞)."},
+};
+const OSC_ROWS = {
+  unison:   {key: "unison", label: "Unison", law: "int", lo: 1, hi: 9, def: 7, fmt: v => String(v), range: "1..9 members", doc: "SPEC-ENGINE 5.3. The members the table is the waveform of."},
+  detune:   {key: "detune", label: "Detune", law: "lin", lo: 0, hi: 1, def: 0.28, fmt: v => "±" + Math.round(v*100) + " c", range: "0..1 (cents law ×1: outermost ±100·v c)", doc: "SPEC-ENGINE 5.3, C.3. Lab: even distribution."},
+  coupling: {key: "coupling", label: "Coupling", law: "lin", lo: -1, hi: 1, def: 0, fmt: fmtSgn, range: "−1..1", doc: "SPEC-ENGINE 5.3. Positive pulls the members' phases together (lab: plain Kuramoto mean field, no C.1 taper); negative splays them."},
+  width:    {key: "width", label: "Width", law: "lin", lo: 0, hi: 1, def: 0.8, fmt: fmtPct, range: "0..1", doc: "SPEC-ENGINE 5.3. Stereo spread of the members (balanced seats)."},
+  octave:   {key: "octave", label: "Octave", law: "int", lo: -4, hi: 4, def: 0, fmt: v => (v > 0 ? "+" : "") + v, range: "−4..+4", doc: "SPEC-ENGINE 5.3."},
+  semitone: {key: "semitone", label: "Semitone", law: "int", lo: -12, hi: 12, def: 0, fmt: v => (v > 0 ? "+" : "") + v + " st", range: "−12..+12", doc: "SPEC-ENGINE 5.3. Sets the PM ratio between the oscillators."},
+  fine:     {key: "fine", label: "Fine", law: "lin", lo: -100, hi: 100, def: 0, fmt: v => (v > 0 ? "+" : "") + v.toFixed(0) + " c", range: "−100..+100 cents", doc: "SPEC-ENGINE 5.3."},
+};
+
+/* ---------------- generic controls ---------------- */
+const CTLS = [];
+function toPos(d, v){ const {lo, hi} = d;
+  switch (d.law){ case "log": return Math.log(v/lo)/Math.log(hi/lo); case "pow": return Math.sqrt((v - lo)/(hi - lo));
+    case "db": return v === -Infinity ? 0 : 0.02 + 0.98*(v - lo)/(hi - lo); default: return (v - lo)/(hi - lo); } }
+function fromPos(d, s){ const {lo, hi} = d;
+  switch (d.law){ case "log": return lo*Math.pow(hi/lo, s); case "pow": return lo + (hi - lo)*s*s;
+    case "db": return s < 0.01 ? -Infinity : lo + (hi - lo)*Math.max(0, (s - 0.02)/0.98);
+    case "int": return Math.round(lo + (hi - lo)*s); default: return lo + (hi - lo)*s; } }
+function tipFor(d){ const id = d.id != null ? " · id 0x" + d.id.toString(16).toUpperCase().padStart(4, "0") : "";
+  const df = d.defText != null ? d.defText : (d.fmt ? d.fmt(d.def) : d.def);
+  return `${d.fullKey}${id}\nrange ${d.range} · law ${d.law === "int" ? "step" : d.law} · default ${df}${d.doc ? "\n" + d.doc : ""}`; }
+function slider(parent, d){
+  const row = el("div", "ctl"), lab = el("label"), inp = document.createElement("input"), out = el("span", "cv");
+  const uid = "c" + CTLS.length; inp.id = uid; lab.htmlFor = uid; lab.textContent = d.label;
+  inp.type = "range"; inp.min = 0; inp.max = 1000; inp.step = 1; row.title = tipFor(d); inp.setAttribute("aria-label", d.label + " (" + d.fullKey + ")");
+  const why = el("div", "inertwhy"); why.hidden = true;
+  row.append(lab, inp, out, why); parent.append(row);
+  const c = {row, d, sync(){ const v = d.get(); inp.value = Math.round(clamp01(toPos(d, v))*1000); out.textContent = d.fmt ? d.fmt(v) : String(v);
+      if (d.live){ const w = d.live(); row.classList.toggle("inert", !!w); why.hidden = !w; why.textContent = w || ""; } }};
+  inp.addEventListener("input", () => { d.set(fromPos(d, inp.value/1000)); changed(); });
+  inp.addEventListener("dblclick", () => { d.set(d.def); changed(); });
+  CTLS.push(c); return c;
+}
+function seg(parent, d){
+  const row = el("div", "ctl wide"), lab = el("span", "cl", d.label), box = el("div", "seg"); row.title = tipFor(d);
+  const why = el("div", "inertwhy"); why.hidden = true;
+  const btns = d.options.map((o, i) => { const b = el("button", "btn", o); b.type = "button"; b.addEventListener("click", () => { d.set(i); changed(); }); box.append(b); return b; });
+  row.append(lab, box, why); parent.append(row);
+  const c = {row, d, sync(){ const v = d.get(); btns.forEach((b, i) => b.setAttribute("aria-pressed", i === v));
+      if (d.live){ const w = d.live(); row.classList.toggle("inert", !!w); why.hidden = !w; why.textContent = w || ""; } }};
+  CTLS.push(c); return c;
+}
+const H3 = (p, t) => p.append(el("h3", null, t));
+
+/* ---------------- oscillator panels ---------------- */
+function buildOscPanel(o){
+  const P = $("osc" + o + "panel"), S = () => ST.osc[o], N = o + 1, blk = N << 12;
+  const head = el("div", "oschead"); head.append(el("h2", null, "Osc " + N));
+  const sub = el("span", "hint", o === 0 ? "member waveform: the table · always on in this lab" : "osc 2 can be off; off, it cannot modulate osc 1");
+  head.append(sub);
+  if (o === 1){ const b = el("button", "btn", "On"); b.id = "osc2on"; b.title = "osc2.on · gate, class S · default off. A source that is off costs nothing (PF-6).";
+    b.addEventListener("click", () => { S().on = S().on ? 0 : 1; changed(); }); head.append(b);
+    CTLS.push({sync(){ b.setAttribute("aria-pressed", !!S().on); b.textContent = S().on ? "On" : "Off"; $("osc1panel").querySelectorAll(".cgrid").forEach(g => g.style.opacity = S().on ? 1 : .55); }}); }
+  P.append(head);
+  const W = (name, extra) => { const r = WT_ROWS[name]; return Object.assign({fullKey: `osc${N}.${r.key}`, id: blk | r.off, get: () => S()[name], set: v => S()[name] = v}, r, extra || {}); };
+  const O = (name, extra) => { const r = OSC_ROWS[name]; return Object.assign({fullKey: `osc${N}.${r.key}`, get: () => S()[name], set: v => S()[name] = v}, r, extra || {}); };
+  H3(P, "Table");
+  let g = el("div", "cgrid"); P.append(g);
+  seg(g, W("law", {options: ["Linear", "Spectral log"], defText: "Linear"}));
+  slider(g, W("frame"));
+  slider(g, W("frameSpread", {live: () => S().law === 1 ? "inert: Spectral log's frame is shared, one per oscillator (WT-22)" : S().unison < 2 ? "inert: needs unison > 1" : ""}));
+  slider(g, {fullKey: `env2 → osc${N}.wt.frame (route depth)`, label: "Frame env", law: "lin", lo: -1, hi: 1, def: 0, fmt: fmtSgn, range: "−1..1",
+    doc: "Lab stand-in for a modulation route from ENV 2 to wt.frame (MS-12 (a), per-voice). Set ENV 2's decay short and this positive for a pluck that scans its table.", get: () => S().fenv, set: v => S().fenv = v});
+  const lawNote = el("p", "note"); P.append(lawNote);
+  CTLS.push({sync(){ lawNote.textContent = S().law === 0
+    ? "Linear: each voice reads its own frame (frame + its envelope), and frame spread fans it across the members. Opposed phases can thin the centre of the pad; loudness restores the level."
+    : "Spectral log: one shared frame per oscillator, the newest held note's (WT-22), so a per-note frame envelope moves every voice. Frame spread is inert. Between frames it interpolates in the log domain, so peaks move instead of crossfading."; }});
+  H3(P, "Swarm (members)");
+  g = el("div", "cgrid"); P.append(g);
+  slider(g, O("unison", {def: 7})); slider(g, O("detune")); slider(g, O("coupling")); slider(g, O("width"));
+  slider(g, O("octave")); slider(g, O("semitone")); slider(g, O("fine"));
+  slider(g, {fullKey: `mix.osc${N}`, label: `Osc ${N} level`, law: "db", lo: -60, hi: 6, def: 0, fmt: fmtDb, range: "−∞, −60..+6 dB", doc: "SPEC-ENGINE 5.2 (the mixer). At −∞ osc 2 is silent but still modulates osc 1 (WT-30).", get: () => S().level, set: v => S().level = v});
+  H3(P, "Transformations");
+  g = el("div", "cgrid"); P.append(g);
+  seg(g, W("syncIn", {options: ["off", "× pitch", "Hz"], defText: "off"}));
+  slider(g, W("sync", {live: () => S().syncIn !== 1 ? "inert: needs Sync at × pitch" : ""}));
+  slider(g, W("syncHz", {live: () => S().syncIn !== 2 ? "inert: needs Sync at Hz" : ""}));
+  slider(g, W("window", {live: () => S().syncIn === 0 ? "inert: live while sync is on" : ""}));
+  slider(g, W("asym")); slider(g, W("bend"));
+  if (o === 0) slider(g, W("pm", {live: () => !ST.osc[1].on ? "inert: turn osc 2 on (MO-26); its level may be −∞" : ""}));
+  else { const r = el("div", "hint", "osc2.wt.pm (0x2039) is reserved: PM from osc 1 into osc 2 needs the two swarms interleaved per sample (CONTRACT §7 E2)."); g.append(r); }
+}
+
+/* ---------------- motion, envelopes, lab switches, random panel ---------------- */
+function buildMotion(){
+  const P = $("motionCtl"), lf = () => ST.lfo, wk = () => ST.walk;
+  H3(P, "Global LFO → morph.x / morph.y");
+  let g = el("div", "cgrid"); P.append(g);
+  slider(g, {fullKey: "lfo1.rate", label: "Rate", law: "log", lo: 0.02, hi: 40, def: 1, fmt: fmtHz, range: "0.02..40 Hz", doc: "SPEC-ENGINE E.5, LF-4. Lab opens at 0.15 Hz. Advances on the audio clock.", get: () => lf().rate, set: v => lf().rate = v});
+  seg(g, {fullKey: "lfo1 shape (lab stand-in for LF-6's drawn shape / LF-9 S&H)", label: "Shape", options: ["sine", "triangle", "S&H"], law: "step", range: "sine, triangle, S&H", defText: "sine", doc: "horde's LFO shape is drawn (LF-6); these three stand in. S&H draws from a mulberry32 stream at lfo1.seed.", get: () => lf().shape, set: v => lf().shape = v});
+  slider(g, {fullKey: "route lfo1 → morph.x (depth)", label: "Depth X", law: "lin", lo: -1, hi: 1, def: 0, fmt: fmtSgn, range: "−1..1", doc: "MS-12 (d): a global LFO may move the morph position (MS-29). 1 = ±0.5 of the pad.", get: () => lf().dx, set: v => lf().dx = v});
+  slider(g, {fullKey: "route lfo1 → morph.y (depth)", label: "Depth Y", law: "lin", lo: -1, hi: 1, def: 0, fmt: fmtSgn, range: "−1..1", doc: "MS-12 (d), MS-29.", get: () => lf().dy, set: v => lf().dy = v});
+  slider(g, {fullKey: "lab only (Y's phase offset)", label: "Y phase", law: "lin", lo: 0, hi: 360, def: 90, fmt: v => Math.round(v) + "°", range: "0..360°", doc: "Lab only: Y reads the same LFO this far ahead, so equal depths draw a circle. In horde this would be a second LFO.", get: () => lf().yph, set: v => lf().yph = v});
+  H3(P, "2-D random (Walk) → morph position");
+  g = el("div", "cgrid"); P.append(g);
+  seg(g, {fullKey: "route xy → morph.x, morph.y", label: "Walk", options: ["off", "on"], law: "step", range: "off, on", defText: "off", doc: "The 2-D random in Walk (E.8, MR-1..MR-10), routed to the position (MS-29). Lab: an Ornstein–Uhlenbeck walk around the puck, 200 steps per second of audio.", get: () => wk().on, set: v => wk().on = v});
+  slider(g, {fullKey: "xy.tau", label: "Walk speed τ", law: "log", lo: 0.05, hi: 20, def: 1.5, fmt: fmtS, range: "0.05..20 s", doc: "E.8.", get: () => wk().tau, set: v => wk().tau = v, live: () => wk().on ? "" : "inert: Walk is off"});
+  slider(g, {fullKey: "xy.sigma", label: "Walk range σ", law: "log", lo: 0.02, hi: 1.5, def: 0.45, fmt: v => v.toFixed(2), range: "0.02..1.5", doc: "E.8. The walk's stationary spread.", get: () => wk().sigma, set: v => wk().sigma = v, live: () => wk().on ? "" : "inert: Walk is off"});
+  slider(g, {fullKey: "route xy → morph (depth)", label: "Walk depth", law: "lin", lo: 0, hi: 1, def: 0.5, fmt: fmtPct, range: "0..1", doc: "The route's depth.", get: () => wk().depth, set: v => wk().depth = v, live: () => wk().on ? "" : "inert: Walk is off"});
+  slider(g, {fullKey: "xy seed (X50: its own seed)", label: "Walk seed", law: "int", lo: 0, hi: 99, def: 7, fmt: v => String(v), range: "0..99 in the lab", doc: "Seeds the walk's mulberry32 stream; the same seed replays the same walk from Reset.", get: () => wk().seed, set: v => { wk().seed = v; resetWalk(); }, live: () => wk().on ? "" : "inert: Walk is off"});
+  const rb = el("button", "btn small", "Reset motion"); rb.title = "Restart the LFO at phase 0 and the walk at its seed (MS-7's reset, for the motion only)."; rb.addEventListener("click", () => { lfoPh = 0; resetWalk(); }); P.append(rb);
+}
+function buildEnv(){
+  const P = $("envCtl"), e1 = () => ST.env1, e2 = () => ST.env2;
+  const env = (g, pre, get, nm) => {
+    slider(g, {fullKey: pre + ".attack", label: "Attack", law: "log", lo: 0.0005, hi: 10, def: 0.004, fmt: fmtS, range: "0.0005..10 s", doc: nm, get: () => get().a, set: v => get().a = v});
+    slider(g, {fullKey: pre + ".decay", label: "Decay", law: "log", lo: 0.005, hi: 30, def: 0.4, fmt: fmtS, range: "0.005..30 s", doc: nm, get: () => get().d, set: v => get().d = v});
+    slider(g, {fullKey: pre + ".sustain", label: "Sustain", law: "lin", lo: 0, hi: 1, def: 0.85, fmt: fmtPct, range: "0..1", doc: nm, get: () => get().s, set: v => get().s = v});
+    slider(g, {fullKey: pre + ".release", label: "Release", law: "log", lo: 0.005, hi: 30, def: 0.28, fmt: fmtS, range: "0.005..30 s", doc: nm + " The release ends at exactly zero.", get: () => get().r, set: v => get().r = v}); };
+  H3(P, "Amp envelope (ENV 1)"); let g = el("div", "cgrid"); P.append(g); env(g, "env1", e1, "SPEC-ENGINE 5.2. Curves are not in the lab (linear attack, exponential decay and release).");
+  H3(P, "ENV 2 (drives Frame env)"); g = el("div", "cgrid"); P.append(g); env(g, "env2", e2, "SPEC-ENGINE 5.2, ENV 2. Routed to each oscillator's wt.frame by its Frame env depth.");
+  H3(P, "Voice & output"); g = el("div", "cgrid"); P.append(g);
+  slider(g, {fullKey: "voice.polyphony", label: "Polyphony", law: "int", lo: 1, hi: 8, def: 8, fmt: v => String(v), range: "1..8 in the lab", doc: "Lab cap 8 (PF-3's chord). The oldest note is stolen with a 3 ms fade.", get: () => ST.poly, set: v => ST.poly = v});
+  slider(g, {fullKey: "out.level", label: "Level", law: "db", lo: -60, hi: 26, def: 0, fmt: fmtDb, range: "−∞, −60..+26 dB", doc: "SPEC-ENGINE 5.2, OU-1: the output is 0.14 × 10^(level/20) × the voices; no limiter, a clip latch.", get: () => ST.out.level, set: v => ST.out.level = v});
+}
+function buildLab(){
+  const P = $("labCtl"); const g = el("div", "cgrid"); P.append(g);
+  seg(g, {fullKey: "lab: level spacing ρ (CONTRACT §7 C1)", label: "Levels", options: ["per octave (built)", "per half-octave"], law: "step", range: "ρ = 2, ρ = 2^½", defText: "per octave", doc: "WT-4. One level per octave is the build; half-octave tops the band fuller (WT-F2) for about twice the memory. Watch the mip ladder change.", get: () => ST.lab.spacing, set: v => ST.lab.spacing = v});
+  seg(g, {fullKey: "lab: the member's read (WT-6)", label: "Read", options: ["4-point cubic", "6-point Lagrange"], law: "step", range: "4-point, 6-point", defText: "4-point", doc: "The spec builds 6-point Lagrange at N = min(8192, max(2048, 16·H)). The lab opens on 4-point on the same layout for browser CPU; switch to hear the spec's read and watch the DSP load.", get: () => ST.lab.interp === 6 ? 1 : 0, set: v => ST.lab.interp = v ? 6 : 4});
+  seg(g, {fullKey: "lab: published-set crossfade (WT-15)", label: "Set crossfade", options: ["R (spec)", "1024 samples"], law: "step", range: "R = 4 control intervals, 1024 samples", defText: "R", doc: "WT-15: each new published set crossfades in over R (116 samples at 44.1 kHz, 128 at 48 kHz). The lab can only publish about 60 sets a second, so motion is a staircase of R-long fades; the long setting smooths it, for comparison only.", get: () => ST.lab.xfade, set: v => ST.lab.xfade = v});
+}
+const RND = Object.assign({}, RND_DEF);
+function buildRnd(){
+  const P = $("rndCtl"), g = el("div", "cgrid"); P.append(g);
+  const R = (k, label, lo, hi, law, fmt, doc) => slider(g, {fullKey: "random.set." + k + " (placeholder)", label, law, lo, hi, def: RND_DEF[k], fmt, range: lo + ".." + hi, doc, get: () => RND[k], set: v => { RND[k] = v; rndDirty = true; }});
+  R("tilt", "Tilt", -12, 6, "lin", v => (v > 0 ? "+" : "") + v.toFixed(1) + " dB/oct", "Spectral slope. Above about +1.5 dB/oct the table fails WT-47's band gate (energy under 20 kHz at C3 within 12 dB of the total; flat reads about −8 dB) and is refused, named: try it.");
+  R("peaks", "Peaks", 0, 6, "int", v => String(v), "Formant-like peaks, placed by the seed.");
+  R("width", "Peak width", 0.05, 1.5, "log", v => v.toFixed(2) + " oct", "");
+  R("rough", "Roughness", 0, 1, "lin", fmtPct, "Per-harmonic jitter drawn from the seed.");
+  R("motion", "Motion", 0, 1, "lin", fmtPct, "How far the peaks travel from frame 1 to 16.");
+  seg(g, {fullKey: "random.set.phase (placeholder)", label: "Phases", options: ["sine", "seeded"], law: "step", range: "sine, seeded", defText: "sine", doc: "Every harmonic in sine phase, or each at a seeded phase.", get: () => RND.phase, set: v => { RND.phase = v; rndDirty = true; }});
+}
+
+/* ---------------- corners ---------------- */
+const cornerUI = [];
+function buildCorners(){
+  KEYS.forEach((K, c) => {
+    const C = $("corner" + K);
+    const h = el("div", "ch"), chip = el("span", "chip", K); chip.style.background = `var(--c${K})`;
+    const wb = el("div", "wbar"), wi = el("i"); wi.style.background = `var(--c${K})`; wb.append(wi); const wn = el("span", "num hint", "0.00");
+    h.append(chip, el("span", "hint", "corner " + K), wb, wn); C.append(h);
+    const rows = [0, 1].map(o => { const r = el("div", "orow"); const lab = el("span", "ol", "OSC " + (o + 1)); const box = el("div");
+      const sel = document.createElement("select"); sel.setAttribute("aria-label", `osc ${o + 1} table at corner ${K}`);
+      sel.title = `osc${o + 1}.wt.table at corner ${K}: a recipe id held in the morph's corner state (WT-51), not a host parameter.`;
+      sel.addEventListener("change", () => assignCorner(o, c, sel.value));
+      const cv = el("canvas", "stack"); box.append(sel, cv); r.append(lab, box); C.append(r); return {r, sel, cv}; });
+    cornerUI.push({wi, wn, rows});
+  });
+}
+function optLabel(t){ return t.name + (LIBRARY.includes(t.id) || FACT_IDS.includes(t.id) ? "" : " (not in library)"); }
+function refreshMenus(){
+  cornerUI.forEach((u, c) => u.rows.forEach((row, o) => { const s = row.sel; s.textContent = "";
+    const g1 = document.createElement("optgroup"); g1.label = "Factory"; FACT_IDS.forEach(id => { const op = el("option", null, DICT.get(id).name); op.value = id; g1.append(op); }); s.append(g1);
+    const user = LIBRARY.filter(id => DICT.get(id).gate.ok);
+    const used = ST.osc.flatMap(x => x.corners).filter(id => !FACT_IDS.includes(id) && !user.includes(id));
+    if (user.length || used.length){ const g2 = document.createElement("optgroup"); g2.label = "Your tables";
+      [...user, ...new Set(used)].forEach(id => { const op = el("option", null, optLabel(DICT.get(id))); op.value = id; g2.append(op); }); s.append(g2); }
+    s.value = ST.osc[o].corners[c]; }));
+}
+// WT-44's bounds at assignment: the patch's dictionary (every corner's recipe and every capture source, transitively) ≤ 64; depth ≤ 8.
+function patchRecipes(corners){ const seen = new Set(); const walk = id => { if (seen.has(id)) return; seen.add(id); const t = DICT.get(id); if (t && t.recipe.kind === "cap") t.recipe.src.forEach(walk); };
+  corners.flat().forEach(walk); return seen; }
+function assignCorner(o, c, id, quiet){
+  const next = ST.osc.map(x => x.corners.slice()); next[o][c] = id;
+  const n = patchRecipes(next).size;
+  if (n > 64){ if (!quiet) flashMsg("capMsg", `Refused: the patch would hold ${n} recipes (bound 64, WT-44).`, false); refreshMenus(); return false; }
+  ST.osc[o].corners[c] = id; sendTable(o, id); changed(); return true;
+}
+
+/* =====================================================================================================
+   Audio graph, workers, messages
+   ===================================================================================================== */
+let ctx = null, node = null, analyser = null, starting = null, workers = [null, null], sentTo = [new Set(), new Set()];
+const workerInfo = [{count: 0, ms: 0, gains: null, lim: 0, cap: 0, busy: false, law: 0}, {count: 0, ms: 0, gains: null, lim: 0, cap: 0, busy: false, law: 0}];
+function makeWorkers(){
+  const url = URL.createObjectURL(new Blob([WORKER_SRC], {type: "application/javascript"}));
+  for (let o = 0; o < 2; o++){ const w = new Worker(url); workers[o] = w;
+    w.onmessage = e => { const d = e.data; if (d.type === "built"){ Object.assign(workerInfo[o], {count: d.count, ms: d.ms, gains: d.gains, lim: d.lim, cap: d.cap, busy: false, law: d.law}); vizDirty = true; } else if (d.type === "skip") workerInfo[o].busy = false; };
+    w.onerror = e => showWarn("audioWarn", "A table worker failed: " + (e.message || e)); }
+}
+function sendTable(o, id){ if (!workers[o] || sentTo[o].has(id)) return; const t = DICT.get(id); if (!t) return;
+  workers[o].postMessage({type: "table", id, re: t.re.slice(), im: t.im.slice()}); sentTo[o].add(id); workerInfo[o].busy = true; }
+async function ensureAudio(){
+  if (node) return true; if (starting) return starting;
+  starting = (async () => { try {
+    ctx = new (window.AudioContext || window.webkitAudioContext)({latencyHint: "interactive"});
+    const url = URL.createObjectURL(new Blob([WORKLET_SRC], {type: "application/javascript"}));
+    await ctx.audioWorklet.addModule(url);
+    node = new AudioWorkletNode(ctx, "horde-wt", {numberOfInputs: 0, outputChannelCount: [2]});
+    analyser = ctx.createAnalyser(); analyser.fftSize = 2048;
+    node.connect(analyser); node.connect(ctx.destination);
+    node.port.onmessage = e => { if (e.data.type === "stats"){ stats = e.data.buf; polling = false; onStats(); } };
+    const ch = [new MessageChannel(), new MessageChannel()];
+    node.port.postMessage({type: "ports", p1: ch[0].port1, p2: ch[1].port1}, [ch[0].port1, ch[1].port1]);
+    for (let o = 0; o < 2; o++) workers[o].postMessage({type: "port", port: ch[o].port2}, [ch[o].port2]);
+    for (let o = 0; o < 2; o++) ST.osc[o].corners.forEach(id => sendTable(o, id));
+    pushParams(true); lastWorkerKey = ["", ""];
+    if (ctx.state !== "running") await ctx.resume();
+    const b = $("startAudio"); b.textContent = "● Audio on · " + (ctx.sampleRate/1000).toFixed(1) + " kHz"; b.classList.add("on");
+    return true;
+  } catch (err){ showWarn("audioWarn", "Audio could not start in this browser: " + (err && err.message || err) + ". The visuals still work."); starting = null; return false; } })();
+  return starting;
+}
+function showWarn(id, t){ const w = $(id); w.hidden = false; w.textContent = t; }
+const dbLin = v => v === -Infinity ? 0 : Math.pow(10, v/20);
+// one flat array per oscillator, in the worklet's slot order (ON, LVL, FRAME, FSPR, FENV, SYNCIN, SYNC, SYNCHZ, WIN, ASYM, BEND, PM, UNI, DET, CPL, WID, TR, SEED)
+function pushParams(){
+  if (!node) return;
+  const osc = new Float64Array(36);
+  ST.osc.forEach((s, o) => { const b = o*18, on = o === 0 ? 1 : s.on;
+    [on, dbLin(s.level), s.frame, s.law === 1 ? 0 : s.frameSpread, s.fenv, s.syncIn, s.sync, s.syncHz, s.window, s.asym, s.bend, s.pm,
+     s.unison, s.detune, s.coupling, s.width, s.octave*12 + s.semitone + s.fine/100, s.seed].forEach((v, i) => osc[b + i] = v); });
+  const fs = ctx.sampleRate, R = 4*Math.round(fs/1512);   // WT-14: R = 4 control intervals (116 at 44.1 kHz, 128 at 48 kHz)
+  const glob = new Float64Array([ST.env1.a, ST.env1.d, ST.env1.s, ST.env1.r, ST.env2.a, ST.env2.d, ST.env2.s, ST.env2.r, dbLin(ST.out.level), ST.poly, ST.lab.interp, ST.lab.xfade ? 1024 : R]);
+  node.port.postMessage({type: "params", osc, glob});
+}
+let lastWorkerKey = ["", ""];
+function pushWorkers(){
+  if (!node) return;
+  const w = heardWeights();
+  for (let o = 0; o < 2; o++){ const s = ST.osc[o];
+    const msg = {type: "params", ids: s.corners, w, law: s.law, frame: sharedFrame(o), spacing: ST.lab.spacing};
+    const key = JSON.stringify([msg.ids, w, msg.law, msg.law === 1 ? msg.frame : 0, msg.spacing]);
+    if (key !== lastWorkerKey[o]){ lastWorkerKey[o] = key; workers[o].postMessage(msg); workerInfo[o].busy = true; } }
+}
+
+/* ---------------- notes ---------------- */
+let noteSeq = 1; const noteIds = new Map(); const held = [];   // held: {key, note, t0}
+async function noteOn(key, note, vel){
+  if (!(await ensureAudio())) return;
+  if (!noteIds.has(key)) noteIds.set(key, noteSeq++);
+  node.port.postMessage({type: "on", id: noteIds.get(key), note, vel: vel || 0.85});
+  const i = held.findIndex(h => h.key === key); if (i >= 0) held.splice(i, 1);
+  held.push({key, note, t0: ctx.currentTime});
+}
+function noteOff(key){ if (!node || !noteIds.has(key)) return; node.port.postMessage({type: "off", id: noteIds.get(key)});
+  const i = held.findIndex(h => h.key === key); if (i >= 0) held.splice(i, 1); }
+// ENV 2 of the newest held note, mirrored on the page (attack linear, decay exponential to sustain), for the shared frame (WT-22)
+let lastShared = [null, null];
+function env2At(t){ const e = ST.env2; if (t < e.a) return t/e.a; return e.s + (1 - e.s)*Math.exp(-4*(t - e.a)/e.d); }
+function newestEnv2(){ if (!held.length || !ctx) return null; return env2At(ctx.currentTime - held[held.length - 1].t0); }
+function sharedFrame(o){ const s = ST.osc[o], e = newestEnv2();
+  if (e != null) lastShared[o] = clamp01(s.frame + s.fenv*e); else if (lastShared[o] == null || s.fenv === 0) lastShared[o] = s.frame;
+  return round4(lastShared[o]); }
+
+/* ---------------- morph motion (on the audio clock) ---------------- */
+let lfoPh = 0, lastClock = null, walkO = [0, 0], walkTicks = 0, walkRng = null, walkG = null;
+function resetWalk(){ walkO = [0, 0]; walkRng = L.mulberry32(ST.walk.seed >>> 0); walkG = null; }
+function gauss(){ if (walkG != null){ const g = walkG; walkG = null; return g; } const u = Math.max(1e-12, walkRng()), v = walkRng();
+  const r = Math.sqrt(-2*Math.log(u)); walkG = r*Math.sin(TAU*v); return r*Math.cos(TAU*v); }
+function lfoShape(ph){ const sh = ST.lfo.shape, x = frac(ph);
+  if (sh === 0) return Math.sin(TAU*x); if (sh === 1) return 1 - 4*Math.abs(frac(x + 0.25) - 0.5);
+  return 2*L.mulberry32((ST.lfo.seed ^ Math.imul(Math.floor(ph) + 1, 0x9E3779B1)) >>> 0)() - 1; }
+let heard = {x: 0.3, y: 0.3}; const trail = [];
+function stepMotion(){
+  const now = ctx ? ctx.currentTime : performance.now()/1000;   // the audio clock once audio runs (the page's motion only)
+  let dt = lastClock == null ? 0 : now - lastClock; lastClock = now; if (dt < 0 || dt > 0.25) dt = 0;
+  lfoPh += ST.lfo.rate*dt;
+  let x = ST.morph.x, y = ST.morph.y;
+  if (ST.lfo.dx || ST.lfo.dy){ x += 0.5*ST.lfo.dx*lfoShape(lfoPh); y += 0.5*ST.lfo.dy*lfoShape(lfoPh + ST.lfo.yph/360); }
+  if (ST.walk.on){ if (!walkRng) resetWalk(); const tick = 1/200; walkTicks += dt/tick;
+    const W = ST.walk, a = tick/W.tau, sd = W.sigma*Math.sqrt(2*a);
+    while (walkTicks >= 1){ walkTicks -= 1; walkO[0] += -a*walkO[0] + sd*gauss(); walkO[1] += -a*walkO[1] + sd*gauss(); }
+    x += W.depth*0.5*walkO[0]; y += W.depth*0.5*walkO[1]; }
+  const nh = {x: round4(clamp01(x)), y: round4(clamp01(y))};
+  const moved = nh.x !== heard.x || nh.y !== heard.y; heard = nh;
+  if (ST.lfo.dx || ST.lfo.dy || ST.walk.on){ trail.push([nh.x, nh.y]); if (trail.length > 160) trail.shift(); } else if (trail.length) trail.shift();
+  return moved;
+}
+const heardWeights = () => bilinear(heard.x, heard.y);
+
+/* =====================================================================================================
+   Visuals
+   ===================================================================================================== */
+let T = {};
+function readTheme(){ const cs = getComputedStyle(document.documentElement);
+  ["--bg","--panel","--well","--well-alt","--ink","--hair","--div","--t2","--hint","--dis","--value","--value-ink","--physics","--meter","--meter-ink","--marker","--celebrate","--caution","--caution-tx","--alarm","--ghost",
+   "--cA","--cB","--cC","--cD","--cA-tx","--cB-tx","--cC-tx","--cD-tx","--cA-tint","--cB-tint","--cC-tint","--cD-tint"].forEach(v => T[v] = cs.getPropertyValue(v).trim());
+  stackDirty = vizDirty = libDirty = true; }
+function fit(cv){ const r = cv.getBoundingClientRect(), d = window.devicePixelRatio || 1, w = Math.max(1, Math.round(r.width*d)), h = Math.max(1, Math.round(r.height*d));
+  if (cv.width !== w || cv.height !== h){ cv.width = w; cv.height = h; } const g = cv.getContext("2d"); g.setTransform(d, 0, 0, d, 0, 0); return [g, r.width, r.height]; }
+function frameOfDisp(t, p, out){ const u = 15*p, i = Math.min(14, Math.floor(u)), f = u - i; for (let k = 0; k < 128; k++) out[k] = t.disp[i*128 + k] + (t.disp[(i + 1)*128 + k] - t.disp[i*128 + k])*f; return out; }
+const dispTmp = new Float32Array(128);
+function drawStack(cv, t, col, p, weight, dim){
+  const [g, W, H] = fit(cv); g.clearRect(0, 0, W, H); if (!t) return;
+  const dx = W*.2/NF, dy = -H*.42/NF, w = W*.78, amp = H*.17, x0 = 3, y0 = H*.76;
+  g.lineWidth = 1; g.strokeStyle = T["--hint"];
+  for (let f = NF - 1; f >= 0; f--){ g.globalAlpha = .22; g.beginPath();
+    for (let k = 0; k < 128; k++){ const X = x0 + f*dx + k/127*w, Y = y0 + f*dy - t.disp[f*128 + k]*amp; k ? g.lineTo(X, Y) : g.moveTo(X, Y); } g.stroke(); }
+  const cur = 15*p; frameOfDisp(t, p, dispTmp);
+  g.globalAlpha = dim ? .35 : 0.35 + 0.65*Math.min(1, weight*1.6); g.beginPath();
+  for (let k = 0; k < 128; k++){ const X = x0 + cur*dx + k/127*w, Y = y0 + cur*dy - dispTmp[k]*amp; k ? g.lineTo(X, Y) : g.moveTo(X, Y); }
+  g.strokeStyle = col; g.lineWidth = 2.2; g.stroke(); g.globalAlpha = 1;
+  g.font = `400 9px ${T.mono || "monospace"}`; g.fillStyle = T["--hint"]; g.textAlign = "right"; g.fillText("frame " + (1 + cur).toFixed(1), W - 4, 11);
+}
+const VARS = ["--cA-tx","--cB-tx","--cC-tx","--cD-tx"];
+function drawCorners(){
+  const w = heardWeights();
+  cornerUI.forEach((u, c) => { u.wi.style.width = (w[c]*100).toFixed(1) + "%"; u.wn.textContent = w[c].toFixed(2);
+    u.rows.forEach((row, o) => { const off = o === 1 && !ST.osc[1].on; row.r.classList.toggle("off", off);
+      drawStack(row.cv, DICT.get(ST.osc[o].corners[c]), T[VARS[c]], displayFrame(o), w[c], off); }); });
+}
+function drawPad(){
+  const cv = $("pad"), [g, W, H] = fit(cv), w = heardWeights();
+  g.fillStyle = T["--well"]; g.fillRect(0, 0, W, H);
+  // four corner tints, each fading toward the far corners: a cheap bilinear picture of the weights
+  [[0, 0, "--cA-tint"], [W, 0, "--cB-tint"], [0, H, "--cC-tint"], [W, H, "--cD-tint"]].forEach(([x, y, v]) => { const r = g.createRadialGradient(x, y, 0, x, y, W*.9);
+    r.addColorStop(0, T[v]); r.addColorStop(1, /^#[0-9a-f]{6}$/i.test(T[v]) ? T[v] + "00" : "transparent");   /* fade to the tint itself, not to black */ g.fillStyle = r; g.fillRect(0, 0, W, H); });
+  g.strokeStyle = T["--hair"]; g.lineWidth = 1;
+  for (let i = 1; i < 8; i++){ const p = Math.round(i*W/8) + .5, q = Math.round(i*H/8) + .5; g.beginPath(); g.moveTo(p, 0); g.lineTo(p, H); g.moveTo(0, q); g.lineTo(W, q); g.stroke(); }
+  if (trail.length > 1){ g.beginPath(); trail.forEach((p, k) => { const X = p[0]*W, Y = p[1]*H; k ? g.lineTo(X, Y) : g.moveTo(X, Y); }); g.strokeStyle = T["--physics"]; g.globalAlpha = .45; g.lineWidth = 1.5; g.stroke(); g.globalAlpha = 1; }
+  g.font = `600 11px ${T.mono || "monospace"}`;
+  const pos = [[8, 16, "left"], [W - 8, 16, "right"], [8, H - 8, "left"], [W - 8, H - 8, "right"]];
+  pos.forEach(([px, py, al], i) => { g.textAlign = al; g.fillStyle = T[VARS[i]]; g.fillText(`${KEYS[i]} ${w[i].toFixed(2)}`, px, py);
+    g.font = `400 9px ${T.mono || "monospace"}`; g.fillStyle = T["--hint"];
+    const n1 = DICT.get(ST.osc[0].corners[i]).name, n2 = ST.osc[1].on ? DICT.get(ST.osc[1].corners[i]).name : null;
+    g.fillText(n1, px, py + (i < 2 ? 12 : -24)); if (n2) g.fillText(n2, px, py + (i < 2 ? 23 : -13)); g.font = `600 11px ${T.mono || "monospace"}`; });
+  const X = ST.morph.x*W, Y = ST.morph.y*H, hx = heard.x*W, hy = heard.y*H;
+  g.setLineDash([3, 4]); g.strokeStyle = T["--ink"]; g.globalAlpha = .35; g.beginPath(); g.moveTo(hx, 0); g.lineTo(hx, H); g.moveTo(0, hy); g.lineTo(W, hy); g.stroke(); g.setLineDash([]); g.globalAlpha = 1;
+  g.beginPath(); g.arc(X, Y, 12, 0, TAU); g.lineWidth = 2; g.strokeStyle = T["--ink"]; g.stroke();
+  g.beginPath(); g.arc(hx, hy, 6, 0, TAU); g.fillStyle = T["--value"]; g.fill(); g.lineWidth = 1.5; g.strokeStyle = T["--ink"]; g.stroke();
+  $("xyRead").textContent = `x ${ST.morph.x.toFixed(2)} · y ${ST.morph.y.toFixed(2)}`;
+  $("heardRead").textContent = (heard.x !== ST.morph.x || heard.y !== ST.morph.y) ? `heard x ${heard.x.toFixed(2)} · y ${heard.y.toFixed(2)}` : "";
+}
+// what the visuals show: the newest voice's frame (the page mirrors ENV 2), or the frame knob when nothing is held
+function displayFrame(o){ const s = ST.osc[o]; if (s.law === 1) return sharedFrame(o); const e = newestEnv2(); return clamp01(s.frame + (e != null ? s.fenv*e : 0)); }
+const vRe = new Float64Array(1025), vIm = new Float64Array(1025), cyc = new Float64Array(2048);
+function drawOutput(){
+  const o = ST.vizOsc, s = ST.osc[o], p = displayFrame(o), {tabs, ws} = pooled(s.corners, heardWeights());
+  L.frameBlend(tabs, ws, s.law, p, vRe, vIm);
+  const lg = L.loudGain(vRe, vIm); let g = lg.g;
+  L.render(vRe, vIm, 0, 2048, NH, cyc); let pk = 0; for (let k = 0; k < 2048; k++) pk = Math.max(pk, Math.abs(cyc[k]));
+  let limited = false; if (g*pk > L.PEAK){ g = L.PEAK/pk; limited = true; }
+  $("vizFrame").textContent = `frame ${(1 + 15*p).toFixed(2)} · ${s.law ? "Spectral log" : "Linear"}${o === 1 && !s.on ? " · osc 2 is off" : ""}`;
+  // cycle
+  { const [c, W, H] = fit($("cyc")); c.clearRect(0, 0, W, H); const m = H/2, sc = (H/2 - 6)/2.6;
+    c.strokeStyle = T["--hair"]; c.lineWidth = 1; c.beginPath(); c.moveTo(0, m + .5); c.lineTo(W, m + .5);
+    [1, -1].forEach(v => { c.moveTo(0, m - v*sc + .5); c.lineTo(W, m - v*sc + .5); }); c.stroke();
+    c.setLineDash([2, 3]); c.strokeStyle = T["--alarm"]; c.globalAlpha = .6; c.beginPath(); [2.6, -2.6].forEach(v => { c.moveTo(0, m - v*sc + .5); c.lineTo(W, m - v*sc + .5); }); c.stroke(); c.setLineDash([]); c.globalAlpha = 1;
+    c.beginPath(); for (let x = 0; x <= W; x++){ const k = Math.min(2047, Math.floor(x/W*2048)), Y = m - cyc[k]*g*sc; x ? c.lineTo(x, Y) : c.moveTo(x, Y); }
+    c.strokeStyle = T["--value"]; c.lineWidth = 2; c.stroke();
+    c.font = `400 9px ${T.mono || "monospace"}`; c.fillStyle = T["--hint"]; c.textAlign = "left"; c.fillText("±1", 3, m - sc - 2); c.fillText("peak limit 2.6", 3, 10);
+    $("cycRead").textContent = `gain ${fmtDb(20*Math.log10(g))} · peak ${(pk*g).toFixed(2)}${limited ? " · LIMITED" : ""}${lg.capped ? " · CAPPED" : ""}`; }
+  // spectrum (dB re the blend's strongest harmonic, log n), centroid, and the newest voice's band limit
+  { const [c, W, H] = fit($("spec")); c.clearRect(0, 0, W, H); const top = 6, bot = H - 14, floor = -90, x0 = 26, xw = W - x0 - 4;
+    let mx = 1e-12; for (let n = 1; n <= NH; n++) mx = Math.max(mx, Math.hypot(vRe[n], vIm[n]));
+    const X = n => x0 + Math.log2(n)/10*xw;
+    c.font = `400 9px ${T.mono || "monospace"}`; c.fillStyle = T["--hint"]; c.strokeStyle = T["--hair"]; c.lineWidth = 1;
+    [0, -30, -60, -90].forEach(db => { const y = Math.round(top + db/floor*(bot - top)) + .5; c.beginPath(); c.moveTo(x0, y); c.lineTo(W, y); c.stroke(); c.textAlign = "right"; c.fillText(db, x0 - 3, y + 3); });
+    [1, 4, 16, 64, 256, 1024].forEach(n => { c.textAlign = n === 1024 ? "right" : "center"; c.fillText(n, n === 1024 ? W - 2 : X(n), H - 3); });
+    const lim = mipLimit(o); if (lim){ c.fillStyle = T["--well-alt"]; c.globalAlpha = .8; c.fillRect(X(lim + .5), top, W - X(lim + .5), bot - top); c.globalAlpha = 1; }
+    let cn = 0, cd = 0; c.strokeStyle = T["--meter-ink"]; c.beginPath();
+    for (let n = 1; n <= NH; n++){ const m = Math.hypot(vRe[n], vIm[n]); cn += n*m*m; cd += m*m; const db = 20*Math.log10(m/mx + 1e-12); if (db < floor) continue;
+      const x = Math.round(X(n)) + .5, y = top + db/floor*(bot - top); c.moveTo(x, bot); c.lineTo(x, y); }
+    c.lineWidth = 1; c.stroke();
+    const cen = cd ? cn/cd : 1; c.strokeStyle = T["--value"]; c.lineWidth = 2; c.beginPath(); c.moveTo(X(cen), top); c.lineTo(X(cen), bot); c.stroke();
+    $("specRead").textContent = `centroid n ${cen.toFixed(1)} (${fmtHz(cen*L.C3)} at C3)${lim ? ` · newest voice reads H ≤ ${lim}` : ""}`; }
+}
+// stats from the worklet (polled; the handler fills a transferred buffer, so process() never posts)
+let stats = null, polling = false; const statsBuf = new Float32Array(16 + 8*48);
+function poll(){ if (!node || polling) return; polling = true; const b = (stats && stats.buffer.byteLength) ? stats : new Float32Array(16 + 8*48); stats = null; node.port.postMessage({type: "poll", buf: b}, [b.buffer]); }
+let loadAvg = 0;
+function onStats(){ const s = stats; if (!s) return; statsBuf.set(s);
+  loadAvg = loadAvg*0.7 + s[0]*0.3;
+  const lr = $("loadRead"); lr.textContent = `DSP load ≈ ${(loadAvg*100).toFixed(0)} % of real time (ms-resolution estimate) · ${s[1]} voices`;
+  lr.style.color = loadAvg > 0.8 ? T["--alarm"] : loadAvg > 0.55 ? T["--caution-tx"] || "" : "";
+  if (loadAvg > 0.8) showWarn("loadWarn", "Lab limit: the browser's audio thread is near its budget, so you may hear crackle. That is JavaScript, not the design: lower unison, polyphony, or switch the read to 4-point."); else $("loadWarn").hidden = true;
+  $("clip").classList.toggle("lit", s[2] > 0);
+  vizDirty = true; }
+function voices(){ const out = []; const s = statsBuf; for (let v = 0; v < 8; v++){ const o = 16 + v*48; if (s[o] > 0) out.push({v, note: s[o + 1], env: s[o + 2], H1: s[o + 3], m1: s[o + 4], H2: s[o + 5], m2: s[o + 6], R1: s[o + 7], f1: s[o + 8], f2: s[o + 9],
+    ph1: s.subarray(o + 10, o + 19), U1: s[o + 19], ph2: s.subarray(o + 20, o + 29), U2: s[o + 29], R2: s[o + 30], age: s[o + 31], gate: s[o + 32]}); } return out.sort((a, b) => a.age - b.age); }
+function mipLimit(o){ const vs = voices().filter(v => v.gate); if (!vs.length) return 0; const v = vs[vs.length - 1]; return o === 0 ? v.H1 : v.H2; }
+function drawMip(){
+  const [c, W, H] = fit($("mip")); c.clearRect(0, 0, W, H); const lay = L.makeLayout(ST.lab.spacing), vs = voices(), o = ST.vizOsc;
+  const nL = lay.H.length, x0 = 34, cw = (W - x0 - 4)/nL, rows = Math.max(1, vs.length), rh = Math.min(15, (H - 16)/rows);
+  c.font = `400 8.5px ${T.mono || "monospace"}`; c.fillStyle = T["--hint"]; c.textAlign = "center";
+  lay.H.forEach((h, k) => { if (nL < 12 || k % 2 === 0) c.fillText(h, x0 + (k + .5)*cw, 9); });
+  if (!vs.length){ c.textAlign = "left"; c.fillText(node ? "play a note: each row is a sounding voice" : "start audio and play a note", x0, 30); $("mipRead").textContent = `${nL} levels · H per level`; return; }
+  vs.forEach((v, r) => { const y = 14 + r*rh; c.textAlign = "right"; c.fillStyle = T["--t2"]; c.fillText(noteName(v.note), x0 - 4, y + rh*.7);
+    const H1 = o === 0 ? v.H1 : v.H2, m = o === 0 ? v.m1 : v.m2;
+    for (let k = 0; k < nL; k++){ const x = x0 + k*cw; let a = 0.12; const h = lay.H[k];
+      if (h === H1) a = 1 - m; else if (m > 0 && k > 0 && lay.H[k + 1] === H1) a = m;
+      c.fillStyle = a > 0.12 ? T["--meter"] : T["--well-alt"]; c.globalAlpha = a > 0.12 ? 0.25 + 0.75*a : 1; c.fillRect(x + 1, y, cw - 2, rh - 3); c.globalAlpha = 1; } });
+  const last = vs[vs.length - 1]; const H1 = o === 0 ? last.H1 : last.H2, m = o === 0 ? last.m1 : last.m2;
+  $("mipRead").textContent = `newest ${noteName(last.note)}: H ${H1}${m > 0.001 ? ` → ${Math.round(m*100)} % toward the darker level` : ""}`;
+}
+function drawPhase(){
+  const [c, W, H] = fit($("phase")); c.clearRect(0, 0, W, H); const vs = voices().slice(-8), o = ST.vizOsc;
+  if (!vs.length){ c.font = `400 8.5px ${T.mono || "monospace"}`; c.fillStyle = T["--hint"]; c.fillText(node ? "play a note to see the members" : "start audio and play a note", 6, 20); $("phRead").textContent = ""; return; }
+  const cols = Math.min(4, vs.length), rows = Math.ceil(vs.length/cols), cw = W/cols, ch = H/rows, rad = Math.min(cw, ch)*.36;
+  vs.forEach((v, i) => { const cx = (i % cols + .5)*cw, cy = (Math.floor(i/cols) + .5)*ch - 3, U = o === 0 ? v.U1 : v.U2, ph = o === 0 ? v.ph1 : v.ph2, R = o === 0 ? v.R1 : v.R2;
+    c.strokeStyle = T["--hair"]; c.lineWidth = 1; c.beginPath(); c.arc(cx, cy, rad, 0, TAU); c.stroke();
+    c.strokeStyle = T["--physics"]; c.lineWidth = 2; c.beginPath(); c.moveTo(cx, cy); c.lineTo(cx, cy - R*rad); c.stroke();
+    for (let m = 0; m < U; m++){ const a = TAU*ph[m] - Math.PI/2; c.beginPath(); c.arc(cx + Math.cos(a)*rad, cy + Math.sin(a)*rad, 3, 0, TAU); c.fillStyle = T["--value"]; c.fill(); }
+    c.font = `400 8.5px ${T.mono || "monospace"}`; c.fillStyle = T["--hint"]; c.textAlign = "center"; c.fillText(`${noteName(v.note)} R ${R.toFixed(2)}`, cx, cy + rad + 10); });
+  const last = vs[vs.length - 1]; $("phRead").textContent = `R ${(o === 0 ? last.R1 : last.R2).toFixed(2)} · 1 = locked`;
+}
+// loudness history: the published gain at the display frame, and the output's level
+const loudHist = []; let lastPeak = 0;
+function drawLoud(){
+  const [c, W, H] = fit($("loud")); c.clearRect(0, 0, W, H);
+  const o = ST.vizOsc, wi = workerInfo[o]; let gdb = null;
+  if (wi.gains){ const p = displayFrame(o), f = wi.law === 1 ? 0 : Math.round(15*p); gdb = 20*Math.log10(wi.gains[f]); }
+  let rms = -Infinity; if (analyser){ const a = anaBuf; analyser.getFloatTimeDomainData(a); let s = 0; for (let k = 0; k < a.length; k++) s += a[k]*a[k]; rms = 10*Math.log10(s/a.length + 1e-20); }
+  loudHist.push([gdb, rms]); if (loudHist.length > 300) loudHist.shift();
+  const yG = v => H/2 - v/24*(H/2 - 8), yR = v => 8 + (-v)/60*(H - 16);
+  c.strokeStyle = T["--hair"]; c.lineWidth = 1; c.beginPath(); c.moveTo(0, H/2 + .5); c.lineTo(W, H/2 + .5); c.stroke();
+  const line = (idx, fy, col) => { c.beginPath(); let started = false; loudHist.forEach((h, k) => { const v = h[idx]; if (v == null || !isFinite(v)){ started = false; return; } const x = k/299*W, y = fy(v); started ? c.lineTo(x, y) : c.moveTo(x, y); started = true; }); c.strokeStyle = col; c.lineWidth = 1.8; c.stroke(); };
+  line(0, yG, T["--physics"]); line(1, yR, T["--meter-ink"]);
+  c.font = `400 9px ${T.mono || "monospace"}`; c.textAlign = "left"; c.fillStyle = T["--physics"]; c.fillText("normaliser gain (0 dB centre, ±24)", 4, 10);
+  c.fillStyle = T["--meter-ink"]; c.fillText("output RMS dBFS (0 top, −60 bottom)", 4, H - 4);
+  $("loudRead").textContent = `osc ${o + 1}: gain ${gdb == null ? "— (start audio)" : fmtDb(gdb)} at this frame · ${wi.lim} frame(s) peak-limited · ${wi.cap} capped at +24 dB in the last set · output RMS ${isFinite(rms) ? rms.toFixed(1) + " dBFS" : "−∞"}`;
+}
+const anaBuf = new Float32Array(2048);
+function drawMeter(){
+  if (!analyser) return; const a = anaBuf; analyser.getFloatTimeDomainData(a); let pk = 0, s = 0; for (let k = 0; k < a.length; k++){ const v = Math.abs(a[k]); if (v > pk) pk = v; s += a[k]*a[k]; }
+  const rms = Math.sqrt(s/a.length); lastPeak = Math.max(pk, lastPeak*0.94);
+  const pos = v => { const db = 20*Math.log10(v + 1e-9); return Math.max(0, Math.min(100, (db + 60)/60*100)); };
+  $("mPeak").style.width = pos(lastPeak) + "%"; $("mRms").style.width = pos(rms) + "%";
+  $("mPeakT").textContent = lastPeak > 1e-6 ? (20*Math.log10(lastPeak)).toFixed(1) : "−∞"; $("mRmsT").textContent = rms > 1e-6 ? (20*Math.log10(rms)).toFixed(1) : "−∞";
+  const pr = $("mPeak"); pr.style.background = lastPeak > 1 ? T["--alarm"] : lastPeak > 0.7 ? T["--caution"] : T["--meter"];
+}
+
+/* ---------------- library cards ---------------- */
+let fresh = null;
+function renderLib(){
+  const box = $("lib"); box.textContent = ""; libCanvases.length = 0;
+  const list = [...FACT_IDS, ...LIBRARY];
+  for (const id of list){ const t = DICT.get(id); const card = el("article", "lt" + (id === fresh ? " fresh" : "") + (t.gate.ok ? "" : " refused"));
+    const cv = el("canvas"); libCanvases.push([cv, t]);
+    const nm = el("div", "nm", t.name + (FACT_IDS.includes(id) ? "  · factory" : ""));
+    const idl = el("div", "hint", "id " + id + (t.recipe.kind === "cap" ? ` · capture depth ${t.depth}` : ""));
+    const pre = el("pre", null, JSON.stringify(t.recipe, null, 1).replace(/\n\s*/g, " "));
+    pre.title = "The state stores this recipe, never the data (WT-42). The id is the 64-bit FNV-1a of its canonical text, name removed (CONTRACT §3.1).";
+    const gate = el("div", "gate " + (t.gate.ok ? "ok" : "no"), t.gate.ok ? `gates pass (WT-47) · band ${(Math.abs(t.gate.lowDb) < 0.05 ? 0 : t.gate.lowDb).toFixed(1)} dB` : "REFUSED (WT-47): " + t.gate.msgs.join("; "));
+    const acts = el("div", "acts");
+    if (t.gate.ok){ [0, 1].forEach(o => { acts.append(el("span", "hint", "osc" + (o + 1)));
+      KEYS.forEach((K, c) => { const b = el("button", "btn small", K); b.title = `Load into osc ${o + 1}, corner ${K}`; b.addEventListener("click", () => assignCorner(o, c, id)); acts.append(b); }); }); }
+    if (!FACT_IDS.includes(id)){ const del = el("button", "btn small", "Delete"); del.style.marginLeft = "auto"; let tm = null;
+      del.title = "Two-step. Deletes the library entry only: corners that use it keep playing from the recipe (WT-45).";
+      del.addEventListener("click", () => { if (!del.dataset.armed){ del.dataset.armed = "1"; del.textContent = "Confirm delete"; del.style.color = T["--alarm"]; tm = setTimeout(() => { delete del.dataset.armed; del.textContent = "Delete"; del.style.color = ""; }, 3000); return; }
+        clearTimeout(tm); LIBRARY = LIBRARY.filter(x => x !== id); saveLib(); refreshMenus(); renderLib(); });
+      acts.append(del); }
+    card.append(cv, nm, idl, gate, pre, acts); box.append(card); }
+  libDirty = true;
+}
+const libCanvases = [];
+function drawLib(){ libCanvases.forEach(([cv, t]) => drawStack(cv, t, T["--value"], 0.5, 1, false)); }
+const LSLIB = "horde-wavetable-lab-library-v1", LSNOTES = "horde-wavetable-lab-notes-v1";
+function saveLib(){ try { const recipes = {}; for (const id of patchRecipes([LIBRARY, ST.osc[0].corners, ST.osc[1].corners])) recipes[id] = DICT.get(id).recipe;
+  localStorage.setItem(LSLIB, JSON.stringify({order: LIBRARY, recipes})); } catch (e){ /* storage blocked: the library lasts until reload */ } }
+function loadLib(){ let data = null; try { data = JSON.parse(localStorage.getItem(LSLIB) || "null"); } catch (e){ data = null; } if (!data || !data.recipes) return;
+  const build = id => { if (DICT.has(id)) return true; const r = data.recipes[id]; if (!r) return false; if (r.kind === "cap" && !r.src.every(build)) return false;
+    try { const t = buildRecipe(r); return t.id === id; } catch (e){ return false; } };
+  for (const id of data.order || []) if (build(id)) LIBRARY.push(id); }
+function flashMsg(id, t, ok){ const m = $(id); m.textContent = t; m.className = "msg " + (ok ? "ok" : "no"); }
+
+function capture(){
+  const o = +$("capOsc").value, s = ST.osc[o], scope = $("capScope").value;
+  const frame = scope === "all" ? "all" : round4(s.law === 1 ? sharedFrame(o) : s.frame);
+  const name = ($("capName").value.trim() || `Capture ${LIBRARY.filter(id => DICT.get(id).recipe.kind === "cap").length + 1}`).slice(0, 40);
+  const recipe = {v: 1, kind: "cap", src: s.corners.slice(), x: heard.x, y: heard.y, frame, law: s.law ? "spectral-log" : "linear", lawV: 1, name};
+  const depth = 1 + Math.max(...recipe.src.map(id => DICT.get(id).depth));
+  if (depth > 8){ flashMsg("capMsg", `Refused: capture depth would be ${depth} (bound 8, WT-44).`, false); return; }
+  const id = recipeId(recipe);
+  if (DICT.has(id)){ if (!LIBRARY.includes(id)) LIBRARY.push(id); flashMsg("capMsg", `Same recipe as an existing table (id ${id}); not duplicated.`, true); refreshMenus(); renderLib(); saveLib(); return; }
+  const t = buildRecipe(recipe);
+  if (!t.gate.ok){ flashMsg("capMsg", "Refused (WT-47): " + t.gate.msgs.join("; "), false); LIBRARY.push(id); fresh = id; renderLib(); return; }
+  LIBRARY.push(id); fresh = id; $("capName").value = ""; saveLib(); refreshMenus(); renderLib();
+  flashMsg("capMsg", `Captured “${t.name}” (id ${id}, depth ${t.depth}). It is in every corner's menu.`, true);
+}
+let rndDirty = true, rndTable = null;
+function rndRecipe(){ const seed = Math.max(0, Math.min(4294967295, Math.floor(+$("rndSeed").value || 0)));
+  const set = {}; Object.keys(RND_DEF).forEach(k => set[k] = (k === "peaks" || k === "phase") ? Math.round(RND[k]) : round4(RND[k]));
+  return {v: 1, kind: "gen", gen: "random", genV: 1, set, seed, name: "Random " + seed}; }
+function rndPreview(){ rndDirty = false; const r = rndRecipe(), b = buildGen(r); rndTable = {recipe: r, ...b, disp: makeDisp(b.re, b.im)};
+  drawStack($("rndPrev"), rndTable, T["--value"], 0.5, 1, false);
+  flashMsg("rndMsg", b.gate.ok ? `seed ${r.seed} · gates pass · id ${recipeId(r)}` : "This roll would be refused (WT-47): " + b.gate.msgs.join("; "), b.gate.ok); }
+
+/* ---------------- notes for the lead ---------------- */
+const NOTE_SECTIONS = [
+  ["corners", "Corners & the factory tables"], ["pad", "The pad & morph motion (LFO, 2-D random)"], ["law", "Blend laws & frames"],
+  ["swarm", "The swarm: unison, detune, coupling, width"], ["transform", "Sync, window, asym, bend, PM"], ["loud", "Loudness steadiness"],
+  ["capture", "Capture, recipes, library"], ["random", "Random table slot"], ["visuals", "Visuals (stacks, spectrum, mip, phases)"],
+  ["names", "Names, ranges, layout"], ["sound", "How it sounds / feels"], ["other", "Anything else"]];
+let NOTES = {};
+function buildNotes(){ try { NOTES = JSON.parse(localStorage.getItem(LSNOTES) || "{}") || {}; } catch (e){ NOTES = {}; }
+  const box = $("notes"); NOTE_SECTIONS.forEach(([k, t]) => { const lab = el("label"); lab.append(t); const ta = document.createElement("textarea"); ta.value = NOTES[k] || "";
+    ta.addEventListener("input", () => { NOTES[k] = ta.value; try { localStorage.setItem(LSNOTES, JSON.stringify(NOTES)); } catch (e){ /* blocked: notes last until reload; Export still works */ } });
+    lab.append(ta); box.append(lab); }); }
+function exportJSON(){
+  const recipes = {}; for (const id of patchRecipes([LIBRARY, ST.osc[0].corners, ST.osc[1].corners])) recipes[id] = DICT.get(id).recipe;
+  return JSON.stringify({lab: "horde wavetable lab", brief: "B650", spec: "b649-wavetable-spec 279d253e", notes: NOTES,
+    settings: ST, heard, sampleRate: ctx ? ctx.sampleRate : null, read: ST.lab.interp + "-point", dictionary: recipes, library: LIBRARY,
+    names: Object.fromEntries(Object.entries(recipes).map(([id, r]) => [id, r.name]))}, null, 2);
+}
+
+/* ---------------- keyboard ---------------- */
+let kbOct = 0, chordOn = false;
+const KMAP = {a: 0, w: 1, s: 2, e: 3, d: 4, f: 5, t: 6, g: 7, y: 8, h: 9, u: 10, j: 11, k: 12};
+const kbDown = new Set();
+function buildKb(){
+  const kb = $("kb"); kb.textContent = ""; const whites = []; const base = 48;
+  for (let m = base; m < base + 25; m++){ if (![1, 3, 6, 8, 10].includes(m % 12)) whites.push(m); }
+  const ww = 100/whites.length;
+  whites.forEach((m, i) => { const k = el("div", "w"); k.style.left = i*ww + "%"; k.style.width = ww + "%"; k.dataset.m = m; if (m % 12 === 0){ const l = el("span", "lab", noteName(m)); k.append(l); } kb.append(k); });
+  for (let m = base; m < base + 25; m++){ if ([1, 3, 6, 8, 10].includes(m % 12)){ const i = whites.indexOf(m - 1); const k = el("div", "b"); k.style.left = (i + 1)*ww - ww*.32 + "%"; k.style.width = ww*.64 + "%"; k.dataset.m = m; kb.append(k); } }
+  let ptrNote = null;
+  const at = e => { const t = document.elementFromPoint(e.clientX, e.clientY); return t && t.dataset && t.dataset.m ? +t.dataset.m : null; };
+  kb.addEventListener("pointerdown", e => { kb.setPointerCapture(e.pointerId); const m = at(e); if (m == null) return; ptrNote = m + 12*kbOct; noteOn("p", ptrNote); markKb(); });
+  kb.addEventListener("pointermove", e => { if (ptrNote == null) return; const m = at(e); if (m == null) return; const n = m + 12*kbOct; if (n !== ptrNote){ ptrNote = n; noteOn("p", n); markKb(); } });
+  const up = () => { if (ptrNote != null){ noteOff("p"); ptrNote = null; markKb(); } };
+  kb.addEventListener("pointerup", up); kb.addEventListener("pointercancel", up);
+}
+function markKb(){ const on = new Set(held.map(h => h.note - 12*kbOct)); $("kb").querySelectorAll("[data-m]").forEach(k => k.classList.toggle("down", on.has(+k.dataset.m))); }
+const PF3 = Array.from({length: 8}, (_, k) => 48 + 3*(k % 8));
+
+/* =====================================================================================================
+   Wiring
+   ===================================================================================================== */
+let stackDirty = true, vizDirty = true, libDirty = true, paramsDirty = true;
+function changed(){ CTLS.forEach(c => c.sync()); paramsDirty = true; stackDirty = true; vizDirty = true; }
+// The sound-side work (motion, params, worker pushes) also runs on a 30 ms timer, so it never waits on rAF,
+// which a hidden or throttled pane can starve; drawing stays on rAF.
+let lastMoved = false;
+function tick(){ if (stepMotion()) lastMoved = true; if (paramsDirty){ paramsDirty = false; pushParams(); } pushWorkers(); }
+function frame(){
+  tick(); const moved = lastMoved; lastMoved = false;
+  if (moved || stackDirty || held.length || ST.lfo.dx || ST.lfo.dy || ST.walk.on){ drawCorners(); stackDirty = false; }
+  drawPad();
+  drawOutput(); drawMip(); drawPhase(); drawLoud(); drawMeter();
+  if (libDirty){ libDirty = false; drawLib(); }
+  if (rndDirty) rndPreview();
+  const busy = workerInfo.some(w => w.busy) && node;
+  const st = $("status"), stt = $("statusText");
+  if (!node){ st.className = "pill"; stt.textContent = "Ready · audio off"; }
+  else if (busy){ st.className = "pill busy"; stt.textContent = "Rebuilding tables…"; }
+  else { st.className = "pill ok"; stt.textContent = "Playing"; }
+  $("rebuildRead").textContent = workerInfo.map((w, o) => `osc ${o + 1}: ${w.count} rebuilds, last ${w.ms.toFixed(1)} ms`).join(" · ") + " — a static patch rebuilds zero times (WT-14).";
+  requestAnimationFrame(frame);
+}
+function wire(){
+  $("startAudio").addEventListener("click", () => ensureAudio());
+  const pad = $("pad"); let drag = false;
+  const setXY = e => { const r = pad.getBoundingClientRect(); ST.morph.x = round4(clamp01((e.clientX - r.left)/r.width)); ST.morph.y = round4(clamp01((e.clientY - r.top)/r.height)); stackDirty = true; };
+  pad.addEventListener("pointerdown", e => { drag = true; pad.setPointerCapture(e.pointerId); setXY(e); ensureAudio(); });
+  pad.addEventListener("pointermove", e => { if (drag) setXY(e); });
+  pad.addEventListener("pointerup", () => drag = false); pad.addEventListener("pointercancel", () => drag = false);
+  pad.addEventListener("keydown", e => { const d = e.shiftKey ? .1 : .02, m = {ArrowLeft: [-d, 0], ArrowRight: [d, 0], ArrowUp: [0, -d], ArrowDown: [0, d]}[e.key];
+    if (!m) return; e.preventDefault(); e.stopPropagation(); ST.morph.x = round4(clamp01(ST.morph.x + m[0])); ST.morph.y = round4(clamp01(ST.morph.y + m[1])); stackDirty = true; });
+  const vo = $("vizOsc"); ["Osc 1", "Osc 2"].forEach((t, o) => { const b = el("button", "btn small", t); b.addEventListener("click", () => { ST.vizOsc = o; changed(); }); vo.append(b); CTLS.push({sync(){ b.setAttribute("aria-pressed", ST.vizOsc === o); }}); });
+  $("holdChord").addEventListener("click", () => { chordOn = !chordOn; $("holdChord").setAttribute("aria-pressed", chordOn);
+    PF3.forEach((m, k) => chordOn ? noteOn("h" + k, m, 0.85) : noteOff("h" + k)); setTimeout(markKb, 30); });
+  $("panic").addEventListener("click", () => { if (node) node.port.postMessage({type: "alloff"}); held.length = 0; chordOn = false; $("holdChord").setAttribute("aria-pressed", false); markKb(); });
+  $("clip").addEventListener("click", () => { if (node) node.port.postMessage({type: "clearclip"}); $("clip").classList.remove("lit"); });
+  window.addEventListener("keydown", e => { if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return; const tg = e.target.tagName;
+    if (tg === "TEXTAREA" || tg === "SELECT" || (tg === "INPUT" && !["range", "checkbox", "radio"].includes(e.target.type))) return;
+    const k = e.key.toLowerCase();
+    if (k === "z" || k === "x"){ kbOct = Math.max(-3, Math.min(3, kbOct + (k === "z" ? -1 : 1))); $("octRead").textContent = `oct ${kbOct > 0 ? "+" : ""}${kbOct}`; markKb(); return; }
+    if (!(k in KMAP)) return; e.preventDefault(); kbDown.add(k); noteOn("k" + k, 48 + 12*kbOct + KMAP[k]).then(markKb); });
+  window.addEventListener("keyup", e => { const k = e.key.toLowerCase(); if (!kbDown.has(k)) return; kbDown.delete(k); noteOff("k" + k); markKb(); });
+  window.addEventListener("blur", () => { kbDown.forEach(k => noteOff("k" + k)); kbDown.clear(); markKb(); });
+  $("capBtn").addEventListener("click", capture);
+  $("rndSeed").addEventListener("input", () => rndDirty = true);
+  $("rndRoll").addEventListener("click", () => { $("rndSeed").value = (Math.floor(+$("rndSeed").value || 0) + 1) >>> 0; rndDirty = true; });
+  $("rndAdd").addEventListener("click", () => { const r = rndRecipe(), id = recipeId(r);
+    if (DICT.has(id)){ if (!LIBRARY.includes(id)) LIBRARY.push(id); } else { const t = buildRecipe(r); if (!t.gate.ok){ flashMsg("rndMsg", "Refused (WT-47): " + t.gate.msgs.join("; "), false); LIBRARY.push(id); fresh = id; renderLib(); return; } LIBRARY.push(id); }
+    fresh = id; saveLib(); refreshMenus(); renderLib(); flashMsg("rndMsg", `Added “${r.name}” (id ${id}) to the library.`, true); });
+  $("exportDl").addEventListener("click", () => { const blob = new Blob([exportJSON()], {type: "application/json"}); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "wavetable-lab-notes.json"; document.body.append(a); a.click(); a.remove(); flashMsg("exportMsg", "Downloaded wavetable-lab-notes.json", true); });
+  $("exportCp").addEventListener("click", async () => { try { await navigator.clipboard.writeText(exportJSON()); flashMsg("exportMsg", "Copied to the clipboard.", true); } catch (e){ flashMsg("exportMsg", "The clipboard is blocked here; use the download.", false); } });
+  const themes = ["auto", "light", "dark"]; let ti = 0;
+  $("theme").addEventListener("click", () => { ti = (ti + 1) % 3; const t = themes[ti]; if (t === "auto") document.documentElement.removeAttribute("data-theme"); else document.documentElement.setAttribute("data-theme", t); $("theme").textContent = "Theme: " + t; readTheme(); });
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", readTheme);
+  window.addEventListener("resize", () => { stackDirty = vizDirty = libDirty = true; });
+  setInterval(poll, 50);
+  setInterval(() => { if (FACT_IDS.length === FACTORY.length) tick(); }, 30);
+}
+function about(){
+  const lay = L.makeLayout(0);
+  $("aboutBody").innerHTML = `
+  <p><b>What it is.</b> The wavetable member of horde's swarm (SPEC-WAVETABLE draft, B649, 279d253e): every member of an oscillator's swarm reads one band-limited cycle from a table set the oscillator shares. There is one engine (GUI-1); this lab never offers the table as an alternative to anything. Each oscillator has its own four corner tables; the corners are horde's morph corners and the pad is the morph position (ADR-384 #5). Blending different tables across the corners is the 1.0 design (ADR-385).</p>
+  <p><b>How it is built here.</b> Tables are 16 frames × 1,024 harmonics, stored as spectra and peak-normalised per frame at 8,192 points (WT-1, WT-2). Two workers (one per oscillator) rebuild the published set only when a corner, the weights, the law or (under Spectral log) the shared frame changes (WT-14), building every level each time (WT-9): Linear sums the corners' level sets for all 16 frames (WT-23 (b), so the per-voice frame and frame spread are read-time), Spectral log blends one frame in the log domain (WT-3's built rule, WT-12) and inverse-FFTs its levels. Levels: one per octave, H = 1…1,024, N = min(8192, max(2048, 16·H)) (${lay.stride} samples per level set, ${(lay.stride*4/1024).toFixed(0)} KiB). Loudness: K-weighted at C3 against the ±1 saw, peak limit 2.6, +24 dB cap (WT-16). The worklet crossfades each new set in over R = 4 control intervals (WT-15, scheme (ii): one fused read of both sets), picks each member's level for its read rate (sync ratio and warp slope included, WT-36) under c = min(20 kHz, 0.45·fs), and mixes toward the darker level in the upper third of each range (WT-5).</p>
+  <p><b>The read: 4-point cubic (Catmull-Rom) by default</b>, on the 6-point layout, for browser CPU. The spec builds 6-point Lagrange (WT-6); the Read switch plays it.</p>
+  <p><b>The swarm here</b> is a sketch of SW-1..17: members with even detune (cents law), balanced stereo seats, seeded start phases (mulberry32 at <code>oscN.seed</code>), and a plain Kuramoto mean-field coupling (the members' phases pull together as coupling rises; R is the order parameter). No drift, inertia, onset scatter or C.1 taper.</p>
+  <p><b>Determinism.</b> No <code>Math.random</code> anywhere: start phases, the S&amp;H LFO, the 2-D random and the random table draw from mulberry32 streams with visible seeds. Table ids are the 64-bit FNV-1a hash of each recipe's canonical text (CONTRACT §3.1). Morph motion advances on the audio clock.</p>
+  <p><b>Lab limits against the spec</b> (each is visible, none is hidden):</p>
+  <ul class="limits">
+    <li>Sets are published at about 60 per second from the page's frame loop, not at every rebuild boundary (every 116 samples); motion is a staircase of R-long crossfades. The "Set crossfade" switch lengthens them for comparison. Crossfades start at 128-sample block starts, not on the engine's boundary clock.</li>
+    <li>Sync's restart step is corrected by a 2-sample polyBLEP (ED-1's job); the slope corner (ED-6) is not corrected, and <code>bandLimit</code> is not in the lab. Every member runs one sample late so the correction can reach back.</li>
+    <li>DC from sync, the warp and the window is removed by one 8 Hz blocker at the output (WT-25's fallback), not by the exact cycle means.</li>
+    <li>Parameters are smoothed per 128-sample block (about 12 ms), not glided by PA-1; unison changes during a note are not crossfaded (PA-6); <code>wt.syncIn</code> and the law step at a block edge (the law then crossfades by WT-15).</li>
+    <li>The frame envelope is a lab route from ENV 2; the morph's LFO is one LFO with a Y phase offset and three stock shapes; the 2-D random is a seeded Ornstein–Uhlenbeck walk. Only Blend is shown of the morph's laws; Quantum, Stepped and Count are not in the lab.</li>
+    <li>The "DSP load" readout is an estimate from <code>Date.now()</code> (1 ms resolution, averaged); analyser meters cannot see audio-thread underruns, so only your ears can confirm there is no crackle.</li>
+    <li>The user library lives in this browser's storage as recipes (rebuilt on load); WT-45's device-wide folder and exported preset files are not in the lab.</li>
+    <li>Not measured here: aliasing (WT-F1), the top of the band (WT-F2), clicks (WT-F4), CPU (WT-P1). Those are the C++ build's gates.</li>
+  </ul>`;
+}
+
+/* ---------------- start ---------------- */
+(async function boot(){
+  try { const q = new URLSearchParams(location.search).get("theme"); if (q === "light" || q === "dark") document.documentElement.setAttribute("data-theme", q); } catch (e){ /* no query: follow the system */ }
+  readTheme();
+  buildCorners(); buildOscPanel(0); buildOscPanel(1); buildMotion(); buildEnv(); buildLab(); buildRnd(); buildNotes(); buildKb(); about(); wire();
+  makeWorkers();
+  const stt = $("statusText");
+  for (let i = 0; i < FACTORY.length; i++){ stt.textContent = `Building factory tables… ${i + 1}/${FACTORY.length} (${FACTORY[i].name})`; await sleep0();
+    const F = FACTORY[i]; const t = buildRecipe({v: 1, kind: "gen", gen: F.gen, genV: 1, set: {}, seed: 0, name: F.name}); FACT_IDS.push(t.id);
+    if (!t.gate.ok) console.warn("factory table refused", F.name, t.gate.msgs); }
+  stt.textContent = "Loading your library…"; await sleep0();
+  loadLib();
+  ST.osc.forEach((s, o) => s.corners = OPEN_CORNERS[o].map(genIdOf));
+  refreshMenus(); renderLib(); changed();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
