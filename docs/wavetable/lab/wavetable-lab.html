@@ -4,11 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Wavetable Lab</title>
-<meta name="description" content="horde's wavetable member, playable: four morph corners that each hold every setting and a table, Blend and Quantum laws, two drawn LFOs whose shapes and route depths transform across the corners, Spectral log without per-note rebuilds, capture and recipes. B650, B651.">
+<meta name="description" content="horde's wavetable member, playable: four morph corners that each hold every setting and a table, Blend and Quantum laws, two drawn LFOs whose shapes and route depths transform across the corners, Spectral log without per-note rebuilds, an FM/PM section that recreates SCALPEL's jitter, a preset bank, capture and recipes. B650, B651, B652.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;800&family=Roboto+Mono:wght@400;600&display=swap">
 <!--
+  B652 (horde lead session, 2026-11-08; the human, playing v2: "Could we add FM/PM to this bench to see how it sounds?",
+  then "Could we also get some presets in the lab?"): an FM/PM section per oscillator (internal modulator with SCALPEL's
+  shapes and pitch law, osc 2, Self), a 2× FM oversampling switch, a live modulator scope, and a 24-patch bank.
+  See traces/2026-11-08-b652-wavetable-lab-fm.md.
   B651 (horde lead session, 2026-11-08; the human, playing B650): settings map to corners, drawn LFOs
   whose shapes transform across the corners (ADR-349, LF-8), and Spectral log pre-blended over all 16
   frames so a frame envelope never rebuilds. See traces/2026-11-08-b651-wavetable-lab-v2.md.
@@ -226,7 +230,7 @@ details summary{cursor:pointer;font:800 11px var(--sans);letter-spacing:.1em;tex
   <header>
     <div>
       <h1>horde · wavetable lab</h1>
-      <p class="sub">The swarm's member waveform, read from four corner tables on the morph pad. Every setting has a value in each corner, as in horde; the two drawn LFOs and their routes transform as the morph moves. Drag the puck, play the keys, and write what should change in the notes at the bottom. B650 · B651.</p>
+      <p class="sub">The swarm's member waveform, read from four corner tables on the morph pad. Every setting has a value in each corner, as in horde; the two drawn LFOs and their routes transform as the morph moves. Drag the puck, play the keys, and write what should change in the notes at the bottom. The Patch menu (under Play) holds 24 patches, each with a line on what the pad does. B650 · B651 · B652.</p>
     </div>
     <div class="hgroup">
       <span class="pill busy" id="status"><span class="dot"></span><span id="statusText">Building factory tables…</span></span>
@@ -287,9 +291,10 @@ details summary{cursor:pointer;font:800 11px var(--sans);letter-spacing:.1em;tex
       <h2>Play</h2>
       <div class="formrow" style="margin-bottom:6px">
         <label class="hint" for="preset">Patch</label>
-        <select id="preset" aria-label="Load a patch preset"><option value="opening">Opening · corners differ</option><option value="pluck">Pluck · Spectral log frame envelope</option><option value="init">Init · four equal corners</option></select>
-        <button class="btn small" id="presetLoad" title="Load the chosen patch (corner tables and the library stay)">Load</button>
+        <select id="preset" aria-label="Load a patch preset"></select>
+        <button class="btn small" id="presetLoad" title="Load the chosen patch again (it sets every corner value, the corner tables, the routes, the LFO shapes and the puck; the library, the morph settings and the lab switches stay)">Load</button>
       </div>
+      <p class="note" id="presetDesc" style="margin:0 0 6px"></p>
       <div class="formrow">
         <button class="btn" id="holdChord" aria-pressed="false" title="horde's PF-3 chord: keys 48 + 3·(k mod 8), k = 0..7 (C3 D#3 F#3 A3 C4 D#4 F#4 A4), velocity 0.85">Hold chord (PF-3)</button>
         <button class="btn" id="panic" title="All notes off">All off</button>
@@ -567,10 +572,17 @@ function build(){sched=false;const p=want;if(!p||!port)return;
 
 /* The worklet's per-oscillator slots, and how a route moves each (law, lo, hi in the slot's own unit; the page sends
    levels as linear gains, so LVL's dB law runs on a gain). One list, injected into the worklet, so they cannot drift. */
-const SLOT_NAMES = ["ON","LVL","FRAME","FSPR","SYNCIN","SYNC","SYNCHZ","WIN","ASYM","BEND","PM","UNI","DET","CPL","WID","TR","SEED"];
+// B652: the FM/PM section's slots replace B650's single PM slot (osc1.wt.pm is now FM source "Osc 2", type Phase).
+const SLOT_NAMES = ["ON","LVL","FRAME","FSPR","SYNCIN","SYNC","SYNCHZ","WIN","ASYM","BEND","UNI","DET","CPL","WID","TR","SEED",
+  "FMSRC","FMTYPE","FMSH","FMRM","FMR","FMHZ","FMI","FMMIX","FMDEC"];
 const SLOT = Object.fromEntries(SLOT_NAMES.map((n, i) => [n, i])), NPS = SLOT_NAMES.length, NR = 6;
 const SLOT_LAW = {LVL: [3, -60, 6], FRAME: [0, 0, 1], FSPR: [0, -1, 1], SYNC: [1, 1, 16], SYNCHZ: [1, 20, 12000], WIN: [0, 0, 1],
-  ASYM: [0, -1, 1], BEND: [0, -1, 1], PM: [2, 0, 10], DET: [0, 0, 1], CPL: [0, -1, 1], WID: [0, 0, 1], TR: [4, -1, 1]};
+  ASYM: [0, -1, 1], BEND: [0, -1, 1], DET: [0, 0, 1], CPL: [0, -1, 1], WID: [0, 0, 1], TR: [4, -1, 1],
+  FMR: [1, 0.0625, 32], FMHZ: [1, 0.1, 20000], FMI: [2, 0, 10], FMMIX: [0, 0, 1]};
+// the FM menu's shapes (UI order) and SCALPEL's shape codes for them (RazorCore.wave/mod: 3 is square, 4 rev saw, 5 smooth, 7 S&H)
+const FM_SHAPES = ["Sine", "Tri", "Saw", "Rev saw", "Square", "Smooth noise", "S&H noise"], FM_CODE = [0, 1, 2, 4, 3, 5, 7];
+const SELF_PM_MAX = 1.6;   // Self PM's index clamp, rad (see the FM section's note)
+const SCN = 520, STATS_LEN = 16 + 8*48 + 2*SCN;   // per-oscillator scope block in the stats buffer: 256 mod, 256 cents, 8 fields
 const SLOT_LAW_FLAT = SLOT_NAMES.flatMap(n => SLOT_LAW[n] || [-1, 0, 1]);
 
 /* =====================================================================================================
@@ -595,7 +607,20 @@ function rd6(b,j0,j1,ff,N,p){const q=p*N;let i=q|0;const t=q-i;if(i>=N)i-=N;cons
 // per-oscillator parameter slots (the page sends targets; smoothed per block, steps copied)
 // (generated from the page's SLOT_NAMES so the two cannot drift; ENV 2 → frame is a route now, B651)
 const ${SLOT_NAMES.map((n, i) => n + "=" + i).join(",")},NP=${SLOT_NAMES.length};
-const STEP=[SYNCIN,UNI,SEED];
+const STEP=[SYNCIN,UNI,SEED,FMSRC,FMTYPE,FMSH,FMRM,FMDEC];
+// ---- B652: SCALPEL's modulator, ported exactly from reference/scalpel/prototype/razor-core.js (RazorCore.hash, .wave, .mod) ----
+const FMC=${JSON.stringify(FM_CODE)},SELFMAX=${SELF_PM_MAX},SCN=${SCN},SCOFF=16+8*48;
+// max |d mod/dx| per SCALPEL shape code, for WT-36's interval maximum read rate under PM (jumps of square and S&H: 0, see the limits)
+const SLOPE=[TAU,4,2,0,2,3,0,0];
+function HASH(i){const x=Math.sin(i*127.1+311.7)*43758.5453;return (x-Math.floor(x))*2-1;}
+function WAVE(s,x){switch(s){case 0:return Math.sin(TAU*x);case 1:return x<0.25?4*x:(x<0.75?2-4*x:4*x-4);
+  case 2:{const y=x+0.5;return 2*(y-Math.floor(y))-1;}case 4:{const y=x+0.5;return 1-2*(y-Math.floor(y));}default:return x<0.5?1:-1;}}
+function fnv32(s){let h=0x811c9dc5;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,0x01000193);}return h>>>0;}
+// a 63-tap halfband (Kaiser β 8) for the 2× FM oversampling switch: only the centre and the odd offsets are non-zero
+const HT=63,HB=(()=>{const h=new Float64Array(HT),I0=x=>{let s=1,t=1;for(let k=1;k<30;k++){t*=(x/2)/k;s+=t*t;}return s;};let sum=0;
+  for(let t=0;t<HT;t++){const m=t-31,sn=m===0?0.5:Math.sin(Math.PI*m/2)/(Math.PI*m),r=m/31;h[t]=sn*I0(8*Math.sqrt(Math.max(0,1-r*r)))/I0(8);sum+=h[t];}
+  for(let t=0;t<HT;t++)h[t]/=sum;return h;})();
+const HBI=[];for(let t=0;t<HT;t++)if(Math.abs(HB[t])>1e-12)HBI.push(t);
 // how a route moves each slot, in its normalised form (MS-12: a depth is in v): [law, lo, hi] per slot;
 // law 0 lin, 1 log, 2 pow, 3 dB on a linear gain (−∞ at v < 0.01), 4 added in semitones over hi − lo, −1 not a destination
 const DLAW=new Float64Array(${JSON.stringify(SLOT_LAW_FLAT)});
@@ -603,7 +628,7 @@ function toV(j,x){const c=DLAW[3*j],lo=DLAW[3*j+1],hi=DLAW[3*j+2];if(c===1)retur
   if(c===3)return x<=0?0:0.02+0.98*(20*Math.log10(x)-lo)/(hi-lo);return (x-lo)/(hi-lo);}
 function fromV(j,v){const c=DLAW[3*j],lo=DLAW[3*j+1],hi=DLAW[3*j+2];if(c===1)return lo*Math.pow(hi/lo,v);if(c===2)return lo+(hi-lo)*v*v;
   if(c===3)return v<0.01?0:Math.pow(10,(lo+(hi-lo)*Math.max(0,(v-0.02)/0.98))/20);return lo+(hi-lo)*v;}
-const A1=0,D1=1,S1=2,R1=3,A2=4,D2=5,S2=6,R2=7,OUT=8,POLY=9,INTERP=10,XF=11,NG=12;
+const A1=0,D1=1,S1=2,R1=3,A2=4,D2=5,S2=6,R2=7,OUT=8,POLY=9,INTERP=10,XF=11,OSX=12,NG=13;
 // balanced seats: members alternate from the extremes inward, so pitch order is not pan order
 const SEAT=[];for(let U=0;U<=MAXM;U++){const q=[];let lo=0,hi=U-1;while(lo<=hi){q.push(lo++);if(lo<=hi)q.push(hi--);}const s=new Float32Array(MAXM);for(let i=0;i<U;i++){const k=q[i];s[i]=U>1?-1+2*k/(U-1):0;}SEAT.push(s);}
 function clamp01(x){return x<0?0:x>1?1:x;}
@@ -618,8 +643,15 @@ class WT extends AudioWorkletProcessor{
   this.vAge=new Float64Array(MAXV);this.vE2=new Float64Array(MAXV);this.vE2St=new Uint8Array(MAXV);
   this.pId=new Float64Array(MAXV).fill(-1);this.pNote=new Float64Array(MAXV);this.pVel=new Float64Array(MAXV);this.pGate=new Uint8Array(MAXV);
   this.ph=new Float64Array(2*MAXV*MAXM);this.prv=new Float32Array(2*MAXV*MAXM);this.age=0;
-  this.MI=new Float64Array(MAXM*24);this.edge=new Float64Array(MAXM);
-  this.envBuf=new Float32Array(BS);this.aL=new Float32Array(BS);this.aR=new Float32Array(BS);this.y2=new Float32Array(MAXM*BS);
+  this.MI=new Float64Array(MAXM*28);this.edge=new Float64Array(MAXM);
+  // B652: aL/aR and y2 hold up to 2× the block (the FM oversampling switch); o2 is the 2× voice sum, hL/hR the halfband's history
+  this.envBuf=new Float32Array(BS);this.aL=new Float32Array(2*BS);this.aR=new Float32Array(2*BS);this.y2=new Float32Array(MAXM*2*BS);
+  this.o2L=new Float64Array(2*BS);this.o2R=new Float64Array(2*BS);this.hL=new Float64Array(HT-1+2*BS);this.hR=new Float64Array(HT-1+2*BS);this.os=1;
+  // B652: each member's FM state: the modulator's unbounded phase (SCALPEL's modX), the pitch-FM phase accumulator, the noise cache,
+  // the last two outputs (Self); a purpose-keyed mulberry32 stream per oscillator for the modulators' start phases
+  const NM=2*MAXV*MAXM;this.mX=new Float64Array(NM);this.mAcc=new Float64Array(NM);this.mIx=new Float64Array(NM).fill(NaN);
+  this.mA=new Float64Array(NM);this.mB=new Float64Array(NM);this.fb1=new Float64Array(NM);this.fb2=new Float64Array(NM);this.mrng=[null,null];
+  this.y2pk=0;this.scV=-1;this.sc=new Float32Array(2*SCN);this.scW=[0,0];this.scC=[0,0];this.scPrev=[0,0];this.scLo=[0,0];this.scHi=[0,0];this.scOn=[0,0];this.scMv=[0,0];this.scCt=[0,0];this.scF=[0,0];this.scH=[0,0];
   this.vst=new Float32Array(MAXV*48);this.seeds=[-1,-1];this.rng=[null,null];
   this.dcx=[0,0];this.dcy=[0,0];this.clip=0;this.accMs=0;this.accN=0;this.outPk=0;
   // B651: per-voice values (the smoothed targets plus this voice's routes), the routes, two drawn LFOs, the frames voices read
@@ -632,7 +664,7 @@ class WT extends AudioWorkletProcessor{
    else if(d.type==="params"){for(let i=0;i<2*NP;i++)this.T[i]=d.osc[i];for(let i=0;i<NG;i++)this.GT[i]=d.glob[i];
      for(let r=0;r<NR;r++){this.rSrc[r]=d.rs[r];this.rDst[r]=d.rd[r];this.rT[r]=d.rk[r];}
      if(!this.init){this.S.set(this.T);this.GS.set(this.GT);this.rS.set(this.rT);this.init=true;}
-     for(let o=0;o<2;o++){const sd=this.T[o*NP+SEED];if(sd!==this.seeds[o]){this.seeds[o]=sd;this.rng[o]=L.mulberry32(sd>>>0);}}}
+     for(let o=0;o<2;o++){const sd=this.T[o*NP+SEED];if(sd!==this.seeds[o]){this.seeds[o]=sd;this.rng[o]=L.mulberry32(sd>>>0);this.mrng[o]=L.mulberry32(((sd>>>0)^fnv32("wt/fm/modulator"))>>>0);}}}
    else if(d.type==="lfo"){const n=d.n,c=Math.min(MAXP,d.count);for(let i=0;i<3*c;i++)this.lfP[n][i]=d.pts[i];this.lfN[n]=c;this.lfRate[n]=d.rate;this.lfT0[n]=d.t0;this.lfPh0[n]=d.ph0;}
    else if(d.type==="on")this.noteOn(d.id,d.note,d.vel);
    else if(d.type==="off")this.noteOff(d.id);
@@ -658,14 +690,24 @@ class WT extends AudioWorkletProcessor{
    if(best<0)best=0;this.vSt[best]=4;this.pId[best]=id;this.pNote[best]=note;this.pVel[best]=vel;this.pGate[best]=1;}  // steal: 3 ms fade, then the new note
  start(v,id,note,vel,fresh){this.vAct[v]=1;this.vGate[v]=1;this.vId[v]=id;this.vNote[v]=note;this.vVel[v]=vel;this.vSt[v]=0;this.vAge[v]=++this.age;
    if(fresh){this.vEnv[v]=0;this.vE2[v]=0;}this.vE2St[v]=0;
-   if(fresh)for(let o=0;o<2;o++){const r=this.rng[o];const b=(o*MAXV+v)*MAXM;for(let i=0;i<MAXM;i++){this.ph[b+i]=r?r():0;this.prv[b+i]=0;}}}  // seeded start phases (SW-10)
+   if(fresh)for(let o=0;o<2;o++){const r=this.rng[o];const b=(o*MAXV+v)*MAXM;for(let i=0;i<MAXM;i++){this.ph[b+i]=r?r():0;this.prv[b+i]=0;}
+     // B652: the modulators' start (SCALPEL: modX = 1000·Math.random() per member; here a seeded mulberry32 draw). A periodic shape at a
+     // ratio, per member, starts locked to its member's carrier (modX = ratio·θ₀), so ratio FM has one timbre on every note (key sync).
+     // Shared: one draw for the whole voice, so every member computes the same modulator.
+     const S=this.S,q=o*NP,mr=this.mrng[o],code=FMC[S[q+FMSH]|0],per=(S[q+FMDEC]|0)===0,lock=code<5&&(S[q+FMRM]|0)===0&&per;const one=mr?1000*mr():0;
+     for(let i=0;i<MAXM;i++){const k=b+i;this.mX[k]=lock?S[q+FMR]*this.ph[k]:per?(mr?1000*mr():0):one;this.mAcc[k]=0;this.mIx[k]=NaN;this.fb1[k]=0;this.fb2[k]=0;}}}
  release(v){this.vGate[v]=0;this.vSt[v]=3;this.vE0[v]=this.vEnv[v];this.vQ[v]=1;this.vE2St[v]=3;}
  noteOff(id){for(let v=0;v<MAXV;v++){if(this.vAct[v]&&this.vGate[v]&&this.vId[v]===id&&this.vSt[v]!==4)this.release(v);if(this.pId[v]===id)this.pGate[v]=0;}}
  fill(buf){const ms=this.accN>0?this.accMs/(this.accN/sampleRate*1000):0;this.accMs=0;this.accN=0;
    buf[0]=ms;let a=0;for(let v=0;v<MAXV;v++)if(this.vAct[v])a++;buf[1]=a;buf[2]=this.clip;buf[3]=this.outPk;this.outPk=0;
    buf[4]=this.cur[0]?1:0;buf[5]=this.cur[1]?1:0;buf[6]=sampleRate;
    for(let v=0;v<MAXV;v++){const o=16+v*48;this.vst[v*48]=this.vAct[v];this.vst[v*48+1]=this.vNote[v];this.vst[v*48+2]=this.vEnv[v];this.vst[v*48+31]=this.vAge[v];this.vst[v*48+32]=this.vGate[v];
-     for(let k=0;k<48;k++)buf[o+k]=this.vst[v*48+k];}}
+     for(let k=0;k<48;k++)buf[o+k]=this.vst[v*48+k];}
+   // B652: the FM scope of the newest held voice's first member, per oscillator: a ring of the modulator and the pitch deviation in
+   // cents (one point per 8 output samples), its write index, and the deviation's extremes since the last poll
+   if(buf.length>=SCOFF+2*SCN)for(let o=0;o<2;o++){const b=SCOFF+o*SCN;for(let k=0;k<512;k++)buf[b+k]=this.sc[o*SCN+k];
+     buf[b+512]=this.scW[o];buf[b+513]=this.scLo[o];buf[b+514]=this.scHi[o];buf[b+515]=this.scOn[o];buf[b+516]=this.scF[o];buf[b+517]=this.scH[o];
+     this.scLo[o]=1e9;this.scHi[o]=-1e9;}}
  // level choice for one set (WT-4, WT-5, WT-36): the brightest level whose top harmonic stays under c at this read rate,
  // and in the upper third of its range (log read rate) a raised-cosine mix toward its darker neighbour.
  levelFor(set,rr,c,pi,mi,k){const lay=set.lay,H=lay.H,nL=H.length;const hmax=c/rr;let kk=0;while(kk+1<nL&&H[kk+1]<=hmax)kk++;
@@ -674,60 +716,101 @@ class WT extends AudioWorkletProcessor{
    let f0=0,f1=0,ff=0;if(set.nF===16){const u=15*pi;f0=Math.min(14,Math.floor(u));ff=u-f0;f1=set.near[f0+1];f0=set.near[f0];}
    const S=lay.stride,g=L.G;mi[k]=f0*S+lay.off[kk]+g;mi[k+1]=f1*S+lay.off[kk]+g;mi[k+2]=lay.N[kk];
    mi[k+3]=f0*S+lay.off[kb]+g;mi[k+4]=f1*S+lay.off[kb]+g;mi[k+5]=lay.N[kb];mi[k+6]=mix;mi[k+7]=ff;mi[k+8]=H[kk];mi[k+9]=H[kb];}
+ // the level a read rate picks, without the mix (the mip ladder's "without FM" marker)
+ hOf(lay,rr,c){const H=lay.H;const hmax=c/rr;let kk=0;while(kk+1<H.length&&H[kk+1]<=hmax)kk++;return H[kk];}
+ // one member read at phase p: the level and its darker neighbour (WT-5), then the published-set crossfade (WT-15) at gain g
+ rdF(RD,cb,ob,mi,k,p,g){let y=RD(cb,mi[k],mi[k+1],mi[k+7],mi[k+2],p);const mx=mi[k+6];if(mx>0)y+=(RD(cb,mi[k+3],mi[k+4],mi[k+7],mi[k+5],p)-y)*mx;
+   if(ob!==null){let yo=RD(ob,mi[k+10],mi[k+11],mi[k+17],mi[k+12],p);const qx=mi[k+16];if(qx>0)yo+=(RD(ob,mi[k+13],mi[k+14],mi[k+17],mi[k+15],p)-yo)*qx;y=yo+(y-yo)*g;}return y;}
  renderOsc(o,v,f0,n,on2,U2){
   const P=this.VP,b=o*NP,on=P[b+ON];const set=this.cur[o];if(!set)return false;
   if(on<1e-4&&!(o===1&&this.pmNeed))return false;
-  const old=this.xr[o]?this.old[o]:null,gx=this.gx[o];
+  const old=this.xr[o]?this.old[o]:null,gx=this.gx[o],OS=this.os,sh=OS===2?1:0,BS2=2*BS,fsO=sampleRate*OS;
   const U=Math.max(1,Math.min(MAXM,P[b+UNI]|0)),fo=f0*Math.pow(2,P[b+TR]/12);
   const syncIn=P[b+SYNCIN]|0,win=syncIn?P[b+WIN]:0;
   let aa=P[b+ASYM],bb=P[b+BEND];const hyp=Math.hypot(aa,bb);if(hyp>1){aa/=hyp;bb/=hyp;}const warpOn=hyp>1e-6,slope=1+0.9*Math.min(1,hyp);
-  const pmK=(o===0&&this.pmVoice)?P[PM]/TAU:0;
+  // ---- FM / PM (B652). src 0 the internal modulator, 1 osc 2 (osc 1 only: WT-30's PM, which absorbed osc1.wt.pm), 2 Self.
+  // type 0 Phase: the read phase moves by I/2π·m (I in rad). type 1 Pitch, SCALPEL's law (RazorCore.fmStep): the read's rate is
+  // multiplied by (1 + 0.1·I)^m, integrated into a phase accumulator, so ±1200·log2(1 + 0.1·I) cents at full swing.
+  const src=P[b+FMSRC]|0,ftype=P[b+FMTYPE]|0,msh=FMC[P[b+FMSH]|0],rmode=P[b+FMRM]|0,per=(P[b+FMDEC]|0)===0;
+  let I=P[b+FMI];if(src===2&&ftype===0&&I>SELFMAX)I=SELFMAX;   // Self PM is clamped (a saw table turns to noise and Nyquist ringing above it)
+  const fmOn=I>1e-6&&(src===0||src===2||(src===1&&o===0&&this.pmVoice));
+  const mix=fmOn?clamp01(P[b+FMMIX]):1,dry=fmOn&&mix<0.999,lnq=Math.log(1+0.1*I),pmS=I/TAU,mR=P[b+FMR],mHz=P[b+FMHZ];
+  const fo2=f0*Math.pow(2,P[NP+TR]/12),y2pk=Math.min(3,this.y2pk);
   const c=Math.min(20000,0.45*sampleRate),RD=this.GS[INTERP]>=6?rd6:rd4;
   const lg=P[b+LVL]*on/Math.sqrt(U);
   const pV=clamp01(P[b+FRAME]),det=P[b+DET],wid=P[b+WID],fsp=P[b+FSPR];
   const base=(o*MAXV+v)*MAXM,mi=this.MI,seat=SEAT[U],cb=set.buf,ob=old?old.buf:null;
-  for(let i=0;i<U;i++){const s=U>1?-1+2*i/(U-1):0,fi=fo*Math.pow(2,s*det*100/1200),k=i*24;
+  for(let i=0;i<U;i++){const s=U>1?-1+2*i/(U-1):0,fi=fo*Math.pow(2,s*det*100/1200),k=i*28;
     const pan=wid*seat[i],ang=(pan+1)*Math.PI/4;
     const r=syncIn===1?P[b+SYNC]:syncIn===2?Math.max(1,P[b+SYNCHZ]/fi):1;
-    const rr=fi*r*slope,pi=clamp01(pV+fsp*s);
+    const rr0=fi*r*slope,pi=clamp01(pV+fsp*s);
+    // WT-36: the level comes from the interval's maximum read rate, so FM's raised instantaneous rate picks a darker level.
+    // Pitch: the rate times (1 + 0.1·I)^max|m|. Phase: plus I/2π · max|dm/dt| (the modulator's slope times its rate).
+    const fmHz=src===0?(rmode===0?mR*(per?fi:fo):mHz):src===1?fo2:fi*r;
+    let rr=rr0;if(fmOn){if(ftype===1)rr*=Math.exp(lnq*(src===1?y2pk*on2:1));else rr+=pmS*(src===0?SLOPE[msh]:src===1?TAU*y2pk*on2:TAU)*fmHz;}
     if(set.nF===16)this.need[o]|=3<<Math.min(14,Math.floor(15*pi));   // the adjacent pair this member reads
     this.levelFor(set,rr,c,pi,mi,k);if(old)this.levelFor(old,rr,c,pi,mi,k+10);
     mi[k+20]=fi;mi[k+21]=Math.cos(ang)*lg;mi[k+22]=Math.sin(ang)*lg;mi[k+23]=r;
+    mi[k+24]=(rmode===0?mR*(per?fi:fo):mHz)/fsO;mi[k+25]=per?i*97:0;   // the modulator's increment per (sub)sample; SCALPEL's per-member noise seed i·97
+    if(i===0){const vs=v*48;this.vst[vs+33+o]=this.hOf(set.lay,rr0,c);if(v===this.scV){this.scF[o]=fmOn&&src===0?fmHz:0;this.scH[o]=rr/rr0;}}
     // the restart's value step, for the polyBLEP (ED-1's job in the engine; the corner correction is not in the lab)
     if(syncIn&&win<1){let pe=r-Math.floor(r);if(warpOn){pe+=KW*(bb*SIN(pe)+aa*(1-COS(pe)));pe-=Math.floor(pe);}
       const vEnd=RD(cb,mi[k],mi[k+1],mi[k+7],mi[k+2],pe),vSt=RD(cb,mi[k],mi[k+1],mi[k+7],mi[k+2],0);this.edge[i]=(1-win)*(vSt-vEnd);}else this.edge[i]=0;}
   const vs=v*48,so=o===0?3:5;this.vst[vs+so]=mi[8];this.vst[vs+so+1]=mi[6]>0?mi[6]:0;this.vst[vs+8+o]=pV;this.vst[vs+19+o*10]=U;
   const K=P[b+CPL],aL=this.aL,aR=this.aR,y2=this.y2,env=this.envBuf,ph=this.ph,prvA=this.prv;let R=0;
+  const mX=this.mX,mAcc=this.mAcc,mIx=this.mIx,mA=this.mA,mB=this.mB,fb1=this.fb1,fb2=this.fb2;let ypk=0;
+  const scope=v===this.scV,sco=o*SCN,dec=8*OS;if(scope)this.scOn[o]=fmOn?1:0;
   for(let sb=0;sb<n;sb+=SUB){
    let psi=0;R=0;
    if(K!==0&&U>1){let zr=0,zi=0;for(let i=0;i<U;i++){const th=ph[base+i];zr+=COS(th);zi+=SIN(th);}zr/=U;zi/=U;R=Math.hypot(zr,zi);psi=Math.atan2(zi,zr)/TAU;}
-   for(let i=0;i<U;i++){const k=i*24;let th=ph[base+i];const fi=mi[k+20];
+   for(let i=0;i<U;i++){const k=i*28,mb=base+i;let th=ph[mb];const fi=mi[k+20];
     let dfi=0;if(K!==0&&U>1){let d=psi-th;d-=Math.floor(d);dfi=K*0.06*fo*R*SIN(d);}   // Kuramoto: dθ/dt = f + K·R·sin 2π(ψ − θ)
-    const inc=(fi+dfi)/sampleRate,r=mi[k+23],edge=this.edge[i],gL=mi[k+21],gR=mi[k+22];
-    const j0a=mi[k],j1a=mi[k+1],Na=mi[k+2],j0b=mi[k+3],j1b=mi[k+4],Nb=mi[k+5],mx=mi[k+6],ff=mi[k+7];
-    const q0a=mi[k+10],q1a=mi[k+11],Qa=mi[k+12],q0b=mi[k+13],q1b=mi[k+14],Qb=mi[k+15],qx=mi[k+16],qf=mi[k+17];
-    let prv=prvA[base+i];const ym=(i%U2)*BS;
-    for(let s=sb;s<sb+SUB;s++){
+    const inc=(fi+dfi)/fsO,r=mi[k+23],edge=this.edge[i],gL=mi[k+21],gR=mi[k+22],aInc=inc*(syncIn?r:1),mInc=mi[k+24],sd=mi[k+25];
+    let prv=prvA[mb],mx=mX[mb],acc=mAcc[mb],f1=fb1[mb],f2=fb2[mb];const ym=(i%U2)*BS2,sc0=scope&&i===0;
+    for(let s=sb*OS,se=(sb+SUB)*OS;s<se;s++){const sx=s>>sh;
      th+=inc;let wr=false;if(th>=1){th-=1;wr=true;}
      let p=th;if(syncIn){p=r*th;p-=Math.floor(p);}                                         // sync (WT-32)
      if(warpOn){p+=KW*(bb*SIN(p)+aa*(1-COS(p)));p-=Math.floor(p);}                       // asym + bend, one smooth warp (WT-34)
-     if(pmK!==0){p+=pmK*y2[ym+s]*env[s]*on2;p-=Math.floor(p);}                           // PM from osc 2 (WT-30)
-     let y=RD(cb,j0a,j1a,ff,Na,p);if(mx>0)y+=(RD(cb,j0b,j1b,ff,Nb,p)-y)*mx;               // level and its darker neighbour (WT-5)
-     if(ob!==null){let yo=RD(ob,q0a,q1a,qf,Qa,p);if(qx>0)yo+=(RD(ob,q0b,q1b,qf,Qb,p)-yo)*qx;y=yo+(y-yo)*gx[s];}  // published-set crossfade (WT-15)
+     const g=ob!==null?gx[sx]:0;let y;
+     if(fmOn){let mv;
+      if(src===0){mx+=mInc;if(mx>65536)mx-=65536;                                         // RazorCore.stepM: modX += mEff·dφ, wrapped at 65536
+       if(msh>=5){const ix=Math.floor(mx);if(ix!==mIx[mb]){mIx[mb]=ix;mA[mb]=HASH(ix+sd);mB[mb]=HASH(ix+1+sd);}   // RazorCore.mod 5 and 7 (cached per index)
+        if(msh===7)mv=mA[mb];else{const f=mx-ix;mv=mA[mb]+(mB[mb]-mA[mb])*f*f*(3-2*f);}}
+       else mv=WAVE(msh,mx-Math.floor(mx));}
+      else if(src===1)mv=y2[ym+s]*env[sx]*on2;                                             // osc 2, times the amp envelope (WT-30)
+      else{mv=0.5*(f1+f2);if(mv>1)mv=1;else if(mv<-1)mv=-1;}                              // Self: the mean of the last two outputs, clamped to ±1
+      let off;if(ftype===1){acc+=(Math.exp(lnq*mv)-1)*aInc;acc-=Math.floor(acc);off=acc;}else off=pmS*mv;
+      let q=p+off;q-=Math.floor(q);
+      y=this.rdF(RD,cb,ob,mi,k,q,g);f2=f1;f1=y;
+      if(dry){const yd=this.rdF(RD,cb,ob,mi,k,p,g);y=yd+(y-yd)*mix;}                    // SCALPEL's blade depth: dry and modulated reads mixed
+      if(sc0){let ct;if(ftype===1)ct=1200*mv*lnq/Math.LN2;else{let d=off-this.scPrev[o];d-=Math.round(d);ct=1200*Math.log2(Math.max(0.25,1+d/aInc));if(ct>2400)ct=2400;}   // PM: shown within ±2 octaves (a deep index sends the instantaneous rate through zero)
+       this.scPrev[o]=off;if(ct<this.scLo[o])this.scLo[o]=ct;if(ct>this.scHi[o])this.scHi[o]=ct;
+       if(++this.scC[o]>=dec){this.scC[o]=0;const w=this.scW[o];this.sc[sco+w]=mv;this.sc[sco+256+w]=ct;this.scW[o]=(w+1)&255;}}}
+     else y=this.rdF(RD,cb,ob,mi,k,p,g);
      if(syncIn){if(win>0)y*=(1-win)+win*0.5*(1-COS(th));                                 // window (WT-33)
        if(wr&&edge!==0){const d=th/inc;prv+=edge*d*d*0.5;y-=edge*(1-d)*(1-d)*0.5;}}
-     const out=prv;prv=y;aL[s]+=out*gL;aR[s]+=out*gR;if(o===1)y2[i*BS+s]=out;}
-    ph[base+i]=th;prvA[base+i]=prv;}}
+     const out=prv;prv=y;aL[s]+=out*gL;aR[s]+=out*gR;if(o===1){y2[i*BS2+s]=out;const a=out<0?-out:out;if(a>ypk)ypk=a;}}
+    ph[mb]=th;prvA[mb]=prv;mX[mb]=mx;mAcc[mb]=acc;fb1[mb]=f1;fb2[mb]=f2;}}
+  if(o===1)this.y2pk=ypk;
   this.vst[vs+7+(o===0?0:23)]=R;
   {let zr=0,zi=0;for(let i=0;i<U;i++){zr+=Math.cos(TAU*ph[base+i]);zi+=Math.sin(TAU*ph[base+i]);}const ps=Math.atan2(zi,zr)/TAU;
    for(let i=0;i<MAXM;i++){let d=i<U?ph[base+i]-ps:0;d-=Math.floor(d);this.vst[vs+10+o*10+i]=d;}}
   return true;}
+ // B652: 2× → 1× through the halfband: the history holds the last HT−1 inputs, then this block's 2n; out[j] = Σ h·x at 2j
+ decim(x2,h,out,n){const B=HT-1;for(let s=0;s<2*n;s++)h[B+s]=x2[s];
+   for(let j=0;j<n;j++){const o=2*j;let y=0;for(let q=0;q<HBI.length;q++){const t=HBI[q];y+=HB[t]*h[o+t];}out[j]=y;}
+   for(let t=0;t<B;t++)h[t]=h[2*n+t];}
  process(inputs,outputs){
   const t0=Date.now();const out=outputs[0],oL=out[0],oR=out[1]||out[0],n=oL.length;oL.fill(0);if(oR!==oL)oR.fill(0);
   if(!this.init){return true;}
   const al=1-Math.exp(-n/(0.012*sampleRate));
   for(let i=0;i<2*NP;i++){const j=i%NP;if(STEP.indexOf(j)>=0||j===UNI)this.S[i]=this.T[i];else this.S[i]+=(this.T[i]-this.S[i])*al;}
-  for(let i=0;i<NG;i++){if(i===POLY||i===INTERP||i===XF)this.GS[i]=this.GT[i];else this.GS[i]+=(this.GT[i]-this.GS[i])*al;}
+  for(let i=0;i<NG;i++){if(i===POLY||i===INTERP||i===XF||i===OSX)this.GS[i]=this.GT[i];else this.GS[i]+=(this.GT[i]-this.GS[i])*al;}
+  // B652: the FM oversampling switch; a change clears the halfband's history and the 2× sum
+  const OSn=this.GS[OSX]>=2?2:1;if(OSn!==this.os){this.os=OSn;this.hL.fill(0);this.hR.fill(0);this.o2L.fill(0);this.o2R.fill(0);}
+  const OS=this.os;
+  // the FM scope follows the newest held voice
+  {let best=-1,ba=-1;for(let v=0;v<MAXV;v++)if(this.vAct[v]&&this.vGate[v]&&this.vAge[v]>ba){ba=this.vAge[v];best=v;}if(best!==this.scV){this.scV=best;this.scPrev[0]=this.scPrev[1]=0;}}
   let nR=0;for(let r=0;r<NR;r++){this.rS[r]+=(this.rT[r]-this.rS[r])*al;if(this.rSrc[r]>0&&this.rDst[r]>=0)nR++;}
   // the drawn LFOs, global and free-running: phase in closed form on the audio clock, so the page's copy reads the same phase
   for(let k=0;k<2;k++){let ph=this.lfPh0[k]+this.lfRate[k]*(currentTime-this.lfT0[k]);ph-=Math.floor(ph);this.lv[k]=this.lfN[k]>1?L.shapeFlat(this.lfP[k],this.lfN[k],ph):0;}
@@ -765,9 +848,12 @@ class WT extends AudioWorkletProcessor{
    const f0=440*Math.pow(2,(this.vNote[v]-69)/12);
    const r2=this.renderOsc(1,v,f0,n,on2,U2);this.pmVoice=r2&&this.pmOn;   // osc 2 first: it is osc 1's PM modulator (WT-30, CONTRACT §1.8)
    this.renderOsc(0,v,f0,n,on2,U2);
-   const vel=this.vVel[v];for(let s=0;s<n;s++){const g=eb[s]*vel;oL[s]+=this.aL[s]*g;oR[s]+=this.aR[s]*g;}
+   const vel=this.vVel[v];
+   if(OS===1){for(let s=0;s<n;s++){const g=eb[s]*vel;oL[s]+=this.aL[s]*g;oR[s]+=this.aR[s]*g;}}
+   else{const a=this.o2L,b2=this.o2R;for(let s=0;s<2*n;s++){const g=eb[s>>1]*vel;a[s]+=this.aL[s]*g;b2[s]+=this.aR[s]*g;}}
    if(st===5){if(this.pId[v]>=0){const g=this.pGate[v];this.start(v,this.pId[v],this.pNote[v],this.pVel[v],true);this.pId[v]=-1;if(!g)this.release(v);}else{this.vAct[v]=0;this.vId[v]=-1;}}}
   for(let o=0;o<2;o++){if(this.retireAfter[o]){this.retireAfter[o]=0;this.xr[o]=0;if(this.old[o]){this.retire(o,this.old[o]);this.old[o]=null;}}}
+  if(OS===2){this.decim(this.o2L,this.hL,oL,n);if(oR!==oL)this.decim(this.o2R,this.hR,oR,n);this.o2L.fill(0);this.o2R.fill(0);}
   // output stage: 0.14 × 10^(out.level/20) × the voices (OU-1), then the lab's 8 Hz DC blocker (WT-25's fallback); clip latch, no clamp
   const g=0.14*GS[OUT],ka=1-TAU*8/sr;let pk=this.outPk;
   for(let s=0;s<n;s++){let x=oL[s]*g;let y=x-this.dcx[0]+ka*this.dcy[0];this.dcx[0]=x;this.dcy[0]=y;oL[s]=y;
@@ -910,7 +996,20 @@ const WT_ROWS = {
   window:      {off: 0x036, key: "wt.window", cls: "M", label: "Window", law: "lin", lo: 0, hi: 1, def: 0, fmt: fmtPct, range: "0..1", doc: "Hard sync (0) to windowed bursts (1) (WT-33). Live while sync is on."},
   asym:        {off: 0x037, key: "wt.asym", cls: "M", label: "Asym", law: "lin", lo: -1, hi: 1, def: 0, fmt: fmtSgn, range: "−1..1", doc: "Moves the half-cycle point to 0.307 / 0.693 at ±1 (WT-34)."},
   bend:        {off: 0x038, key: "wt.bend", cls: "M", label: "Bend", law: "lin", lo: -1, hi: 1, def: 0, fmt: fmtSgn, range: "−1..1", doc: "Bends time toward the cycle's start or away (WT-34). With asym, one smooth warp."},
-  pm:          {off: 0x039, key: "wt.pm", cls: "M", label: "PM from osc 2", law: "pow", lo: 0, hi: 10, def: 0, fmt: v => v.toFixed(2), range: "0..10 index", doc: "osc 2 modulates osc 1's read phase (WT-30). osc 1 only; osc2.wt.pm is reserved. Needs osc 2 on (its level may be −∞)."},
+};
+/* B652: the FM/PM section. Lab rows, not yet CONTRACT rows; osc1.wt.pm (0x1039, WT-30) is now source "Osc 2" with type Phase,
+   and the index is its index. The internal modulator's shapes and pitch law are SCALPEL's (RazorCore.mod, RazorCore.fmStep). */
+const fmCents = I => 1200*Math.log2(1 + 0.1*I);
+const FM_ROWS = {
+  source: {key: "fm.source", cls: "S", label: "FM source", law: "step", options: ["Internal", "Osc 2", "Self"], range: "Internal, Osc 2 (osc 1 only), Self", def: 0, doc: "What moves this oscillator's read: its own internal modulator, osc 2 (WT-30's PM; it absorbs osc1.wt.pm, and osc 2 may sit at −∞), or its own output fed back (Self: the mean of the last two outputs, clamped to ±1; under Phase the index is clamped at " + SELF_PM_MAX + " rad)."},
+  type:   {key: "fm.type", cls: "S", label: "FM type", law: "step", options: ["Phase (PM)", "Pitch (FM)"], range: "Phase, Pitch", def: 0, doc: "Phase: the read phase moves by I/2π × the modulator (I in radians; classic DX-style FM). Pitch: SCALPEL's law, the read's rate times (1 + 0.1·I)^m, integrated, so ±1200·log2(1 + 0.1·I) cents at full swing: Operator's pitch jitter."},
+  shape:  {key: "fm.shape", cls: "S", label: "Mod shape", law: "step", options: FM_SHAPES, range: FM_SHAPES.join(", "), def: 0, doc: "The internal modulator's shape, SCALPEL's exactly (RazorCore.mod): smooth noise is a smoothstep between seeded hash values, one per modulator cycle; S&H holds one per cycle."},
+  rate:   {key: "fm.rateUnit", cls: "S", label: "Mod rate", law: "step", options: ["Ratio", "Fixed Hz"], range: "Ratio (× the member's pitch), Fixed Hz", def: 0, doc: "Ratio: the modulator runs at ratio × each member's own frequency (keytracked; SCALPEL's m). Fixed Hz: the same rate on every note (SCALPEL's Hz unit)."},
+  ratio:  {key: "fm.ratio", cls: "M", label: "Ratio", law: "log", lo: 0.0625, hi: 32, def: 1, fmt: v => "×" + (v < 1 ? v.toFixed(3) : v.toFixed(2)), range: "×1/16..×32", doc: "Modulator frequency / member frequency. For noise shapes, the number of noise points per cycle."},
+  hz:     {key: "fm.hz", cls: "M", label: "Mod Hz", law: "log", lo: 0.1, hi: 20000, def: 700, fmt: fmtHz, range: "0.1 Hz..20 kHz", doc: "The fixed modulator rate."},
+  index:  {key: "fm.index", cls: "M", label: "Index I", law: "pow", lo: 0, hi: 10, def: 0, range: "0..10 (rad under Phase; ±1200·log2(1 + 0.1·I) ct under Pitch)", doc: "SCALPEL's FM depth I. 0 is no FM. Phase: peak phase deviation in radians. Pitch: ±21 ct at I 0.12 (Trance jitter), ±34 ct at 0.2, ±1 octave at 10."},
+  mix:    {key: "fm.mix", cls: "M", label: "FM mix", law: "lin", lo: 0, hi: 1, def: 1, fmt: fmtPct, range: "0..1", doc: "SCALPEL's blade depth: the modulated read mixed with the unmodulated one (1: all modulated). Below 1 a second read runs, and the two drift apart under Pitch, which is part of Operator jitter's sound."},
+  members:{key: "fm.members", cls: "S", label: "Per member", law: "step", options: ["Decorrelated", "Shared"], range: "Decorrelated, Shared", def: 0, doc: "Decorrelated: each member its own modulator (noise seed i·97 as SCALPEL, start phase from mulberry32; a periodic shape at a ratio starts locked to its own member). Shared: one modulator per voice at the oscillator's centre pitch."},
 };
 const OSC_ROWS = {
   unison:   {key: "unison", cls: "S", label: "Unison", law: "int", lo: 1, hi: 9, def: 7, fmt: v => String(v), range: "1..9 members", doc: "SPEC-ENGINE 5.3. Structural: one corner's count, by its pick (PA-6's fades in the engine; a step here)."},
@@ -924,8 +1023,9 @@ const OSC_ROWS = {
 const PDEF = new Map();   // key → definition; the order is the resolver's and the export's
 function reg(key, d){ PDEF.set(key, Object.assign({key, fullKey: key}, d)); }
 for (let o = 0; o < 2; o++){ const N = o + 1, blk = N << 12;
-  for (const [nm, r] of Object.entries(WT_ROWS)){ if (nm === "pm" && o === 1) continue; reg(`osc${N}.${r.key}`, Object.assign({}, r, {id: blk | r.off, osc: o, nm})); }
+  for (const [nm, r] of Object.entries(WT_ROWS)){ reg(`osc${N}.${r.key}`, Object.assign({}, r, {id: blk | r.off, osc: o, nm})); }
   for (const [nm, r] of Object.entries(OSC_ROWS)) reg(`osc${N}.${r.key}`, Object.assign({}, r, {osc: o, nm}));
+  for (const [nm, r] of Object.entries(FM_ROWS)) reg(`osc${N}.${r.key}`, Object.assign({}, r, {osc: o, nm: "fm." + nm}));
   reg(`mix.osc${N}`, {cls: "M", label: `Osc ${N} level`, law: "db", lo: -60, hi: 6, def: 0, fmt: fmtDb, range: "−∞, −60..+6 dB", doc: "SPEC-ENGINE 5.2 (the mixer). At −∞ osc 2 is silent but still modulates osc 1 (WT-30).", osc: o, nm: "level"});
 }
 reg("osc2.on", {cls: "S", label: "Osc 2 on", law: "step", options: ["off", "on"], range: "off, on", def: 0, doc: "osc2.on · gate, class S, default off. Under Blend it fades as a level, the sum of the weights of the corners where it is on (MO-26 (1)); under Quantum it takes its pick. A source that is off costs nothing (PF-6).", osc: 1, nm: "on"});
@@ -945,51 +1045,202 @@ const LFO_OPEN = [
 const SRC_NAMES = ["—", "LFO 1", "LFO 2", "ENV 2"];
 const DESTS = [];   // {code, label, key (the row whose value it moves), slot (worklet index, −1 for the pad)}
 [["wt.frame", "FRAME", "Frame"], ["wt.frameSpread", "FSPR", "Frame spread"], ["wt.sync", "SYNC", "Sync ratio"], ["wt.syncHz", "SYNCHZ", "Sync Hz"], ["wt.window", "WIN", "Window"],
- ["wt.asym", "ASYM", "Asym"], ["wt.bend", "BEND", "Bend"], ["wt.pm", "PM", "PM"], ["detune", "DET", "Detune"], ["coupling", "CPL", "Coupling"], ["width", "WID", "Width"], ["fine", "TR", "Pitch (±2 st)"], ["level", "LVL", "Level"]]
-  .forEach(([k, sl, lab]) => [0, 1].forEach(o => { if (k === "wt.pm" && o === 1) return; const N = o + 1;
+ ["wt.asym", "ASYM", "Asym"], ["wt.bend", "BEND", "Bend"], ["fm.index", "FMI", "FM index"], ["fm.ratio", "FMR", "FM ratio"], ["fm.hz", "FMHZ", "FM Hz"], ["fm.mix", "FMMIX", "FM mix"],
+ ["detune", "DET", "Detune"], ["coupling", "CPL", "Coupling"], ["width", "WID", "Width"], ["fine", "TR", "Pitch (±2 st)"], ["level", "LVL", "Level"]]
+  .forEach(([k, sl, lab]) => [0, 1].forEach(o => { const N = o + 1;
     DESTS.push({code: `osc${N}.${k}`, label: `Osc ${N} · ${lab}`, key: k === "level" ? `mix.osc${N}` : `osc${N}.${k}`, slot: o*NPS + SLOT[sl], osc: o}); }));
 DESTS.sort((a, b) => a.osc - b.osc);
 DESTS.push({code: "morph.x", label: "Morph x (global LFOs only)", key: null, slot: -1}, {code: "morph.y", label: "Morph y (global LFOs only)", key: null, slot: -1});
 const destOf = code => DESTS.find(d => d.code === code);
 
 const blankCV = () => { const cv = {}; for (const [k, d] of PDEF) if (d.cls !== "D") cv[k] = [d.def, d.def, d.def, d.def]; return cv; };
-function PRESET(name){
+/* ---------------- B652: the preset bank ----------------
+   Each patch sets every corner value, its corner tables (factory generators by name, or capture recipes built on load), the
+   routes, the two drawn LFOs and the puck. The one-line description says what the pad does, A → B → C → D. Names are sound
+   types, never products. The lab has no filter and no noise source: patches that would use them say how they stand in. */
+const TB = {SS: "factory/sine-saw", PU: "factory/pulse", VO: "factory/vowel", SY: "factory/sync", FM: "factory/fm", FO: "factory/fold", CO: "factory/comb", OR: "factory/organ"};
+const TRI5 = [[0, 0, 0], [.25, 1, 0], [.5, 0, 0], [.75, -1, 0], [1, 0, 0]], RUP5 = [[0, -1, 0], [.25, -.5, 0], [.5, 0, 0], [.75, .5, 0], [1, 1, 0]];
+const RDN5 = [[0, 1, 0], [.25, .5, 0], [.5, 0, 0], [.75, -.5, 0], [1, -1, 0]], SQR5 = [[0, 1, 0], [.5, 1, 0], [.5, -1, 0], [1, -1, 0], [1, 1, 0]];
+const WOB5 = [[0, -1, 1.5], [.25, 1, -1.5], [.5, -1, 1.5], [.75, 1, -1.5], [1, -1, 0]], HUMP5 = [[0, -1, 1.2], [.2, 1, -1], [.45, .1, 0], [.7, -.4, 0], [1, -1, 0]];
+const STEP5 = [[0, .6, 0], [.25, -.8, 0], [.5, .2, 0], [.75, 1, 0], [1, .6, 0]];
+const L4 = (a, b, c, d) => lfoFrom([a, b || a, c || a, d || a]);
+const cap = (src, x, y, law, name, frame) => ({cap: {src, x, y, law: law || "linear", frame: frame == null ? "all" : frame, name}});
+const ALL = t => [t, t, t, t];
+// smooth-noise and S&H options in the FM shape menu
+const SMOOTH = 5, SH = 6;
+const BANK = [
+ {id: "opening", group: "Start", name: "Opening · horde morph", desc: "LFO 1 and 2 move the morph by themselves. A: a wide saw swarm · B: a hard-sync lead, windowed, 3 locked members · C: a Spectral-log vowel pad with smooth-noise jitter, 9 members · D: the FM table phase-modulated by a silent osc 2, locked. Unison, sync and the law flip as it crosses.",
+  build(set, st, R){
+   st.tables = [[TB.SS, TB.SY, TB.VO, TB.FM], [TB.SS, TB.FO, TB.VO, TB.OR]]; st.puck = [.5, .5];
+   set("osc1.wt.law", [0, 0, 1, 0]); set("osc1.wt.frame", [1, .45, .3, .35]); set("osc1.wt.frameSpread", [0, .2, .5, -.3]);
+   set("osc1.wt.syncIn", [0, 1, 0, 0]); set("osc1.wt.sync", [2, 3.2, 2, 2]); set("osc1.wt.window", [0, .35, 0, 0]); set("osc1.wt.asym", [0, .2, 0, -.3]); set("osc1.wt.bend", [0, 0, .3, .2]);
+   set("osc1.unison", [7, 3, 9, 5]); set("osc1.detune", [.22, .08, .3, .12]); set("osc1.coupling", [0, .6, -.2, .9]); set("osc1.width", [.9, .5, 1, .7]); set("mix.osc1", [-1, -2, 0, -1]);
+   set("osc1.fm.source", [0, 0, 0, 1]); set("osc1.fm.type", [1, 1, 1, 0]); set("osc1.fm.shape", SMOOTH); set("osc1.fm.ratio", 3); set("osc1.fm.index", [.12, 0, .2, 2.2]); set("osc1.fm.mix", [1, 1, .7, 1]);
+   set("osc2.on", [0, 1, 1, 1]); set("mix.osc2", [-9, -7, -10, -Infinity]); set("osc2.octave", [0, -1, 0, 0]); set("osc2.wt.frame", [.6, .35, .5, .4]); set("osc2.unison", [3, 1, 5, 1]);
+   set("env1.attack", [.01, .003, .3, .004]); set("env1.decay", [.6, .3, 1.2, .9]); set("env1.sustain", [.85, .7, .9, .6]); set("env1.release", [.4, .25, 1.2, .6]);
+   set("env2.attack", .001); set("env2.decay", [.5, .25, 1.5, .6]); set("env2.sustain", 0); set("env2.release", .3);
+   st.lfo = LFO_OPEN.map(lfoFrom); set("lfo1.rate", [.13, .2, .08, .15]); set("lfo2.rate", [.09, .11, .17, .07]);
+   R(1, 1, "morph.x", .9); R(2, 2, "morph.y", .8); R(3, 3, "osc1.wt.frame", [0, .25, 0, .2]); R(4, 1, "osc1.wt.asym", [0, .3, 0, 0]); R(5, 2, "osc1.fm.index", [0, 0, .1, .15]); }},
+ {id: "init", group: "Start", name: "Init · four equal corners", desc: "All four corners equal: one 5-member saw swarm, osc 2 off, nothing routed. A blank start.",
+  build(set, st){ st.tables = [ALL(TB.SS), ALL(TB.SS)]; st.puck = [.5, .5]; set("osc1.wt.frame", 1); set("osc1.unison", 5); set("osc1.detune", .18); st.lfo = [L4(SINE5), L4(SINE5)]; }},
+
+ {id: "trance-jitter", group: "SCALPEL's jitter, on the wavetable", name: "Trance jitter", desc: "A is SCALPEL's Trance jitter: one saw member, pitch FM from smooth noise at 3× the note, I 0.12 = ±21 ct · B I 0.3 = ±51 ct · C S&H noise · D 9 members, detune ±12 ct, coupling 0.1. The puck starts on A.",
+  build(set, st){ st.tables = [ALL(TB.SS), ALL(TB.SS)]; st.puck = [0, 0]; jitterBase(set);
+   set("osc1.fm.ratio", 3); set("osc1.fm.index", [.12, .3, .12, .12]); set("osc1.fm.shape", [SMOOTH, SMOOTH, SH, SMOOTH]); set("osc1.fm.mix", 1);
+   set("osc1.unison", [1, 1, 1, 9]); set("osc1.detune", [0, 0, 0, .12]); set("osc1.coupling", [0, 0, 0, .1]); }},
+ {id: "operator-jitter", group: "SCALPEL's jitter, on the wavetable", name: "Operator jitter", desc: "A is SCALPEL's Operator jitter: smooth noise at a fixed 700 Hz, ±21 ct, 60 % modulated (the dry and jittered saws drift against each other) · B ±51 ct · C S&H at 2.4 kHz, ±16 ct (SCALPEL's Crunch) · D 7 members. The puck starts on A.",
+  build(set, st){ st.tables = [ALL(TB.SS), ALL(TB.SS)]; st.puck = [0, 0]; jitterBase(set);
+   set("osc1.fm.rateUnit", 1); set("osc1.fm.hz", [700, 700, 2400, 700]); set("osc1.fm.index", [.12, .3, .09, .12]); set("osc1.fm.shape", [SMOOTH, SMOOTH, SH, SMOOTH]); set("osc1.fm.mix", .6);
+   set("osc1.unison", [1, 1, 1, 7]); set("osc1.detune", [0, 0, 0, .12]); set("osc1.coupling", [0, 0, 0, .15]); }},
+ {id: "jitter-swarm", group: "SCALPEL's jitter, on the wavetable", name: "Jitter swarm", desc: "A is SCALPEL's Jitter swarm: 5 members, detune ±9 ct, coupling 0.1, smooth noise at 3×, I 0.2 = ±34 ct, 70 % modulated · B one shared modulator for all members (hear the swarm jitter as one) · C S&H noise · D 9 members, wider. The puck starts on A.",
+  build(set, st){ st.tables = [ALL(TB.SS), ALL(TB.SS)]; st.puck = [0, 0]; jitterBase(set);
+   set("osc1.fm.ratio", 3); set("osc1.fm.index", .2); set("osc1.fm.mix", .7); set("osc1.fm.shape", [SMOOTH, SMOOTH, SH, SMOOTH]); set("osc1.fm.members", [0, 1, 0, 0]);
+   set("osc1.unison", [5, 5, 5, 9]); set("osc1.detune", [.09, .09, .09, .14]); set("osc1.coupling", .1); }},
+
+ {id: "epiano", group: "FM / PM", name: "Digital electric piano", desc: "Ratio-1 PM on a sine, ENV 2 → index for the bark · A classic · B two members, chorused · C quicker, brighter bark with a tine two octaves up from osc 2 · D softer and longer, with the tine.",
+  build(set, st, R){ st.tables = [ALL(TB.SS), ALL(TB.SS)]; st.puck = [.25, .25];
+   set("osc1.wt.frame", 0); set("osc1.unison", [1, 2, 1, 2]); set("osc1.detune", [0, .04, 0, .05]); set("osc1.width", .6);
+   set("osc1.fm.ratio", 1); set("osc1.fm.index", [.3, .3, .4, .2]); R(1, 3, "osc1.fm.index", [.45, .45, .55, .35]);
+   set("osc2.on", [0, 0, 1, 1]); set("osc2.wt.frame", 0); set("osc2.unison", 1); set("osc2.octave", 2); set("mix.osc2", [-24, -24, -20, -24]);
+   set("env1.attack", .002); set("env1.decay", [1.8, 2.2, 1.2, 3]); set("env1.sustain", [.15, .2, .05, .25]); set("env1.release", [.5, .6, .35, .8]);
+   set("env2.attack", .001); set("env2.decay", [.5, .6, .3, .9]); set("env2.sustain", 0); set("env2.release", .3); }},
+ {id: "fm-bell", group: "FM / PM", name: "FM bell", desc: "Inharmonic PM on a sine, ENV 2 makes the strike bright and the tail pure · A ratio √2 · B 3.5 · C 2.76 with 3 members · D 5.19, shortest.",
+  build(set, st, R){ st.tables = [ALL(TB.SS), ALL(TB.SS)]; st.puck = [0, 0];
+   set("osc1.wt.frame", 0); set("osc1.unison", [1, 1, 3, 2]); set("osc1.detune", [0, 0, .03, .02]); set("osc1.width", .7);
+   set("osc1.fm.ratio", [1.4142, 3.5, 2.76, 5.19]); set("osc1.fm.index", [.5, .4, .6, .3]); R(1, 3, "osc1.fm.index", [.4, .45, .35, .5]);
+   set("env1.attack", .001); set("env1.decay", [4, 3, 6, 2.5]); set("env1.sustain", 0); set("env1.release", [3, 2, 4, 2]);
+   set("env2.attack", .001); set("env2.decay", [2, 1.5, 3, 1]); set("env2.sustain", 0); set("env2.release", 1); }},
+ {id: "growl-bass", group: "FM / PM", name: "Growl bass", desc: "Osc 2 (a saw, silent at A and C) phase-modulates a near-sine an octave down; LFO 1 wobbles the index · B faster, osc 2 beating at +7 ct and audible · C pitch FM from osc 2 instead of phase · D deepest and fastest, 3 members.",
+  build(set, st, R){ st.tables = [ALL(TB.SS), ALL(TB.SS)]; st.puck = [0, 0];
+   set("osc1.wt.frame", [0, 0, .2, 0]); set("osc1.octave", -1); set("osc1.unison", [1, 2, 1, 3]); set("osc1.detune", .06); set("osc1.width", .4);
+   set("osc2.on", 1); set("osc2.wt.frame", [1, .6, 1, 1]); set("osc2.octave", -1); set("osc2.unison", 1); set("osc2.fine", [0, 7, 0, -5]); set("mix.osc2", [-Infinity, -16, -Infinity, -14]);
+   set("osc1.fm.source", 1); set("osc1.fm.type", [0, 0, 1, 0]); set("osc1.fm.index", [2, 3, .6, 4.5]);
+   st.lfo = [L4(TRI5, SINE5, RUP5, WOB5), L4(SINE5)]; set("lfo1.rate", [2, 4, 1, 6]); R(1, 1, "osc1.fm.index", [.25, .3, .2, .3]);
+   set("env1.attack", .003); set("env1.decay", .5); set("env1.sustain", .8); set("env1.release", .15); }},
+
+ {id: "acid", group: "Classic sounds", name: "Acid squelch", desc: "No filter in the lab: ENV 2 scans Sine → saw from saw down to sine on each note, a filter-like sweep under Spectral log · B snappier · C the pulse table (square acid) · D slower, with bend. Play single notes.",
+  build(set, st, R){ st.tables = [[TB.SS, TB.SS, TB.PU, TB.SS], ALL(TB.SS)]; st.puck = [0, 0];
+   set("osc1.wt.law", 1); set("osc1.wt.frame", [.05, 0, .1, .15]); set("osc1.unison", 1); set("osc1.octave", -1); set("osc1.wt.bend", [0, 0, 0, .45]);
+   R(1, 3, "osc1.wt.frame", [.85, .95, .7, .8]); set("env2.attack", .001); set("env2.decay", [.18, .1, .3, .35]); set("env2.sustain", [.05, 0, .1, .1]); set("env2.release", .1);
+   set("env1.attack", .002); set("env1.decay", [.3, .25, .35, .4]); set("env1.sustain", [.6, .5, .7, .6]); set("env1.release", .08); }},
+ {id: "brass", group: "Classic sounds", name: "80s brass", desc: "ENV 2 swells a two-oscillator detuned saw with a slow attack on its brightness · B wider, 5 members · C one oscillator, softer · D a sharper stab.",
+  build(set, st, R){ st.tables = [ALL(TB.SS), ALL(TB.SS)]; st.puck = [0, 0];
+   set("osc1.wt.law", 1); set("osc1.wt.frame", [.25, .3, .2, .35]); R(1, 3, "osc1.wt.frame", [.6, .5, .65, .55]);
+   set("env2.attack", [.08, .06, .12, .02]); set("env2.decay", [.6, .5, .8, .3]); set("env2.sustain", [.3, .35, .25, .4]); set("env2.release", .3);
+   set("env1.attack", [.06, .04, .09, .015]); set("env1.decay", [1, 1, 1, .4]); set("env1.sustain", [.85, .85, .9, .6]); set("env1.release", [.3, .35, .3, .15]);
+   set("osc1.unison", [3, 5, 3, 3]); set("osc1.detune", [.12, .18, .1, .1]); set("mix.osc1", -2);
+   set("osc2.on", [1, 1, 0, 1]); set("osc2.wt.frame", .75); set("osc2.unison", 1); set("osc2.fine", 7); set("mix.osc2", -8); }},
+ {id: "strings", group: "Classic sounds", name: "String machine", desc: "Nine detuned saw members with a slow attack; LFO 1 breathes the detune like an ensemble · B an octave-up osc 2 and a slower swell · C the pulse table, hollow · D widest and splayed.",
+  build(set, st, R){ st.tables = [[TB.SS, TB.SS, TB.PU, TB.SS], ALL(TB.SS)]; st.puck = [0, 0];
+   set("osc1.wt.frame", [.9, .8, .15, 1]); set("osc1.unison", 9); set("osc1.detune", [.18, .14, .22, .3]); set("osc1.coupling", [0, .1, 0, -.3]); set("osc1.width", 1); set("mix.osc1", -2);
+   set("env1.attack", [.35, .6, .25, 1]); set("env1.decay", 1); set("env1.sustain", .9); set("env1.release", [.8, 1.2, .6, 1.5]);
+   st.lfo = [L4(SINE5, TRI5, SINE5, HUMP5), L4(SINE5)]; set("lfo1.rate", [5.5, 6, 4.5, 6.5]); R(1, 1, "osc1.detune", [.05, .06, .05, .08]);
+   set("osc2.on", [0, 1, 0, 1]); set("osc2.octave", 1); set("osc2.wt.frame", .85); set("osc2.unison", 5); set("osc2.detune", .15); set("mix.osc2", -11); }},
+ {id: "organ", group: "Classic sounds", name: "Drawbar organ", desc: "The drawbar table, one registration per corner (A the fundamental, B with the 2nd and 3rd, C a jazz mix, D all nine) · a tremolo from LFO 1, faster at D, none at C.",
+  build(set, st, R){ st.tables = [ALL(TB.OR), ALL(TB.SS)]; st.puck = [0, 0];
+   set("osc1.wt.frame", [0, 1/3, 2/3, 1]); set("mix.osc1", [-3, -5, -3, -6]); set("osc1.unison", [1, 1, 2, 1]); set("osc1.detune", .02); set("osc1.width", .5);
+   set("env1.attack", .003); set("env1.decay", .1); set("env1.sustain", 1); set("env1.release", .06);
+   st.lfo = [L4(SINE5), L4(SINE5)]; set("lfo1.rate", [6, 6.5, .8, 7]); R(1, 1, "osc1.level", [.04, .05, 0, .07]); }},
+ {id: "pwm-pad", group: "Classic sounds", name: "Hollow PWM pad", desc: "The pulse table with LFO 1 sweeping the width (PWM), osc 2 pulsing on LFO 2 · B osc 2 an octave down · C Spectral log · D faster and wider, osc 2 an octave up.",
+  build(set, st, R){ st.tables = [ALL(TB.PU), ALL(TB.PU)]; st.puck = [0, 0];
+   set("osc1.wt.law", [0, 0, 1, 0]); set("osc1.wt.frame", [.3, .4, .25, .5]); set("osc1.unison", [3, 5, 3, 5]); set("osc1.detune", .1); set("mix.osc1", -2);
+   st.lfo = [L4(TRI5, SINE5, TRI5, SINE5), L4(SINE5, TRI5, SINE5, RUP5)]; set("lfo1.rate", [.4, .6, .25, .8]); set("lfo2.rate", [.3, .45, .2, .7]);
+   R(1, 1, "osc1.wt.frame", [.3, .25, .35, .4]); R(2, 2, "osc2.wt.frame", [.3, .3, .3, .35]);
+   set("osc2.on", 1); set("osc2.wt.frame", .5); set("osc2.octave", [0, -1, 0, 1]); set("osc2.unison", 3); set("mix.osc2", -8);
+   set("env1.attack", [.6, .8, .4, 1.5]); set("env1.decay", 1); set("env1.sustain", .9); set("env1.release", [1.2, 1.5, 1, 2]); }},
+ {id: "sync-lead", group: "Classic sounds", name: "Sync lead", desc: "Hard sync on a saw; ENV 2 sweeps the ratio down into each note · B a higher ratio, 3 members · C softer, windowed · D the highest ratio over an octave-down osc 2.",
+  build(set, st, R){ st.tables = [ALL(TB.SS), ALL(TB.SS)]; st.puck = [0, 0];
+   set("osc1.wt.frame", 1); set("osc1.wt.syncIn", 1); set("osc1.wt.sync", [2.2, 3.5, 1.6, 5]); set("osc1.wt.window", [0, 0, .3, 0]);
+   R(1, 3, "osc1.wt.sync", [.3, .35, .25, .2]); set("env2.attack", .001); set("env2.decay", [.4, .5, .3, .6]); set("env2.sustain", [.15, .2, .1, .2]); set("env2.release", .2);
+   set("osc1.unison", [1, 3, 1, 2]); set("osc1.detune", .06); set("osc1.coupling", .5);
+   set("env1.attack", .004); set("env1.decay", .5); set("env1.sustain", .8); set("env1.release", .2);
+   set("osc2.on", [0, 0, 0, 1]); set("osc2.octave", -1); set("osc2.wt.frame", 1); set("osc2.unison", 1); set("mix.osc2", -9); }},
+ {id: "hoover", group: "Classic sounds", name: "Hoover-ish lead", desc: "A splayed (negative coupling), widely detuned saw swarm with asym over an octave-down pulse swarm; ENV 2 swoops the pitch up into each note · B gentler · C the most splayed, deepest swoop · D coupling +0.2, starting to lock.",
+  build(set, st, R){ st.tables = [ALL(TB.SS), ALL(TB.PU)]; st.puck = [0, 0];
+   set("osc1.wt.frame", .95); set("osc1.unison", [9, 7, 9, 9]); set("osc1.detune", [.45, .35, .6, .5]); set("osc1.coupling", [-.3, 0, -.6, .2]); set("osc1.wt.asym", [.3, .2, .5, 0]); set("osc1.width", 1); set("mix.osc1", -3);
+   set("osc2.on", 1); set("osc2.octave", -1); set("osc2.wt.frame", .1); set("osc2.unison", 5); set("osc2.detune", .4); set("mix.osc2", -6);
+   R(1, 3, "osc1.fine", [-.6, -.4, -.8, -.3]); R(2, 3, "osc2.fine", [-.6, -.4, -.8, -.3]);
+   set("env2.attack", .001); set("env2.decay", [.25, .2, .35, .15]); set("env2.sustain", 0); set("env2.release", .2);
+   set("env1.attack", .005); set("env1.decay", .6); set("env1.sustain", .85); set("env1.release", .3); }},
+ {id: "reese", group: "Classic sounds", name: "Reese and sub bass", desc: "Two detuned saws an octave down beating slowly (Reese) · B three members, splayed · C a sine sub two octaves down under a darker saw · D five members, the widest beat.",
+  build(set, st, R){ st.tables = [ALL(TB.SS), ALL(TB.SS)]; st.puck = [0, 0];
+   set("osc1.wt.frame", [.85, 1, .6, .9]); set("osc1.octave", -1); set("osc1.unison", [2, 3, 2, 5]); set("osc1.detune", [.12, .15, .08, .2]); set("osc1.coupling", [0, -.3, .3, 0]); set("osc1.width", .5); set("mix.osc1", -3);
+   set("osc2.on", 1); set("osc2.wt.frame", [.9, .9, 0, .9]); set("osc2.octave", [-1, -1, -2, -1]); set("osc2.fine", [9, 12, 0, 15]); set("osc2.unison", 1); set("mix.osc2", [-5, -6, -2, -6]);
+   st.lfo = [L4(SINE5), L4(SINE5)]; set("lfo2.rate", .15); R(1, 2, "osc1.wt.frame", [.08, .1, .05, .1]);
+   set("env1.attack", .003); set("env1.decay", .5); set("env1.sustain", .9); set("env1.release", .15); }},
+ {id: "harp", group: "Classic sounds", name: "Pluck and harp", desc: "ENV 2 scans each voice's frame from bright to sine, per voice under Spectral log with no rebuilds · B the comb table, frame spread across 3 members · C a fast harp with an octave from osc 2 · D a vowel pluck, spread.",
+  build(set, st, R){ st.tables = [[TB.SS, TB.CO, TB.SS, TB.VO], ALL(TB.SS)]; st.puck = [0, 0];
+   set("osc1.wt.law", 1); set("osc1.wt.frame", [0, .1, 0, 0]); set("osc1.wt.frameSpread", [0, .3, 0, .4]); set("osc1.unison", [1, 3, 1, 3]); set("osc1.detune", .05);
+   R(1, 3, "osc1.wt.frame", [.9, .7, .95, .8]); set("env2.attack", .001); set("env2.decay", [.18, .25, .1, .3]); set("env2.sustain", 0); set("env2.release", .3);
+   set("env1.attack", .001); set("env1.decay", [.6, .9, .4, 1.4]); set("env1.sustain", 0); set("env1.release", [.6, .8, .4, 1]);
+   set("osc2.on", [0, 0, 1, 1]); set("osc2.octave", 1); set("osc2.wt.frame", .3); set("osc2.unison", 1); set("mix.osc2", -12); }},
+ {id: "choir", group: "Classic sounds", name: "Choir and vowel pad", desc: "The vowel table from ah (A) to ee (C), spread across 5–9 members, with a little smooth-noise pitch jitter for breath; LFO 2 drifts the morph across x by itself · B an octave down in osc 2 · D osc 2 on a different vowel.",
+  build(set, st, R){ st.tables = [ALL(TB.VO), ALL(TB.VO)]; st.puck = [.3, .5];
+   set("osc1.wt.law", 1); set("osc1.wt.frame", [0, .5, 1, .25]); set("osc1.wt.frameSpread", [.2, .4, .3, .6]); set("osc1.unison", [5, 7, 9, 7]); set("osc1.detune", [.1, .14, .2, .12]); set("osc1.coupling", .2); set("mix.osc1", -2);
+   set("osc1.fm.type", 1); set("osc1.fm.shape", SMOOTH); set("osc1.fm.ratio", 2); set("osc1.fm.index", .05);
+   set("osc2.on", [1, 1, 0, 1]); set("osc2.wt.frame", [.8, .2, .5, .9]); set("osc2.octave", [0, -1, 0, 0]); set("osc2.unison", 5); set("mix.osc2", -9);
+   st.lfo = [L4(SINE5), L4(SINE5, TRI5, SINE5, HUMP5)]; set("lfo1.rate", .2); set("lfo2.rate", .05); R(1, 1, "osc1.wt.frame", .12); R(2, 2, "morph.x", .6);
+   set("env1.attack", [.8, 1, .6, 1.5]); set("env1.decay", 1); set("env1.sustain", .9); set("env1.release", [1.5, 2, 1.2, 2.5]); }},
+ {id: "flute", group: "Classic sounds", name: "Breathy flute lead", desc: "The lab has no noise source, so it cannot make true breath: smooth-noise PM at 3 kHz, mixed in at 30 %, puts a noisy halo around a near-sine · B cleaner · C more breath, S&H · D brighter, with an octave-up whistle from osc 2. LFO 1 adds vibrato.",
+  build(set, st, R){ st.tables = [ALL(TB.SS), ALL(TB.SS)]; st.puck = [0, 0];
+   set("osc1.wt.frame", [.1, .05, .15, .25]); set("osc1.unison", 1);
+   set("osc1.fm.rateUnit", 1); set("osc1.fm.hz", 3000); set("osc1.fm.shape", [SMOOTH, SMOOTH, SH, SMOOTH]); set("osc1.fm.index", [.5, .25, .8, .5]); set("osc1.fm.mix", [.3, .2, .45, .3]);
+   st.lfo = [L4(SINE5), L4(SINE5)]; set("lfo1.rate", [5, 5.5, 4.5, 6]); R(1, 1, "osc1.fine", [.02, .015, .03, .02]);
+   set("osc2.on", [0, 0, 0, 1]); set("osc2.octave", 1); set("osc2.wt.frame", 0); set("osc2.unison", 1); set("mix.osc2", -18);
+   set("env1.attack", [.06, .04, .08, .1]); set("env1.decay", .3); set("env1.sustain", .9); set("env1.release", .2); }},
+ {id: "supersaw", group: "Classic sounds", name: "Supersaw", desc: "The contrast: nine detuned saws on both oscillators · A classic · B wider · C splayed (coupling −0.4) · D locking (coupling +0.5), osc 2 an octave up.",
+  build(set, st){ st.tables = [ALL(TB.SS), ALL(TB.SS)]; st.puck = [0, 0];
+   set("osc1.wt.frame", 1); set("osc1.unison", 9); set("osc1.detune", [.25, .35, .5, .18]); set("osc1.coupling", [0, 0, -.4, .5]); set("osc1.width", 1); set("mix.osc1", [-3, -3, -3, -8]);   // D locks: the members sum coherently, so less level
+   set("osc2.on", 1); set("osc2.wt.frame", 1); set("osc2.unison", 9); set("osc2.detune", [.3, .4, .5, .2]); set("osc2.octave", [-1, -1, -1, 1]); set("mix.osc2", [-9, -9, -9, -13]);
+   set("env1.attack", .01); set("env1.decay", .6); set("env1.sustain", .85); set("env1.release", .5); }},
+
+ {id: "formants", group: "Motion and transforms", name: "Fixed formants", desc: "Sync at fixed Hz with a window: formants that stay put as you play (A 700 Hz, B 1.1 kHz, C 400 Hz, D 2.4 kHz) · LFO 1 wanders them, LFO 2 moves the morph up and down by itself · osc 2 adds a second formant at B and C.",
+  build(set, st, R){ st.tables = [ALL(TB.SS), ALL(TB.VO)]; st.puck = [.4, .5];
+   set("osc1.wt.frame", [1, 1, .6, 1]); set("osc1.wt.syncIn", 2); set("osc1.wt.syncHz", [700, 1100, 400, 2400]); set("osc1.wt.window", [.7, .8, .9, .6]); set("osc1.unison", [3, 5, 3, 5]); set("osc1.detune", .08);
+   set("osc2.on", [0, 1, 1, 0]); set("osc2.wt.syncIn", 2); set("osc2.wt.syncHz", [800, 2500, 1200, 900]); set("osc2.wt.window", .8); set("osc2.unison", 3); set("mix.osc2", -6);
+   st.lfo = [L4(SINE5, HUMP5, TRI5, SINE5), L4(TRI5)]; set("lfo1.rate", [.3, .5, .2, .4]); set("lfo2.rate", .07); R(1, 1, "osc1.wt.syncHz", [.08, .1, .12, .06]); R(2, 2, "morph.y", .7);
+   set("env1.attack", [.02, .01, .3, .005]); set("env1.decay", .8); set("env1.sustain", .8); set("env1.release", .5); }},
+ {id: "comb", group: "Motion and transforms", name: "Comb scanner", desc: "The moving comb scanned by LFO 1, frame spread across the members so each sits at its own comb · the law flips to Spectral log on the lower row · D a saw against the combs · LFO 2 moves the morph across by itself.",
+  build(set, st, R){ st.tables = [[TB.CO, TB.CO, TB.CO, TB.SS], ALL(TB.CO)]; st.puck = [.5, .3];
+   set("osc1.wt.law", [0, 0, 1, 1]); set("osc1.wt.frame", [.3, .6, .5, .9]); set("osc1.wt.frameSpread", [.3, .6, -.5, .2]); set("osc1.unison", [5, 9, 7, 3]); set("osc1.detune", [.1, .2, .15, .08]); set("mix.osc1", -2);
+   st.lfo = [L4(RUP5, SINE5, STEP5, TRI5), L4(SINE5)]; set("lfo1.rate", [.2, .35, .5, .12]); set("lfo2.rate", .06); R(1, 1, "osc1.wt.frame", [.5, .5, .3, .3]); R(2, 2, "morph.x", .7);
+   set("osc2.on", [1, 0, 1, 0]); set("osc2.octave", -1); set("osc2.unison", 3); set("mix.osc2", -10);
+   set("env1.attack", .05); set("env1.decay", 1); set("env1.sustain", .85); set("env1.release", .8); }},
+ {id: "fold", group: "Motion and transforms", name: "Fold machine", desc: "Fold, FM and sync tables bent by asym and bend under both drawn LFOs; the envelopes differ by corner · A a pad · B a pluck · C a stab an octave down · D a slow swell · coupling runs from loose to locked.",
+  build(set, st, R){ st.tables = [[TB.FO, TB.FO, TB.FM, TB.SY], ALL(TB.FO)]; st.puck = [0, 0];
+   set("osc1.wt.frame", [.2, .6, .4, .5]); set("osc1.wt.asym", [0, .6, -.4, .3]); set("osc1.wt.bend", [0, -.4, .6, .5]);
+   set("osc1.unison", [3, 5, 1, 7]); set("osc1.detune", [.12, .15, 0, .2]); set("osc1.coupling", [.2, .9, 0, -.4]); set("osc1.octave", [0, 0, -1, 0]); set("mix.osc1", -2);
+   st.lfo = [L4(SINE5, TRI5, SQR5, HUMP5), L4(TRI5, RDN5, SINE5, WOB5)]; set("lfo1.rate", [.5, 1, .3, 2]); set("lfo2.rate", [.7, .2, 1.3, .4]);
+   R(1, 1, "osc1.wt.asym", [.3, .2, .4, .3]); R(2, 2, "osc1.wt.bend", .3); R(3, 3, "osc1.wt.frame", [0, .3, .2, 0]);
+   set("env1.attack", [.3, .002, .003, .8]); set("env1.decay", [1, .3, .15, 1.5]); set("env1.sustain", [.9, 0, .2, .9]); set("env1.release", [1, .4, .1, 1.5]);
+   set("env2.attack", .001); set("env2.decay", .3); set("env2.sustain", 0); set("env2.release", .2); }},
+ {id: "captures", group: "Motion and transforms", name: "Capture morph", desc: "Three captured tables built on load from their recipes (WT-44): A a Linear blend of four factory tables, B a Spectral-log blend of four others, C a capture of A and B (depth 2), D the vowel table · LFO 1 scans the frame, LFO 2 drifts the morph.",
+  build(set, st, R){ const a = cap([TB.SS, TB.VO, TB.PU, TB.CO], .5, .5, "linear", "Preset capture: four-way blend"), b = cap([TB.FO, TB.FM, TB.SY, TB.OR], .3, .7, "spectral-log", "Preset capture: log blend");
+   st.tables = [[a, b, cap([a, b, a, b], .5, 0, "spectral-log", "Preset capture: of captures"), TB.VO], ALL(TB.SS)]; st.puck = [.3, .3];
+   set("osc1.wt.frame", [.3, .5, .4, .2]); set("osc1.unison", [5, 3, 7, 5]); set("osc1.detune", .15); set("osc1.coupling", .3); set("mix.osc1", -2);
+   st.lfo = [L4(SINE5, TRI5, HUMP5, SINE5), L4(SINE5)]; set("lfo1.rate", [.15, .25, .1, .2]); set("lfo2.rate", .05); R(1, 1, "osc1.wt.frame", .35); R(2, 2, "morph.y", .5);
+   set("env1.attack", .2); set("env1.decay", 1); set("env1.sustain", .85); set("env1.release", 1); }},
+];
+// the shared base of the three SCALPEL jitter patches: SCALPEL's defaults where the lab has the row (A 4 ms, D 400 ms, S 0.85, R 280 ms)
+function jitterBase(set){ set("osc1.wt.frame", 1); set("osc1.fm.source", 0); set("osc1.fm.type", 1); set("osc1.fm.rateUnit", 0); set("osc1.width", .7);
+  set("env1.attack", .004); set("env1.decay", .4); set("env1.sustain", .85); set("env1.release", .28); }
+const bankOf = id => BANK.find(b => b.id === id) || BANK[0];
+function PRESET(id){
   const cv = blankCV(), set = (k, v) => { if (!cv[k]) throw new Error("no key " + k); cv[k] = Array.isArray(v) ? v.slice() : [v, v, v, v]; };
   const st = {cv, osc: [{seed: 1234}, {seed: 1235}], routes: Array.from({length: NR}, () => ({src: 0, dst: "osc1.wt.frame"})),
-    lfo: name === "init" ? [lfoFrom([SINE5, SINE5, SINE5, SINE5]), lfoFrom([SINE5, SINE5, SINE5, SINE5])] : LFO_OPEN.map(lfoFrom)};
-  set("mix.osc2", -6); set("osc2.unison", 3); set("osc2.detune", 0.1); set("osc2.width", 0.5); set("osc2.wt.frame", 0.5);
-  if (name === "init"){ set("osc1.unison", 5); set("osc1.detune", 0.18); return st; }
-  if (name === "opening"){
-    set("osc1.wt.frame", [.35, .7, .1, .9]); set("osc1.wt.frameSpread", [.25, 0, .5, -.3]); set("osc1.wt.syncIn", [0, 1, 0, 1]);
-    set("osc1.wt.sync", [2, 2.5, 2, 4]); set("osc1.wt.window", [0, .3, 0, .6]); set("osc1.wt.asym", [0, .3, -.4, 0]); set("osc1.wt.bend", [0, 0, .5, -.4]);
-    set("osc1.unison", [5, 7, 3, 9]); set("osc1.detune", [.18, .3, .08, .45]); set("osc1.coupling", [.15, 0, .5, -.2]); set("osc1.width", [.75, .9, .4, 1]);
-    set("mix.osc1", [0, -2, 0, -3]);
-    set("env1.attack", [.004, .03, .002, .15]); set("env1.decay", [.4, .8, .25, 1.2]); set("env1.sustain", [.85, .7, .6, .9]); set("env1.release", [.28, .5, .2, .9]);
-    set("env2.attack", .001); set("env2.decay", [.6, .3, 1.2, .8]); set("env2.sustain", 0); set("env2.release", .3);
-    set("lfo1.rate", [.5, 2, .25, 5]); set("lfo2.rate", [.2, .35, .8, .12]);
-    st.routes[0] = {src: 1, dst: "osc1.wt.frame"}; set("mod.r1.depth", [.08, .2, 0, .3]);
-    st.routes[1] = {src: 2, dst: "osc1.wt.asym"}; set("mod.r2.depth", [0, .25, .3, 0]);
-    st.routes[2] = {src: 1, dst: "morph.x"}; st.routes[3] = {src: 2, dst: "morph.y"};
-    st.routes[4] = {src: 3, dst: "osc1.wt.frame"};
-    return st; }
-  // pluck: Spectral log, ENV 2 → frame, per voice; with B651's pre-blend it rebuilds nothing per note
-  set("osc1.wt.law", 1); set("osc1.wt.frame", [0, 0, .05, 0]); set("osc1.unison", [3, 5, 3, 5]); set("osc1.detune", [.1, .15, .08, .2]); set("osc1.width", .7);
-  set("env1.attack", .002); set("env1.decay", [.5, .7, .4, .9]); set("env1.sustain", 0); set("env1.release", .35);
-  set("env2.attack", .001); set("env2.decay", [.25, .35, .18, .5]); set("env2.sustain", 0); set("env2.release", .3);
-  set("lfo1.rate", [.5, 2, .25, 5]); set("lfo2.rate", [.2, .35, .8, .12]);
-  st.routes[0] = {src: 3, dst: "osc1.wt.frame"}; set("mod.r1.depth", [.85, .7, .95, .6]);
-  st.routes[1] = {src: 1, dst: "osc1.wt.asym"}; st.routes[2] = {src: 1, dst: "morph.x"}; st.routes[3] = {src: 2, dst: "morph.y"};
+    lfo: [L4(SINE5), L4(SINE5)], tables: null, puck: null};
+  set("mix.osc2", -6); set("osc2.unison", 3); set("osc2.detune", .1); set("osc2.width", .5); set("osc2.wt.frame", .5);
+  bankOf(id).build(set, st, (r, src, dst, depth) => { if (!destOf(dst)) throw new Error("no destination " + dst); st.routes[r - 1] = {src, dst}; set(`mod.r${r}.depth`, depth); });
   return st;
 }
 const OPENING = () => Object.assign(PRESET("opening"), {
   morph: {x: 0.3, y: 0.3, law: 0, temperature: 1, cohesion: 0.3, seed: 1024, glide: 0.008},
   walk: {on: 0, tau: 1.5, sigma: 0.45, depth: 0.5, seed: 7},
   out: {level: 0}, poly: 8,
-  lab: {spacing: 0, interp: 4, xfade: 0, slFrames: 0},
+  lab: {spacing: 0, interp: 4, xfade: 0, slFrames: 0, os: 0},
   vizOsc: 0, preset: "opening",
 });
 let ST = OPENING();
-const OPEN_CORNERS = [["factory/sine-saw","factory/vowel","factory/pulse","factory/comb"],["factory/sync","factory/fm","factory/fold","factory/organ"]];
 const genIdOf = g => FACT_IDS[FACTORY.findIndex(f => f.gen === g)];
 
 /* ---------------- the resolver: a simple deterministic stand-in for MO-6 to MO-8 ----------------
@@ -1097,6 +1348,7 @@ function seg(parent, d){
   if (d.corner && d.cls === "S") lab.append(el("span", "cls", "S"));
   const why = el("div", "inertwhy"); why.hidden = true;
   const btns = d.options.map((o, i) => { const b = el("button", "btn", o); b.type = "button"; const cd = el("span", "cd"); if (d.corner) b.append(cd); b._cd = cd;
+    if (d.disabledOpts && d.disabledOpts.includes(i)){ b.disabled = true; b.title = d.disabledWhy || "not available"; }
     b.addEventListener("click", () => { d.set(i); changed(); }); box.append(b); return b; });
   row.append(lab, box, why); parent.append(row);
   const c = {row, d, sync(){ const v = d.get(); btns.forEach((b, i) => b.setAttribute("aria-pressed", Math.round(v) === i)); liveSync(d, row, why); }};
@@ -1140,10 +1392,55 @@ function buildOscPanel(o){
   slider(g, cdef(K("wt.syncHz"), {live: () => cval(K("wt.syncIn")) !== 2 ? `inert ${inertAt()}: needs Sync at Hz` : ""}));
   slider(g, cdef(K("wt.window"), {live: () => cval(K("wt.syncIn")) === 0 ? `inert ${inertAt()}: live while sync is on` : ""}));
   slider(g, cdef(K("wt.asym"))); slider(g, cdef(K("wt.bend")));
-  if (o === 0) slider(g, cdef(K("wt.pm"), {live: () => !(RES["osc2.on"] > 1e-4) ? "inert here: turn osc 2 on (MO-26); its level may be −∞" : ""}));
-  else g.append(el("div", "hint", "osc2.wt.pm (0x2039) is reserved: PM from osc 1 into osc 2 needs the two swarms interleaved per sample (CONTRACT §7 E2)."));
+  buildFm(P, o);
   P.append(el("p", "note", "Ticks: each corner's value (A B above the track, C D below; the edited corner outlined). Pink line: the value resolved at the morph position, before modulation. S marks a Structural row: it never blends, it takes one corner's value."));
 }
+
+/* ---------------- B652: the FM/PM section, per oscillator, every value a corner value ---------------- */
+const fmUI = [];
+function buildFm(P, o){
+  const N = o + 1, K = k => `osc${N}.${k}`, inertAt = () => SEL === 4 ? "here" : "at " + KEYS[SEL];
+  H3(P, "FM / PM (B652)");
+  const g = el("div", "cgrid"); P.append(g);
+  const srcOf = () => cval(K("fm.source")), internal = () => srcOf() === 0;
+  seg(g, cdef(K("fm.source"), o === 1 ? {disabledOpts: [1], disabledWhy: "osc 1 → osc 2 is reserved: it needs the two swarms interleaved per sample (CONTRACT §7 E2; osc2.wt.pm, 0x2039)"} : {}));
+  seg(g, cdef(K("fm.type")));
+  seg(g, cdef(K("fm.shape"), {live: () => internal() ? "" : `inert ${inertAt()}: the shape is the internal modulator's`}));
+  seg(g, cdef(K("fm.rateUnit"), {live: () => internal() ? "" : `inert ${inertAt()}: the rate is the internal modulator's`}));
+  slider(g, cdef(K("fm.ratio"), {live: () => !internal() ? `inert ${inertAt()}: internal modulator only` : cval(K("fm.rateUnit")) !== 0 ? `inert ${inertAt()}: the rate is in Hz` : ""}));
+  slider(g, cdef(K("fm.hz"), {live: () => !internal() ? `inert ${inertAt()}: internal modulator only` : cval(K("fm.rateUnit")) !== 1 ? `inert ${inertAt()}: the rate is a ratio` : ""}));
+  const pitch = () => cval(K("fm.type")) === 1;
+  slider(g, cdef(K("fm.index"), {fmt: v => pitch() ? "±" + fmCents(v).toFixed(fmCents(v) < 10 ? 1 : 0) + " ct" : v.toFixed(v < 0.1 ? 3 : 2) + " rad",
+    live: () => { const s = srcOf(); if (s === 1 && o === 0 && !(RES["osc2.on"] > 1e-4)) return "inert here: turn osc 2 on (MO-26); its level may be −∞";
+      if (s === 1 && o === 1) return "inert: osc 1 → osc 2 is reserved";
+      if (s === 2 && !pitch() && cval(K("fm.index")) > SELF_PM_MAX) return `Self PM: clamped to ${SELF_PM_MAX} rad (above it a saw table turns to noise and rings at Nyquist)`; return ""; }}));
+  slider(g, cdef(K("fm.mix"), {live: () => cval(K("fm.index")) > 1e-6 ? "" : `inert ${inertAt()}: the index is 0`}));
+  seg(g, cdef(K("fm.members"), {live: () => !internal() ? `inert ${inertAt()}: internal modulator only` : cval(K("unison")) < 2 ? `inert ${inertAt()}: needs unison > 1` : ""}));
+  const sv = el("div", "vh"); sv.append(el("span", "hint", "Modulator (pink) and pitch deviation in cents (teal) · newest held voice, member 1, live · under Phase a step in the modulator is a phase jump, drawn at the ±2400 ct clip"), el("span", "num hint", ""));
+  const cv = el("canvas", "viz"); cv.style.height = "90px"; const rd = el("div", "hint");
+  P.append(sv, cv, rd);
+  P.append(el("p", "note", `Seeds: the modulators' start phases draw from mulberry32(osc seed ^ FNV-1a("wt/fm/modulator")) (osc ${N} seed ${ST.osc[o].seed}); noise is SCALPEL's hash at member seed i·97 (shared: 0). The mip ladder outlines the level a voice would read without FM.`));
+  fmUI[o] = {cv, rd, ext: {lo: Infinity, hi: -Infinity}};
+}
+// the FM scope: the worklet's ring (one point per 8 output samples) of the modulator and the pitch deviation in cents
+function drawFm(o){
+  const ui = fmUI[o]; if (!ui) return; const [c, W, H] = fit(ui.cv); c.clearRect(0, 0, W, H);
+  const b = 16 + 8*48 + o*SCN, s = statsBuf, on = s[b + 515] > 0, w = s[b + 512] | 0, N = o + 1;
+  const I = RES[`osc${N}.fm.index`] || 0, pitch = RES[`osc${N}.fm.type`] === 1, bound = pitch ? fmCents(I) : 0;
+  let mxc = Math.max(1, bound*1.15); for (let k = 0; k < 256; k++) mxc = Math.max(mxc, Math.abs(s[b + 256 + k]));
+  c.strokeStyle = T["--hair"]; c.lineWidth = 1; c.beginPath(); c.moveTo(0, H/2 + .5); c.lineTo(W, H/2 + .5); c.stroke();
+  if (!on){ c.font = `400 9px ${T.mono || "monospace"}`; c.fillStyle = T["--hint"]; c.fillText(node ? (voices().some(v => v.gate) ? "no FM on this oscillator here (index 0, or the source is off)" : "hold a note to see the modulator") : "start audio and hold a note", 6, 14); ui.rd.textContent = ""; return; }
+  if (bound > 0){ c.setLineDash([2, 3]); c.strokeStyle = T["--meter-ink"]; c.globalAlpha = .6; c.beginPath(); [bound, -bound].forEach(v => { const y = H/2 - v/mxc*(H/2 - 4) + .5; c.moveTo(0, y); c.lineTo(W, y); }); c.stroke(); c.setLineDash([]); c.globalAlpha = 1; }
+  const line = (off, sc, col) => { c.beginPath(); for (let k = 0; k < 256; k++){ const v = s[b + off + ((w + k) & 255)], x = k/255*W, y = H/2 - v*sc; k ? c.lineTo(x, y) : c.moveTo(x, y); } c.strokeStyle = col; c.lineWidth = 1.5; c.stroke(); };
+  line(0, (H/2 - 4)/1.05, T["--value"]); line(256, (H/2 - 4)/mxc, T["--meter-ink"]);
+  const lo = s[b + 513], hi = s[b + 514];
+  if (lo < 1e8){ ui.ext.lo = Math.min(ui.ext.lo, lo); ui.ext.hi = Math.max(ui.ext.hi, hi); }
+  const now = s[b + 256 + ((w + 255) & 255)], fHz = s[b + 516], fac = s[b + 517];
+  const sg = v => (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(1);
+  ui.rd.textContent = `now ${sg(now)} ct · since load ${isFinite(ui.ext.lo) ? sg(ui.ext.lo) + " / " + sg(ui.ext.hi) : "—"} ct` + (pitch ? ` · bound ±${bound.toFixed(1)} ct at the resolved index, before routes (1200·log2(1 + 0.1·${I.toFixed(3)}))` : ` · ${I.toFixed(2)} rad`) +
+    (fHz > 0 ? ` · modulator ${fmtHz(fHz)}` : "") + (fac > 1.001 ? ` · read rate ×${fac.toFixed(2)} for the level (WT-36)` : "") + " · axis ±" + mxc.toFixed(0) + " ct";
+}
+const resetFmExt = () => fmUI.forEach(u => { if (u) u.ext = {lo: Infinity, hi: -Infinity}; });
 
 /* ---------------- morph, motion, envelopes, lab switches, random panel ---------------- */
 const dev = (fullKey, o) => Object.assign({fullKey}, o);
@@ -1179,6 +1476,7 @@ function buildLab(){
   seg(g, dev("lab: Spectral log frames (B651)", {label: "Spectral log frames", options: SLF, law: "step", range: SLF.join(", "), defText: SLF[0], doc: "B651. pre-blend all 16: at the morph position every frame is log-blended once (16 frames per rebuild) and each voice crossfades two adjacent frames; a frame envelope or a note rebuilds nothing. lazy: only the adjacent pair each sounding voice reads, polled from the worklet every 15 ms (a frame not built yet reads its nearest built frame). shared frame: the old WT-22 mode, one frame, rebuilt as the newest note's frame moves.", get: () => ST.lab.slFrames, set: v => ST.lab.slFrames = v}));
   seg(g, dev("lab: level spacing ρ (CONTRACT §7 C1)", {label: "Levels", options: ["per octave (built)", "per half-octave"], law: "step", range: "ρ = 2, ρ = 2^½", defText: "per octave", doc: "WT-4. One level per octave is the build; half-octave tops the band fuller (WT-F2) for about twice the memory. Watch the mip ladder change.", get: () => ST.lab.spacing, set: v => ST.lab.spacing = v}));
   seg(g, dev("lab: the member's read (WT-6)", {label: "Read", options: ["4-point cubic", "6-point Lagrange"], law: "step", range: "4-point, 6-point", defText: "4-point", doc: "The spec builds 6-point Lagrange at N = min(8192, max(2048, 16·H)). The lab opens on 4-point on the same layout for browser CPU; switch to hear the spec's read and watch the DSP load.", get: () => ST.lab.interp === 6 ? 1 : 0, set: v => ST.lab.interp = v ? 6 : 4}));
+  seg(g, dev("lab: FM oversampling (B652)", {label: "FM oversampling", options: ["off (1×)", "2× halfband"], law: "step", range: "1×, 2×", defText: "off", doc: "B652. Runs every member at twice the sample rate and decimates the sum through a 63-tap halfband (Kaiser β 8, about 15 samples of delay), so FM/PM sidebands between fs/2 and about 0.57·fs are removed instead of folding back. The table's own band limit is unchanged (WT-36 picks the level for the raised read rate either way). Costs about twice the member work: watch the DSP load.", get: () => ST.lab.os, set: v => ST.lab.os = v}));
   seg(g, dev("lab: published-set crossfade (WT-15)", {label: "Set crossfade", options: ["R (spec)", "1024 samples"], law: "step", range: "R = 4 control intervals, 1024 samples", defText: "R", doc: "WT-15: each new published set crossfades in over R (116 samples at 44.1 kHz, 128 at 48 kHz). The lab can only publish about 60 sets a second, so motion is a staircase of R-long fades; the long setting smooths it, for comparison only.", get: () => ST.lab.xfade, set: v => ST.lab.xfade = v}));
 }
 const RND = Object.assign({}, RND_DEF);
@@ -1379,13 +1677,15 @@ function pushParams(){
   const osc = new Float64Array(2*NPS);
   for (let o = 0; o < 2; o++){ const N = o + 1, R = k => RES[`osc${N}.${k}`], b = o*NPS;
     const vals = {ON: o === 0 ? 1 : RES["osc2.on"], LVL: dbLin(RES[`mix.osc${N}`]), FRAME: R("wt.frame"), FSPR: R("wt.law") === 1 && ST.lab.slFrames === 2 ? 0 : R("wt.frameSpread"),
-      SYNCIN: R("wt.syncIn"), SYNC: R("wt.sync"), SYNCHZ: R("wt.syncHz"), WIN: R("wt.window"), ASYM: R("wt.asym"), BEND: R("wt.bend"), PM: o === 0 ? R("wt.pm") : 0,
-      UNI: R("unison"), DET: R("detune"), CPL: R("coupling"), WID: R("width"), TR: R("octave")*12 + R("semitone") + R("fine")/100, SEED: ST.osc[o].seed};
+      SYNCIN: R("wt.syncIn"), SYNC: R("wt.sync"), SYNCHZ: R("wt.syncHz"), WIN: R("wt.window"), ASYM: R("wt.asym"), BEND: R("wt.bend"),
+      UNI: R("unison"), DET: R("detune"), CPL: R("coupling"), WID: R("width"), TR: R("octave")*12 + R("semitone") + R("fine")/100, SEED: ST.osc[o].seed,
+      FMSRC: o === 1 && R("fm.source") === 1 ? 3 : R("fm.source"), FMTYPE: R("fm.type"), FMSH: R("fm.shape"), FMRM: R("fm.rateUnit"), FMR: R("fm.ratio"), FMHZ: R("fm.hz"),
+      FMI: R("fm.index"), FMMIX: R("fm.mix"), FMDEC: R("fm.members")};
     SLOT_NAMES.forEach((nm, i) => osc[b + i] = vals[nm]); }
   const fs = ctx.sampleRate, Rx = 4*Math.round(fs/1512);   // WT-14: R = 4 control intervals (116 at 44.1 kHz, 128 at 48 kHz)
   const E = k => RES[k];
   const glob = new Float64Array([E("env1.attack"), E("env1.decay"), E("env1.sustain"), E("env1.release"), E("env2.attack"), E("env2.decay"), E("env2.sustain"), E("env2.release"),
-    dbLin(ST.out.level), ST.poly, ST.lab.interp, ST.lab.xfade ? 1024 : Rx]);
+    dbLin(ST.out.level), ST.poly, ST.lab.interp, ST.lab.xfade ? 1024 : Rx, ST.lab.os ? 2 : 1]);
   const rs = new Int8Array(NR), rd = new Int16Array(NR), rk = new Float64Array(NR);
   ST.routes.forEach((R, r) => { const d = destOf(R.dst); rs[r] = R.src === 3 && d.slot < 0 ? 0 : R.src; rd[r] = d.slot; rk[r] = RES[`mod.r${r + 1}.depth`]; });
   const key = osc.join() + "|" + glob.join() + "|" + rs.join() + rd.join() + "|" + rk.join();
@@ -1564,8 +1864,8 @@ function drawOutput(){
     $("specRead").textContent = `centroid n ${cen.toFixed(1)} (${fmtHz(cen*L.C3)} at C3)${lim ? ` · newest voice reads H ≤ ${lim}` : ""}`; }
 }
 // stats from the worklet (polled; the handler fills a transferred buffer, so process() never posts)
-let stats = null, polling = false; const statsBuf = new Float32Array(16 + 8*48);
-function poll(){ if (!node || polling) return; polling = true; const b = (stats && stats.buffer.byteLength) ? stats : new Float32Array(16 + 8*48); stats = null; node.port.postMessage({type: "poll", buf: b}, [b.buffer]); }
+let stats = null, polling = false; const statsBuf = new Float32Array(STATS_LEN);
+function poll(){ if (!node || polling) return; polling = true; const b = (stats && stats.buffer.byteLength) ? stats : new Float32Array(STATS_LEN); stats = null; node.port.postMessage({type: "poll", buf: b}, [b.buffer]); }
 let loadAvg = 0;
 function onStats(){ const s = stats; if (!s) return; statsBuf.set(s);
   loadAvg = loadAvg*0.7 + s[0]*0.3;
@@ -1575,7 +1875,7 @@ function onStats(){ const s = stats; if (!s) return; statsBuf.set(s);
   $("clip").classList.toggle("lit", s[2] > 0);
   vizDirty = true; }
 function voices(){ const out = []; const s = statsBuf; for (let v = 0; v < 8; v++){ const o = 16 + v*48; if (s[o] > 0) out.push({v, note: s[o + 1], env: s[o + 2], H1: s[o + 3], m1: s[o + 4], H2: s[o + 5], m2: s[o + 6], R1: s[o + 7], f1: s[o + 8], f2: s[o + 9],
-    ph1: s.subarray(o + 10, o + 19), U1: s[o + 19], ph2: s.subarray(o + 20, o + 29), U2: s[o + 29], R2: s[o + 30], age: s[o + 31], gate: s[o + 32]}); } return out.sort((a, b) => a.age - b.age); }
+    ph1: s.subarray(o + 10, o + 19), U1: s[o + 19], ph2: s.subarray(o + 20, o + 29), U2: s[o + 29], R2: s[o + 30], age: s[o + 31], gate: s[o + 32], Hn1: s[o + 33], Hn2: s[o + 34]}); } return out.sort((a, b) => a.age - b.age); }
 function mipLimit(o){ const vs = voices().filter(v => v.gate); if (!vs.length) return 0; const v = vs[vs.length - 1]; return o === 0 ? v.H1 : v.H2; }
 function drawMip(){
   const [c, W, H] = fit($("mip")); c.clearRect(0, 0, W, H); const lay = L.makeLayout(ST.lab.spacing), vs = voices(), o = ST.vizOsc;
@@ -1585,11 +1885,14 @@ function drawMip(){
   if (!vs.length){ c.textAlign = "left"; c.fillText(node ? "play a note: each row is a sounding voice" : "start audio and play a note", x0, 30); $("mipRead").textContent = `${nL} levels · H per level`; return; }
   vs.forEach((v, r) => { const y = 14 + r*rh; c.textAlign = "right"; c.fillStyle = T["--t2"]; c.fillText(noteName(v.note), x0 - 4, y + rh*.7);
     const H1 = o === 0 ? v.H1 : v.H2, m = o === 0 ? v.m1 : v.m2;
+    const Hn = o === 0 ? v.Hn1 : v.Hn2;
     for (let k = 0; k < nL; k++){ const x = x0 + k*cw; let a = 0.12; const h = lay.H[k];
       if (h === H1) a = 1 - m; else if (m > 0 && k > 0 && lay.H[k + 1] === H1) a = m;
-      c.fillStyle = a > 0.12 ? T["--meter"] : T["--well-alt"]; c.globalAlpha = a > 0.12 ? 0.25 + 0.75*a : 1; c.fillRect(x + 1, y, cw - 2, rh - 3); c.globalAlpha = 1; } });
-  const last = vs[vs.length - 1]; const H1 = o === 0 ? last.H1 : last.H2, m = o === 0 ? last.m1 : last.m2;
-  $("mipRead").textContent = `newest ${noteName(last.note)}: H ${H1}${m > 0.001 ? ` → ${Math.round(m*100)} % toward the darker level` : ""}`;
+      c.fillStyle = a > 0.12 ? T["--meter"] : T["--well-alt"]; c.globalAlpha = a > 0.12 ? 0.25 + 0.75*a : 1; c.fillRect(x + 1, y, cw - 2, rh - 3); c.globalAlpha = 1;
+      // B652: where this voice would read without FM, outlined when FM's raised read rate moved it darker (WT-36)
+      if (Hn && Hn !== H1 && h === Hn){ c.strokeStyle = T["--value"]; c.lineWidth = 1.5; c.strokeRect(x + 1.5, y + .5, cw - 3, rh - 4); } } });
+  const last = vs[vs.length - 1]; const H1 = o === 0 ? last.H1 : last.H2, m = o === 0 ? last.m1 : last.m2, Hn = o === 0 ? last.Hn1 : last.Hn2;
+  $("mipRead").textContent = `newest ${noteName(last.note)}: H ${H1}${m > 0.001 ? ` → ${Math.round(m*100)} % toward the darker level` : ""}${Hn && Hn !== H1 ? ` · FM moved it from H ${Hn} (pink outline)` : ""}`;
 }
 function drawPhase(){
   const [c, W, H] = fit($("phase")); c.clearRect(0, 0, W, H); const vs = voices().slice(-8), o = ST.vizOsc;
@@ -1691,7 +1994,7 @@ function rndPreview(){ rndDirty = false; const r = rndRecipe(), b = buildGen(r);
 /* ---------------- notes for the lead ---------------- */
 const NOTE_SECTIONS = [
   ["corners", "Corners & the factory tables"], ["pad", "The pad & morph motion (LFO, 2-D random)"], ["law", "Blend laws & frames"],
-  ["swarm", "The swarm: unison, detune, coupling, width"], ["transform", "Sync, window, asym, bend, PM"], ["loud", "Loudness steadiness"],
+  ["swarm", "The swarm: unison, detune, coupling, width"], ["transform", "Sync, window, asym, bend"], ["fm", "FM / PM and the jitter patches"], ["presets", "The preset bank"], ["loud", "Loudness steadiness"],
   ["capture", "Capture, recipes, library"], ["random", "Random table slot"], ["visuals", "Visuals (stacks, spectrum, mip, phases)"],
   ["names", "Names, ranges, layout"], ["sound", "How it sounds / feels"], ["other", "Anything else"]];
 let NOTES = {};
@@ -1703,7 +2006,7 @@ function exportJSON(){
   const recipes = {}; for (const id of patchRecipes([LIBRARY, ST.osc[0].corners, ST.osc[1].corners])) recipes[id] = DICT.get(id).recipe;
   // settings.cv holds every corner key's four values, A B C D; resolved is what sounded at the heard position
   const resolved = Object.fromEntries([...PDEF.keys()].map(k => [k, RES[k]]));
-  return JSON.stringify({lab: "horde wavetable lab", brief: "B650, B651", spec: "SPEC-WAVETABLE / CONTRACT on main", notes: NOTES,
+  return JSON.stringify({lab: "horde wavetable lab", brief: "B650, B651, B652", spec: "SPEC-WAVETABLE / CONTRACT on main", notes: NOTES,
     settings: ST, corners: "settings.cv[key] = [A, B, C, D]; settings.lfo[n].pts[j].c[corner] = {t, v, u, parked}", resolved, lfoResolved: LRES, heard, sampleRate: ctx ? ctx.sampleRate : null, read: ST.lab.interp + "-point", dictionary: recipes, library: LIBRARY,
     names: Object.fromEntries(Object.entries(recipes).map(([id, r]) => [id, r.name]))}, null, 2);
 }
@@ -1742,7 +2045,7 @@ function frame(){
   tick(); const moved = lastMoved; lastMoved = false;
   if (moved || stackDirty || held.length || morphRouted() || ST.walk.on || ST.routes.some(R => R.src && R.dst.endsWith("wt.frame"))){ drawCorners(); stackDirty = false; }
   drawPad(); updateMarks(); drawLfo(0); drawLfo(1); drawMatrix();
-  drawOutput(); drawMip(); drawPhase(); drawLoud(); drawMeter();
+  drawOutput(); drawMip(); drawPhase(); drawLoud(); drawMeter(); drawFm(0); drawFm(1);
   if (libDirty){ libDirty = false; drawLib(); }
   if (rndDirty) rndPreview();
   const busy = workerInfo.some(w => w.busy) && node;
@@ -1778,6 +2081,8 @@ function wire(){
   window.addEventListener("keyup", e => { const k = e.key.toLowerCase(); if (!kbDown.has(k)) return; kbDown.delete(k); noteOff("k" + k); markKb(); });
   window.addEventListener("blur", () => { kbDown.forEach(k => noteOff("k" + k)); kbDown.clear(); markKb(); });
   $("capBtn").addEventListener("click", capture);
+  { const sel = $("preset"); let grp = null, last = null; BANK.forEach(b => { if (b.group !== last){ grp = document.createElement("optgroup"); grp.label = b.group; sel.append(grp); last = b.group; }
+      const op = el("option", null, b.name); op.value = b.id; op.title = b.desc; grp.append(op); }); }
   $("presetLoad").addEventListener("click", () => loadPreset($("preset").value));
   $("preset").addEventListener("change", () => loadPreset($("preset").value));
   $("rndSeed").addEventListener("input", () => rndDirty = true);
@@ -1796,8 +2101,16 @@ function wire(){
 }
 // a preset replaces the corner values, the routes and the LFO shapes; the corner tables, the library, the morph
 // settings and the lab switches stay
-function loadPreset(name){ const P = PRESET(name); ST.cv = P.cv; ST.routes = P.routes; ST.lfo = P.lfo; ST.osc.forEach((s, o) => s.seed = P.osc[o].seed); ST.preset = name;
-  for (const k in GLIDE) delete GLIDE[k]; for (const k in LATCH) delete LATCH[k]; LGL.forEach(m => m.clear()); resolve(0); changed(); }
+// B652: a preset also sets its corner tables (factory generators by name, captures built from their recipes) and the puck
+function tableIdOf(spec){ if (typeof spec === "string") return genIdOf(spec);
+  const c = spec.cap, recipe = {v: 1, kind: "cap", src: c.src.map(tableIdOf), x: c.x, y: c.y, frame: c.frame, law: c.law, lawV: 1, name: c.name};
+  const id = recipeId(recipe); if (!DICT.has(id)) buildRecipe(recipe); return id; }
+function loadPreset(name){ const P = PRESET(name), B = bankOf(name); ST.cv = P.cv; ST.routes = P.routes; ST.lfo = P.lfo; ST.osc.forEach((s, o) => s.seed = P.osc[o].seed); ST.preset = B.id;
+  if (P.tables) P.tables.forEach((row, o) => { ST.osc[o].corners = row.map(tableIdOf); ST.osc[o].corners.forEach(id => sendTable(o, id)); });
+  if (P.puck){ ST.morph.x = P.puck[0]; ST.morph.y = P.puck[1]; }
+  for (const k in GLIDE) delete GLIDE[k]; for (const k in LATCH) delete LATCH[k]; LGL.forEach(m => m.clear()); resetFmExt();
+  $("preset").value = B.id; $("presetDesc").textContent = B.desc; stackDirty = true;
+  stepMotion(); resolve(0); refreshMenus(); renderLib(); changed(); }
 function about(){
   const lay = L.makeLayout(0);
   $("aboutBody").innerHTML = `
@@ -1807,6 +2120,8 @@ function about(){
   <p><b>The picks are a stand-in for MO-6 to MO-8</b>, simple but exact where it matters: each key's four draws are Gumbel draws from mulberry32 seeded by FNV-1a of <code>morph/key/&lt;key&gt;</code> and the morph seed; a corner scores ln(w)/T + (1 − cohesion)·g<sub>key</sub> + cohesion·g<sub>shared</sub>; Structural keys hold their corner until another beats it by ln(0.55/0.45)/T (the latch). Not in the lab: Stepped, Count Two, Exempt, waypoints, region locks, MO-26's restriction of blends to on corners, PA-5's crossfade on a Structural flip (a 12 ms parameter smoother instead).</p>
   <p><b>The drawn LFOs</b> follow ADR-349 and LF-8: one point list (up to 32) shared by the four corners, each corner its own time, level and bend per point. Under Blend each point's time (in cycles, linearly), level and bend blend over the corners and the list is re-sorted by time (id breaking a tie); under Quantum each point picks its corner by the draw <code>morph/lfoN/point/&lt;id&gt;</code> (cohesion 1 is the whole-shape flip), glided. Adding a point in one corner parks it in the others on their curves (C.12's exact split: bend u at fraction f becomes u·f and u·(1 − f)). The shape law and editing are ported from the design system's ShapeMorph (GUI-37). Both LFOs are <b>global and free-running</b> here (not per note), so they may move the morph (MS-29); their phase is computed in closed form on the audio clock on the page and in the worklet alike.</p>
   <p><b>Spectral log without per-note rebuilds (B651).</b> Spectral log's blend, exp(Σ w ln|c|) per harmonic, is nonlinear but does not depend on the frame except through which frame it blends, so at the morph position all 16 frames are log-blended once and each voice crossfades its two adjacent frames in the time domain, as Linear's strategy (b) does. A rebuild happens only when the morph position, a corner table or the law changes, never for a note or a frame envelope; the frame, frame spread and ENV 2 → frame work per voice under both laws. The cost moves to the morph: a move rebuilds 16 frames instead of 1. The lazy switch builds only the adjacent pair each sounding voice reads (the worker polls the worklet every 15 ms; a frame not built yet is read as its nearest built frame until it arrives). <b>Between integer frames this interpolates linearly between two log-blended frames, not in the log domain</b> (CONTRACT §7 C6 is still open; a this-frame capture at a fractional frame bakes the log-domain rule, so it can differ slightly from what was heard). The old shared frame stays on the switch for A/B.</p>
+  <p><b>FM / PM (B652).</b> Each oscillator has an FM section whose every value is a corner value. The source is its own internal modulator, osc 2 (osc 1 only: this is WT-30's PM, and it absorbed <code>osc1.wt.pm</code>; osc 2 may sit at −∞) or Self (the mean of its last two outputs, clamped to ±1; under Phase the index is clamped at ${SELF_PM_MAX} rad). Phase moves the read by I/2π × the modulator; Pitch is SCALPEL's law, the read rate times (1 + 0.1·I)<sup>m</sup>, integrated, so ±1200·log2(1 + 0.1·I) cents at full swing. The internal modulator's seven shapes, its smooth and S&amp;H noise (a seeded hash, one value per modulator cycle, member seeds i·97) and its unbounded phase wrapped at 65,536 are ported exactly from <code>RazorCore.mod</code>; only SCALPEL's <code>Math.random()</code> start phases are replaced by mulberry32 draws. FM mix is SCALPEL's blade depth (a second, unmodulated read mixed in). WT-36: each member's level is chosen from its maximum read rate with FM included (Pitch: × (1 + 0.1·I); Phase: + I/2π × the modulator's peak slope × its rate), and the mip ladder outlines where a voice would read without FM. A lab switch runs the members at 2× and decimates through a 63-tap halfband. Index, ratio, Hz and mix are matrix destinations.</p>
+  <p><b>The preset bank (B652).</b> 24 patches in five groups; each sets every corner value, its corner tables (factory by name, three captures built from their recipes), routes, both LFO shapes and the puck, and shows one line on what the pad does. There is no filter and no noise source in the lab: the acid, brass and pluck patches scan Sine → saw with ENV 2 instead of a filter, and the flute's breath is smooth-noise PM, said in their lines.</p>
   <p><b>The read: 4-point cubic (Catmull-Rom) by default</b>, on the 6-point layout, for browser CPU. The spec builds 6-point Lagrange (WT-6); the Read switch plays it.</p>
   <p><b>The swarm here</b> is a sketch of SW-1..17: members with even detune (cents law), balanced stereo seats, seeded start phases (mulberry32 at <code>oscN.seed</code>), and a plain Kuramoto mean-field coupling (the members' phases pull together as coupling rises; R is the order parameter). No drift, inertia, onset scatter or C.1 taper.</p>
   <p><b>Determinism.</b> No <code>Math.random</code> anywhere: start phases, the S&amp;H LFO, the 2-D random and the random table draw from mulberry32 streams with visible seeds. Table ids are the 64-bit FNV-1a hash of each recipe's canonical text (CONTRACT §3.1). Morph motion advances on the audio clock.</p>
@@ -1820,6 +2135,7 @@ function about(){
     <li>The resolver runs on the page at its ~30 ms tick (and each animation frame); the morph glide is applied there, then the worklet's 12 ms smoother. A Structural flip (unison, sync, octave) steps at a block edge, without PA-5's crossfade or PA-6's fades, so it may click; the table law flips by the rebuild crossfade.</li>
     <li>The "DSP load" readout is an estimate from <code>Date.now()</code> (1 ms resolution, averaged); analyser meters cannot see audio-thread underruns, so only your ears can confirm there is no crackle.</li>
     <li>The user library lives in this browser's storage as recipes (rebuilt on load); WT-45's device-wide folder and exported preset files are not in the lab.</li>
+    <li>FM (B652): the level choice ignores the jumps of the square and S&amp;H modulators under Phase (a jump is a phase step and aliases like any step; the 2× switch helps); under osc 2 or Self the modulator's slope is estimated (as a sine at osc 2's pitch, or I·f for Self). The sync restart's polyBLEP is computed without FM. Routes move the FM values per 128-sample block. Ratio FM with a periodic shape starts locked to each member's carrier (key sync); SCALPEL starts every modulator at a random phase.</li>
     <li>Not measured here: aliasing (WT-F1), the top of the band (WT-F2), clicks (WT-F4), CPU (WT-P1). Those are the C++ build's gates.</li>
   </ul>`;
 }
@@ -1836,8 +2152,7 @@ function about(){
     if (!t.gate.ok) console.warn("factory table refused", F.name, t.gate.msgs); }
   stt.textContent = "Loading your library…"; await sleep0();
   loadLib();
-  ST.osc.forEach((s, o) => s.corners = OPEN_CORNERS[o].map(genIdOf));
-  resolve(0); refreshMenus(); renderLib(); changed();
+  loadPreset("opening");
   requestAnimationFrame(frame);
 })();
 </script>
