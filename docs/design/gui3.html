@@ -466,6 +466,13 @@ S = new H.Session({ x: .5, y: .5, corners: [null, null, null, null], mapKeysAlwa
 // writes into the device's matrix at each gesture's end (one undo step) and reads back from it, so the ring on a knob, the
 // bank, the source strip's counts and the matrix all read the same routes.
 const mapBridge = SH.attachMap(S, dev);
+/* GUI-54 (the human): the Mindlathe logo over the window when it first opens, fading on the first press or after 2.5 s (the master's Splash).
+   On the lab page every load is a first opening. On the plug-in "once per Live session" outlives the page, which dies with the window, so the
+   plug-in says at hello whether this is the first opening since it loaded (GN-54: `first_open` in hello's answer), and false takes the splash away
+   at once. Until the plug-in sends it, the splash shows at every opening (the GUI session's reading, GUI-54 A1). A stub DOM (lab_load_check)
+   has no window to cover, so none is made there. */
+const splash = $('win') && H.Splash && typeof document.createElement('div').addEventListener === 'function' ? H.Splash($('win'), { reduce: S.reduce }) : null;
+if (splash && BRIDGE) { let answered = false; views.push({ page: '*', update() { if (answered) return; const h = dev.bridge().hello; if (!h) return; answered = true; if (h.first_open === false) splash.dismiss(); } }); }
 // ADR-338 ruling 11: Escape is the session's layered cancel (S.escape(), one layer per press, innermost first). The shell's own
 // layers go IN FRONT of the session's (map, pin, keyboard mode) and of the bank's open card (the bank unshifts its own); they are
 // added where they are built (the menu below). The key listener is the session's, so no handler of ours can take Escape twice.
@@ -3271,7 +3278,7 @@ CLOCK.checking = true;
   { const pg0 = page, scr0 = $('win').dataset.scr || '', tick = () => { for (const v of views) if (v.page === page || v.page === '*') v.update(); for (const v of S.views) v.render(); };
     const choose = id => scrSet.querySelector('[data-id="' + id + '"]').click();
     const bits = c => { let x = 0; const u = c.toDataURL(); for (let i = 0; i < u.length; i += 5) x = (x * 31 + u.charCodeAt(i)) | 0; return x; };
-    const screens = () => [...document.querySelectorAll('#win canvas')].filter(c => c.offsetWidth > 10 && c.offsetHeight > 10 && !c.classList.contains('logo'));
+    const screens = () => [...document.querySelectorAll('#win canvas')].filter(c => c.offsetWidth > 10 && c.offsetHeight > 10 && !c.classList.contains('logo') && !c.closest('.hd-splash'));   // the logo and GUI-54's splash are art, not screens: no scheme reaches them
     const stuck = [], seen = {}; let n = 0;
     DATA.pages.forEach(pp => {
       selectPage(pp.id); choose('tube'); tick(); tick();

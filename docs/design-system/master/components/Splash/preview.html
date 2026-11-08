@@ -1,0 +1,20 @@
+<!-- @dsCard group="Display" height=420 subtitle="The Mindlathe logo over the window on its first opening (GUI-54): fades on the first press or after 2.5 s" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Splash</title></head>
+<body>
+<div class="hd-col" style="padding:14px 16px 4px; gap:8px">
+  <div class="hd-window" id="win" style="height:300px; display:grid; place-items:center"><span class="hd-hint">The window under the splash. A press here after it has gone is counted: <b id="n">0</b></span></div>
+  <div class="hd-row"><button class="hd-btn hd-focus" type="button" id="again">Show again</button><span class="hd-hint" id="state"></span></div>
+</div>
+<p class="hd-hint" style="margin:4px 16px 12px">The first press on the splash only fades it; it never reaches the window. Reduced motion: it goes at once. The art is decoded to a canvas, so the plug-in's page policy (no image of any kind) stays whole.</p>
+<script>
+(function () {
+  var H = window.Horde, win = document.getElementById('win'), n = 0, st = document.getElementById('state');
+  win.addEventListener('pointerdown', function () { document.getElementById('n').textContent = String(++n); });
+  function show() { var s = H.Splash(win, { reduce: matchMedia('(prefers-reduced-motion: reduce)').matches, onDone: function () { st.textContent = 'Gone.'; } }); st.textContent = 'Showing: press it, or wait 2.5 s.'; s.ready.then(function (ok) { if (!ok) st.textContent = 'The art could not be decoded here.'; }); }
+  document.getElementById('again').addEventListener('click', show); show();
+})();
+</script>
+</body>
+</html>
