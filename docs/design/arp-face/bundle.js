@@ -1,4 +1,4 @@
-/* vendored from the horde Design System artifact, version 1794086465-fbf9, 2026-11-07; do not edit, re-vendor */
+/* vendored from the horde Design System artifact, version 1794113431-06a5, 2026-11-07; do not edit, re-vendor */
 /* @ds-bundle: {"format":4,"namespace":"Horde","components":[{"name":"Knob"},{"name":"Slider"},{"name":"MapControl"},{"name":"XYPad"},{"name":"CornerChip"},{"name":"ScreenScheme"},{"name":"SourceStrip"},{"name":"ModMatrixGrid"},{"name":"RouteRow"},{"name":"ModLedger"},{"name":"TraceLanes"},{"name":"CompactWires"},{"name":"HostedMacroRows"},{"name":"ModCardHeader"},{"name":"LfoShapeEditor"},{"name":"EnvelopeEditor"},{"name":"TempoDivisions"},{"name":"CurvePlot"},{"name":"OrbitalCard"},{"name":"MidiTrackers"},{"name":"GateLanes"},{"name":"EventLanes"},{"name":"SmoothingLanes"},{"name":"ShClockCard"},{"name":"OwnershipTier"},{"name":"QuantumPad"},{"name":"PadBars"},{"name":"CrossSection"},{"name":"MorphGrid"},{"name":"FindPane"},{"name":"MorphInspector"},{"name":"KindLegend"},{"name":"MorphMode"},{"name":"NameField"},{"name":"SteppedControl"},{"name":"Stepper"},{"name":"Cohesion"},{"name":"FxRack"},{"name":"FxMatrix"},{"name":"FxPanel"},{"name":"FxCables"},{"name":"GainStaging"},{"name":"ChainLine"},{"name":"BlendMaps"},{"name":"PageNav"},{"name":"SectionHeader"},{"name":"ChannelStrip"},{"name":"Companion"},{"name":"SourceChip"},{"name":"SourceRows"},{"name":"RoutesBySource"},{"name":"Cluster"},{"name":"Lens"},{"name":"Fold"},{"name":"PageView"},{"name":"ModTiers"},{"name":"MacroRow"},{"name":"ModBank"},{"name":"ModPage"},{"name":"UndoLine"},{"name":"MacroFace"},{"name":"PresetBar"},{"name":"Deck"},{"name":"MacroCard"},{"name":"ParamPicker"},{"name":"HistoryRail"},{"name":"PicturePicker"},{"name":"AssignXY"},{"name":"Specimen"}]} */
 /* horde house reference behaviours (vanilla JS, no React, no network).
    The morph knob and slider follow the human's HORDE Morph Knob Spec and HORDE Map Mode Spec
@@ -3650,7 +3650,7 @@
      its own corner (there its weight is 1, the others 0): every region keeps its corner, the quantum
      twin of the lab's family guarantee.
      ===================================================================== */
-  var BMAX = .45;
+  var BMAX = .45, SHARE_G = 48;   // SHARE_G: the share bars sample the pad on a 48 × 48 grid, the lab's, for the solver and the readout alike
   function jitter(id) { var h = hash(id), o = []; for (var i = 0; i < 4; i++) o.push((((h >>> (i * 8)) & 255) / 255 - .5) * .32); return o; }
   function unitOf(p) { return p.unit || p.key; }
   var engine = {
@@ -3680,7 +3680,21 @@
       for (var q = 0; q < 4; q++) L[q] = clamp(L[q] - mean, -BMAX, BMAX);
     },
     /* each corner's share of the pad for this row: the engine would publish it; here, sampled from the scores */
-    shares: function (S, p, G) { G = G || 24; var n = [0, 0, 0, 0]; for (var gy = 0; gy < G; gy++) for (var gx = 0; gx < G; gx++) n[this.ownerAt(S, p, (gx + .5) / G, (gy + .5) / G)]++; return n.map(function (c) { return c / (G * G); }); }
+    shares: function (S, p, G) { G = G || 24; var own = this.ownerFn(S, p), n = [0, 0, 0, 0]; for (var gy = 0; gy < G; gy++) for (var gx = 0; gx < G; gx++) n[own((gx + .5) / G, (gy + .5) / G)]++; return n.map(function (c) { return c / (G * G); }); },
+    /* GUI-56 r3 (D2, the share bars): the offsets that give the row these shares of the pad. A bar writes the row's own offsets,
+       the state a boundary drag writes (GN-6), so a bar and a boundary can't disagree. Deterministic: 28 steps of a fixed size,
+       always starting from `from` (the offsets the gesture began with), so one target gives one answer however the divider got
+       there. The ±BMAX bound still holds, so a corner keeps its own corner and a share can't reach 0: the bar shows what it got,
+       not what was asked. Locks the row first, as a boundary drag does. */
+    solveShares: function (S, p, target, from) {
+      this.lock(S, p); var L = state(S).locks[unitOf(p)], q;
+      for (q = 0; q < 4; q++) L[q] = from[q];
+      for (var it = 0; it < 28; it++) {
+        var s = this.shares(S, p, SHARE_G), lr = .5 * (1 - it / 40), mean = 0;
+        for (q = 0; q < 4; q++) { L[q] += lr * (target[q] - s[q]); mean += L[q] / 4; }
+        for (q = 0; q < 4; q++) L[q] = clamp(L[q] - mean, -BMAX, BMAX);
+      }
+    }
   };
   /* does this row have regions in this mode? (B269 qRefusal) */
   function picks(S, p) { var k = kindOf(p); return k === 's' || (k === 'c' && state(S).mode === 'quantum'); }
@@ -4291,8 +4305,44 @@
       btn('hd-pill hd-focus hm-iundo', 'UNDO', 'Undo the last edit', act).addEventListener('click', function () { undo(S); });
       var iq = el.querySelector('.hm-iq');
       if (k === 'g') iq.innerHTML = '<div class="hm-fcap">QUANTUM BOUNDARIES</div><span class="hd-hint">No boundaries on a gate: it never picks, its level ramps with the pad.</span>';
-      else { iq.innerHTML = '<div class="hm-fcap">QUANTUM BOUNDARIES · WHICH CORNER OWNS IT WHERE</div><div class="hm-shares"></div><div class="hm-iqrow"><span class="hm-iqs hd-hint"></span></div>';
-        var lb = btn('hd-pill hd-focus hm-iql', '', '', iq.querySelector('.hm-iqrow')); lb.addEventListener('click', function () { setLock(S, p, !engine.isLocked(S, p)); }); }
+      else { iq.innerHTML = '<div class="hm-fcap">QUANTUM BOUNDARIES · WHICH CORNER OWNS IT WHERE</div>' +
+          '<div class="hm-sbar" role="group" aria-label="' + esc(p.name) + '\'s shares of the pad"><span class="hm-sseg">' + CORNERS.map(function (c) { return '<i style="background:var(--c' + c.id + ')"></i>'; }).join('') + '</span>' +
+          [0, 1, 2].map(function (i) { return '<span class="hm-sdiv hd-focus" role="slider" aria-valuemin="0" aria-valuemax="100" aria-label="' + CORNERS[i].id + '|' + CORNERS[i + 1].id + ' share divider"></span>'; }).join('') + '</div>' +
+          '<div class="hm-shares"></div><div class="hm-iqrow"><span class="hm-iqs hd-hint"></span></div>';
+        var lb = btn('hd-pill hd-focus hm-iql', '', '', iq.querySelector('.hm-iqrow')); lb.addEventListener('click', function () { setLock(S, p, !engine.isLocked(S, p)); });
+        shareBar(iq.querySelector('.hm-sbar'), p); }
+    }
+    /* GUI-56 r3 (D2): the share bar. Dragging the divider between two corners hands pad from one to the other, the other two
+       held; the engine's solver finds the offsets. One gesture is one undo step, and it locks the row, as a boundary drag does.
+       Arrow keys move a divider by 1 % (Shift 5 %). */
+    function shareBar(bar, p) {
+      var g = null;
+      function begin(i) { return { i: i, from: engine.offsets(S, p).slice(), start: engine.shares(S, p, SHARE_G), before: lockCopy(S, p), moved: false }; }
+      function to(d, x) {
+        var low = 0, j; for (j = 0; j < d.i; j++) low += d.start[j];
+        var high = low + d.start[d.i] + d.start[d.i + 1], t = d.start.slice(); x = clamp(x, low, high);
+        t[d.i] = x - low; t[d.i + 1] = high - x; engine.solveShares(S, p, t, d.from); d.moved = true;
+      }
+      function finish(d) {
+        if (!d || !d.moved) return; var f = engine.shares(S, p, SHARE_G), a = CORNERS[d.i].id, b = CORNERS[d.i + 1].id;
+        record(S, lockEntry(S, p, d.before, lockCopy(S, p), 'Moved ' + p.name + '\'s ' + a + '|' + b + ' share'));
+        S.say(p.name + ': ' + a + ' ' + pct(f[d.i]) + ', ' + b + ' ' + pct(f[d.i + 1]) + ' of the pad; the row is locked');
+      }
+      bar.querySelectorAll('.hm-sdiv').forEach(function (dv, i) {
+        dv.addEventListener('pointerdown', function (e) {
+          if (e.button !== 0) return; e.preventDefault(); e.stopPropagation();
+          try { dv.setPointerCapture(e.pointerId); } catch (_) { /* keep the drag */ }
+          g = begin(i);
+        });
+        dv.addEventListener('pointermove', function (e) { if (!g) return; var r = bar.getBoundingClientRect(); if (r.width) to(g, (e.clientX - r.left) / r.width); });
+        function end(e) { if (e && e.pointerId !== undefined && dv.hasPointerCapture && dv.hasPointerCapture(e.pointerId)) dv.releasePointerCapture(e.pointerId); var d = g; g = null; finish(d); }
+        dv.addEventListener('pointerup', end); dv.addEventListener('pointercancel', end); dv.addEventListener('lostpointercapture', end);
+        dv.addEventListener('keydown', function (e) {
+          var step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0; if (!step) return; e.preventDefault();
+          var d = begin(i), at = 0; for (var j = 0; j <= i; j++) at += d.start[j];
+          to(d, at + step * (e.shiftKey ? .05 : .01)); finish(d);
+        });
+      });
     }
     function paint() {
       var p = S.params[S.selected]; if (!p || !p.vals || p.section === undefined) return;
@@ -4321,9 +4371,11 @@
       el.querySelector('.hm-iundo').disabled = M.history ? !M.history.canUndo() : !M.hist.length;
       var sh = el.querySelector('.hm-shares');
       if (sh) {
-        var f = engine.shares(S, p, 24);
-        sh.innerHTML = CORNERS.map(function (c, i) { return '<span class="hm-sh" style="--cc:var(--c' + c.id + ')">' + H.glyph(i, 8, v('c' + c.id + '-tx')) + '<b>' + c.id + '</b><span class="hm-shb"><i style="width:' + (f[i] * 100).toFixed(1) + '%"></i></span><span class="hd-value">' + pct(f[i]) + '</span></span>'; }).join('');
-        el.querySelector('.hm-iqs').innerHTML = (lk ? LOCK_SVG + ' <b>locked</b>' + (pk ? ': its regions are its own.' : ', dormant: acts in QUANTUM.') : '<b>following the seed</b>' + (pk ? ': drag a boundary on the pad to lock it.' : ': acts in QUANTUM.')) + ' Shares ' + (pk ? 'of the pad now.' : 'it would take in QUANTUM.');
+        var f = engine.shares(S, p, SHARE_G), segs = el.querySelectorAll('.hm-sseg i'), at = 0;
+        sh.innerHTML = CORNERS.map(function (c, i) { return '<span class="hm-sh">' + H.glyph(i, 8, v('c' + c.id + '-tx')) + '<b>' + c.id + '</b><span class="hd-value">' + pct(f[i]) + '</span></span>'; }).join('');
+        el.querySelectorAll('.hm-sdiv').forEach(function (dv, i) { at += f[i]; dv.style.left = (at * 100).toFixed(2) + '%'; dv.tabIndex = S.keys ? 0 : -1; dv.setAttribute('aria-valuenow', String(Math.round(at * 100))); dv.setAttribute('aria-valuetext', CORNERS[i].id + ' ' + pct(f[i]) + ', ' + CORNERS[i + 1].id + ' ' + pct(f[i + 1])); });
+        segs.forEach(function (sg, i) { sg.style.width = (f[i] * 100).toFixed(2) + '%'; sg.title = CORNERS[i].id + ' ' + pct(f[i]); });
+        el.querySelector('.hm-iqs').innerHTML = (lk ? LOCK_SVG + ' <b>locked</b>' + (pk ? ': its regions are its own.' : ', dormant: acts in QUANTUM.') : '<b>following the seed</b>' + (pk ? ': drag a boundary on the pad, or a divider in the bar, to lock it.' : ': acts in QUANTUM.')) + ' Shares ' + (pk ? 'of the pad now.' : 'it would take in QUANTUM.');
         var lb = el.querySelector('.hm-iql'); lb.textContent = lk ? 'UNLOCK' : 'LOCK AS IS'; lb.setAttribute('aria-label', (lk ? 'Unlock ' : 'Lock ') + p.name + '\'s regions');
       }
     }

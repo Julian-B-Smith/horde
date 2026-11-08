@@ -2359,6 +2359,30 @@ CLOCK.checking = true;
     while (dev.history().past.length > keep) dev.undo(); dev.clearRedo(); if (dev.morphSettings().law !== law0) { dev.setMorphLaw(law0, 'self-check'); while (dev.history().past.length > keep) dev.undo(); dev.clearRedo(); }
     S.selected = sel0; S.pad.x = x0; S.pad.y = y0; tick(); selectPage(pg0);
     line(order && !!layer && jumpPlain && !!cv && jumpMap && n1 === n0 && n2 === n0 + 1 && heldAlt && armedOn && n3 === n0 + 2 && heldArm && disarmed && n4 === n3, 'Morph page pad (GUI-61): the Blend map follows Find and the Morph field' + (order ? '' : ' (NOT)') + '; a click moves the puck ' + (jumpPlain ? 'without' : 'NOT without') + ' the Blend map and ' + (jumpMap ? 'on it' : 'NOT on it') + ', adding ' + (n1 - n0) + ' waypoints (control); Option-click added ' + (n2 - n1) + ', ADD WAYPOINT and a click ' + (n3 - n2) + (disarmed ? ', then disarmed' : ', and stayed ARMED') + ', neither moving the puck; a double-click added ' + (n4 - n3) + '.'); }
+  // 4b4a. GUI-56 r3 (the human, "D2: Share bars"): the selected row's share bar. Dragging its A|B divider hands pad from B to A, holds C and D, locks the row
+  // and is one undo step; the same drag again gives the same offsets (the solver is deterministic); and the bar agrees with the pad's own ownership,
+  // recomputed here from the device's offsets, never from the bar. Control: the shares before the drag were far from the target, and undo puts them back.
+  { const pg0 = page, sel0 = S.selected, keep = dev.history().past.length, frame = () => { for (const v of views) if (v.page === page || v.page === '*') v.update(); S.views.forEach(v => { try { v.render(); } catch (e) { /* the frame loop skips a failing view the same way */ } }); };
+    selectPage('morph'); mw.mount();
+    const k = Object.keys(S.params).find(x => ROW[x] && ROW[x].class === 'S' && !dev.regions()[x]); S.selected = k; frame();
+    const G = 48, own = () => { const o = dev.offsets(k), n = [0, 0, 0, 0]; for (let a = 0; a < G; a++) for (let b = 0; b < G; b++) { const x = (a + .5) / G, y = (b + .5) / G, w = [(1 - x) * (1 - y), x * (1 - y), (1 - x) * y, x * y]; let best = 0; for (let i = 1; i < 4; i++) if (w[i] + o[i] > w[best] + o[best]) best = i; n[best]++; } return n.map(c => c / (G * G)); };
+    const bar = $('morphInsp').querySelector('.hm-sbar'), dv = bar && bar.querySelectorAll('.hm-sdiv')[0], before = own(), target = Math.min(before[0] + before[1] - .03, before[0] + .15);
+    const drag = to => { const r = bar.getBoundingClientRect(), d = dv.getBoundingClientRect(), ev = (t, x) => new PointerEvent(t, { clientX: x, clientY: d.top + d.height / 2, button: 0, buttons: t === 'pointerup' ? 0 : 1, pointerId: 9, bubbles: true });
+      dv.dispatchEvent(ev('pointerdown', d.left + d.width / 2)); dv.dispatchEvent(ev('pointermove', r.left + to * r.width)); dv.dispatchEvent(ev('pointerup', r.left + to * r.width)); frame(); };
+    let ok = false, say = 'NO share bar in the Selected row card';
+    if (dv) {
+      drag(target); const got = own(), off1 = dev.offsets(k).slice(), locked = !!dev.regions()[k], steps = dev.history().past.length - keep;
+      const segs = [...bar.querySelectorAll('.hm-sseg i')].map(i => parseFloat(i.style.width) / 100), agree = segs.every((v, i) => Math.abs(v - got[i]) < 1e-3);
+      const held = Math.abs(got[2] - before[2]) < .04 && Math.abs(got[3] - before[3]) < .04, hit = Math.abs(got[0] - target) < .04, far = Math.abs(before[0] - target) > .1;
+      dev.undo(); frame(); const back = own().every((v, i) => Math.abs(v - before[i]) < 1e-9) && !dev.regions()[k];
+      drag(target); const same = dev.offsets(k).every((v, i) => v === off1[i]);
+      while (dev.history().past.length > keep) dev.undo(); dev.clearRedo();
+      ok = hit && far && held && locked && steps === 1 && agree && back && same;
+      say = 'asking A for ' + Math.round(target * 100) + ' % gave ' + got.map(v => Math.round(v * 100)).join(', ') + ' % (from ' + before.map(v => Math.round(v * 100)).join(', ') + ', control)' + (held ? ', C and D held' : ', C and D NOT held') +
+        (locked ? ', the row locked' : ', NOT locked') + ', ' + steps + ' undo step' + (steps === 1 ? '' : 's') + (agree ? ', the bar agreeing with the pad' : ', the bar DISAGREEING with the pad') + (back ? ', undo restoring it' : ', undo NOT restoring it') + (same ? ', and the same drag gave the same offsets' : ', and the same drag gave DIFFERENT offsets');
+    }
+    S.selected = sel0; frame(); selectPage(pg0);
+    line(ok, 'Share bars (GUI-56 r3) on ' + (k ? ROW[k].label : 'no row') + ': ' + say + '.'); }
   // 4b4. GUI-28, MO-11 to MO-13: a key's mode. Controls: Follow still blends, re-picking makes no step, a locked corner refuses Exempt whole, and undo takes the mark off.
   { const pg0 = page, keep = dev.history().past.length; setMorphOn(true); dev.setMorph({ x: .3, y: .3 }); dev.scatter(SEED); selectPage('morph'); mw.mount();
     const lawKept = keyModeState(dev.params().find(x => x.class === 'M').key).countActs;   // D.2 defaults to Quantum, where a key's count can't act

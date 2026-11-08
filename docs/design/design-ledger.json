@@ -168,6 +168,10 @@
   {
    "version": "1794086465-fbf9",
    "evidence": "docs/design/arp-face/README.md: the Morph pad jumps, Option-click and ADD WAYPOINT drop waypoints, no text selected while dragging, GUI-61, 2026-11-07"
+  },
+  {
+   "version": "1794113431-06a5",
+   "evidence": "docs/design/arp-face/README.md: the share bar in the Morph inspector, GUI-56 r3, 2026-11-07"
   }
  ],
  "vendoring": {
@@ -6682,16 +6686,16 @@
    "lab": "docs/design/morph-rail-lab.html",
    "via": null,
    "superseded_by": null,
-   "master_version": null,
-   "bundle": null,
-   "shell": null,
+   "master_version": "1794113431-06a5",
+   "bundle": "MorphInspector",
+   "shell": "docs/design/gui3.html: H.MorphInspector(insp, S);",
    "port_tab": null,
    "adr": "GUI-56",
    "id": "gui56-share-bars",
    "clause": "ruling 3: per-parameter distribution is share bars, writing a row's own offsets (D2), in 1.0",
    "component": "MorphInspector",
-   "state": "ruled",
-   "note": "To build in the master's selected-row inspector, beside the scale and the lock. FX device: same, its own rows."
+   "state": "in-shell",
+   "note": "Master: MorphInspector's share bar, one segment per corner and a divider between each pair, and the morph layer's solveShares (28 fixed steps from the gesture's starting offsets). It writes the row's own offsets and locks it, one undo step. Self-check 4b4a, with two plants (a solver writing to a copy; a random draw) red. Readings recorded in GUI-56 A1. FX device: same, its own rows."
   },
   {
    "lab": "docs/design/morph-rail-lab.html",

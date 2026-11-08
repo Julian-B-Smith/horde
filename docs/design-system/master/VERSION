@@ -4,7 +4,7 @@
 # (python3 tools/design_vendor.py record-master --version <id> --date <d>) and re-vendor.
 # tools/design_chain_check.py holds the tree to these hashes: every file listed, none extra.
 artifact: https://claude.ai/artifact/EGDwetDHwcvxhTbNffCzJc
-version: 1794086465-fbf9
+version: 1794113431-06a5
 date: 2026-11-07
 files: 194
 5e998fe8ad66f379d328e0bf039c9cc2bcb9af60157dd288aa3eec88086662df  README.md
@@ -116,7 +116,7 @@ cae24848d79f1e6850c3297aa5a543be48721d675908ecf01c80fa5cee70afb3  components/Mod
 64daff9964b56400e33e0716005fa3ea73b73699613ee0ccb19acb12dd57739b  components/ModuleCard/preview.html
 d67d3c952bbc670beccf4eb60523143b17967fe9638d566afbf046e4685e6ff2  components/MorphGrid/README.md
 5f451ff4c4d8885f81fb74d3c92df152092f14aa7d4e3655f6ef5e953bb53e36  components/MorphGrid/preview.html
-8fbb6c2718e033dc48db375bc10e5b0b67e3857b225e843bbfcbecc97435d460  components/MorphInspector/README.md
+45e138cd60baac42c6ac392678f91c4a00d397332fa6e6e27f9c937c2d1013ed  components/MorphInspector/README.md
 3735df41f3db7d634c5019966d493f311423ab916b2ac158a29f6179e3ff95f7  components/MorphInspector/preview.html
 ebfa325d74c996db87d747dac8461172431d54511bbd901458a00439ea8e5daa  components/MorphMode/README.md
 36c94f84dd0d1d15cd2b59b1f7aeec818e2eb08d4df90ddd6ef8c26a6716b74f  components/MorphMode/preview.html
@@ -194,8 +194,8 @@ a18ecfe745ed481016abed2f88491fa90ad8567b0a32d9df1747ad51dd94b65d  components/Tem
 93b6160e48bb65fe3670ff80bd921d16d727ca7086cd813ba413c3f633ce9770  components/Waveform/preview.html
 706ba6c02712c8df590f7282f772c49d01bd0a957e6c25748cb43ab0eaa1e0f7  components/XYPad/README.md
 d701129232df94a3ea81b2499559b1f13bd8cf22f065b70b2c7f0d666e2ce3d8  components/XYPad/preview.html
-974df4e0c61f026ef291ebd6969dd269068c0c3691c9ce2ea69b995fac10cca1  components/bundle.css
-808e28067bf2b1ce02f31ee0887e9a44ab8231fda4579610c510d3ee7aaf2411  components/bundle.js
+ca94d48736f5c08d5836aa484d14487adae99c3bd9a8f1599a9515fa9bba6241  components/bundle.css
+6c08baad65e7e8e1accf0c9a85ec81e720b0ae512474699308c77ccdfa9ac05f  components/bundle.js
 51e667c8fca609ee958824e4bbe202c605f828732894016724371d61659a4646  components/index.d.ts
 6c3f598e97da2ab5ed7ce3e02d35e32afb208bd1c7ddcb32335f97ee701c2901  contrast-audit.md
 b22892adec0ac89e9c3eb244e52d609e0e94a11a8a45fe986acd5a1c750ce8d3  design-system.json
