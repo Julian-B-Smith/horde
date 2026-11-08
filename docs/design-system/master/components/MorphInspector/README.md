@@ -10,7 +10,13 @@ The selected morph row in full: what kind it is and what that means in this mode
 - Four corner rows, 28 px: the corner chip, the letter and the real preset name (ellipsis), the control (a continuous corner a house slider face; a structural corner a select with the manifest's labels; a gate a toggle), the value in a fixed 9ch column, and a fixed 46 px column for OWNS (or the corner's weight under a blend) and the padlock. The selected corner's row is on its corner's selected fill (`sel-cA`…).
 - The IMPACT box (`well`, `ink` edge, a fixed three-line box): "Editing corner B." then whether that corner is heard here (a share of a blend, the owner, or "silent until B wins it"; or that the corner is locked), and what is heard, in `physics`.
 - Actions: SET ALL FOUR (the selected corner's value into all four; refused whole if any corner it would change is locked), UNDO.
-- QUANTUM BOUNDARIES (not for a gate): each corner's share of the pad (glyph, letter, a bar in its fill, the percentage), the lock state in words, LOCK AS IS / UNLOCK.
+- QUANTUM BOUNDARIES (not for a gate): the **share bar** (GUI-56 r3), one segment per corner in its fill, in order A, B, C, D, with a divider between each pair; under it each corner's glyph, letter and percentage; the lock state in words; LOCK AS IS / UNLOCK.
+
+**The share bar (GUI-56 r3, "D2: Share bars").** Dragging the divider between two corners hands pad from one to the other, and the other two keep theirs. Arrow keys on a focused divider move it 1 % (Shift 5 %).
+- **It writes the row's own offsets,** the state a boundary drag on the pad writes (GN-6), so the bar and a boundary can never disagree, and the drag locks the row as a boundary drag does. One gesture is one undo step.
+- **The solver is the morph layer's, `engine.solveShares(S, p, target, from)`:** a fixed 28 steps of a fixed size, always from the offsets the gesture began with, so one target gives one answer. Shares are sampled on a 48 × 48 grid (`SHARE_G`), for the solver and the readout alike.
+- **A share can't reach 0.** The offsets stay within ±0.45, so each corner keeps its own corner. The bar shows the shares it got, not the ones asked for.
+- **Works in every mode.** Under BLEND a continuous row's regions are dormant, and the words say so; the bar still edits them, as LOCK AS IS does.
 
 **Gestures** as the morph grid: live, latched, one undo entry per gesture; relative drag at 160 px, shift fine; double-click resets; Option + wheel sets; arrows in keyboard mode. A click on a corner row selects that corner.
 

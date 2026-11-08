@@ -11970,6 +11970,26 @@ The question is closed. **Engine impact:** none beyond ruling 4's (the existing 
 
 **FX device (ADR-254).** It has XY pads, and ruling 4 covers every XY pad, so the rail reaches it after 1.0 as well. Share bars apply to its morph rows as they do here.
 
+### GUI-56 A1 — BUILT: ruling 3's share bars, in the Morph page's Selected row card (GB17; 2026-11-07)
+
+**What is built.**
+- **The bar.** The master's MorphInspector shows a share bar under QUANTUM BOUNDARIES: one segment per corner in its fill, in order A to D, and a divider between each pair. Each corner's percentage is listed under it. Dragging a divider hands pad from one corner to its neighbour, and the other two keep theirs. Arrow keys on a focused divider move it 1 % (Shift 5 %).
+- **The solver.** It is the morph layer's `solveShares`: 28 steps of a fixed size, always starting from the offsets the gesture began with, so one target gives one answer. Shares are sampled on a 48 × 48 grid for the solver and the readout alike.
+
+**State (recorded per GUI-27).**
+- **What it writes:** only the row's own four offsets, GN-6's state, which a boundary drag also writes. So the bar and the pad can't disagree, and nothing new persists.
+- **Locking:** a drag locks the row, as a boundary drag does. UNLOCK hands it back to the seed.
+- **Undo:** one gesture is one undo step.
+- **The limit:** offsets stay within ±0.45, so a corner keeps its own corner and no share reaches 0. The bar shows the shares it got, not the ones asked for.
+
+**Readings (the GUI session's, open to the human).**
+- **Where the bars are.** "A row gets bars" was read as the selected row's bar in its inspector, the ledger's plan. It is not a bar on every row of the Morph field, as the lab drew it.
+- **Every mode.** The bar works under every law. Under BLEND a continuous row's regions are dormant and the card says so, but the bar still edits them, as LOCK AS IS does.
+
+**Engine impact.** None beyond GN-31: the bar writes GN-6's offsets.
+
+**FX device (ADR-254).** The same bar on its morph rows.
+
 ## GUI-40 — RULED by the human: the Weather on the Noise page; square pads with the Morph pad in a sticky column; the puck over the corners; bend handles; the logo on every page (GB9, GB23; amends GUI-19, GUI-26, GUI-33; 2026-11-05)
 
 **The human, 2026-11-05.**

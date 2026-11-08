@@ -1,4 +1,4 @@
-/* vendored from the horde Design System artifact, version 1794086465-fbf9, 2026-11-07; do not edit, re-vendor */
+/* vendored from the horde Design System artifact, version 1794113431-06a5, 2026-11-07; do not edit, re-vendor */
 @import url("https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;800&family=Roboto+Mono:wght@400;500;600&display=swap");
 /* horde house components. Every colour is a token (tokens.json); nothing here is a hex.
    Sources: UI Spec §3-4 (values), gui2.html §4 skins, the SCALPEL lab (980×720 chassis),
@@ -792,11 +792,14 @@ svg { max-width:100%; }
 .hm-hv { color:var(--physics); font-weight:600; font-family:var(--font-mono); }
 .hm-iact { display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
 .hm-iq { margin-top:4px; border-top:1px dashed var(--div); padding-top:2px; }
+/* GUI-56 r3: the share bar, one segment per corner in its fill, and a divider between each pair to drag */
+.hm-sbar { position:relative; height:16px; margin:2px 0 6px; touch-action:none; }
+.hm-sseg { display:flex; height:100%; border:1px solid var(--ink); border-radius:3px; overflow:hidden; box-sizing:border-box; }
+.hm-sseg i { display:block; height:100%; flex:none; }
+.hm-sdiv { position:absolute; top:-3px; bottom:-3px; width:13px; margin-left:-6px; cursor:ew-resize; touch-action:none; border-radius:2px; }
+.hm-sdiv::after { content:''; position:absolute; left:5px; top:0; bottom:0; width:3px; border-radius:1px; background:var(--ink); box-shadow:0 0 0 1px var(--panel); }
 .hm-shares { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:4px 8px; }
-.hm-sh { display:grid; grid-template-columns:auto auto minmax(14px,1fr) 4ch; align-items:center; gap:3px; font:500 9.5px/1.4 var(--font-mono); color:var(--ink); }
-.hm-shb { height:5px; border-radius:3px; background:var(--well-alt); overflow:hidden; box-shadow:inset 0 0 0 1px var(--div); }
-.hm-shb i { display:block; height:100%; background:var(--cc); }
-.hm-sh .hd-value { text-align:right; }
+.hm-sh { display:grid; grid-template-columns:auto auto auto; justify-content:start; align-items:center; gap:4px; font:500 9.5px/1.4 var(--font-mono); color:var(--ink); }
 .hm-iqrow { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:4px; }
 .hm-iqs { flex:1 1 180px; min-width:0; }
 .hm-iqs svg { vertical-align:-1px; }
