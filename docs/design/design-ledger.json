@@ -529,7 +529,7 @@
   },
   "wavetable-page-lab.html": {
    "status": "exploring",
-   "note": "GB37. The wavetable page (ADR-387, the lead's handover). Q1: where an oscillator's four corner tables are picked and seen (six variants). Q2: where the 3 x 3 PM matrix lives (five variants). The lead picture is ruled (GUI-62). Published for the human as an Artifact."
+   "note": "GB37. The wavetable page (ADR-387, the lead's handover). Round 2 (2026-11-08): Q3, six looks on the house screen kit (the human: fit horde's screens, a little more lively); Q1, where the four corner tables go while morph is on (five variants; V4 retired by GUI-63); Q2, where the 3 x 3 PM matrix lives (five variants). Ruled: GUI-62 (the lead picture), GUI-63 (morph off one table, on the four, no pad or grid among them). Published for the human as an Artifact."
   }
  },
  "not_labs": {
@@ -7424,6 +7424,21 @@
    "component": null,
    "state": "ruled",
    "note": "Replaces the blade view (INTEGRATION.md §7.1). A master component once the lab's two questions are ruled. FX device: none."
+  },
+  {
+   "lab": "docs/design/wavetable-page-lab.html",
+   "via": null,
+   "superseded_by": null,
+   "master_version": null,
+   "bundle": null,
+   "shell": null,
+   "port_tab": null,
+   "adr": "GUI-63",
+   "id": "gui63-morph-off-one-table",
+   "clause": "morph off shows one table (the audible corner's); morph on shows the four corner tables, with no pad or morph grid among them on an Osc page",
+   "component": null,
+   "state": "ruled",
+   "note": "Retires the lab's V4 (a morph grid) and the pads in V1 and V6. A master component once the look (Q3) and the placement (Q1) are ruled. FX device: none."
   }
  ],
  "not_design": [
@@ -8705,6 +8720,9 @@
   "GUI-60": "none: it changes what is drawn, not what is sent, saved or undone",
   "GUI-61": "none: these change what a gesture does on the page, not what is sent, saved or undone",
   "GUI-62": [
+   "GN-57"
+  ],
+  "GUI-63": [
    "GN-57"
   ]
  },

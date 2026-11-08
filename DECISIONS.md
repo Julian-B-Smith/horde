@@ -12512,6 +12512,23 @@ The blade view and its drag roles retire with the blades (INTEGRATION.md §7.1).
 **Engine impact.** GN-57: the frames of the table each oscillator reads at the puck, as cycles, across the bridge.
 
 **FX device (ADR-254).** None: it has no oscillators.
+
+## GUI-63 — RULED by the human: morph off shows one table; morph on shows the four corner tables, with no pad or morph grid among them (GB37; 2026-11-08)
+
+**The human, 2026-11-08,** on the wavetable page lab: "there's no reason to show the four wavetables when morph is off, and when morph is on there's no reason to add a morph grid to the center of the four."
+
+**What changes.**
+- **Morph off:** an oscillator shows one table, the one the audible corner plays (MO-20: the table set is one-hot at `morph.audible`). Its picker sits in the lead picture's header and edits that corner's table. No corner tables show.
+- **Morph on:** the four corner tables show, wherever Q1 rules.
+- **No pad or morph grid among them** on an Osc page. The Morph page has the pad. In the lab, V1 loses its centre pad, V6 loses its small pad, and V4 (a 5 × 5 morph grid of cycles) is retired. V5's pad stays, because it is the Morph page's own.
+
+**Reading, open to the human:** with morph off, the single picker writes the audible corner's table, as every control writes the audible corner while morph is off. GN-36 (a host edit with morph off) is the open engine question on the same path.
+
+**State (GUI-27).** None new: what shows follows two values the page already holds, morph on or off and the audible corner.
+
+**Engine impact.** GN-57: its corner-frames half is needed only while morph is on. Morph on or off and the audible corner already reach the page.
+
+**FX device (ADR-254).** None: it has no oscillators.
 ## ADR-365 — RULED by the human: the 8 Hz blocker for FM free in pitch FM; item 7.8's table remade; spec round 58 (B621, B623; 2026-11-04)
 
 **Context.** FM free in pitch FM runs an accumulator that never restarts, while each of C.16's readings starts it at 0, so the estimate cannot see its mean and BL-19 cannot hold by the law alone (Q-TA-71: engine-free, 95 of its 144 one-member cases over 0.003, up to 0.046). ADR-363 sent this to a scratch trial of C.16's existing blocker, with clips for the human. Separately, item 7.8's reference R2 places FM free's modulator half a cycle from round 56's start, and 7.8 plays before its settings settle (Q-TA-77).
