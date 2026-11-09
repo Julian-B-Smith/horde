@@ -12529,6 +12529,70 @@ The blade view and its drag roles retire with the blades (INTEGRATION.md §7.1).
 **Engine impact.** GN-57: its corner-frames half is needed only while morph is on. Morph on or off and the audible corner already reach the page.
 
 **FX device (ADR-254).** None: it has no oscillators.
+## GUI-64 — RULED by the human: an oscillator's four corner tables sit in a row of four under the viewer (GB37; 2026-11-08)
+
+**The human, 2026-11-08,** on the wavetable page lab's Q1: "I actually like the layout from Q3 best (V1 if it gets condensed)".
+
+**What changes.** While morph is on (GUI-63), the Osc page shows the four corner tables as one row of four tiles under the viewer, A to D. Each tile has:
+- the corner's chip;
+- its table menu;
+- its weight at the puck;
+- a small glass in the viewer's view, brightening as the puck nears its corner.
+
+The tile's frame carries the corner's colour, and inside the glass the corner is its letter (screens.md). V1's four tiles in pad positions are condensed into this row. V2, V3, V5 and V6 were not chosen; V4 was retired by GUI-63.
+
+**State (GUI-27).** None new: each tile shows and edits its corner's `oscN.wt.table`, as a picker does today.
+
+**Engine impact.** GN-57's corner half: each corner's table frames, needed only while morph is on.
+
+**FX device (ADR-254).** None: it has no oscillators.
+
+## GUI-65 — RULED by the human: the PM matrix lives on an Osc dashboard card, a row on each Osc page, and the signal flow (GB37, GB38; 2026-11-08)
+
+**The human, 2026-11-08,** on the lab's Q2: "I would like both the P1 dashboard card and the signal flow representation, but I do want a few visual options for both (global signal flow in particular touches so many things so it will probably take its own lab)". Asked whether P1's Osc-page row stays too, they answered "Card and Osc-page row".
+
+**What changes.**
+- **The dashboard card:** the 3 × 3 matrix (rows the oscillator modulated, columns the modulator, the diagonal each oscillator's feedback, WT-61), with the named algorithms writing ordinary matrix values (CONTRACT §7 H1).
+- **The Osc-page row:** each Osc page shows the three depths that modulate it (its feedback and the two other oscillators) beside its internal modulator.
+- **The signal flow:** the Osc dashboard's signal flow (GUI-57 r3) draws the PM routes too. It has its own lab, GB38.
+- **The card and the row edit the same values.** Every depth is a corner value like any other control.
+
+**Still open in the lab:** the card's look (C1 Cells, C2 Dials, C3 Glass bubbles, C4 Operator graph) and the row's look (R1 Cells, R2 Bars, R3 Input scopes).
+
+**State (GUI-27).** None new: the depths are the matrix rows (`wt.pmA`, `wt.pmB` and each oscillator's feedback), written as any control writes. An algorithm pill writes ordinary values and is one undo step.
+
+**Engine impact.** GN-58: PM observation, so clamp engagements are shown, never silent (WT-65).
+
+**FX device (ADR-254).** None: it has no oscillators. FX screens and the mod matrix must not assume these cards exist.
+
+## GUI-66 — RULED by the human: the wavetable viewer is an XY: up and down the frame, sideways Bend, Shift + sideways the sync ratio, mappable (GB37; 2026-11-08)
+
+**The human, 2026-11-08.**
+- "Could we also make the viewer an interactive XY like the scalpel was? Maybe up/down scrubs the frame and left/right increases sync by default, with different options mappable or something?"
+- Then: "it might be a little annoying for sideways drag to activate or increase sync, but maybe shift+sideways drag would be better".
+- Asked what plain sideways should move, they answered "Bend".
+- Last: "I've updated the spec and sync is now always on so morphs can be continuous" (the lead's B661 lab: `wt.syncIn` is × pitch or Hz with no off, and ratio 1 is no sync).
+
+**What changes.** The Osc page's lead glass (GUI-62) is the viewer, and a drag on it writes the oscillator's rows, on BladeView's pattern (GUI-30, B293 to B299):
+- **Directions:** up and down moves the frame (up is later), sideways moves Bend, and Shift with sideways moves the sync ratio, from ×1 (no sync) up.
+- **Relative:** a grab moves nothing.
+- **Range and fine:** 420 px crosses a row's range, and Option moves a quarter as far.
+- **Undo:** one step per gesture that changed something.
+- **Keys:** the arrow keys work when the glass is focused (Shift for the third slot, Option for fine).
+- **Readout:** what is moving shows on the glass in its own ink.
+- **The legend pill** on the glass opens the mapping. It has three slots, each any of the oscillator's continuous `wt.` rows with an invert, and Default. Two slots on one row add up.
+
+**Still open in the lab:**
+- which views stay in the viewer's switch;
+- whether the switch is pips or a name;
+- whether the view and the mapping are one choice per machine, never saved with a patch, as BladeView's are (the lab's proposed reading).
+
+**State (GUI-27).** The drag writes ordinary rows: the frame, Bend and the sync ratio by default, through the same writers as their controls, each gesture one undo step. If the per-machine reading is ruled, the view and the mapping persist per machine, outside the patch, and survive closing the window.
+
+**Engine impact.** None: the drag writes the oscillator's own `wt.` rows (CONTRACT §2.1). The mapping list also offers the sync softness row of the lead's B661 lab, which has no contract offset yet; it reaches the engine only if a spec round adopts it.
+
+**FX device (ADR-254).** None: it has no oscillators.
+
 ## ADR-365 — RULED by the human: the 8 Hz blocker for FM free in pitch FM; item 7.8's table remade; spec round 58 (B621, B623; 2026-11-04)
 
 **Context.** FM free in pitch FM runs an accumulator that never restarts, while each of C.16's readings starts it at 0, so the estimate cannot see its mean and BL-19 cannot hold by the law alone (Q-TA-71: engine-free, 95 of its 144 one-member cases over 0.003, up to 0.046). ADR-363 sent this to a scratch trial of C.16's existing blocker, with clips for the human. Separately, item 7.8's reference R2 places FM free's modulator half a cycle from round 56's start, and 7.8 plays before its settings settle (Q-TA-77).
