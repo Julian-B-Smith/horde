@@ -43,6 +43,13 @@
      condensed". Q2 is RULED in place (GUI-65): a card on the Osc dashboard AND a row on each Osc page (P1 whole), and the signal flow (P4), each with visual
      options; the global signal flow is its own lab (GB38), so this lab now auditions only the card (C1-C4) and the row (R1-R3).
 
+     ROUND 5 (the human, 2026-11-08). "Cells are probably the way to go after all, in both cases": the card is C1 and the row R1 (GUI-67); the other
+     options stay in the pickers as the record. "It will be important for there to be an output scope that shows the combined effects of all
+     transformations": the glass under the viewer is now the OUTPUT SCOPE, the oscillator's cycle after every stage in order (the blend at the puck,
+     the frame, the frame spread, sync, window, softness, asym, bend, then PM from the other two and its own feedback), over the raw read frame as a
+     faint trace; the harmonics beside it are the output's. "And double clicking the waveform should return bend to 0": a double-click on the viewer
+     sets Bend to 0 in one undo step, whatever the drag's mapping.
+
      HOUSE RULES. No Math.random (seeded mulberry32). No clock: motion is a frame count (L.tick). No wheel listener (B301). Reduced motion starts Still. -->
 <html lang="en" data-theme="dark">
 <head>
@@ -176,7 +183,7 @@
 
   <section class="card" aria-labelledby="q3">
     <h2 id="q3">Q3 · The viewer: six views, switched on the glass, and an XY you drag (GUI-66; which views stay is open)</h2>
-    <p class="note"><b>Switch views</b> with the pips (or the name, set by Switch above) at the glass's top left, or with the cards below. <b>Drag the glass:</b> up and down scrubs the frame, left and right bends it, and Shift with left and right sweeps the sync ratio up from ×1, which is no sync: sync is always on now, so a morph between ratios is continuous. Hold Option (Alt) to move a quarter as far. Each drag is one undo step. With the glass focused, the arrow keys do the same. <b>The pill at the bottom right</b> shows what each direction moves; click it to map any of the nine wavetable controls to each, or to invert one. The view and the mapping are one choice for every viewer, remembered on this machine. With morph on, the corner tables sit in a plain row under the viewer; where they go is Q1's question. Every shape here is a MOCK.</p>
+    <p class="note"><b>Switch views</b> with the pips (or the name, set by Switch above) at the glass's top left, or with the cards below. <b>Drag the glass:</b> up and down scrubs the frame, left and right bends it, and Shift with left and right sweeps the sync ratio up from ×1, which is no sync: sync is always on now, so a morph between ratios is continuous. Hold Option (Alt) to move a quarter as far. Each drag is one undo step. <b>Double-click</b> the glass to put Bend back to 0. <b>Under it, the output scope</b> shows the oscillator's cycle after everything: the frame, spread, sync, window, softness, asym, bend and PM, over the raw frame as a dotted trace (GUI-67). With the glass focused, the arrow keys do the same. <b>The pill at the bottom right</b> shows what each direction moves; click it to map any of the nine wavetable controls to each, or to invert one. The view and the mapping are one choice for every viewer, remembered on this machine. With morph on, the corner tables sit in a plain row under the viewer; where they go is Q1's question. Every shape here is a MOCK.</p>
     <div class="picker" id="pick3" role="group" aria-label="Q3 looks"></div>
     <p class="why note" id="why3"></p>
     <div class="win" id="win3" aria-label="horde window for Q3"></div>
@@ -188,8 +195,8 @@
   </section>
 
   <section class="card" aria-labelledby="q2">
-    <h2 id="q2">Q2 · The PM matrix: a card on the Osc dashboard and a row on each Osc page (GUI-65)</h2>
-    <p class="note">Your pick: P1 whole (the dashboard card and the Osc-page row) and the signal flow. The global signal flow touches too much for this lab and gets its own (GB38). Here are visual options for the other two. Rows are the oscillator being modulated, columns the modulator, and the diagonal is each oscillator's own feedback (WT-61). Every depth is a corner value like any other control. Drag any depth up or down; the card and the row share the same values.</p>
+    <h2 id="q2">Q2 · Ruled (GUI-65, GUI-67): the PM matrix as cells, on a card on the Osc dashboard and a row on each Osc page</h2>
+    <p class="note">Your pick: P1 whole (the dashboard card and the Osc-page row) and the signal flow. The global signal flow touches too much for this lab and gets its own (GB38). Then: "Cells are probably the way to go after all, in both cases", so the card is C1 and the row R1 (GUI-67). The other options stay below as the record. Rows are the oscillator being modulated, columns the modulator, and the diagonal is each oscillator's own feedback (WT-61). Every depth is a corner value like any other control. Drag any depth up or down; the card and the row share the same values.</p>
     <h2 style="margin-top:10px">The dashboard card</h2>
     <div class="picker" id="pickC" role="group" aria-label="Card options"></div>
     <p class="why note" id="whyC"></p>
@@ -202,7 +209,7 @@
 
   <section class="card">
     <h2>Telling me your picks</h2>
-    <p>Still open: which views stay in the viewer's switch, pips or a name, whether the view and the mapping stay per machine, and a card (C1–C4) and a row (R1–R3) for the PM matrix. Mixes are welcome. Each answer becomes a GUI ruling and goes into the design master before GUI 3.</p>
+    <p>Still open: which views stay in the viewer's switch, pips or a name, and whether the view and the mapping stay per machine. Mixes are welcome. Each answer becomes a GUI ruling and goes into the design master before GUI 3.</p>
     <div id="say" aria-live="polite"></div>
     <details><summary class="note">Self-check</summary><div id="selfcheck">running…</div></details>
   </section>
@@ -288,6 +295,21 @@ function warp1(s, w, r) { const o = new Float32Array(N), a = .5 + .45 * w.asym, 
 const WP = [{}, {}, {}];
 function warped(fr, o) { const w = S.osc[o].wt, r = syncRatio(o), k = [r, w.window, w.syncSoft, w.asym, w.bend].join(); if (WP[o].fr === fr && WP[o].k === k) return WP[o].out;
   const out = r === 1 && !w.window && !w.asym && !w.bend ? fr : fr.map(s => warp1(s, w, r)); WP[o] = { fr, k, out }; return out; }
+/* THE OUTPUT (GUI-67): the cycle after every transformation, in the engine's order. readCycle is the table read through the warp, at the frame,
+   averaged over the frame spread's members (L6's mock fan, without its phase spread); outCycle adds PM from the other two oscillators and the
+   oscillator's own feedback. A MOCK of the chain: the others are taken at this oscillator's pitch so one cycle stands still (their phase offset runs
+   with Motion), a depth d is an index of 10 d radians (ROWS' 0 to 10), and feedback runs two passes of the cycle sample by sample, keeping the
+   second, so it settles the way a feedback loop does. Identity when every depth is 0 (checked). */
+const PM_INDEX = 10;
+function readCycle(o) { const fr = warped(tableOf(o), o), f = frameNow(o), sp = S.osc[o].wt.frameSpread; if (!sp) return frameAt(fr, f);
+  const M = 7, out = new Float32Array(N); for (let m = 0; m < M; m++) { const s = frameAt(fr, Math.max(0, Math.min(FR - 1, f + sp * ((m - 3) / 3) * 5))); for (let i = 0; i < N; i++) out[i] += s[i] / M; } return out; }
+const at = (s, p) => { p -= Math.floor(p); const x = p * N, i0 = Math.floor(x) % N, t = x - Math.floor(x); return s[i0] * (1 - t) + s[(i0 + 1) % N] * t; };
+function outCycle(o) { const s = readCycle(o), k = PM_INDEX / TAU, fb = S.pm[o][o], base = new Float32Array(N);
+  const mods = others(o).filter(c => S.pm[o][c]).map(c => ({ d: S.pm[o][c], m: readCycle(c), off: phaseNow(c) - phaseNow(o) }));
+  if (!mods.length && !fb) return s;
+  for (let i = 0; i < N; i++) { let p = i / N; mods.forEach(x => { p += k * x.d * at(x.m, i / N + x.off); }); base[i] = p; }
+  if (!fb) return base.map(p => at(s, p));
+  const out = new Float32Array(N); let y = 0; for (let pass = 0; pass < 2; pass++) for (let i = 0; i < N; i++) { y = at(s, base[i] + k * fb * y); if (pass) out[i] = y; } return out; }
 // Motion: a MOCK LFO on the frame position and a phase that runs along the cycle; both are frame counts, never a clock
 const frameNow = o => Math.max(0, Math.min(FR - 1, S.osc[o].frame + (L.motion ? 3.2 * Math.sin(L.tick * .021 + o * 1.7) : 0)));
 const phaseNow = o => L.motion ? (L.tick * .0045 + o * .31) % 1 : .3;
@@ -376,6 +398,12 @@ const LOOK = () => LOOKS.find(x => x.id === look);
 function drawCycleGlass(c, s, o) { const K = kit(c), { g, W, H, V } = K; K.tube(); K.scan(); const mid = H / 2, a = H / 2 - 4 * V, X = i => 3 * V + i / (N - 1) * (W - 6 * V);
   g.strokeStyle = K.c('grid', .4); g.lineWidth = V; g.beginPath(); g.moveTo(0, mid); g.lineTo(W, mid); g.stroke(); beam(K, 'value', 2, () => poly(g, N, X, i => mid - s[i] * a));
   if (o !== undefined) { const ip = Math.floor(phaseNow(o) * (N - 1)); dot(K, X(ip), mid - s[ip] * a, 2.2 * V, 'marker'); } }
+// the output scope: the raw read frame (before any transformation) as a faint trace, and the output over it as the beam
+function drawOutGlass(c, s, raw, o) { const K = kit(c), { g, W, H, V } = K; K.tube(); K.scan(); const mid = H / 2, a = H / 2 - 5 * V, X = i => 3 * V + i / (N - 1) * (W - 6 * V);
+  g.strokeStyle = K.c('grid', .4); g.lineWidth = V; g.beginPath(); g.moveTo(0, mid); g.lineTo(W, mid); g.stroke();
+  g.strokeStyle = K.c('grid', .7); g.lineWidth = 1.1 * V; g.setLineDash([2 * V, 2 * V]); poly(g, N, X, i => mid - raw[i] * a); g.stroke(); g.setLineDash([]);
+  beam(K, 'value', 2, () => poly(g, N, X, i => mid - s[i] * a)); const ip = Math.floor(phaseNow(o) * (N - 1)); dot(K, X(ip), mid - s[ip] * a, 2.2 * V, 'marker');
+  label(K, 'OUT', 5 * V, 11 * V, 'left', 'physics'); }
 function drawHarmGlass(c, s) { const K = kit(c), { g, W, H, V } = K; K.tube(); K.scan(); const a = harm(s, 32), sl = (W - 4 * V) / 32, bw = sl * .72, floor = H - 2 * V, top = H - 5 * V;
   a.forEach((x, k) => { const t = lev(x); g.fillStyle = sunset(K, t); g.fillRect(2 * V + k * sl + (sl - bw) / 2, floor - t * top, bw, t * top); }); g.fillStyle = K.c('grid', .55); g.fillRect(0, floor, W, 2 * V); }
 // a corner's small glass: the look, small, then the ground laid over it by how little the corner counts, so corners near the puck glow; the corner's letter in the glass's own ink
@@ -417,15 +445,15 @@ function chrome(win, page, sub) {
   win.append(bar, sb, body, foot); return body;
 }
 function leftStandIns(body) { const l = h('div', 'left'); l.append(Object.assign(h('div', 'stand', 'the ring (the swarm), unchanged'), { style: 'height:150px' }), Object.assign(h('div', 'stand', 'its spectrum'), { style: 'height:70px' }), Object.assign(h('div', 'stand', 'phase carpet · voice map'), { style: 'height:70px' })); body.append(l); return l; }
-// the lead picture (GUI-62): the table the oscillator reads, in the chosen look, with the cycle and harmonics under it. Morph off: one table, its picker here
+// the lead picture (GUI-62): the table the oscillator reads, in the chosen look, with the output scope and its harmonics under it (GUI-67). Morph off: one table, its picker here
 function leadPicture(parent, o, hgt, under) {
   const p = h('div', 'pane'), hd = h('div', 'ph'); hd.append(document.createTextNode('Osc ' + (o + 1) + ' · the table it reads'));
   if (L.morph) hd.append(h('span', 'h', 'blended at the puck · Linear'));
   else { hd.append(picker(o, L.audible, 'Osc ' + (o + 1)), h('span', 'h', 'morph off: corner ' + CORNER[L.audible] + '’s table plays')); }
   const st = glass(hgt || 150, 'vw'); p.append(hd, st); viewer(st, o);
-  let cy = null, hm = null; if (under !== false) { const row = h('div', 'row'); row.style.cssText = 'align-items:stretch;margin-top:5px'; cy = glass(46); hm = glass(46); cy.style.flex = '1 1 0'; hm.style.flex = '0 0 34%'; row.append(cy, hm); p.append(row); }
+  let cy = null, hm = null; if (under !== false) { const row = h('div', 'row'); row.style.cssText = 'align-items:stretch;margin-top:5px'; cy = glass(54, 'outscope'); hm = glass(54); cy.setAttribute('role', 'img'); cy.setAttribute('aria-label', 'Osc ' + (o + 1) + ' output: the cycle after every transformation, over the raw frame'); hm.setAttribute('aria-label', 'its harmonics'); cy.style.flex = '1 1 0'; hm.style.flex = '0 0 34%'; row.append(cy, hm); p.append(row); }
   parent.append(p);
-  draws.push(() => { const fr = warped(tableOf(o), o), f = frameNow(o), K = kit(st.cv); LOOK().draw(K, fr, f, o, false); readout(K, o, st.drag); if (cy) { const s = frameAt(fr, f); drawCycleGlass(cy.cv, s, o); drawHarmGlass(hm.cv, s); } });
+  draws.push(() => { const fr = warped(tableOf(o), o), f = frameNow(o), K = kit(st.cv); LOOK().draw(K, fr, f, o, false); readout(K, o, st.drag); if (cy) { const s = outCycle(o); drawOutGlass(cy.cv, s, frameAt(tableOf(o), f), o); drawHarmGlass(hm.cv, s); } });
   return p;
 }
 /* ===== THE VIEWER: the switch, the XY drag (BladeView's pattern) and the legend that opens the mapping ===== */
@@ -435,7 +463,7 @@ function readout(K, o, drag) { const parts = [], moving = drag ? drag.moving : n
   K.g.fillStyle = K.c('ground', .78 / K.sc.alpha); K.g.fillRect(K.W - w - 10 * K.V, 2 * K.V, w + 8 * K.V, 13 * K.V); label(K, t, K.W - 6 * K.V, 12 * K.V, 'right', moving ? 'physics' : 'grid'); }
 function viewer(st, o) {
   const c = st.cv; c.tabIndex = 0; const legText = () => ['v', 'h', 'sh'].map(sl => SLOT[sl] + ' ' + ROWS[MAP[sl].row].label.replace('PM from the ', 'PM ').replace(' other osc', '')).join('   ');
-  c.setAttribute('aria-label', 'Osc ' + (o + 1) + ' table viewer, ' + LOOKS.find(x => x.id === look).name + '. Drag: ' + legText().replace(/↕/g, 'up and down,').replace(/⇧↔/g, 'shift and sideways,').replace(/↔/g, 'sideways,'));
+  c.setAttribute('aria-label', 'Osc ' + (o + 1) + ' table viewer, ' + LOOKS.find(x => x.id === look).name + '. Drag: ' + legText().replace(/↕/g, 'up and down,').replace(/⇧↔/g, 'shift and sideways,').replace(/↔/g, 'sideways,') + '. Double-click: Bend to 0');
   // the switch: six pips, or the view's name that steps on a click (shift-click steps back)
   const sw = h('div', 'vw-sw'); sw.setAttribute('role', 'radiogroup'); sw.setAttribute('aria-label', 'View');
   if (L.sw === 'pips') { LOOKS.forEach(x => { const b = h('button', 'pip'); b.type = 'button'; b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', String(x.id === look)); b.setAttribute('aria-label', x.name); b.title = x.name; b.addEventListener('click', e => { e.stopPropagation(); setLook(x.id); say('View: ' + x.name); render(); }); sw.append(b); }); sw.append(h('span', 'cur', SHORT[look])); }
@@ -455,6 +483,9 @@ function viewer(st, o) {
       Object.keys(byRow).forEach(key => { const { sl, d } = byRow[key], r = ROWS[key]; r.set(o, fromN(r, n0[sl] + d)); });
       st.drag.moving = [dy ? 'v' : null, dx ? hs : null].filter(Boolean); paint(); };
     c.onpointerup = () => { c.onpointermove = null; c.onpointerup = null; st.drag = null; if (JSON.stringify(snapRows(o)) !== before) { L.steps++; say('One undo step: ' + legText()); } paint(); }; });
+  // GUI-67: a double-click returns Bend to 0, whatever the mapping, in one undo step; at 0 it writes nothing. Its two clicks are grabs with no
+  // motion, which write nothing themselves (the drag's control), so the double-click is the only step
+  c.addEventListener('dblclick', e => { e.preventDefault(); if (!S.osc[o].wt.bend) { say('Bend is already 0'); return; } S.osc[o].wt.bend = 0; L.steps++; say('Double-click: Bend back to 0, one undo step'); paint(); });
   c.addEventListener('keydown', e => { const d = { ArrowUp: ['v', 1], ArrowDown: ['v', -1], ArrowRight: [e.shiftKey ? 'sh' : 'h', 1], ArrowLeft: [e.shiftKey ? 'sh' : 'h', -1] }[e.key]; if (!d) return; e.preventDefault();
     const r = ROWS[MAP[d[0]].row], step = (e.altKey ? .005 : .02) * d[1] * (MAP[d[0]].inv ? -1 : 1); r.set(o, fromN(r, toN(r, r.get(o)) + step)); L.steps++; paint(); });
 }
@@ -533,7 +564,7 @@ function opGraph(host, hgt) { const wrap = h('div'); wrap.style.cssText = 'posit
       b.style.left = (hx - 12) + 'px'; b.style.top = (hy - 12) + 'px'; }
     P.forEach(([x, y], i) => { g.fillStyle = k.panel; g.strokeStyle = k.ink; g.lineWidth = 2; g.beginPath(); g.arc(x, y, 21, 0, TAU); g.fill(); g.stroke(); g.fillStyle = k.ink; g.font = '800 11px system-ui, sans-serif'; g.textAlign = 'center'; g.fillText('osc ' + (i + 1), x, y + 4); }); }); }
 const CARDS = [
-  { id: 'C1', name: 'Cells', tag: 'P1’s', why: 'A 3 × 3 grid of cells, each filled to its depth, the diagonal dashed for feedback, and the named algorithms under it. Plain and exact: every value is printed.',
+  { id: 'C1', name: 'Cells', tag: 'ruled', why: 'A 3 × 3 grid of cells, each filled to its depth, the diagonal dashed for feedback, and the named algorithms under it. Plain and exact: every value is printed.',
     build(p) { grid(p); algPills(p); } },
   { id: 'C2', name: 'Dials', tag: 'new', why: 'The same grid as nine small dials, each a ring that fills with its depth, feedback rings dashed. It reads like a bank of knobs, and the eye finds the strong routes fast.',
     build(p) { const g = h('div'); g.style.cssText = 'display:grid;grid-template-columns:44px repeat(3,1fr);gap:4px;align-items:center;justify-items:center'; g.append(h('span', 'note', 'by →')); [1, 2, 3].forEach(c => g.append(h('b', 'note', 'osc ' + c)));
@@ -558,7 +589,7 @@ const CARDS = [
     build(p) { opGraph(p, 220); algPills(p); } }
 ];
 const ROWV = [
-  { id: 'R1', name: 'Cells', tag: 'P1’s', why: 'Three cells, one per source: this oscillator’s own feedback and the two others, each filled to its depth and printed.',
+  { id: 'R1', name: 'Cells', tag: 'ruled', why: 'Three cells, one per source: this oscillator’s own feedback and the two others, each filled to its depth and printed.',
     build(p, o) { const g = h('div'); g.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:4px';
       [0, 1, 2].forEach(c => { const cell = pmHit(h('button', 'pmcell' + (c === o ? ' diag' : '')), o, c); cell.type = 'button'; cell.style.height = '36px'; const f = h('div', 'fill'), v = h('span'); cell.append(f, v); draws.push(() => { f.style.height = cssPct(S.pm[o][c]); v.textContent = (c === o ? 'feedback ' : 'osc ' + (c + 1) + ' ') + S.pm[o][c].toFixed(2); }); g.append(cell); }); p.append(g); } },
   { id: 'R2', name: 'Bars', tag: 'new', why: 'Three horizontal bars like the share bars, one per source, labelled at the left and valued at the right. The flattest row; it leaves the page room.',
@@ -655,6 +686,17 @@ function selfcheck() {
   ok(m0 !== m1 && s0 === s1, 'Motion live moves the picture over 40 frames; Still holds it (control)');
   // ROUND 3, THE VIEWER. The warp is the identity at its defaults (control: sync x3 changes the frames)
   { const w = S.osc[0].wt, kw = JSON.stringify(w); Object.assign(w, { syncIn: 'pitch', sync: 1, window: 0, syncSoft: .5, asym: 0, bend: 0 }); const fr = tableOf(0), id = warped(fr, 0) === fr; Object.assign(w, { sync: 3 }); const ch = !same(warped(fr, 0)[8], fr[8]); Object.assign(w, { syncSoft: 0 }); const hard = warped(fr, 0)[8].slice(); Object.assign(w, { syncSoft: 1 }); const soft = warped(fr, 0)[8], tap = Math.abs(soft[0]) < Math.abs(hard[0]) + 1e-9 && !same(hard, soft); Object.assign(w, JSON.parse(kw)); ok(id && ch && tap, 'the warp is the identity at sync ×1 with window, asym and bend at 0, even at 50 % softness (control: sync ×3 changes the frames, and full softness tapers its restart)'); }
+  // ROUND 5, THE OUTPUT SCOPE (GUI-67): it is the read frame when nothing transforms it, and it answers every transformation, one at a time
+  { const kPm = JSON.stringify(S.pm), kw = JSON.stringify(S.osc[0].wt), kf = S.osc[0].frame, kx = S.x, zero = () => { S.pm = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]; S.osc[0].frame = 4; S.x = .3; Object.assign(S.osc[0].wt, { frameSpread: 0, sync: 1, window: 0, syncSoft: 0, asym: 0, bend: 0 }); };
+    zero(); const id = same(outCycle(0), frameAt(tableOf(0), frameNow(0))), base = outCycle(0).slice(), viewBase = warped(tableOf(0), 0)[8].slice();
+    const T = { frame: () => { S.osc[0].frame = 9; }, puck: () => { S.x = .9; }, spread: () => { S.osc[0].wt.frameSpread = .6; }, sync: () => { S.osc[0].wt.sync = 2.5; }, asym: () => { S.osc[0].wt.asym = .5; }, bend: () => { S.osc[0].wt.bend = .5; },
+      'PM from osc 2': () => { S.pm[0][1] = .3; }, 'PM from osc 3': () => { S.pm[0][2] = .3; }, feedback: () => { S.pm[0][0] = .3; } };
+    const moved = Object.keys(T).filter(k => { zero(); T[k](); return !same(outCycle(0), base); });
+    zero(); S.osc[0].wt.sync = 2; const b2 = outCycle(0).slice(); S.osc[0].wt.window = .6; const win = !same(outCycle(0), b2); S.osc[0].wt.window = 0; S.osc[0].wt.syncSoft = .8; const soft = !same(outCycle(0), b2);
+    zero(); S.pm[0][1] = .3; const viewSame = same(warped(tableOf(0), 0)[8], viewBase);
+    ok(id && moved.length === 9 && win && soft && viewSame, 'the output scope is the read frame when every depth and warp is 0, and moves with each of ' + moved.length + ' of 9: ' + moved.join(', ') + (win ? ', window' : '') + (soft ? ', softness' : '') + ' (at sync ×2); control: PM leaves the viewer’s table alone, so only the scope shows it');
+    S.pm = JSON.parse(kPm); Object.assign(S.osc[0].wt, JSON.parse(kw)); S.osc[0].frame = kf; S.x = kx; render();
+    const oc = [...document.querySelectorAll('.outscope canvas')].map(inked); ok(oc.length === 2 && oc.every(v => v > .01), 'the output scope draws under the viewer on both Osc pages: ' + oc.map(v => (v * 100).toFixed(1) + ' %').join(' and ') + ' inked'); }
   // the drag, with real pointer events on Q3's viewer: BladeView's pattern
   const keepMap = JSON.stringify(MAP), keepRows = snapRows(0), keepWt = JSON.stringify(S.osc[0].wt), keepFrame = S.osc[0].frame;
   const vcv = () => $('win3').querySelector('.vw canvas'), PE = (c, t, x, y, o) => c.dispatchEvent(new PointerEvent(t, Object.assign({ bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0, buttons: t === 'pointerup' ? 0 : 1, pointerId: 7 }, o || {})));
@@ -670,6 +712,11 @@ function selfcheck() {
   ok(Math.abs(a1 - .2 * 2) < 1e-6 && f2 === 4 && Math.abs(a2 + .4) < 1e-6, 'mapped to Asym: up moves asym (+' + a1.toFixed(2) + '), not the frame (control); inverted, the same drag moves it the other way (' + a2.toFixed(2) + ')');
   MAP = { v: { row: 'bend', inv: false }, h: { row: 'bend', inv: false }, sh: { row: 'sync', inv: false } }; render(); reset(); drag(84, -84); const bb = S.osc[0].wt.bend;
   ok(Math.abs(bb - .8) < 1e-6, 'two directions mapped to Bend add up: up and right 84 px each move it +0.40, together +' + bb.toFixed(2) + ' (a still direction no longer overwrites a moving one)');
+  // GUI-67: a double-click puts Bend back to 0, whatever the mapping (here Bend is mapped nowhere), as one undo step
+  { MAP = { v: { row: 'asym', inv: false }, h: { row: 'window', inv: false }, sh: { row: 'sync', inv: false } }; render(); reset(); S.osc[0].wt.bend = .4; S.osc[0].wt.sync = 2;
+    const c = vcv(), r = c.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2, dbl = () => c.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true, clientX: x, clientY: y, detail: 2 })); st0 = L.steps;
+    PE(c, 'pointerdown', x, y); PE(c, 'pointerup', x, y); PE(c, 'pointerdown', x, y); PE(c, 'pointerup', x, y); dbl(); const b0 = S.osc[0].wt.bend, rest = S.osc[0].frame === 4 && S.osc[0].wt.sync === 2 && S.osc[0].wt.asym === 0, d1 = L.steps - st0; dbl(); const d2 = L.steps - st0 - d1;
+    ok(b0 === 0 && rest && d1 === 1 && d2 === 0, 'double-click: Bend +0.40 → ' + b0.toFixed(2) + ' with Bend mapped to no direction, the frame, sync and asym untouched (control), one undo step; at 0 a second one writes nothing'); }
   MAP = JSON.parse(keepMap); render();
   // the switch: a pip changes the view and the picture; the name steps to the next
   { const before = pix(lead()).join(), pips = $('win3').querySelectorAll('.vw-sw .pip'), tgt = LOOKS[(LOOKS.findIndex(x => x.id === look) + 2) % 6].id; pips[LOOKS.findIndex(x => x.id === tgt)].click(); paint(); const after = pix(lead()).join(), lk = look, kept = store.get('horde-wtlab-view');

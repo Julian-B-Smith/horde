@@ -12593,6 +12593,23 @@ The tile's frame carries the corner's colour, and inside the glass the corner is
 
 **FX device (ADR-254).** None: it has no oscillators.
 
+## GUI-67 — RULED by the human: the PM card and row are cells; an output scope under the viewer shows every transformation; a double-click on the viewer returns Bend to 0 (GB37; 2026-11-08)
+
+**The human, 2026-11-08,** on round 4's lab: "Cells are probably the way to go after all, in both cases. It will be important for there to be an output scope that shows the combined effects of all transformations. And double clicking the waveform should return bend to 0".
+
+**What changes.**
+- **The PM looks (closes GUI-65's open item):** the dashboard card is C1, Cells: a 3 × 3 grid of cells, each filled to its depth and printed, the diagonal dashed for feedback, the named algorithms under it. The Osc-page row is R1, Cells: three cells, its own feedback and the two other oscillators. C2 to C4 and R2 to R3 are closed.
+- **The output scope:** the glass under the viewer (GUI-62's cycle glass) shows the oscillator's output cycle after every transformation, in the engine's order: the blend at the puck, the frame, the frame spread across the members, sync, window, sync softness, asym, bend, then PM from the other two oscillators and its own feedback. The raw read frame, before any of them, is a faint dotted trace under it. The harmonics glass beside it shows the output's harmonics. It reads only; dragging it does nothing.
+- **The double-click:** a double-click on the viewer sets Bend to 0, whatever the drag's mapping (GUI-66), as one undo step. At 0 it writes nothing.
+
+**Readings, for the human to correct.** "All transformations" is read as the oscillator's own stages, ending before the filter, since the filter has its own page. "The waveform" is read as the viewer, so a double-click on the output scope does nothing.
+
+**State (GUI-27).** The cells write the matrix's ordinary values, as GUI-65 says. The scope writes nothing. The double-click writes `wt.bend` through the same writer as its control, one undo step that restores the old value. It is not stored anywhere else.
+
+**Engine impact.** GN-59: each oscillator's output cycle after every transformation, so the scope draws what is heard. The double-click and the cells: none, they write the oscillator's own rows.
+
+**FX device (ADR-254).** None: it has no oscillators. FX screens must not assume this scope exists.
+
 ## ADR-365 — RULED by the human: the 8 Hz blocker for FM free in pitch FM; item 7.8's table remade; spec round 58 (B621, B623; 2026-11-04)
 
 **Context.** FM free in pitch FM runs an accumulator that never restarts, while each of C.16's readings starts it at 0, so the estimate cannot see its mean and BL-19 cannot hold by the law alone (Q-TA-71: engine-free, 95 of its 144 one-member cases over 0.003, up to 0.046). ADR-363 sent this to a scratch trial of C.16's existing blocker, with clips for the human. Separately, item 7.8's reference R2 places FM free's modulator half a cycle from round 56's start, and 7.8 plays before its settings settle (Q-TA-77).
