@@ -12691,6 +12691,22 @@ The tile's frame carries the corner's colour, and inside the glass the corner is
 
 **FX device (ADR-254).** None: it has no oscillators.
 
+## GUI-71 — RULED by the human: the wavetable viewer keeps both frame marks, the dashed selected frame in the picture and the frame rail (GB37; closes GUI-69's open pick; 2026-11-09)
+
+**The human, 2026-11-09.** "Keep both", answering which of GUI-69's frame marks stays: Both, Picture only or Rail only.
+
+**What it fixes.**
+- **In the picture:** the selected frame stays dashed in meter ink at its own place in each view, against the modulated frame's beam in value ink, while the two differ.
+- **The rail:** stays on the viewer's right edge (under the cells in the Sonogram, GUI-70), with the hollow ring at the selected frame, the dot at the modulated one and both numbers.
+- **The readout** is unchanged ("FRAME 5.0 → 8.2").
+- The lab's Frame mark pill set stays as the record, with Both tagged ruled; Picture only and Rail only are not shipped.
+
+**State (GUI-27).** None: both marks only read the frame row and the modulated position. There is no setting to store, since there is no choice left to make.
+
+**Engine impact.** None beyond GN-60 (GUI-69), which both marks already read.
+
+**FX device (ADR-254).** None: it has no oscillators.
+
 ## ADR-365 — RULED by the human: the 8 Hz blocker for FM free in pitch FM; item 7.8's table remade; spec round 58 (B621, B623; 2026-11-04)
 
 **Context.** FM free in pitch FM runs an accumulator that never restarts, while each of C.16's readings starts it at 0, so the estimate cannot see its mean and BL-19 cannot hold by the law alone (Q-TA-71: engine-free, 95 of its 144 one-member cases over 0.003, up to 0.046). ADR-363 sent this to a scratch trial of C.16's existing blocker, with clips for the human. Separately, item 7.8's reference R2 places FM free's modulator half a cycle from round 56's start, and 7.8 plays before its settings settle (Q-TA-77).

@@ -80,3 +80,9 @@
 
   The Sonogram's legend read "↔ Frame". No uncaught errors.
 - **Screenshots** of Ridges, Turntable and the Sonogram with the frame modulated from 5.0 to 8.1 were read.
+
+## Addendum: GUI-71, both frame marks stay
+
+**What changed.** The human answered GUI-69's open pick: "Keep both". GUI-71 records it. The dashed selected frame in each view's picture and the frame rail both stay, and the readout is unchanged. In the lab, the Frame mark pills stay as the record with Both tagged "ruled" and a line in the header. Records: GUI-71 in DECISIONS, the ledger row `gui71-both-frame-marks` with its engine impact (none beyond GN-60), the `gui69-frame-marks` note, and GB37's status.
+
+**Evidence.** The lab's self-check in headless Chrome passes unchanged (the frame-mark rows already draw Both, the default). `./verify fast` on the commit this addendum ships in.

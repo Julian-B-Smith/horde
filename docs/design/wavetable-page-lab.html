@@ -71,6 +71,7 @@
      as the Stack and the rail do. The Sonogram's frames run left to right, so there the frame takes the plain sideways drag and follows the pointer one
      to one (the bracket moves as far as the mouse), up and down takes what plain sideways had (Nothing), and its rail lies along the frames under the
      cells. The modifier slots (Shift, Option) are the same in every view.
+     Then (GUI-71): "Keep both". Both frame marks stay, the dashed frame in the picture and the rail; the Frame mark pills stay as the record.
 
      HOUSE RULES. No Math.random (seeded mulberry32). No clock: motion is a frame count (L.tick). No wheel listener (B301). Reduced motion starts Still. -->
 <html lang="en" data-theme="dark">
@@ -687,7 +688,7 @@ function bench() {
   pills($('bAudP'), [0, 1, 2, 3].map(i => [i, CORNER[i], HZ.glyph(i, 9, 'currentColor') + CORNER[i]]), L.audible, v => { L.audible = v; render(); });
   pills($('bMotion'), [[true, 'Live'], [false, 'Still']], L.motion, v => { L.motion = v; render(); });
   pills($('bSw'), [['pips', 'Pips'], ['name', 'Name']], L.sw, v => { L.sw = v; render(); });
-  pills($('bFmark'), [['both', 'Both'], ['ghost', 'Picture'], ['rail', 'Rail']], L.fmark, v => { L.fmark = v; say('Frame mark: ' + { both: 'the dashed selected frame in the picture and the rail', ghost: 'the dashed selected frame in the picture only', rail: 'the rail only' }[v]); render(); });
+  pills($('bFmark'), [['both', 'Both · ruled'], ['ghost', 'Picture'], ['rail', 'Rail']], L.fmark, v => { L.fmark = v; say('Frame mark: ' + { both: 'the dashed selected frame in the picture and the rail', ghost: 'the dashed selected frame in the picture only', rail: 'the rail only' }[v]); render(); });
   pills($('bSync'), [['pitch', '× pitch'], ['hz', 'Hz']], S.osc[0].wt.syncIn, v => { S.osc[0].wt.syncIn = v; say('Osc 1 sync follows ' + (v === 'hz' ? 'a fixed frequency (Hz)' : 'the note (× pitch)') + '; sync is always on, and ratio 1 is no sync (B661)'); render(); });
   const th = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
   pills($('bTheme'), [['light', 'Cream'], ['dark', 'Dark']], th, v => { document.documentElement.setAttribute('data-theme', v); render(); });
