@@ -12610,6 +12610,8 @@ The tile's frame carries the corner's colour, and inside the glass the corner is
 
 **FX device (ADR-254).** None: it has no oscillators. FX screens must not assume this scope exists.
 
+**A1 (2026-11-09, a record correction, no new ruling).** ADR-389 replaced WT-33's window crossfade with the sync softness taper, and the lead's spec rework (B663) withdraws `wt.window`. The scope's stages are therefore the blend, the frame, the frame spread, sync and its softness, asym, bend, PM and feedback: there is no window stage. GN-59's text and the lab follow, and the lab's mapping no longer offers Window.
+
 ## GUI-68 — RULED by the human: on the wavetable viewer, Bend moves to Option + sideways, plain sideways moves nothing for now, and the fine drag moves to Command (GB37; 2026-11-09)
 
 **The human, 2026-11-09.** "Actually, I think the left/right being bend is more finnicky than sync was. It should probably be opt+drag instead. I'll decide later if left and right alone should be anything". Option was the viewer's fine key (GUI-66, from BladeView, GUI-30). Asked where the fine drag should go, they answered "Fine moves to ⌘".

@@ -44,3 +44,15 @@
 - **A screenshot** of Q3 with the mapping box open was read.
 
 **Verify.** `./verify fast` on the commit this trace ships in.
+
+## Addendum, the same day: the window stage is withdrawn (the lead's handover, B663)
+
+**What changed.** ADR-389 replaced WT-33's window crossfade with the sync softness taper, and the lead's spec rework withdraws `wt.window`. The lead asked this session to update GN-59, its row.
+- **GN-59** lists the stages as "sync and its softness", with no window.
+- **GUI-67 gets an A1 note**, a record correction with no new ruling. The ledger's `gui67-output-scope` clause and note follow it.
+- **The lab drops its Window row** from the mapping, the mock warp and the output scope's check. A stored mapping that names Window falls back to the Default. The mapping still offers nine rows, because Sync softness took Window's place in round 4.
+
+**Evidence.** The lab's self-check in headless Chrome: every row OK.
+- **The warp** is the identity at ×1 with asym and bend at 0, even at 50 % softness.
+- **The output scope** moves with each of the nine stages, plus softness at sync ×2.
+- The double-click row still passes.

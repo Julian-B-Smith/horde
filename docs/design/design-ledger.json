@@ -7512,8 +7512,8 @@
    "state": "ruled",
    "adr": "GUI-67",
    "id": "gui67-output-scope",
-   "clause": "an output scope under the viewer shows the oscillator's cycle after every transformation (blend, frame, spread, sync, window, softness, asym, bend, PM, feedback), over the raw frame; its harmonics beside it",
-   "note": "Read as the oscillator's own stages, before the filter. Engine: GN-59. FX device: none."
+   "clause": "an output scope under the viewer shows the oscillator's cycle after every transformation (blend, frame, spread, sync and its softness, asym, bend, PM, feedback), over the raw frame; its harmonics beside it",
+   "note": "Read as the oscillator's own stages, before the filter. Window dropped from the stages 2026-11-09: ADR-389 replaced WT-33's window with the softness taper (GUI-67 A1). Engine: GN-59. FX device: none."
   },
   {
    "lab": "docs/design/wavetable-page-lab.html",
