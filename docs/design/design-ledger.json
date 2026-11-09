@@ -529,7 +529,7 @@
   },
   "wavetable-page-lab.html": {
    "status": "exploring",
-   "note": "GB37. The wavetable page (ADR-387, the lead's handover). Rounds 2-4 (2026-11-08): Q3, six views on the house screen kit in a viewer with a switch on the glass and an XY drag (GUI-66); Q1 ruled (GUI-64, the row of four under the viewer); Q2 ruled in place (GUI-65), with looks for the dashboard card (C1-C4) and the Osc-page row (R1-R3); the signal flow is GB38. Ruled: GUI-62, GUI-63, GUI-64, GUI-65, GUI-66. Published for the human as an Artifact. Round 5 (2026-11-08): GUI-67, the PM card and row are Cells (C1, R1), the glass under the viewer is the output scope, and a double-click on the viewer returns Bend to 0. Round 6 (2026-11-09): GUI-68, Bend moves to Option + sideways, plain sideways moves nothing for now, and the fine drag moves to Command."
+   "note": "GB37. The wavetable page (ADR-387, the lead's handover). Rounds 2-4 (2026-11-08): Q3, six views on the house screen kit in a viewer with a switch on the glass and an XY drag (GUI-66); Q1 ruled (GUI-64, the row of four under the viewer); Q2 ruled in place (GUI-65), with looks for the dashboard card (C1-C4) and the Osc-page row (R1-R3); the signal flow is GB38. Ruled: GUI-62, GUI-63, GUI-64, GUI-65, GUI-66. Published for the human as an Artifact. Round 5 (2026-11-08): GUI-67, the PM card and row are Cells (C1, R1), the glass under the viewer is the output scope, and a double-click on the viewer returns Bend to 0. Round 6 (2026-11-09): GUI-68, Bend moves to Option + sideways, plain sideways moves nothing for now, and the fine drag moves to Command. Round 7 (2026-11-09): GUI-69, every view marks the selected frame against the modulated one and reads out both, and up and down crosses the frames in 150 px. Then GUI-70: Ridges and Turntable flip so a later frame sits higher, and the Sonogram's frame drags sideways."
   }
  },
  "not_labs": {
@@ -7544,6 +7544,66 @@
    "id": "gui68-option-bend",
    "clause": "on the viewer, Option + sideways moves Bend, plain sideways moves nothing until the human picks, Shift + sideways the sync ratio; Command is the fine drag; four mappable slots, each a row or Nothing",
    "note": "Amends GUI-66's directions. BladeView keeps Option for fine. Readings: Option outranks Shift; the fine key off the Mac is unruled. FX device: none."
+  },
+  {
+   "lab": "docs/design/wavetable-page-lab.html",
+   "via": null,
+   "superseded_by": null,
+   "master_version": null,
+   "bundle": null,
+   "shell": null,
+   "port_tab": null,
+   "component": null,
+   "state": "ruled",
+   "adr": "GUI-69",
+   "id": "gui69-frame-marks",
+   "clause": "every view on the viewer marks the selected frame (dashed, meter ink, at its place in that view) against the modulated frame (the beam, value ink); a frame rail on the right edge marks both and prints both numbers; the readout reads 'FRAME 5.0 → 8.2' while they differ",
+   "note": "Both marks stay (GUI-71): the dashed frame in the picture and the rail. The Sonogram's modulated bracket moves to value ink. Engine: GN-60. FX device: none."
+  },
+  {
+   "lab": "docs/design/wavetable-page-lab.html",
+   "via": null,
+   "superseded_by": null,
+   "master_version": null,
+   "bundle": null,
+   "shell": null,
+   "port_tab": null,
+   "component": null,
+   "state": "ruled",
+   "adr": "GUI-69",
+   "id": "gui69-vertical-drag",
+   "clause": "the viewer's up and down drag crosses its row's range in 150 px (about the viewer's height), not 420; sideways keeps 420; Command still a quarter as far",
+   "note": "Amends GUI-66's range for the vertical direction only. Read as the direction, whatever row it is mapped to. FX device: none."
+  },
+  {
+   "lab": "docs/design/wavetable-page-lab.html",
+   "via": null,
+   "superseded_by": null,
+   "master_version": null,
+   "bundle": null,
+   "shell": null,
+   "port_tab": null,
+   "component": null,
+   "state": "ruled",
+   "adr": "GUI-70",
+   "id": "gui70-view-directions",
+   "clause": "in Ridges and Turntable a later frame sits higher, so dragging up moves the beam up; in the Sonogram the frame takes plain sideways and its bracket follows the pointer one to one, up and down takes the plain sideways slot, and its rail lies under the cells",
+   "note": "The flip is the fix (one rule: up is later). The modifier slots are the same in every view. FX device: none."
+  },
+  {
+   "lab": "docs/design/wavetable-page-lab.html",
+   "via": null,
+   "superseded_by": null,
+   "master_version": null,
+   "bundle": null,
+   "shell": null,
+   "port_tab": null,
+   "component": null,
+   "state": "ruled",
+   "adr": "GUI-71",
+   "id": "gui71-both-frame-marks",
+   "clause": "the viewer keeps both frame marks: the selected frame dashed in the picture of each view and the frame rail with both numbers; Picture only and Rail only are not shipped",
+   "note": "Closes GUI-69's open pick. The lab's Frame mark stays as the record with Both tagged ruled. Engine: none beyond GN-60. FX device: none."
   }
  ],
  "not_design": [
@@ -8844,7 +8904,12 @@
   "GUI-67": [
    "GN-59"
   ],
-  "GUI-68": "none: the drag writes the oscillator's own wt rows (CONTRACT section 2.1); which key reaches which row is the GUI's alone"
+  "GUI-68": "none: the drag writes the oscillator's own wt rows (CONTRACT section 2.1); which key reaches which row is the GUI's alone",
+  "GUI-69": [
+   "GN-60"
+  ],
+  "GUI-70": "none: how frames are laid out in a picture and which drag direction moves which row are the GUI's alone",
+  "GUI-71": "none: both marks read GN-60 (GUI-69) and the frame row; keeping both asks nothing more"
  },
  "audit_notes": [
   "[A] Counts: 33 design ADRs with 56 rows (ruled 31, of which 6 superseded and 7 legacy-only; wired 9; in-shell 7; vendored 4; in-master 4; unknown 1); 79 not_design. Every primary heading ADR-001..ADR-112 appears exactly once. Headings out of numeric order (ADR-052, ADR-053 before ADR-051; ADR-095, 094, 093, 092; ADR-091 A1-A4 after ADR-112 A3) were all covered. One non-ADR heading sits in range: 'NOTICE · Library standby (plugin-skeleton FOUNDATIONS)', line 661, not design and not listed.",

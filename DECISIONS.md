@@ -12635,6 +12635,78 @@ The tile's frame carries the corner's colour, and inside the glass the corner is
 
 **FX device (ADR-254).** None: it has no oscillators.
 
+## GUI-69 — RULED by the human: every view on the wavetable viewer marks the selected frame against the modulated frame and reads out both; up and down crosses the frames in a shorter drag (GB37; 2026-11-09)
+
+**The human, 2026-11-09.** "I think there should be an indicator on the waveform in each view that shows the selected frame position versus the modulated frame position, and reads out both. Also up/down dragging doesn't scrub through frames quickly enough; it takes almost the whole length of the page to get through all 16 and ought to be tighter".
+
+**What changes.**
+- **The two frames.** The selected frame is the oscillator's frame row, where the drag or the knob puts it. The modulated frame is where modulation has moved it now: what is read and heard.
+- **In each view (the picture):**
+  - The modulated frame stays the glowing beam in value ink.
+  - The selected frame is drawn dashed in meter ink, at its own place in that view: a frame in the Stack, a ridge in Ridges, a slice of the Turntable, a bracket in the Sonogram, a ring in Rings, and a cycle against the members in Swarm.
+  - The Sonogram's modulated bracket moves from meter ink to value ink, so meter always means the selected frame.
+  - The dashed frame shows only while the two frames differ.
+- **The frame rail** on the viewer's right edge, up for later frames as the drag goes:
+  - a hollow ring at the selected frame and a dot at the modulated one, joined by a line while they differ;
+  - both numbers printed beside them.
+- **The readout** reads "FRAME 5.0 → 8.2" while they differ, and "FRAME 5.0" when they meet.
+- **The tighter drag.** Up and down now crosses its row's whole range in 150 px, about the viewer's own height, instead of BladeView's 420 px. From frame 1, 150 px reaches frame 16. Sideways keeps 420 px, and Command still moves a quarter as far.
+
+**Open, for the human.** The lab's Frame mark offers Both (the default), Picture only and Rail only. Which stays is the human's pick.
+
+**Readings, for the human to correct.**
+- "Up/down" is read as the drag's vertical direction whatever row it is mapped to, so a vertical drag mapped to Asym is tighter too.
+- The marks are drawn on the viewer only, not on the corner tiles.
+
+**State (GUI-27).** None new. The marks only read: the frame row, and the modulated position the engine reports. The drag writes the same row through the same writer, one undo step a gesture. The Frame mark is the lab's own bench control, not a stored setting.
+
+**Engine impact.** GN-60: each oscillator's modulated frame position, so the picture and the rail show where modulation has the frame now. The selected frame is the oscillator's own `wt.` frame row and needs nothing.
+
+**FX device (ADR-254).** None: it has no oscillators.
+
+## GUI-70 — RULED by the human: in Ridges and Turntable a later frame sits higher, so the drag and the picture agree; in the Sonogram the frame drags sideways (GB37; 2026-11-09)
+
+**The human, 2026-11-09.** "For the "ridges" and "turntable" views, drag goes in the wrong direction. Sonogram should probably drag left and right instead."
+
+**What was wrong.** Ridges and Turntable drew frame 1 at the top or back and frame 16 at the bottom or front. So dragging up, which moves to a later frame (GUI-66), moved the beam down the picture.
+
+**What changes.**
+- **Ridges and Turntable flip.** A later frame sits higher (further back), as in the Stack and on the frame rail (GUI-69). Ridges still draws back to front, so nearer ridges hide farther ones.
+- **The Sonogram, whose frames run left to right:**
+  - plain sideways moves the vertical slot's row (the frame, by default);
+  - the bracket follows the pointer one to one: one cell of drag is one frame;
+  - up and down takes the plain sideways slot (Nothing, by default);
+  - the arrow keys swap the same way;
+  - the legend shows ↔ beside Frame;
+  - its frame rail lies along the frames, under the cells, and the cycle beneath moves down to clear it.
+- **Every view:** Shift and Option sideways are the same, and so is Command for fine. The drag mapping stays one mapping. The mapping box says the Sonogram swaps.
+
+**Readings, for the human to correct.**
+- The flip, not an inverted drag, is the fix, so up means a later frame on the drag, the rail and the picture alike.
+- The Sonogram's frame follows the pointer one to one, a longer stroke than the 150 px of the vertical drag, because the bracket can then stay under the mouse.
+
+**State (GUI-27).** None new. The drag writes the same rows through the same writers, each gesture one undo step; which direction feeds which slot depends on the view shown.
+
+**Engine impact.** None: how frames are laid out in a picture, and which drag direction moves which row, are the GUI's alone.
+
+**FX device (ADR-254).** None: it has no oscillators.
+
+## GUI-71 — RULED by the human: the wavetable viewer keeps both frame marks, the dashed selected frame in the picture and the frame rail (GB37; closes GUI-69's open pick; 2026-11-09)
+
+**The human, 2026-11-09.** "Keep both", answering which of GUI-69's frame marks stays: Both, Picture only or Rail only.
+
+**What it fixes.**
+- **In the picture:** the selected frame stays dashed in meter ink at its own place in each view, against the modulated frame's beam in value ink, while the two differ.
+- **The rail:** stays on the viewer's right edge (under the cells in the Sonogram, GUI-70), with the hollow ring at the selected frame, the dot at the modulated one and both numbers.
+- **The readout** is unchanged ("FRAME 5.0 → 8.2").
+- The lab's Frame mark pill set stays as the record, with Both tagged ruled; Picture only and Rail only are not shipped.
+
+**State (GUI-27).** None: both marks only read the frame row and the modulated position. There is no setting to store, since there is no choice left to make.
+
+**Engine impact.** None beyond GN-60 (GUI-69), which both marks already read.
+
+**FX device (ADR-254).** None: it has no oscillators.
+
 ## ADR-365 — RULED by the human: the 8 Hz blocker for FM free in pitch FM; item 7.8's table remade; spec round 58 (B621, B623; 2026-11-04)
 
 **Context.** FM free in pitch FM runs an accumulator that never restarts, while each of C.16's readings starts it at 0, so the estimate cannot see its mean and BL-19 cannot hold by the law alone (Q-TA-71: engine-free, 95 of its 144 one-member cases over 0.003, up to 0.046). ADR-363 sent this to a scratch trial of C.16's existing blocker, with clips for the human. Separately, item 7.8's reference R2 places FM free's modulator half a cycle from round 56's start, and 7.8 plays before its settings settle (Q-TA-77).
