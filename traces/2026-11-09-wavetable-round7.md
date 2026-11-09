@@ -43,3 +43,40 @@
 - `engine_needs_check`, `design_chain_check` and `lab_load_check` are green.
 
 **Verify.** `./verify fast` on the commit this trace ships in.
+
+## Addendum, the same day: the drag direction in Ridges, Turntable and the Sonogram (GUI-70)
+
+**Why.** The human: "For the "ridges" and "turntable" views, drag goes in the wrong direction. Sonogram should probably drag left and right instead."
+
+**What changed.**
+- **Ridges and Turntable** drew frame 1 at the top or back, so dragging up (a later frame) moved the beam down. They are flipped: a later frame sits higher. Ridges draws back to front.
+- **The Sonogram:**
+  - its frame takes plain sideways, one to one with its cells;
+  - up and down takes the plain sideways slot;
+  - the arrow keys and the legend swap the same way;
+  - its rail lies under the cells.
+- **Records:** GUI-70, the ledger row `gui70-view-directions` and engine impact (none), and GB37's status.
+
+**Evidence.**
+- **A new self-check row** finds the beam's ink at frame 3 and frame 14:
+  - Stack y 174 → 99;
+  - Ridges y 166 → 72;
+  - Turntable y 161 → 75;
+  - the Sonogram's cells x 108 → 570.
+- **Control:** the same detector on the lab before this change read Ridges y 74 → 163 and Turntable y 79 → 158 (moving down). So the check fails the bug it guards.
+- **A Sonogram row:**
+  - a 3-cell sideways drag moves the frame 5.0 → 8.0;
+  - up moves nothing and makes no undo step;
+  - Shift sideways still moves sync (control).
+- The lab's self-check: every row OK.
+- **A real-mouse probe:**
+
+  | Drag | Result |
+  |---|---|
+  | Ridges, up 75 px | frame 5 → 12.5 |
+  | Turntable, up 75 px | frame 5 → 12.5 |
+  | Sonogram, right 3 cells | frame 5 → 8 |
+  | Sonogram, up 75 px | nothing |
+
+  The Sonogram's legend read "↔ Frame". No uncaught errors.
+- **Screenshots** of Ridges, Turntable and the Sonogram with the frame modulated from 5.0 to 8.1 were read.
