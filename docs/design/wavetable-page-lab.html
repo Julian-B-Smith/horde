@@ -58,6 +58,15 @@
      And ADR-389 (the human, 2026-11-09) replaced WT-33's window crossfade with the sync softness taper, so `wt.window` is withdrawn (the lead's spec
      rework, B663): the lab drops its Window row, from the mapping, the warp and the output scope. A stored mapping naming it falls back to the Default.
 
+     ROUND 7 (the human, 2026-11-09). "there should be an indicator on the waveform in each view that shows the selected frame position versus the
+     modulated frame position, and reads out both. Also up/down dragging doesn't scrub through frames quickly enough; it takes almost the whole length
+     of the page to get through all 16 and ought to be tighter" (GUI-69). So each view draws the SELECTED frame (the oscillator's frame row, where the
+     drag and the knob put it) as a dashed trace in meter ink, at its own place in that view, while the MODULATED frame (what is read and heard) stays
+     the glowing beam in value ink. A frame rail on the glass's right edge marks both (a hollow ring for selected, a dot for modulated, joined while they
+     differ) and prints both numbers, and the readout reads "FRAME 5.0 → 8.2" while they differ. The bench's Frame mark picks Both, Picture only or
+     Rail only, for the human's poll. Modulation here is still Motion's MOCK LFO, so Still shows one frame. And the vertical drag now crosses its row's
+     range in 150 px (about the viewer's own height), not BladeView's 420; sideways keeps 420.
+
      HOUSE RULES. No Math.random (seeded mulberry32). No clock: motion is a frame count (L.tick). No wheel listener (B301). Reduced motion starts Still. -->
 <html lang="en" data-theme="dark">
 <head>
@@ -185,6 +194,7 @@
     <div class="grp"><span class="lbl">Motion</span><span id="bMotion"></span></div>
     <div class="grp"><span class="lbl">Chassis</span><span id="bTheme"></span></div>
     <div class="grp"><span class="lbl">Switch</span><span id="bSw"></span></div>
+    <div class="grp"><span class="lbl">Frame mark</span><span id="bFmark"></span></div>
     <div class="grp"><span class="lbl">Osc 1 sync in</span><span id="bSync"></span></div>
     <div class="grp"><span class="lbl">Screen</span><span id="bScr"></span></div>
   </div>
@@ -260,7 +270,7 @@ const S = { x: .34, y: .42, osc: [
   { corners: ['PWM 50 → 5 %', 'Rolled #17', 'Triangle fold', 'Sine → saw'], frame: 10.4 }],
   pm: [[0, .22, 0], [.4, .1, 0], [0, .6, 0]], alg: 'custom', open: 0 };
 let reduce = false; try { reduce = matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
-const L = { morph: true, audible: 0, motion: !reduce, tick: 0, sw: 'pips', steps: 0 };
+const L = { morph: true, audible: 0, motion: !reduce, tick: 0, sw: 'pips', steps: 0, fmark: 'both' };
 // each oscillator's continuous wt rows (CONTRACT section 2.1)
 S.osc.forEach(o => { o.wt = { frameSpread: 0, syncIn: 'pitch', sync: 1, syncHz: 880, syncSoft: 0, asym: 0, bend: 0 }; });   // sync always on (B661): x pitch at ratio 1 is no sync
 const others = o => [0, 1, 2].filter(x => x !== o);
@@ -280,6 +290,9 @@ const fromN = (r, n) => { n = Math.min(1, Math.max(0, n)); return r.law === 'log
 // the mapping: four slots (vertical, horizontal, shift + horizontal, option + horizontal), each a row or nothing ('') and an invert. One for every
 // viewer, per machine. GUI-68: plain sideways moves nothing until the human picks something for it; Bend is on Option, sync on Shift
 const MAP_DEFAULT = { v: { row: 'frame', inv: false }, h: { row: '', inv: false }, sh: { row: 'sync', inv: false }, oh: { row: 'bend', inv: false } };
+// GUI-69: how far a drag goes to cross a row's whole range. Up and down is tighter than BladeView's 420 px: 150 px, about the viewer's own height, so
+// the 16 frames sweep in one short stroke (the human: "it takes almost the whole length of the page to get through all 16"). Sideways keeps 420
+const DRAG_PX = { v: 150, h: 420 };
 const SLOTS = ['v', 'h', 'sh', 'oh'], SLOT = { v: '↕', h: '↔', sh: '⇧↔', oh: '⌥↔' };
 // which horizontal slot a sideways move feeds. Option outranks Shift when both are held (a reading GUI-68 records); Command is fine, never a slot
 const sideSlot = e => e.altKey ? 'oh' : e.shiftKey ? 'sh' : 'h';
@@ -322,6 +335,9 @@ function outCycle(o) { const s = readCycle(o), k = PM_INDEX / TAU, fb = S.pm[o][
 // Motion: a MOCK LFO on the frame position and a phase that runs along the cycle; both are frame counts, never a clock
 const frameNow = o => Math.max(0, Math.min(FR - 1, S.osc[o].frame + (L.motion ? 3.2 * Math.sin(L.tick * .021 + o * 1.7) : 0)));
 const phaseNow = o => L.motion ? (L.tick * .0045 + o * .31) % 1 : .3;
+// GUI-69: the frame as SELECTED (the oscillator's frame row) and as MODULATED (frameNow, what is read). They differ only while modulation moves it
+const fmod = o => Math.abs(frameNow(o) - S.osc[o].frame) > .02;
+const frameText = o => 'FRAME ' + (S.osc[o].frame + 1).toFixed(1) + (fmod(o) ? ' → ' + (frameNow(o) + 1).toFixed(1) : '');
 
 /* ===== drawing on glass: everything below draws through the house kit (H.Viz.kit), so only the six scr- roles reach a screen ===== */
 const MONO = () => (getComputedStyle(document.documentElement).getPropertyValue('--font-mono') || 'monospace').trim();
@@ -336,58 +352,77 @@ const COSS = []; for (let h = 1; h <= 32; h++) { const c = new Float32Array(N), 
 function harm(s, n) { const a = []; for (let h = 0; h < n; h++) { let re = 0, im = 0; const [c, si] = COSS[h]; for (let i = 0; i < N; i++) { re += s[i] * c[i]; im += s[i] * si[i]; } a.push(Math.hypot(re, im) * 2 / N); } return a; }
 const lev = v => Math.max(0, 1 + 20 * Math.log10(v + 1e-9) / 54);   // 0 dB to -54 dB, as 1 to 0
 const HC = new WeakMap(); function harmOf(fr) { let m = HC.get(fr); if (!m) { m = fr.map(s => harm(s, 32).map(lev)); HC.set(fr, m); } return m; }
+// the selected frame drawn in a view: dashed, meter ink, under the modulated beam. Only on the viewer (fsel given), and only while the two differ
+const ghostOn = (sm, fsel, f) => !sm && fsel !== undefined && L.fmark !== 'rail' && Math.abs(fsel - f) > .02;
+function ghost(K, pathFn) { const g = K.g; g.save(); g.setLineDash([3.5 * K.V, 2.5 * K.V]); g.strokeStyle = K.c('meter', .95); g.lineWidth = 1.5 * K.V; pathFn(); g.stroke(); g.restore(); }
+// the frame rail on the glass's right edge: up is a later frame, as the drag is. A hollow ring at the selected frame, a dot at the modulated one,
+// a line between while they differ, and both numbers beside them in the glass's own inks (grid for selected, physics for modulated)
+function frameRail(K, fsel, f) { if (L.fmark === 'ghost') return; const { g, W, H, V } = K, x = W - 9 * V, top = 22 * V, bot = H - 24 * V, Y = j => bot - j / (FR - 1) * (bot - top), apart = Math.abs(fsel - f) > .02;
+  g.fillStyle = K.c('ground', .7 / K.sc.alpha); g.fillRect(x - 32 * V, top - 6 * V, 38 * V, bot - top + 12 * V);
+  g.strokeStyle = K.c('grid', .55); g.lineWidth = V; g.beginPath(); g.moveTo(x, top); g.lineTo(x, bot); g.stroke();
+  for (let j = 0; j < FR; j++) { g.beginPath(); g.moveTo(x - (j % 5 ? 2 : 4) * V, Y(j)); g.lineTo(x, Y(j)); g.stroke(); }
+  if (apart) { g.strokeStyle = K.c('physics', .7); g.lineWidth = 1.5 * V; g.beginPath(); g.moveTo(x, Y(fsel)); g.lineTo(x, Y(f)); g.stroke(); }
+  g.strokeStyle = K.c('meter'); g.lineWidth = 1.5 * V; g.beginPath(); g.arc(x, Y(fsel), 3.4 * V, 0, TAU); g.stroke(); dot(K, x, Y(f), 2.2 * V, 'value');
+  const ys = Y(fsel), yf = Y(f), sep = Math.abs(ys - yf) < 11 * V ? (ys > yf ? 5.5 : -5.5) * V : 0;
+  label(K, (fsel + 1).toFixed(1), x - 7 * V, ys + 3 * V + (apart ? sep : 0), 'right', 'grid'); if (apart) label(K, (f + 1).toFixed(1), x - 7 * V, yf + 3 * V - sep, 'right', 'physics'); }
 const sunset = (K, t, a) => t < .5 ? K.mix('physics', 'value', t * 2, a) : K.mix('value', 'marker', (t - .5) * 2, a);   // Viz.spectrum's level map
 
-/* ===== Q3: six looks. draw(K, fr, f, o, small) paints one glass: fr the frames, f the read frame, o the oscillator (its phase) ===== */
+/* ===== Q3: six looks. draw(K, fr, f, o, small, fsel) paints one glass: fr the frames, f the read (modulated) frame, o the oscillator (its phase),
+   fsel the selected frame, drawn as a dashed ghost where the view puts frames (GUI-69; the viewer passes it, the small glasses do not) ===== */
 const LOOKS = [
   { id: 'L1', name: 'Phosphor stack', tag: 'round 1, on glass', why: 'Round 1’s 3-D stack moved onto the screen. The back frames are thin phosphor traces that brighten near the read frame, and the read frame is a glowing beam. A bright dot runs along it, and with Motion on the read frame slides up and down the stack.',
-    draw(K, fr, f, o, sm) { const { g, W, H, V } = K; K.tube(); K.scan();
+    draw(K, fr, f, o, sm, fsel) { const { g, W, H, V } = K; K.tube(); K.scan();
       const dx = .2 * W / FR, dy = .44 * H / FR, w = W - dx * (FR - 1) - 8 * V, amp = H * (sm ? .16 : .2), y0 = H - amp - 5 * V, X = (i, j) => 4 * V + j * dx + i / (N - 1) * w, Y = (v, j) => y0 - j * dy - v * amp;
       g.lineWidth = V; for (let j = FR - 1; j >= 0; j--) { g.strokeStyle = K.c('physics', focus(j, f)); poly(g, N / 2, i => X(i * 2, j), i => Y(fr[j][i * 2], j)); g.stroke(); }
+      if (ghostOn(sm, fsel, f)) { const sg = frameAt(fr, fsel); ghost(K, () => poly(g, N, i => X(i, fsel), i => Y(sg[i], fsel))); }
       const s = frameAt(fr, f); beam(K, 'value', sm ? 1.6 : 2.2, () => poly(g, N, i => X(i, f), i => Y(s[i], f)));
       const i = Math.floor(phaseNow(o) * (N - 1)); dot(K, X(i, f), Y(s[i], f), (sm ? 2 : 2.6) * V, 'marker');
     } },
   { id: 'L2', name: 'Ridgeline', tag: 'new', why: 'The frames as solid ridges, back to front, each hiding what is behind it, like a terrain seen from the side. The read frame is drawn over them as a beam, and a marker line scans across with a dot where it crosses. Shapes read clearly even small.',
-    draw(K, fr, f, o, sm) { const { g, W, H, V } = K; K.tube(); K.scan();
+    draw(K, fr, f, o, sm, fsel) { const { g, W, H, V } = K; K.tube(); K.scan();
       const top = 4 * V, bot = H - 3 * V, amp = (bot - top) * (sm ? .5 : .46), base = j => top + amp + j * (bot - top - amp) / (FR - 1), X = i => 4 * V + i / (N - 1) * (W - 8 * V), Y = (v, j) => base(j) - (v * .5 + .5) * amp;
       const ground = K.c('ground', 1 / K.sc.alpha);
       for (let j = 0; j < FR; j++) { poly(g, N / 2, i => X(i * 2), i => Y(fr[j][i * 2], j)); g.lineTo(X(N - 1), H); g.lineTo(X(0), H); g.closePath(); g.fillStyle = ground; g.fill();
         poly(g, N / 2, i => X(i * 2), i => Y(fr[j][i * 2], j)); g.strokeStyle = K.c('physics', focus(j, f)); g.lineWidth = V; g.stroke(); }
       const s = frameAt(fr, f), p = phaseNow(o), ip = Math.floor(p * (N - 1));
       g.strokeStyle = K.c('marker', .3); g.lineWidth = V; g.beginPath(); g.moveTo(X(ip), 0); g.lineTo(X(ip), H); g.stroke();
+      if (ghostOn(sm, fsel, f)) { const sg = frameAt(fr, fsel); ghost(K, () => poly(g, N, i => X(i), i => Y(sg[i], fsel))); }
       beam(K, 'value', sm ? 1.6 : 2.2, () => poly(g, N, i => X(i), i => Y(s[i], f))); dot(K, X(ip), Y(s[ip], f), (sm ? 2 : 2.6) * V, 'marker');
     } },
   { id: 'L3', name: 'Turntable', tag: 'new', why: 'The table as a 3-D wire mesh that turns slowly on its stand, so you see it from changing angles. Frames run front to back, and faint cross lines join them. The read frame glows. It is the liveliest look and needs the most room.',
-    draw(K, fr, f, o, sm) { const { g, W, H, V } = K; K.tube(); K.scan();
+    draw(K, fr, f, o, sm, fsel) { const { g, W, H, V } = K; K.tube(); K.scan();
       const yaw = L.motion ? .55 * Math.sin(L.tick * .0075 + o) : .4, cy = Math.cos(yaw), sy = Math.sin(yaw), amp = H * (sm ? .17 : .15);
       const P = (x, z, v) => { const X = x - .5, Z = z - .5, rx = X * cy - Z * sy, rz = X * sy + Z * cy; return [W / 2 + rx * W * .8, H * .5 + rz * H * .5 - v * amp, rz]; };
       const zOf = j => j / (FR - 1);
       g.lineWidth = V; g.strokeStyle = K.c('grid', .2); for (let i = 0; i < N; i += 32) { g.beginPath(); for (let j = 0; j < FR; j++) { const q = P(i / (N - 1), zOf(j), fr[j][i]); j ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); } g.stroke(); }
       const order = [...Array(FR).keys()].sort((a, b) => P(.5, zOf(a), 0)[2] - P(.5, zOf(b), 0)[2]);
       order.forEach(j => { const d = P(.5, zOf(j), 0)[2]; g.strokeStyle = K.c('physics', focus(j, f) * (.6 + .4 * (d + .7) / 1.4)); g.lineWidth = V; poly(g, N / 2, i => P(i * 2 / (N - 1), zOf(j), fr[j][i * 2])[0], i => P(i * 2 / (N - 1), zOf(j), fr[j][i * 2])[1]); g.stroke(); });
+      if (ghostOn(sm, fsel, f)) { const sg = frameAt(fr, fsel), zs = fsel / (FR - 1); ghost(K, () => poly(g, N, i => P(i / (N - 1), zs, sg[i])[0], i => P(i / (N - 1), zs, sg[i])[1])); }
       const s = frameAt(fr, f), zf = f / (FR - 1); beam(K, 'value', sm ? 1.6 : 2.2, () => poly(g, N, i => P(i / (N - 1), zf, s[i])[0], i => P(i / (N - 1), zf, s[i])[1]));
       const ip = Math.floor(phaseNow(o) * (N - 1)), q = P(ip / (N - 1), zf, s[ip]); dot(K, q[0], q[1], (sm ? 2 : 2.6) * V, 'marker');
     } },
   { id: 'L4', name: 'Sonogram', tag: 'new', why: 'What each frame sounds like: frames run left to right, harmonics bottom to top, and brightness is level, in the spectrum’s sunset colours. A bracket marks the read frame, and under it is the read cycle as a beam. It shows timbre rather than shape, and the frame sweeping through it is easy to follow.',
-    draw(K, fr, f, o, sm) { const { g, W, H, V } = K; K.tube(); K.scan();
+    draw(K, fr, f, o, sm, fsel) { const { g, W, H, V } = K; K.tube(); K.scan();
       const hm = harmOf(fr), HN = 32, hh = sm ? H - 2 * V : H * .6, cw = (W - 8 * V) / FR, ch = (hh - 4 * V) / HN;
       for (let j = 0; j < FR; j++) for (let k = 0; k < HN; k++) { const t = hm[j][k]; if (t < .02) continue; g.fillStyle = sunset(K, t, .12 + .88 * t); g.fillRect(4 * V + j * cw, hh - (k + 1) * ch, cw - .6 * V, ch - .4 * V); }
-      g.strokeStyle = K.c('meter'); g.lineWidth = 1.5 * V; g.strokeRect(4 * V + f * cw - .75 * V, 2 * V, cw + .5 * V, hh - 3 * V);
+      if (ghostOn(sm, fsel, f)) ghost(K, () => { g.beginPath(); g.rect(4 * V + fsel * cw - .75 * V, 2 * V, cw + .5 * V, hh - 3 * V); });
+      g.strokeStyle = K.c('value'); g.lineWidth = 1.5 * V; g.strokeRect(4 * V + f * cw - .75 * V, 2 * V, cw + .5 * V, hh - 3 * V);
       if (!sm) { const s = frameAt(fr, f), y0 = hh + 3 * V, mid = (y0 + H - 3 * V) / 2, a = (H - 3 * V - y0) / 2 - 2 * V, X = i => 4 * V + i / (N - 1) * (W - 8 * V);
         g.strokeStyle = K.c('grid', .4); g.lineWidth = V; g.beginPath(); g.moveTo(0, mid); g.lineTo(W, mid); g.stroke();
         beam(K, 'value', 2, () => poly(g, N, X, i => mid - s[i] * a)); const ip = Math.floor(phaseNow(o) * (N - 1)); dot(K, X(ip), mid - s[ip] * a, 2.4 * V, 'marker');
         label(K, 'FRAMES →', 6 * V, hh - 4 * V); } } },
   { id: 'L5', name: 'Polar rings', tag: 'new', why: 'Each frame wrapped into a ring, the first frame inside and the last outside, like tree rings. The read ring glows, and a spoke sweeps round it with a dot where they meet. It echoes the swarm’s ring on the left of the page, and it is compact.',
-    draw(K, fr, f, o, sm) { const { g, W, H, V } = K; K.tube(); K.scan();
+    draw(K, fr, f, o, sm, fsel) { const { g, W, H, V } = K; K.tube(); K.scan();
       const cx = W / 2, cyy = H / 2, ry = H * .46, rx = Math.min(W * .47, ry * (sm ? 1.6 : 2.3)), amp = .05, ang = i => i / N * TAU - Math.PI / 2;
       const ring = (s, j) => { const k = .24 + .72 * j / (FR - 1); poly(g, N / 2 + 1, i => cx + Math.cos(ang(i * 2 % N)) * rx * (k + s[i * 2 % N] * amp), i => cyy + Math.sin(ang(i * 2 % N)) * ry * (k + s[i * 2 % N] * amp)); };
       g.lineWidth = V; for (let j = 0; j < FR; j++) { g.strokeStyle = K.c('physics', Math.max(.24, focus(j, f))); ring(fr[j], j); g.stroke(); }
       const s = frameAt(fr, f), p = phaseNow(o), ip = Math.floor(p * (N - 1)), kf = .24 + .72 * f / (FR - 1);
       g.strokeStyle = K.c('grid', .4); g.lineWidth = V; g.beginPath(); g.moveTo(cx, cyy); g.lineTo(cx + Math.cos(ang(ip)) * rx * 1.02, cyy + Math.sin(ang(ip)) * ry * 1.02); g.stroke();
+      if (ghostOn(sm, fsel, f)) { const sg = frameAt(fr, fsel); ghost(K, () => ring(sg, fsel)); }
       beam(K, 'value', sm ? 1.6 : 2.2, () => ring(s, f)); dot(K, cx + Math.cos(ang(ip)) * rx * (kf + s[ip] * amp), cyy + Math.sin(ang(ip)) * ry * (kf + s[ip] * amp), (sm ? 2 : 2.6) * V, 'marker');
     } },
   { id: 'L6', name: 'Swarm beams', tag: 'new', why: 'Horde is a swarm, so the read cycle is drawn as seven members, each slightly out of phase, with their sum glowing on top. A faint band behind them shows the table’s whole range over every frame. The members drift with Motion. It shows the sound’s shimmer rather than the table’s depth. The spread is a MOCK, not the swarm’s.',
-    draw(K, fr, f, o, sm) { const { g, W, H, V } = K; K.tube(); K.scan();
+    draw(K, fr, f, o, sm, fsel) { const { g, W, H, V } = K; K.tube(); K.scan();
       const mid = H / 2, a = H / 2 - 5 * V, X = i => 4 * V + i / (N - 1) * (W - 8 * V), lo = new Float32Array(N).fill(9), hi = new Float32Array(N).fill(-9);
       fr.forEach(s => { for (let i = 0; i < N; i++) { if (s[i] < lo[i]) lo[i] = s[i]; if (s[i] > hi[i]) hi[i] = s[i]; } });
       g.beginPath(); for (let i = 0; i < N; i++) g.lineTo(X(i), mid - hi[i] * a); for (let i = N - 1; i >= 0; i--) g.lineTo(X(i), mid - lo[i] * a); g.closePath(); g.fillStyle = K.c('grid', .1); g.fill();
@@ -396,6 +431,7 @@ const LOOKS = [
       for (let m = 0; m < M; m++) { const s = frameAt(fr, Math.max(0, Math.min(FR - 1, f + sp * ((m - 3) / 3) * 5))), off = Math.round(((m - 3) / 3) * (.028 + (L.motion ? .02 * Math.sin(L.tick * .013 + m * 1.9 + o) : .01)) * N), ga = 1 + (L.motion ? .05 * Math.sin(L.tick * .017 + m * 2.3) : 0), mem = new Float32Array(N);
         for (let i = 0; i < N; i++) { mem[i] = s[(i + off + N) % N] * ga; sum[i] += mem[i] / M; }
         g.strokeStyle = K.c('physics', .42); g.lineWidth = 1.1 * V; poly(g, N / 2, i => X(i * 2), i => mid - mem[i * 2] * a); g.stroke(); }
+      if (ghostOn(sm, fsel, f)) { const sg = frameAt(fr, fsel); ghost(K, () => poly(g, N, X, i => mid - sg[i] * a)); }
       beam(K, 'value', sm ? 1.6 : 2.2, () => poly(g, N, X, i => mid - sum[i] * a)); const ip = Math.floor(phaseNow(o) * (N - 1)); dot(K, X(ip), mid - sum[ip] * a, (sm ? 2 : 2.6) * V, 'marker');
       if (!sm) label(K, '7 MEMBERS · MOCK SPREAD', 6 * V, H - 5 * V); } }
 ];
@@ -462,12 +498,12 @@ function leadPicture(parent, o, hgt, under) {
   const st = glass(hgt || 150, 'vw'); p.append(hd, st); viewer(st, o);
   let cy = null, hm = null; if (under !== false) { const row = h('div', 'row'); row.style.cssText = 'align-items:stretch;margin-top:5px'; cy = glass(54, 'outscope'); hm = glass(54); cy.setAttribute('role', 'img'); cy.setAttribute('aria-label', 'Osc ' + (o + 1) + ' output: the cycle after every transformation, over the raw frame'); hm.setAttribute('aria-label', 'its harmonics'); cy.style.flex = '1 1 0'; hm.style.flex = '0 0 34%'; row.append(cy, hm); p.append(row); }
   parent.append(p);
-  draws.push(() => { const fr = warped(tableOf(o), o), f = frameNow(o), K = kit(st.cv); LOOK().draw(K, fr, f, o, false); readout(K, o, st.drag); if (cy) { const s = outCycle(o); drawOutGlass(cy.cv, s, frameAt(tableOf(o), f), o); drawHarmGlass(hm.cv, s); } });
+  draws.push(() => { const fr = warped(tableOf(o), o), f = frameNow(o), K = kit(st.cv); LOOK().draw(K, fr, f, o, false, S.osc[o].frame); frameRail(K, S.osc[o].frame, f); readout(K, o, st.drag); if (cy) { const s = outCycle(o); drawOutGlass(cy.cv, s, frameAt(tableOf(o), f), o); drawHarmGlass(hm.cv, s); } });
   return p;
 }
 /* ===== THE VIEWER: the switch, the XY drag (BladeView's pattern) and the legend that opens the mapping ===== */
 function readout(K, o, drag) { const parts = [], moving = drag ? drag.moving : null;
-  SLOTS.forEach(sl => { const r = ROWS[MAP[sl].row]; if (r && (!moving || moving.includes(sl))) parts.push(r.label.toUpperCase().replace('PM FROM THE ', 'PM ').replace(' OTHER OSC', '') + ' ' + r.fmt(r.get(o))); });
+  SLOTS.forEach(sl => { const r = ROWS[MAP[sl].row]; if (r && (!moving || moving.includes(sl))) parts.push(r.key === 'frame' ? frameText(o) : r.label.toUpperCase().replace('PM FROM THE ', 'PM ').replace(' OTHER OSC', '') + ' ' + r.fmt(r.get(o))); });
   const t = parts.join('  ·  '); K.g.font = '600 ' + (9 * K.V) + 'px ' + MONO(); const w = K.g.measureText(t).width;
   K.g.fillStyle = K.c('ground', .78 / K.sc.alpha); K.g.fillRect(K.W - w - 10 * K.V, 2 * K.V, w + 8 * K.V, 13 * K.V); label(K, t, K.W - 6 * K.V, 12 * K.V, 'right', moving ? 'physics' : 'grid'); }
 function viewer(st, o) {
@@ -480,12 +516,12 @@ function viewer(st, o) {
   const leg = h('button', 'vw-leg', legText()); leg.type = 'button'; leg.setAttribute('aria-haspopup', 'dialog'); leg.setAttribute('aria-label', 'What the drag moves: ' + legText() + '. Click to map');
   leg.addEventListener('click', e => { e.stopPropagation(); mapBox(st); });
   st.append(sw, leg);
-  // the drag: relative, from the values at the grab; 420 px crosses a row's range (BladeView's), Command a quarter as far (GUI-68: Option is Bend's
+  // the drag: relative, from the values at the grab; a row's range in DRAG_PX (150 px up and down, 420 px sideways, BladeView's), Command a quarter as far (GUI-68: Option is Bend's
   // slot here, so the viewer's fine key is not BladeView's); one undo step if anything moved
   c.addEventListener('pointerdown', e => { if (e.button) return; e.preventDefault(); c.focus({ preventScroll: true }); try { c.setPointerCapture(e.pointerId); } catch (_) {}
     const x0 = e.clientX, y0 = e.clientY, n0 = {}; SLOTS.forEach(sl => { const r = ROWS[MAP[sl].row]; if (r) n0[sl] = toN(r, r.get(o)); }); const before = JSON.stringify(snapRows(o));
     st.drag = { moving: [] };
-    c.onpointermove = ev => { if (!ev.buttons) return; const k = (ev.metaKey ? .25 : 1) / 420, dy = (y0 - ev.clientY) * k, dx = (ev.clientX - x0) * k, hs = sideSlot(ev);
+    c.onpointermove = ev => { if (!ev.buttons) return; const q = ev.metaKey ? .25 : 1, dy = (y0 - ev.clientY) * q / DRAG_PX.v, dx = (ev.clientX - x0) * q / DRAG_PX.h, hs = sideSlot(ev);
       /* each ROW moves once, by the sum of its slots' moves: two slots mapped to one row (both Bend, say) add up, where writing slot by slot let a still
          slot's zero overwrite the moving one (found by the real-mouse probe, round 4) */
       const dd = { v: dy, h: 0, sh: 0, oh: 0 }; dd[hs] = dx; const byRow = {};
@@ -633,6 +669,7 @@ function bench() {
   pills($('bAudP'), [0, 1, 2, 3].map(i => [i, CORNER[i], HZ.glyph(i, 9, 'currentColor') + CORNER[i]]), L.audible, v => { L.audible = v; render(); });
   pills($('bMotion'), [[true, 'Live'], [false, 'Still']], L.motion, v => { L.motion = v; render(); });
   pills($('bSw'), [['pips', 'Pips'], ['name', 'Name']], L.sw, v => { L.sw = v; render(); });
+  pills($('bFmark'), [['both', 'Both'], ['ghost', 'Picture'], ['rail', 'Rail']], L.fmark, v => { L.fmark = v; say('Frame mark: ' + { both: 'the dashed selected frame in the picture and the rail', ghost: 'the dashed selected frame in the picture only', rail: 'the rail only' }[v]); render(); });
   pills($('bSync'), [['pitch', '× pitch'], ['hz', 'Hz']], S.osc[0].wt.syncIn, v => { S.osc[0].wt.syncIn = v; say('Osc 1 sync follows ' + (v === 'hz' ? 'a fixed frequency (Hz)' : 'the note (× pitch)') + '; sync is always on, and ratio 1 is no sync (B661)'); render(); });
   const th = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
   pills($('bTheme'), [['light', 'Cream'], ['dark', 'Dark']], th, v => { document.documentElement.setAttribute('data-theme', v); render(); });
@@ -692,6 +729,14 @@ function selfcheck() {
   // the screens follow the scheme: the ground under TUBE differs from ORCHID's (control: TUBE twice reads the same)
   scr.set('tube'); paint(); const t1 = pix(lead()).slice(0, 4).join(); scr.set('orchid'); paint(); const o1 = pix(lead()).slice(0, 4).join(); scr.set('tube'); paint(); const t2 = pix(lead()).slice(0, 4).join(); scr.set(null); paint();
   ok(t1 !== o1 && t1 === t2, 'the glass follows the Screen scheme: TUBE ' + t1 + ' vs ORCHID ' + o1 + ' (control: TUBE again reads the same)');
+  // GUI-69: the selected-versus-modulated frame marks, in every view. Motion's mock LFO at tick 75 puts frame 5.0 at 8.2: 'both' differs from 'rail'
+  // (the dashed selected frame is drawn) and from 'picture' (the rail is drawn); with Still the two frames meet and 'both' equals 'rail' (control)
+  { const kf = S.osc[0].frame, kt = L.tick, km = L.motion, kfm = L.fmark, kl = look; S.osc[0].frame = 4; L.tick = 75; const bad = [];
+    const shot = m => { L.fmark = m; render(); paint(); return pix(lead()).join(); };
+    LOOKS.forEach(x => { look = x.id; L.motion = true; const b = shot('both'), r = shot('rail'), gh = shot('ghost'); L.motion = false; const b0 = shot('both'), r0 = shot('rail'); if (!(b !== r && b !== gh && b0 === r0)) bad.push(x.id); });
+    L.motion = true; const txt = frameText(0); L.motion = false; const txt0 = frameText(0);
+    ok(!bad.length && txt === 'FRAME 5.0 → 8.2' && txt0 === 'FRAME 5.0', 'the frame marks in all six views: the selected frame dashed and the rail both draw while modulation moves the frame' + (bad.length ? ' (not in ' + bad.join(', ') + ')' : '') + '; the readout reads "' + txt + '"; with Still the frames meet, the dashed frame goes and the readout reads "' + txt0 + '" (control)');
+    S.osc[0].frame = kf; L.tick = kt; L.motion = km; L.fmark = kfm; look = kl; render(); }
   // Motion: live moves the picture; still holds it
   L.motion = true; paint(); const m0 = pix(lead()).join(); L.tick += 40; paint(); const m1 = pix(lead()).join(); L.motion = false; paint(); const s0 = pix(lead()).join(); L.tick += 40; paint(); const s1 = pix(lead()).join();
   ok(m0 !== m1 && s0 === s1, 'Motion live moves the picture over 40 frames; Still holds it (control)');
@@ -715,19 +760,22 @@ function selfcheck() {
   const reset = () => { S.osc[0].frame = 4; Object.assign(S.osc[0].wt, { syncIn: 'pitch', sync: 1, syncSoft: 0, asym: 0, bend: 0 }); };
   MAP = JSON.parse(JSON.stringify(MAP_DEFAULT)); render(); reset(); let st0 = L.steps;
   drag(84, -84); const f1 = S.osc[0].frame, b1 = S.osc[0].wt.bend, sy1 = S.osc[0].wt.sync, st1 = L.steps;
-  ok(Math.abs(f1 - (4 + .2 * (FR - 1))) < 1e-6 && b1 === 0 && sy1 === 1 && st1 === st0 + 1, 'drag up and right 84 px: frame 5.0 → ' + (f1 + 1).toFixed(1) + ', and sideways alone moves nothing (GUI-68): bend and sync untouched at 0 and ×1, 1 undo step');
+  ok(Math.abs(f1 - Math.min(FR - 1, 4 + 84 / DRAG_PX.v * (FR - 1))) < 1e-6 && b1 === 0 && sy1 === 1 && st1 === st0 + 1, 'drag up and right 84 px: frame 5.0 → ' + (f1 + 1).toFixed(1) + ', and sideways alone moves nothing (GUI-68): bend and sync untouched at 0 and ×1, 1 undo step');
   reset(); st0 = L.steps; drag(84, 0); ok(L.steps === st0 && S.osc[0].wt.bend === 0 && S.osc[0].wt.sync === 1 && S.osc[0].frame === 4, 'control: a plain sideways drag writes nothing and makes no undo step');
   reset(); st0 = L.steps; drag(84, 0, { altKey: true }); const b4 = S.osc[0].wt.bend, sy4 = S.osc[0].wt.sync, st4 = L.steps;
   ok(Math.abs(b4 - .4) < 1e-6 && sy4 === 1 && st4 === st0 + 1, 'Option sideways (GUI-68): bend 0 → +' + b4.toFixed(2) + ' in one undo step, sync untouched (control)');
   reset(); st0 = L.steps; drag(84, 0, { shiftKey: true }); const sy2 = S.osc[0].wt.sync, b2 = S.osc[0].wt.bend, st2 = L.steps; reset(); drag(84, 0, { altKey: true, metaKey: true }); const b3 = S.osc[0].wt.bend;
-  reset(); drag(0, -84, { metaKey: true }); const f3 = S.osc[0].frame;
-  ok(Math.abs(sy2 - fromN(ROWS.sync, toN(ROWS.sync, 1) + .2)) < 1e-6 && b2 === 0 && st2 === st0 + 1 && Math.abs(b3 - .1) < 1e-6 && Math.abs(f3 - (4 + .05 * (FR - 1))) < 1e-6, 'shift sideways: sync ×1.00 (no sync) → ×' + sy2.toFixed(2) + ' in one undo step, bend untouched; Command moves a quarter as far (Option + Command: bend +' + b3.toFixed(2) + '; Command up: frame +' + (f3 - 4).toFixed(2) + ')');
+  reset(); drag(0, -84, { metaKey: true }); const f3 = S.osc[0].frame, f3x = 4 + 84 / DRAG_PX.v / 4 * (FR - 1);
+  ok(Math.abs(sy2 - fromN(ROWS.sync, toN(ROWS.sync, 1) + .2)) < 1e-6 && b2 === 0 && st2 === st0 + 1 && Math.abs(b3 - .1) < 1e-6 && Math.abs(f3 - f3x) < 1e-6, 'shift sideways: sync ×1.00 (no sync) → ×' + sy2.toFixed(2) + ' in one undo step, bend untouched; Command moves a quarter as far (Option + Command: bend +' + b3.toFixed(2) + '; Command up: frame +' + (f3 - 4).toFixed(2) + ')');
+  // GUI-69: up and down crosses the 16 frames in 150 px; sideways keeps 420 (control: 150 px of Shift sideways moves sync 150/420 of its range)
+  { reset(); S.osc[0].frame = 0; st0 = L.steps; drag(0, -DRAG_PX.v); const fAll = S.osc[0].frame; reset(); drag(DRAG_PX.v, 0, { shiftKey: true }); const nS = toN(ROWS.sync, S.osc[0].wt.sync) - toN(ROWS.sync, 1);
+    ok(fAll === FR - 1 && Math.abs(nS - DRAG_PX.v / DRAG_PX.h) < 1e-6, 'up ' + DRAG_PX.v + ' px crosses every frame, 1 → ' + (fAll + 1) + ' (was 420 px); sideways keeps 420 px: ' + DRAG_PX.v + ' px of Shift moves sync ' + Math.round(nS * 100) + ' % of its range (control)'); }
   reset(); drag(84, 0, { altKey: true, shiftKey: true }); ok(Math.abs(S.osc[0].wt.bend - .4) < 1e-6 && S.osc[0].wt.sync === 1, 'Option and Shift together: Option wins, bend moves and sync stays (a reading GUI-68 records)');
   reset(); st0 = L.steps; drag(0, 0); ok(L.steps === st0 && S.osc[0].frame === 4 && S.osc[0].wt.bend === 0 && S.osc[0].wt.sync === 1, 'control: a grab with no motion writes nothing and makes no undo step');
-  MAP.v = { row: 'asym', inv: false }; render(); reset(); drag(0, -84); const a1 = S.osc[0].wt.asym, f2 = S.osc[0].frame; MAP.v.inv = true; render(); reset(); drag(0, -84); const a2 = S.osc[0].wt.asym;
+  MAP.v = { row: 'asym', inv: false }; render(); reset(); drag(0, -30); const a1 = S.osc[0].wt.asym, f2 = S.osc[0].frame; MAP.v.inv = true; render(); reset(); drag(0, -30); const a2 = S.osc[0].wt.asym;
   ok(Math.abs(a1 - .2 * 2) < 1e-6 && f2 === 4 && Math.abs(a2 + .4) < 1e-6, 'mapped to Asym: up moves asym (+' + a1.toFixed(2) + '), not the frame (control); inverted, the same drag moves it the other way (' + a2.toFixed(2) + ')');
-  MAP = { v: { row: 'bend', inv: false }, h: { row: 'bend', inv: false }, sh: { row: 'sync', inv: false }, oh: { row: '', inv: false } }; render(); reset(); drag(84, -84); const bb = S.osc[0].wt.bend;
-  ok(Math.abs(bb - .8) < 1e-6, 'two directions mapped to Bend add up: up and right 84 px each move it +0.40, together +' + bb.toFixed(2) + ' (a still direction no longer overwrites a moving one)');
+  MAP = { v: { row: 'bend', inv: false }, h: { row: 'bend', inv: false }, sh: { row: 'sync', inv: false }, oh: { row: '', inv: false } }; render(); reset(); drag(84, -30); const bb = S.osc[0].wt.bend;
+  ok(Math.abs(bb - .8) < 1e-6, 'two directions mapped to Bend add up: up 30 px and right 84 px each move it +0.40, together +' + bb.toFixed(2) + ' (a still direction no longer overwrites a moving one)');
   // GUI-67: a double-click puts Bend back to 0, whatever the mapping (here Bend is mapped nowhere), as one undo step
   { MAP = { v: { row: 'asym', inv: false }, h: { row: 'syncSoft', inv: false }, sh: { row: 'sync', inv: false }, oh: { row: '', inv: false } }; render(); reset(); S.osc[0].wt.bend = .4; S.osc[0].wt.sync = 2;
     const c = vcv(), r = c.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2, dbl = () => c.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true, clientX: x, clientY: y, detail: 2 })); st0 = L.steps;
