@@ -13193,3 +13193,23 @@ The GUI session built it as GUI-55 A2 (#1455). Its reading, for the human to con
 **What follows (the spec rework).** SPEC-WAVETABLE WT-24 (E, or its successor, engages only on restarts with a step; how it engages as the ratio crosses integers), WT-32, WT-33 (replaced by the taper), WT-37 (tapers under about a sample per side alias like a step at Standard: a minimum taper width or a correction of the leftover step, measured at S5a), WT-38 (× pitch ↔ Hz still changes by PA-5), WT-39 (1× may skip the phase arithmetic); CONTRACT §2 gives `wt.syncSoft` an offset (the next free, verified) and changes `wt.syncIn`'s range and `wt.sync`'s default. GUI-66's mapping of `wt.syncSoft` reaches the engine through this round.
 
 **FX device (ADR-254).** None: an oscillator law.
+
+## ADR-390 — RULED by the human: WT-BUDGET 5 % per oscillator at crossfade scheme (iii), CONTRACT §7's recommendations, and S0's proposals P1–P7 (B665)
+
+**Context.** The 2026-11-09 timed run (B648, #1485, `traces/2026-11-09-b648-timed-run.md`) measured one wavetable oscillator (H 1024, 9 members, morph moving, 48 kHz, thread CPU, best of 5, quiet window) at 6.49 % of one core as specified and 4.80 % with rebuild-crossfade scheme (iii). S0's five engine-free calculations (B665, `docs/wavetable/S0-RESULTS.md`) proved J2's delayed read, confirmed WT-F2, mapped the loop limits, sized the bake recipe and the read, and proposed P1–P7. The lead put four items to the human: the budget (5 % per oscillator with scheme (iii), or 4 % with vector reads required at S1), J9, registering S0's spec-constant thresholds, and CONTRACT §7's table as informed by S0. The human, 2026-11-09: **"Recommendations approved"**, one reply covering all four.
+
+**Rulings.**
+1. **WT-BUDGET (§7 C2): 5 % of one core per oscillator** under the timed run's conditions, 15 % for three; **the rebuild crossfade is scheme (iii)**, one interpolated set per interval (§7 C7), still subject to WT-F4's moving-phase probe. Timed in the 2–6 am window at every stage (ADR-380 A1); the 4 % figure is retired.
+2. **CONTRACT §7's recommendations are adopted as written,** row by row, except where items 3–5 below replace them. The PROPOSED numbers C3a–C3k are approved per gate as listed, not as one block: the reply approves each listed recommendation.
+3. **S0's proposals P1–P7 are adopted:** P1 J2's delayed read (the table read delayed by τ, on every path, at every ratio) answers J2; P2 WT-F42 adds r = 2.75 and 3.25; P3 sync's edges at S5a are reported by QS-1's method, not judged against QS-1's floors; P4 WT-25 drops the corrections' mean term and requires τ equal to the read table's own −Ā within 10⁻³ sample; P5 **I_back = 2.5** (§7 H6); P6 the `blade-bake` recipe bound is **2.5 KiB** (replacing C3i's 3 KiB), with the `ratios` limit (spec 256 bytes, engine 512) and the number form (§3.1's ECMAScript form against the state writer's printf form) recorded for the spec round; P7 the cubic fallback is **4-point Lagrange**, not Catmull-Rom.
+4. **J9:** carry what is cheap: when a corner's frame axis is unused, bake its frames at spread positions −1 to 1 and map the spread to `wt.frameSpread` (BB-20 (a)); report the rest; BB-F11's U = 9 comparison reported; clip `s0-1` lets the human hear the loss before anything is built.
+5. **S0's five script thresholds are registered** (`docs/armor/tolerances.json`, ref "Recommendations approved"): all are spec constants (the 20 Hz–20 kHz band, DT-3's 18 kHz, the 16–20 kHz band, PA-1's and B521's 10⁻⁶).
+
+**Not ruled by this reply (still open).**
+- **C2a, PF-1's re-anchored figure:** no figure was put to the human, only "re-anchor to cells 2 and 5". The lead proposes one before S1's brief.
+- **D2a, the loop default on tables:** D2's reuse of `crossMod`, `feedback` and `loopDrive` is approved, but S0's map shows the default `loopDrive` 0.3 runs away on Vowel 7 at C6 (table limits 0.62 / 0.34 / 0.14, below BL-12's blade figures). What to do (keep 0.3 with the output bounded, lower the default, or a per-table limit) is a new question for the human.
+- C1 (level spacing after S3's glides), C9 and I6 (on S4's timed evidence) stay conditional as their rows say; X13 (filter count and routing) is unrelated and stays open.
+
+**What follows.** B666: the spec amendment folding this ruling, P1–P7 and GN-60 (GUI-69: each oscillator's frame after modulation, per voice) into `specs/SPEC-WAVETABLE.md` and `docs/wavetable/CONTRACT.md`; CONTRACT §7 marks each row answered with this ADR. S1 opens once C2a is ruled: the local repo `horde-wavetable` (F1) and its builder.
+
+**FX device (ADR-254).** None: an oscillator budget and oscillator laws; the FX device hosts modules, not oscillators.
