@@ -529,7 +529,7 @@
   },
   "wavetable-page-lab.html": {
    "status": "exploring",
-   "note": "GB37. The wavetable page (ADR-387, the lead's handover). Rounds 2-4 (2026-11-08): Q3, six views on the house screen kit in a viewer with a switch on the glass and an XY drag (GUI-66); Q1 ruled (GUI-64, the row of four under the viewer); Q2 ruled in place (GUI-65), with looks for the dashboard card (C1-C4) and the Osc-page row (R1-R3); the signal flow is GB38. Ruled: GUI-62, GUI-63, GUI-64, GUI-65, GUI-66. Published for the human as an Artifact. Round 5 (2026-11-08): GUI-67, the PM card and row are Cells (C1, R1), the glass under the viewer is the output scope, and a double-click on the viewer returns Bend to 0."
+   "note": "GB37. The wavetable page (ADR-387, the lead's handover). Rounds 2-4 (2026-11-08): Q3, six views on the house screen kit in a viewer with a switch on the glass and an XY drag (GUI-66); Q1 ruled (GUI-64, the row of four under the viewer); Q2 ruled in place (GUI-65), with looks for the dashboard card (C1-C4) and the Osc-page row (R1-R3); the signal flow is GB38. Ruled: GUI-62, GUI-63, GUI-64, GUI-65, GUI-66. Published for the human as an Artifact. Round 5 (2026-11-08): GUI-67, the PM card and row are Cells (C1, R1), the glass under the viewer is the output scope, and a double-click on the viewer returns Bend to 0. Round 6 (2026-11-09): GUI-68, Bend moves to Option + sideways, plain sideways moves nothing for now, and the fine drag moves to Command."
   }
  },
  "not_labs": {
@@ -7483,7 +7483,7 @@
    "adr": "GUI-66",
    "id": "gui66-viewer-xy",
    "clause": "the wavetable viewer is an XY: up and down the frame, sideways Bend, Shift + sideways the sync ratio (always on); relative, one undo step a gesture; three mappable slots",
-   "note": "BladeView's pattern (GUI-30). Open: views kept, pips or name, per-machine storage. FX device: none."
+   "note": "BladeView's pattern (GUI-30). Directions and the fine key amended by GUI-68: Bend on Option + sideways, plain sideways nothing, fine on Command. Open: views kept, pips or name, per-machine storage. FX device: none."
   },
   {
    "lab": "docs/design/wavetable-page-lab.html",
@@ -7512,8 +7512,8 @@
    "state": "ruled",
    "adr": "GUI-67",
    "id": "gui67-output-scope",
-   "clause": "an output scope under the viewer shows the oscillator's cycle after every transformation (blend, frame, spread, sync, window, softness, asym, bend, PM, feedback), over the raw frame; its harmonics beside it",
-   "note": "Read as the oscillator's own stages, before the filter. Engine: GN-59. FX device: none."
+   "clause": "an output scope under the viewer shows the oscillator's cycle after every transformation (blend, frame, spread, sync and its softness, asym, bend, PM, feedback), over the raw frame; its harmonics beside it",
+   "note": "Read as the oscillator's own stages, before the filter. Window dropped from the stages 2026-11-09: ADR-389 replaced WT-33's window with the softness taper (GUI-67 A1). Engine: GN-59. FX device: none."
   },
   {
    "lab": "docs/design/wavetable-page-lab.html",
@@ -7529,6 +7529,21 @@
    "id": "gui67-dblclick-bend",
    "clause": "a double-click on the viewer returns Bend to 0, whatever the mapping, in one undo step; at 0 it writes nothing",
    "note": "The output scope ignores a double-click. FX device: none."
+  },
+  {
+   "lab": "docs/design/wavetable-page-lab.html",
+   "via": null,
+   "superseded_by": null,
+   "master_version": null,
+   "bundle": null,
+   "shell": null,
+   "port_tab": null,
+   "component": null,
+   "state": "ruled",
+   "adr": "GUI-68",
+   "id": "gui68-option-bend",
+   "clause": "on the viewer, Option + sideways moves Bend, plain sideways moves nothing until the human picks, Shift + sideways the sync ratio; Command is the fine drag; four mappable slots, each a row or Nothing",
+   "note": "Amends GUI-66's directions. BladeView keeps Option for fine. Readings: Option outranks Shift; the fine key off the Mac is unruled. FX device: none."
   }
  ],
  "not_design": [
@@ -8825,10 +8840,11 @@
   "GUI-65": [
    "GN-58"
   ],
-  "GUI-66": "none: the drag writes the oscillator's own wt rows (CONTRACT section 2.1); B661's sync softness row reaches the engine only if a spec round adopts it",
+  "GUI-66": "none: the drag writes the oscillator's own wt rows (CONTRACT section 2.1); B661's sync softness row is adopted by ADR-389 and gets its CONTRACT offset in the coming spec rework",
   "GUI-67": [
    "GN-59"
-  ]
+  ],
+  "GUI-68": "none: the drag writes the oscillator's own wt rows (CONTRACT section 2.1); which key reaches which row is the GUI's alone"
  },
  "audit_notes": [
   "[A] Counts: 33 design ADRs with 56 rows (ruled 31, of which 6 superseded and 7 legacy-only; wired 9; in-shell 7; vendored 4; in-master 4; unknown 1); 79 not_design. Every primary heading ADR-001..ADR-112 appears exactly once. Headings out of numeric order (ADR-052, ADR-053 before ADR-051; ADR-095, 094, 093, 092; ADR-091 A1-A4 after ADR-112 A3) were all covered. One non-ADR heading sits in range: 'NOTICE · Library standby (plugin-skeleton FOUNDATIONS)', line 661, not design and not listed.",

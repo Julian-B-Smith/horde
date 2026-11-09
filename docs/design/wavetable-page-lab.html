@@ -50,6 +50,14 @@
      faint trace; the harmonics beside it are the output's. "And double clicking the waveform should return bend to 0": a double-click on the viewer
      sets Bend to 0 in one undo step, whatever the drag's mapping.
 
+     ROUND 6 (the human, 2026-11-09). "I think the left/right being bend is more finnicky than sync was. It should probably be opt+drag instead. I'll
+     decide later if left and right alone should be anything" (GUI-68). So Bend moves to Option + sideways, and plain sideways moves NOTHING by default
+     (a fourth slot, mappable, that the Default leaves empty). Option was the fine modifier (BladeView's, GUI-30), so on the viewer the fine drag moves
+     to Command, asked and answered: Command with any drag moves a quarter as far. BladeView keeps Option for fine. The arrow keys follow: Option with
+     left or right steps Bend, Command takes the small steps. The mapping's stored key is new again (round 4's lesson).
+     And ADR-389 (the human, 2026-11-09) replaced WT-33's window crossfade with the sync softness taper, so `wt.window` is withdrawn (the lead's spec
+     rework, B663): the lab drops its Window row, from the mapping, the warp and the output scope. A stored mapping naming it falls back to the Default.
+
      HOUSE RULES. No Math.random (seeded mulberry32). No clock: motion is a frame count (L.tick). No wheel listener (B301). Reduced motion starts Still. -->
 <html lang="en" data-theme="dark">
 <head>
@@ -154,8 +162,8 @@
   .vw-sw .nm { padding: 2px 5px; border: 1px solid var(--scr-physics); border-radius: 3px; }
   .vw-sw .cur { color: var(--scr-grid); margin-left: 3px; }
   .vw-leg { all: unset; box-sizing: border-box; cursor: pointer; position: absolute; right: 6px; bottom: 5px; z-index: 2; padding: 2px 6px; border: 1px solid var(--scr-grid); border-radius: 3px; background: var(--scr-ground); font: 600 9px/1.2 var(--font-mono); color: var(--scr-grid); letter-spacing: .04em; }
-  .mapbox { position: absolute; z-index: 25; width: 300px; padding: 8px; border: 1.5px solid var(--ink); border-radius: var(--radius); background: var(--panel); box-shadow: var(--shadow-hover); font-size: 11px; display: flex; flex-direction: column; gap: 6px; }
-  .mapbox .mr { display: grid; grid-template-columns: 62px 1fr auto; gap: 6px; align-items: center; }
+  .mapbox { position: absolute; z-index: 25; width: 330px; padding: 8px; border: 1.5px solid var(--ink); border-radius: var(--radius); background: var(--panel); box-shadow: var(--shadow-hover); font-size: 11px; display: flex; flex-direction: column; gap: 6px; }
+  .mapbox .mr { display: grid; grid-template-columns: 92px 1fr auto; gap: 6px; align-items: center; }
   .mapbox select { font: 500 11px/1.3 var(--font-sans); }
   .mapbox .ft { display: flex; justify-content: space-between; align-items: center; }
   #say { min-height: 18px; font-size: 12px; }
@@ -183,7 +191,7 @@
 
   <section class="card" aria-labelledby="q3">
     <h2 id="q3">Q3 · The viewer: six views, switched on the glass, and an XY you drag (GUI-66; which views stay is open)</h2>
-    <p class="note"><b>Switch views</b> with the pips (or the name, set by Switch above) at the glass's top left, or with the cards below. <b>Drag the glass:</b> up and down scrubs the frame, left and right bends it, and Shift with left and right sweeps the sync ratio up from ×1, which is no sync: sync is always on now, so a morph between ratios is continuous. Hold Option (Alt) to move a quarter as far. Each drag is one undo step. <b>Double-click</b> the glass to put Bend back to 0. <b>Under it, the output scope</b> shows the oscillator's cycle after everything: the frame, spread, sync, window, softness, asym, bend and PM, over the raw frame as a dotted trace (GUI-67). With the glass focused, the arrow keys do the same. <b>The pill at the bottom right</b> shows what each direction moves; click it to map any of the nine wavetable controls to each, or to invert one. The view and the mapping are one choice for every viewer, remembered on this machine. With morph on, the corner tables sit in a plain row under the viewer; where they go is Q1's question. Every shape here is a MOCK.</p>
+    <p class="note"><b>Switch views</b> with the pips (or the name, set by Switch above) at the glass's top left, or with the cards below. <b>Drag the glass:</b> up and down scrubs the frame, left and right alone do nothing yet, Option with left and right bends it, and Shift with left and right sweeps the sync ratio up from ×1, which is no sync: sync is always on now, so a morph between ratios is continuous. Hold Command to move a quarter as far. Each drag is one undo step. <b>Double-click</b> the glass to put Bend back to 0. <b>Under it, the output scope</b> shows the oscillator's cycle after everything: the frame, spread, sync and its softness, asym, bend and PM, over the raw frame as a dotted trace (GUI-67). With the glass focused, the arrow keys do the same. <b>The pill at the bottom right</b> shows what each direction moves; click it to map any of the nine wavetable controls (or nothing) to each, or to invert one. The view and the mapping are one choice for every viewer, remembered on this machine. With morph on, the corner tables sit in a plain row under the viewer; where they go is Q1's question. Every shape here is a MOCK.</p>
     <div class="picker" id="pick3" role="group" aria-label="Q3 looks"></div>
     <p class="why note" id="why3"></p>
     <div class="win" id="win3" aria-label="horde window for Q3"></div>
@@ -254,14 +262,13 @@ const S = { x: .34, y: .42, osc: [
 let reduce = false; try { reduce = matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
 const L = { morph: true, audible: 0, motion: !reduce, tick: 0, sw: 'pips', steps: 0 };
 // each oscillator's continuous wt rows (CONTRACT section 2.1)
-S.osc.forEach(o => { o.wt = { frameSpread: 0, syncIn: 'pitch', sync: 1, syncHz: 880, window: 0, syncSoft: 0, asym: 0, bend: 0 }; });   // sync always on (B661): x pitch at ratio 1 is no sync
+S.osc.forEach(o => { o.wt = { frameSpread: 0, syncIn: 'pitch', sync: 1, syncHz: 880, syncSoft: 0, asym: 0, bend: 0 }; });   // sync always on (B661): x pitch at ratio 1 is no sync
 const others = o => [0, 1, 2].filter(x => x !== o);
 const ROWS = {
   frame: { label: 'Frame', min: 0, max: FR - 1, law: 'lin', fmt: v => (v + 1).toFixed(1), get: o => S.osc[o].frame, set: (o, v) => { S.osc[o].frame = v; } },
   frameSpread: { label: 'Frame spread', min: -1, max: 1, law: 'lin', fmt: v => (v >= 0 ? '+' : '') + v.toFixed(2) },
   sync: { label: 'Sync ratio', min: 1, max: 16, law: 'log', fmt: v => '×' + v.toFixed(2) },
   syncHz: { label: 'Sync Hz', min: 20, max: 12000, law: 'log', fmt: v => Math.round(v) + ' Hz' },
-  window: { label: 'Window', min: 0, max: 1, law: 'lin', fmt: v => Math.round(v * 100) + ' %' },
   syncSoft: { label: 'Sync softness', min: 0, max: 1, law: 'lin', fmt: v => Math.round(v * 100) + ' %' },   // B661's lab row, no CONTRACT offset yet
   asym: { label: 'Asym', min: -1, max: 1, law: 'lin', fmt: v => (v >= 0 ? '+' : '') + v.toFixed(2) },
   bend: { label: 'Bend', min: -1, max: 1, law: 'lin', fmt: v => (v >= 0 ? '+' : '') + v.toFixed(2) },
@@ -270,12 +277,15 @@ const ROWS = {
 Object.keys(ROWS).forEach(k => { const r = ROWS[k]; r.key = k; if (!r.get) { r.get = o => S.osc[o].wt[k]; r.set = (o, v) => { S.osc[o].wt[k] = v; }; } });
 const toN = (r, v) => r.law === 'log' ? Math.log(v / r.min) / Math.log(r.max / r.min) : r.law === 'pow' ? Math.sqrt((v - r.min) / (r.max - r.min)) : (v - r.min) / (r.max - r.min);
 const fromN = (r, n) => { n = Math.min(1, Math.max(0, n)); return r.law === 'log' ? r.min * Math.pow(r.max / r.min, n) : r.law === 'pow' ? r.min + (r.max - r.min) * n * n : r.min + (r.max - r.min) * n; };
-// the mapping: three slots, BladeView's (vertical, horizontal, shift + horizontal), each a row and an invert. One for every viewer, per machine
-const MAP_DEFAULT = { v: { row: 'frame', inv: false }, h: { row: 'bend', inv: false }, sh: { row: 'sync', inv: false } };   // round 4: Bend sideways, sync on shift
-const SLOT = { v: '↕', h: '↔', sh: '⇧↔' };
+// the mapping: four slots (vertical, horizontal, shift + horizontal, option + horizontal), each a row or nothing ('') and an invert. One for every
+// viewer, per machine. GUI-68: plain sideways moves nothing until the human picks something for it; Bend is on Option, sync on Shift
+const MAP_DEFAULT = { v: { row: 'frame', inv: false }, h: { row: '', inv: false }, sh: { row: 'sync', inv: false }, oh: { row: 'bend', inv: false } };
+const SLOTS = ['v', 'h', 'sh', 'oh'], SLOT = { v: '↕', h: '↔', sh: '⇧↔', oh: '⌥↔' };
+// which horizontal slot a sideways move feeds. Option outranks Shift when both are held (a reading GUI-68 records); Command is fine, never a slot
+const sideSlot = e => e.altKey ? 'oh' : e.shiftKey ? 'sh' : 'h';
 const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
-let MAP = (() => { try { const m = JSON.parse(store.get('horde-wtlab-xymap2')); if (m && ['v', 'h', 'sh'].every(s => m[s] && ROWS[m[s].row])) return m; } catch (e) {} return JSON.parse(JSON.stringify(MAP_DEFAULT)); })();
-const saveMap = () => store.set('horde-wtlab-xymap2', JSON.stringify(MAP));   // '2': a new default on a remembered control needs a new key, or round 3's stored mapping would keep sync sideways
+let MAP = (() => { try { const m = JSON.parse(store.get('horde-wtlab-xymap3')); if (m && SLOTS.every(s => m[s] && (m[s].row === '' || ROWS[m[s].row]))) return m; } catch (e) {} return JSON.parse(JSON.stringify(MAP_DEFAULT)); })();
+const saveMap = () => store.set('horde-wtlab-xymap3', JSON.stringify(MAP));   // '3': a new default on a remembered control needs a new key, or round 4's stored mapping would keep Bend on plain sideways
 const weights = () => [(1 - S.x) * (1 - S.y), S.x * (1 - S.y), (1 - S.x) * S.y, S.x * S.y];
 // the blend is memoised on its inputs, so a still puck hands every look the same frames (and the sonogram's harmonics cache holds)
 const BL = [{}, {}, {}];
@@ -284,17 +294,16 @@ function blended(o) { const key = S.x + ',' + S.y + ',' + S.osc[o].corners.join(
 // what the oscillator reads: the blend at the puck with morph on, the audible corner's own table with morph off (MO-20, one-hot at morph.audible)
 const tableOf = o => L.morph ? blended(o) : table(S.osc[o].corners[L.audible]);
 function frameAt(fr, f) { const a = Math.floor(f), b = Math.min(FR - 1, a + 1), t = f - a, o = new Float32Array(N); for (let i = 0; i < N; i++) o[i] = fr[a][i] * (1 - t) + fr[b][i] * t; return o; }
-// what sync, window, asym and bend do to a cycle: a MOCK of WT-32 to WT-34's shapes, so the picture answers the drag. Identity at their defaults (checked)
+// what sync, its softness, asym and bend do to a cycle: a MOCK of WT-32 and WT-34's shapes and ADR-389's taper (which replaced WT-33's window), so the picture answers the drag. Identity at their defaults (checked)
 function syncRatio(o) { const w = S.osc[o].wt; return w.syncIn === 'hz' ? Math.min(32, Math.max(1, w.syncHz / 220)) : w.sync; }   // always on: ratio 1 reads the table unsynced
 function warp1(s, w, r) { const o = new Float32Array(N), a = .5 + .45 * w.asym, e = Math.pow(4, -w.bend);
   for (let i = 0; i < N; i++) { let p = i / N; p = p < a ? p * .5 / a : .5 + (p - a) * .5 / (1 - a); p = Math.pow(p, e); const x = ((p * r) % 1) * N, i0 = Math.floor(x) % N, t = x - Math.floor(x); let v = s[i0] * (1 - t) + s[(i0 + 1) % N] * t;
     const dep = Math.min(1, Math.max(0, (r - 1) / .25)), q = i / N, tau = w.syncSoft / 2;   // B661: the edge laws fade in from ratio 1 to 1.25, so ratio 1 is untouched
-    if (w.window) v *= 1 - w.window * dep + w.window * dep * (.5 - .5 * Math.cos(TAU * q));
     if (tau > 0 && dep) { const e2 = Math.min(q, 1 - q); if (e2 < tau) v *= 1 - dep * .5 * (1 + Math.cos(Math.PI * e2 / tau)); }   // the Tukey taper at each end of the member's cycle
     o[i] = v; } return o; }
 const WP = [{}, {}, {}];
-function warped(fr, o) { const w = S.osc[o].wt, r = syncRatio(o), k = [r, w.window, w.syncSoft, w.asym, w.bend].join(); if (WP[o].fr === fr && WP[o].k === k) return WP[o].out;
-  const out = r === 1 && !w.window && !w.asym && !w.bend ? fr : fr.map(s => warp1(s, w, r)); WP[o] = { fr, k, out }; return out; }
+function warped(fr, o) { const w = S.osc[o].wt, r = syncRatio(o), k = [r, w.syncSoft, w.asym, w.bend].join(); if (WP[o].fr === fr && WP[o].k === k) return WP[o].out;
+  const out = r === 1 && !w.asym && !w.bend ? fr : fr.map(s => warp1(s, w, r)); WP[o] = { fr, k, out }; return out; }
 /* THE OUTPUT (GUI-67): the cycle after every transformation, in the engine's order. readCycle is the table read through the warp, at the frame,
    averaged over the frame spread's members (L6's mock fan, without its phase spread); outCycle adds PM from the other two oscillators and the
    oscillator's own feedback. A MOCK of the chain: the others are taken at this oscillator's pitch so one cycle stands still (their phase offset runs
@@ -458,12 +467,12 @@ function leadPicture(parent, o, hgt, under) {
 }
 /* ===== THE VIEWER: the switch, the XY drag (BladeView's pattern) and the legend that opens the mapping ===== */
 function readout(K, o, drag) { const parts = [], moving = drag ? drag.moving : null;
-  ['v', 'h', 'sh'].forEach(sl => { const r = ROWS[MAP[sl].row]; if (!moving || moving.includes(sl)) parts.push(r.label.toUpperCase().replace('PM FROM THE ', 'PM ').replace(' OTHER OSC', '') + ' ' + r.fmt(r.get(o))); });
+  SLOTS.forEach(sl => { const r = ROWS[MAP[sl].row]; if (r && (!moving || moving.includes(sl))) parts.push(r.label.toUpperCase().replace('PM FROM THE ', 'PM ').replace(' OTHER OSC', '') + ' ' + r.fmt(r.get(o))); });
   const t = parts.join('  ·  '); K.g.font = '600 ' + (9 * K.V) + 'px ' + MONO(); const w = K.g.measureText(t).width;
   K.g.fillStyle = K.c('ground', .78 / K.sc.alpha); K.g.fillRect(K.W - w - 10 * K.V, 2 * K.V, w + 8 * K.V, 13 * K.V); label(K, t, K.W - 6 * K.V, 12 * K.V, 'right', moving ? 'physics' : 'grid'); }
 function viewer(st, o) {
-  const c = st.cv; c.tabIndex = 0; const legText = () => ['v', 'h', 'sh'].map(sl => SLOT[sl] + ' ' + ROWS[MAP[sl].row].label.replace('PM from the ', 'PM ').replace(' other osc', '')).join('   ');
-  c.setAttribute('aria-label', 'Osc ' + (o + 1) + ' table viewer, ' + LOOKS.find(x => x.id === look).name + '. Drag: ' + legText().replace(/↕/g, 'up and down,').replace(/⇧↔/g, 'shift and sideways,').replace(/↔/g, 'sideways,') + '. Double-click: Bend to 0');
+  const c = st.cv; c.tabIndex = 0; const legText = () => SLOTS.filter(sl => MAP[sl].row).map(sl => SLOT[sl] + ' ' + ROWS[MAP[sl].row].label.replace('PM from the ', 'PM ').replace(' other osc', '')).join('   ');
+  c.setAttribute('aria-label', 'Osc ' + (o + 1) + ' table viewer, ' + LOOKS.find(x => x.id === look).name + '. Drag: ' + legText().replace(/↕/g, 'up and down,').replace(/⇧↔/g, 'shift and sideways,').replace(/⌥↔/g, 'option and sideways,').replace(/↔/g, 'sideways,') + '. Double-click: Bend to 0');
   // the switch: six pips, or the view's name that steps on a click (shift-click steps back)
   const sw = h('div', 'vw-sw'); sw.setAttribute('role', 'radiogroup'); sw.setAttribute('aria-label', 'View');
   if (L.sw === 'pips') { LOOKS.forEach(x => { const b = h('button', 'pip'); b.type = 'button'; b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', String(x.id === look)); b.setAttribute('aria-label', x.name); b.title = x.name; b.addEventListener('click', e => { e.stopPropagation(); setLook(x.id); say('View: ' + x.name); render(); }); sw.append(b); }); sw.append(h('span', 'cur', SHORT[look])); }
@@ -471,40 +480,42 @@ function viewer(st, o) {
   const leg = h('button', 'vw-leg', legText()); leg.type = 'button'; leg.setAttribute('aria-haspopup', 'dialog'); leg.setAttribute('aria-label', 'What the drag moves: ' + legText() + '. Click to map');
   leg.addEventListener('click', e => { e.stopPropagation(); mapBox(st); });
   st.append(sw, leg);
-  // the drag: relative, from the values at the grab; 420 px crosses a row's range (BladeView's), alt a quarter as far; one undo step if anything moved
+  // the drag: relative, from the values at the grab; 420 px crosses a row's range (BladeView's), Command a quarter as far (GUI-68: Option is Bend's
+  // slot here, so the viewer's fine key is not BladeView's); one undo step if anything moved
   c.addEventListener('pointerdown', e => { if (e.button) return; e.preventDefault(); c.focus({ preventScroll: true }); try { c.setPointerCapture(e.pointerId); } catch (_) {}
-    const x0 = e.clientX, y0 = e.clientY, n0 = {}; ['v', 'h', 'sh'].forEach(sl => { const r = ROWS[MAP[sl].row]; n0[sl] = toN(r, r.get(o)); }); const before = JSON.stringify(snapRows(o));
+    const x0 = e.clientX, y0 = e.clientY, n0 = {}; SLOTS.forEach(sl => { const r = ROWS[MAP[sl].row]; if (r) n0[sl] = toN(r, r.get(o)); }); const before = JSON.stringify(snapRows(o));
     st.drag = { moving: [] };
-    c.onpointermove = ev => { if (!ev.buttons) return; const k = (ev.altKey ? .25 : 1) / 420, dy = (y0 - ev.clientY) * k, dx = (ev.clientX - x0) * k, hs = ev.shiftKey ? 'sh' : 'h', rest = ev.shiftKey ? 'h' : 'sh';
+    c.onpointermove = ev => { if (!ev.buttons) return; const k = (ev.metaKey ? .25 : 1) / 420, dy = (y0 - ev.clientY) * k, dx = (ev.clientX - x0) * k, hs = sideSlot(ev);
       /* each ROW moves once, by the sum of its slots' moves: two slots mapped to one row (both Bend, say) add up, where writing slot by slot let a still
          slot's zero overwrite the moving one (found by the real-mouse probe, round 4) */
-      const dd = { v: dy, h: 0, sh: 0 }; dd[hs] = dx; const byRow = {};
-      ['v', 'h', 'sh'].forEach(sl => { const key = MAP[sl].row; if (!byRow[key]) byRow[key] = { sl, d: 0 }; byRow[key].d += MAP[sl].inv ? -dd[sl] : dd[sl]; });
+      const dd = { v: dy, h: 0, sh: 0, oh: 0 }; dd[hs] = dx; const byRow = {};
+      SLOTS.forEach(sl => { const key = MAP[sl].row; if (!key) return; if (!byRow[key]) byRow[key] = { sl, d: 0 }; byRow[key].d += MAP[sl].inv ? -dd[sl] : dd[sl]; });
       Object.keys(byRow).forEach(key => { const { sl, d } = byRow[key], r = ROWS[key]; r.set(o, fromN(r, n0[sl] + d)); });
-      st.drag.moving = [dy ? 'v' : null, dx ? hs : null].filter(Boolean); paint(); };
+      st.drag.moving = [dy ? 'v' : null, dx ? hs : null].filter(sl => sl && MAP[sl].row); paint(); };
     c.onpointerup = () => { c.onpointermove = null; c.onpointerup = null; st.drag = null; if (JSON.stringify(snapRows(o)) !== before) { L.steps++; say('One undo step: ' + legText()); } paint(); }; });
   // GUI-67: a double-click returns Bend to 0, whatever the mapping, in one undo step; at 0 it writes nothing. Its two clicks are grabs with no
   // motion, which write nothing themselves (the drag's control), so the double-click is the only step
   c.addEventListener('dblclick', e => { e.preventDefault(); if (!S.osc[o].wt.bend) { say('Bend is already 0'); return; } S.osc[o].wt.bend = 0; L.steps++; say('Double-click: Bend back to 0, one undo step'); paint(); });
-  c.addEventListener('keydown', e => { const d = { ArrowUp: ['v', 1], ArrowDown: ['v', -1], ArrowRight: [e.shiftKey ? 'sh' : 'h', 1], ArrowLeft: [e.shiftKey ? 'sh' : 'h', -1] }[e.key]; if (!d) return; e.preventDefault();
-    const r = ROWS[MAP[d[0]].row], step = (e.altKey ? .005 : .02) * d[1] * (MAP[d[0]].inv ? -1 : 1); r.set(o, fromN(r, toN(r, r.get(o)) + step)); L.steps++; paint(); });
+  c.addEventListener('keydown', e => { const d = { ArrowUp: ['v', 1], ArrowDown: ['v', -1], ArrowRight: [sideSlot(e), 1], ArrowLeft: [sideSlot(e), -1] }[e.key]; if (!d) return; e.preventDefault();
+    const r = ROWS[MAP[d[0]].row]; if (!r) return; const step = (e.metaKey ? .005 : .02) * d[1] * (MAP[d[0]].inv ? -1 : 1); r.set(o, fromN(r, toN(r, r.get(o)) + step)); L.steps++; paint(); });
 }
 const snapRows = o => Object.keys(ROWS).map(k => ROWS[k].get(o));
-// the mapping: three slots, each any continuous wt row and an invert, and Default. On the chassis, under the glass
+// the mapping: four slots, each any continuous wt row or nothing, an invert, and Default. On the chassis, under the glass
 let mbox = null;
 function closeMap() { if (mbox) { mbox.remove(); mbox = null; } }
 document.addEventListener('pointerdown', e => { if (mbox && !mbox.contains(e.target) && !e.target.closest('.vw-leg')) closeMap(); }, true);
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMap(); });
 function mapBox(st) { closeMap(); const win = st.closest('.win'), r = st.getBoundingClientRect(), wr = win.getBoundingClientRect(); mbox = h('div', 'mapbox'); mbox.setAttribute('role', 'dialog'); mbox.setAttribute('aria-label', 'What the drag moves');
   mbox.append(Object.assign(h('b'), { textContent: 'What the drag moves' }), Object.assign(h('div', 'note'), { textContent: 'One mapping for every viewer, remembered on this machine, never saved with a patch.' }));
-  [['v', 'Up / down'], ['h', 'Sideways'], ['sh', 'Shift + side']].forEach(([sl, name]) => { const row = h('div', 'mr'), sel = h('select'); sel.setAttribute('aria-label', name);
+  [['v', 'Up / down'], ['h', 'Sideways'], ['sh', 'Shift + side'], ['oh', 'Option + side']].forEach(([sl, name]) => { const row = h('div', 'mr'), sel = h('select'); sel.setAttribute('aria-label', name);
+    { const op = h('option', null, 'Nothing'); op.value = ''; if (!MAP[sl].row) op.selected = true; sel.append(op); }
     Object.keys(ROWS).forEach(k => { const op = h('option', null, ROWS[k].label); op.value = k; if (MAP[sl].row === k) op.selected = true; sel.append(op); });
     sel.addEventListener('change', () => { MAP[sl].row = sel.value; saveMap(); render(); mapBox(document.querySelector('#win3 .vw')); });
     const inv = h('label'); const cb = h('input'); cb.type = 'checkbox'; cb.checked = MAP[sl].inv; cb.addEventListener('change', () => { MAP[sl].inv = cb.checked; saveMap(); render(); mapBox(document.querySelector('#win3 .vw')); }); inv.append(cb, document.createTextNode(' invert'));
     row.append(Object.assign(h('span'), { textContent: SLOT[sl] + ' ' + name }), sel, inv); mbox.append(row); });
-  const ft = h('div', 'ft'), def = h('button', 'pill', 'Default'); def.type = 'button'; def.addEventListener('click', () => { MAP = JSON.parse(JSON.stringify(MAP_DEFAULT)); saveMap(); render(); say('Mapping back to its default: up and down Frame, sideways Bend, shift Sync ratio'); });
-  ft.append(def, Object.assign(h('span', 'note'), { textContent: 'Esc closes' })); mbox.append(ft);
-  mbox.style.left = Math.max(4, Math.min(r.right - wr.left - 300, wr.width - 306)) + 'px'; mbox.style.top = Math.min(r.bottom - wr.top + 4, wr.height - 200) + 'px'; win.append(mbox); }
+  const ft = h('div', 'ft'), def = h('button', 'pill', 'Default'); def.type = 'button'; def.addEventListener('click', () => { MAP = JSON.parse(JSON.stringify(MAP_DEFAULT)); saveMap(); render(); say('Mapping back to its default: up and down Frame, sideways nothing, shift Sync ratio, option Bend'); });
+  ft.append(def, Object.assign(h('span', 'note'), { textContent: 'Command: a quarter as far. Esc closes' })); mbox.append(ft);
+  mbox.style.left = Math.max(4, Math.min(r.right - wr.left - 352, wr.width - 356)) + 'px'; mbox.style.top = Math.min(r.bottom - wr.top + 4, wr.height - 232) + 'px'; win.append(mbox); }
 // a corner's tile: chip and picker on the chassis, the corner's colour on its frame, its table on the glass
 function cornerTile(o, k, hgt, opts) {
   opts = opts || {}; const p = h('div', 'pane ctile'); p.style.setProperty('--ccol', 'var(' + CVAR[k] + ')'); p.style.borderColor = 'var(' + CVAR[k] + ')';
@@ -685,35 +696,40 @@ function selfcheck() {
   L.motion = true; paint(); const m0 = pix(lead()).join(); L.tick += 40; paint(); const m1 = pix(lead()).join(); L.motion = false; paint(); const s0 = pix(lead()).join(); L.tick += 40; paint(); const s1 = pix(lead()).join();
   ok(m0 !== m1 && s0 === s1, 'Motion live moves the picture over 40 frames; Still holds it (control)');
   // ROUND 3, THE VIEWER. The warp is the identity at its defaults (control: sync x3 changes the frames)
-  { const w = S.osc[0].wt, kw = JSON.stringify(w); Object.assign(w, { syncIn: 'pitch', sync: 1, window: 0, syncSoft: .5, asym: 0, bend: 0 }); const fr = tableOf(0), id = warped(fr, 0) === fr; Object.assign(w, { sync: 3 }); const ch = !same(warped(fr, 0)[8], fr[8]); Object.assign(w, { syncSoft: 0 }); const hard = warped(fr, 0)[8].slice(); Object.assign(w, { syncSoft: 1 }); const soft = warped(fr, 0)[8], tap = Math.abs(soft[0]) < Math.abs(hard[0]) + 1e-9 && !same(hard, soft); Object.assign(w, JSON.parse(kw)); ok(id && ch && tap, 'the warp is the identity at sync ×1 with window, asym and bend at 0, even at 50 % softness (control: sync ×3 changes the frames, and full softness tapers its restart)'); }
+  { const w = S.osc[0].wt, kw = JSON.stringify(w); Object.assign(w, { syncIn: 'pitch', sync: 1, syncSoft: .5, asym: 0, bend: 0 }); const fr = tableOf(0), id = warped(fr, 0) === fr; Object.assign(w, { sync: 3 }); const ch = !same(warped(fr, 0)[8], fr[8]); Object.assign(w, { syncSoft: 0 }); const hard = warped(fr, 0)[8].slice(); Object.assign(w, { syncSoft: 1 }); const soft = warped(fr, 0)[8], tap = Math.abs(soft[0]) < Math.abs(hard[0]) + 1e-9 && !same(hard, soft); Object.assign(w, JSON.parse(kw)); ok(id && ch && tap, 'the warp is the identity at sync ×1 with asym and bend at 0, even at 50 % softness (control: sync ×3 changes the frames, and full softness tapers its restart)'); }
   // ROUND 5, THE OUTPUT SCOPE (GUI-67): it is the read frame when nothing transforms it, and it answers every transformation, one at a time
-  { const kPm = JSON.stringify(S.pm), kw = JSON.stringify(S.osc[0].wt), kf = S.osc[0].frame, kx = S.x, zero = () => { S.pm = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]; S.osc[0].frame = 4; S.x = .3; Object.assign(S.osc[0].wt, { frameSpread: 0, sync: 1, window: 0, syncSoft: 0, asym: 0, bend: 0 }); };
+  { const kPm = JSON.stringify(S.pm), kw = JSON.stringify(S.osc[0].wt), kf = S.osc[0].frame, kx = S.x, zero = () => { S.pm = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]; S.osc[0].frame = 4; S.x = .3; Object.assign(S.osc[0].wt, { frameSpread: 0, sync: 1, syncSoft: 0, asym: 0, bend: 0 }); };
     zero(); const id = same(outCycle(0), frameAt(tableOf(0), frameNow(0))), base = outCycle(0).slice(), viewBase = warped(tableOf(0), 0)[8].slice();
     const T = { frame: () => { S.osc[0].frame = 9; }, puck: () => { S.x = .9; }, spread: () => { S.osc[0].wt.frameSpread = .6; }, sync: () => { S.osc[0].wt.sync = 2.5; }, asym: () => { S.osc[0].wt.asym = .5; }, bend: () => { S.osc[0].wt.bend = .5; },
       'PM from osc 2': () => { S.pm[0][1] = .3; }, 'PM from osc 3': () => { S.pm[0][2] = .3; }, feedback: () => { S.pm[0][0] = .3; } };
     const moved = Object.keys(T).filter(k => { zero(); T[k](); return !same(outCycle(0), base); });
-    zero(); S.osc[0].wt.sync = 2; const b2 = outCycle(0).slice(); S.osc[0].wt.window = .6; const win = !same(outCycle(0), b2); S.osc[0].wt.window = 0; S.osc[0].wt.syncSoft = .8; const soft = !same(outCycle(0), b2);
+    zero(); S.osc[0].wt.sync = 2; const b2 = outCycle(0).slice(); S.osc[0].wt.syncSoft = .8; const soft = !same(outCycle(0), b2);
     zero(); S.pm[0][1] = .3; const viewSame = same(warped(tableOf(0), 0)[8], viewBase);
-    ok(id && moved.length === 9 && win && soft && viewSame, 'the output scope is the read frame when every depth and warp is 0, and moves with each of ' + moved.length + ' of 9: ' + moved.join(', ') + (win ? ', window' : '') + (soft ? ', softness' : '') + ' (at sync ×2); control: PM leaves the viewer’s table alone, so only the scope shows it');
+    ok(id && moved.length === 9 && soft && viewSame, 'the output scope is the read frame when every depth and warp is 0, and moves with each of ' + moved.length + ' of 9: ' + moved.join(', ') + (soft ? ', softness' : '') + ' (at sync ×2); control: PM leaves the viewer’s table alone, so only the scope shows it');
     S.pm = JSON.parse(kPm); Object.assign(S.osc[0].wt, JSON.parse(kw)); S.osc[0].frame = kf; S.x = kx; render();
     const oc = [...document.querySelectorAll('.outscope canvas')].map(inked); ok(oc.length === 2 && oc.every(v => v > .01), 'the output scope draws under the viewer on both Osc pages: ' + oc.map(v => (v * 100).toFixed(1) + ' %').join(' and ') + ' inked'); }
   // the drag, with real pointer events on Q3's viewer: BladeView's pattern
   const keepMap = JSON.stringify(MAP), keepRows = snapRows(0), keepWt = JSON.stringify(S.osc[0].wt), keepFrame = S.osc[0].frame;
   const vcv = () => $('win3').querySelector('.vw canvas'), PE = (c, t, x, y, o) => c.dispatchEvent(new PointerEvent(t, Object.assign({ bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0, buttons: t === 'pointerup' ? 0 : 1, pointerId: 7 }, o || {})));
   const drag = (dx, dy, o) => { const c = vcv(), r = c.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2; PE(c, 'pointerdown', x, y, o); PE(c, 'pointermove', x + dx, y + dy, o); PE(c, 'pointerup', x + dx, y + dy, o); };
-  const reset = () => { S.osc[0].frame = 4; Object.assign(S.osc[0].wt, { syncIn: 'pitch', sync: 1, window: 0, syncSoft: 0, asym: 0, bend: 0 }); };
+  const reset = () => { S.osc[0].frame = 4; Object.assign(S.osc[0].wt, { syncIn: 'pitch', sync: 1, syncSoft: 0, asym: 0, bend: 0 }); };
   MAP = JSON.parse(JSON.stringify(MAP_DEFAULT)); render(); reset(); let st0 = L.steps;
   drag(84, -84); const f1 = S.osc[0].frame, b1 = S.osc[0].wt.bend, sy1 = S.osc[0].wt.sync, st1 = L.steps;
-  ok(Math.abs(f1 - (4 + .2 * (FR - 1))) < 1e-6 && Math.abs(b1 - .4) < 1e-6 && sy1 === 1 && st1 === st0 + 1, 'drag up and right 84 px: frame 5.0 → ' + (f1 + 1).toFixed(1) + ', bend 0 → +' + b1.toFixed(2) + ', sync untouched at ×1 (control), 1 undo step');
-  reset(); st0 = L.steps; drag(84, 0, { shiftKey: true }); const sy2 = S.osc[0].wt.sync, b2 = S.osc[0].wt.bend, st2 = L.steps; reset(); drag(84, 0, { altKey: true }); const b3 = S.osc[0].wt.bend;
-  ok(Math.abs(sy2 - fromN(ROWS.sync, toN(ROWS.sync, 1) + .2)) < 1e-6 && b2 === 0 && st2 === st0 + 1 && Math.abs(b3 - .1) < 1e-6, 'shift sideways: sync ×1.00 (no sync) → ×' + sy2.toFixed(2) + ' in one undo step, bend untouched; Option moves a quarter as far (bend +' + b3.toFixed(2) + ')');
+  ok(Math.abs(f1 - (4 + .2 * (FR - 1))) < 1e-6 && b1 === 0 && sy1 === 1 && st1 === st0 + 1, 'drag up and right 84 px: frame 5.0 → ' + (f1 + 1).toFixed(1) + ', and sideways alone moves nothing (GUI-68): bend and sync untouched at 0 and ×1, 1 undo step');
+  reset(); st0 = L.steps; drag(84, 0); ok(L.steps === st0 && S.osc[0].wt.bend === 0 && S.osc[0].wt.sync === 1 && S.osc[0].frame === 4, 'control: a plain sideways drag writes nothing and makes no undo step');
+  reset(); st0 = L.steps; drag(84, 0, { altKey: true }); const b4 = S.osc[0].wt.bend, sy4 = S.osc[0].wt.sync, st4 = L.steps;
+  ok(Math.abs(b4 - .4) < 1e-6 && sy4 === 1 && st4 === st0 + 1, 'Option sideways (GUI-68): bend 0 → +' + b4.toFixed(2) + ' in one undo step, sync untouched (control)');
+  reset(); st0 = L.steps; drag(84, 0, { shiftKey: true }); const sy2 = S.osc[0].wt.sync, b2 = S.osc[0].wt.bend, st2 = L.steps; reset(); drag(84, 0, { altKey: true, metaKey: true }); const b3 = S.osc[0].wt.bend;
+  reset(); drag(0, -84, { metaKey: true }); const f3 = S.osc[0].frame;
+  ok(Math.abs(sy2 - fromN(ROWS.sync, toN(ROWS.sync, 1) + .2)) < 1e-6 && b2 === 0 && st2 === st0 + 1 && Math.abs(b3 - .1) < 1e-6 && Math.abs(f3 - (4 + .05 * (FR - 1))) < 1e-6, 'shift sideways: sync ×1.00 (no sync) → ×' + sy2.toFixed(2) + ' in one undo step, bend untouched; Command moves a quarter as far (Option + Command: bend +' + b3.toFixed(2) + '; Command up: frame +' + (f3 - 4).toFixed(2) + ')');
+  reset(); drag(84, 0, { altKey: true, shiftKey: true }); ok(Math.abs(S.osc[0].wt.bend - .4) < 1e-6 && S.osc[0].wt.sync === 1, 'Option and Shift together: Option wins, bend moves and sync stays (a reading GUI-68 records)');
   reset(); st0 = L.steps; drag(0, 0); ok(L.steps === st0 && S.osc[0].frame === 4 && S.osc[0].wt.bend === 0 && S.osc[0].wt.sync === 1, 'control: a grab with no motion writes nothing and makes no undo step');
   MAP.v = { row: 'asym', inv: false }; render(); reset(); drag(0, -84); const a1 = S.osc[0].wt.asym, f2 = S.osc[0].frame; MAP.v.inv = true; render(); reset(); drag(0, -84); const a2 = S.osc[0].wt.asym;
   ok(Math.abs(a1 - .2 * 2) < 1e-6 && f2 === 4 && Math.abs(a2 + .4) < 1e-6, 'mapped to Asym: up moves asym (+' + a1.toFixed(2) + '), not the frame (control); inverted, the same drag moves it the other way (' + a2.toFixed(2) + ')');
-  MAP = { v: { row: 'bend', inv: false }, h: { row: 'bend', inv: false }, sh: { row: 'sync', inv: false } }; render(); reset(); drag(84, -84); const bb = S.osc[0].wt.bend;
+  MAP = { v: { row: 'bend', inv: false }, h: { row: 'bend', inv: false }, sh: { row: 'sync', inv: false }, oh: { row: '', inv: false } }; render(); reset(); drag(84, -84); const bb = S.osc[0].wt.bend;
   ok(Math.abs(bb - .8) < 1e-6, 'two directions mapped to Bend add up: up and right 84 px each move it +0.40, together +' + bb.toFixed(2) + ' (a still direction no longer overwrites a moving one)');
   // GUI-67: a double-click puts Bend back to 0, whatever the mapping (here Bend is mapped nowhere), as one undo step
-  { MAP = { v: { row: 'asym', inv: false }, h: { row: 'window', inv: false }, sh: { row: 'sync', inv: false } }; render(); reset(); S.osc[0].wt.bend = .4; S.osc[0].wt.sync = 2;
+  { MAP = { v: { row: 'asym', inv: false }, h: { row: 'syncSoft', inv: false }, sh: { row: 'sync', inv: false }, oh: { row: '', inv: false } }; render(); reset(); S.osc[0].wt.bend = .4; S.osc[0].wt.sync = 2;
     const c = vcv(), r = c.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2, dbl = () => c.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true, clientX: x, clientY: y, detail: 2 })); st0 = L.steps;
     PE(c, 'pointerdown', x, y); PE(c, 'pointerup', x, y); PE(c, 'pointerdown', x, y); PE(c, 'pointerup', x, y); dbl(); const b0 = S.osc[0].wt.bend, rest = S.osc[0].frame === 4 && S.osc[0].wt.sync === 2 && S.osc[0].wt.asym === 0, d1 = L.steps - st0; dbl(); const d2 = L.steps - st0 - d1;
     ok(b0 === 0 && rest && d1 === 1 && d2 === 0, 'double-click: Bend +0.40 → ' + b0.toFixed(2) + ' with Bend mapped to no direction, the frame, sync and asym untouched (control), one undo step; at 0 a second one writes nothing'); }
