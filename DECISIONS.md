@@ -12610,6 +12610,29 @@ The tile's frame carries the corner's colour, and inside the glass the corner is
 
 **FX device (ADR-254).** None: it has no oscillators. FX screens must not assume this scope exists.
 
+## GUI-68 — RULED by the human: on the wavetable viewer, Bend moves to Option + sideways, plain sideways moves nothing for now, and the fine drag moves to Command (GB37; 2026-11-09)
+
+**The human, 2026-11-09.** "Actually, I think the left/right being bend is more finnicky than sync was. It should probably be opt+drag instead. I'll decide later if left and right alone should be anything". Option was the viewer's fine key (GUI-66, from BladeView, GUI-30). Asked where the fine drag should go, they answered "Fine moves to ⌘".
+
+**What changes (amends GUI-66's directions; the rest of GUI-66 stands).**
+- **Option + sideways moves Bend.**
+- **Plain sideways moves nothing** by default, until the human picks something for it. It is a mapping slot of its own, and the Default leaves it empty.
+- **Shift + sideways** still moves the sync ratio, and up and down still moves the frame.
+- **Fine:** Command with any drag moves a quarter as far. BladeView keeps Option for fine; only the viewer changes.
+- **Keys:** the arrow keys follow. Option with left or right steps Bend, Shift steps the sync ratio, and Command takes the small steps.
+- **The mapping** has four slots (up and down, sideways, Shift + sideways, Option + sideways). Each is any continuous `wt.` row or Nothing, with an invert.
+- **The double-click** still returns Bend to 0 (GUI-67).
+
+**Readings, for the human to correct.**
+- With Option and Shift both held, Option wins: Bend moves and sync stays.
+- Command is the Mac key. On other systems the fine key is unruled.
+
+**State (GUI-27).** The drag writes the same rows through the same writers, each gesture one undo step. A plain sideways drag now writes nothing and makes no undo step. The lab keeps the mapping per machine under a new storage key, so a mapping remembered from round 4 cannot keep Bend on plain sideways. Whether the view and mapping persist per machine is still open, as GUI-66 says.
+
+**Engine impact.** None: the drag writes the oscillator's own `wt.` rows (CONTRACT §2.1); which key reaches which row is the GUI's alone.
+
+**FX device (ADR-254).** None: it has no oscillators.
+
 ## ADR-365 — RULED by the human: the 8 Hz blocker for FM free in pitch FM; item 7.8's table remade; spec round 58 (B621, B623; 2026-11-04)
 
 **Context.** FM free in pitch FM runs an accumulator that never restarts, while each of C.16's readings starts it at 0, so the estimate cannot see its mean and BL-19 cannot hold by the law alone (Q-TA-71: engine-free, 95 of its 144 one-member cases over 0.003, up to 0.046). ADR-363 sent this to a scratch trial of C.16's existing blocker, with clips for the human. Separately, item 7.8's reference R2 places FM free's modulator half a cycle from round 56's start, and 7.8 plays before its settings settle (Q-TA-77).
