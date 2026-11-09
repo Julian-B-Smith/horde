@@ -239,7 +239,7 @@ details summary{cursor:pointer;font:800 11px var(--sans);letter-spacing:.1em;tex
   <header>
     <div>
       <h1>horde · wavetable lab</h1>
-      <p class="sub">The swarm's member waveform, read from four corner tables on the morph pad. Every setting has a value in each corner, as in horde; the two drawn LFOs and their routes transform as the morph moves. Drag the puck, play the keys, and write what should change in the notes at the bottom. The Patch menu (under Play) holds 28 patches, each with a line on what the pad does. Each voice ends in Weir's SVF 12, the real C++ filter compiled to WebAssembly (the Filter card). B650 · B651 · B652 · B659.</p>
+      <p class="sub">The swarm's member waveform, read from four corner tables on the morph pad. Every setting has a value in each corner, as in horde; the two drawn LFOs and their routes transform as the morph moves. Drag the puck, play the keys, and write what should change in the notes at the bottom. The Patch menu (under Play) holds 31 patches, each with a line on what the pad does. Each voice ends in Weir's SVF 12, the real C++ filter compiled to WebAssembly (the Filter card). Sync is always on, with a softness (B661: ratio 1 is no sync; the old switchable sync is on a Lab switch for A/B). B650 · B651 · B652 · B659 · B661.</p>
     </div>
     <div class="hgroup">
       <span class="pill busy" id="status"><span class="dot"></span><span id="statusText">Building factory tables…</span></span>
@@ -276,7 +276,7 @@ details summary{cursor:pointer;font:800 11px var(--sans);letter-spacing:.1em;tex
   <section class="card" aria-label="What the oscillators are reading">
     <h2>What it reads <span class="seg" id="vizOsc"></span><span class="hint" id="vizFrame"></span></h2>
     <div class="outgrid">
-      <div><div class="vh"><span class="hint">Blended cycle (after loudness)</span><span class="num hint" id="cycRead"></span></div><canvas class="viz" id="cyc"></canvas></div>
+      <div><div class="vh"><span class="hint">Blended cycle (after loudness) · and one member's synced read when sync acts</span><span class="num hint" id="cycRead"></span></div><canvas class="viz" id="cyc"></canvas></div>
       <div><div class="vh"><span class="hint">Harmonics · dB · log n</span><span class="num hint" id="specRead"></span></div><canvas class="viz" id="spec"></canvas></div>
       <div><div class="vh"><span class="hint">Mip level each sounding voice reads</span><span class="num hint" id="mipRead"></span></div><canvas class="viz" id="mip"></canvas></div>
       <div><div class="vh"><span class="hint">Member phases (about ψ) · coupling R</span><span class="num hint" id="phRead"></span></div><canvas class="viz" id="phase"></canvas></div>
@@ -587,9 +587,9 @@ function build(){sched=false;const p=want;if(!p||!port)return;
    levels as linear gains, so LVL's dB law runs on a gain). One list, injected into the worklet, so they cannot drift. */
 // B652: the FM/PM section's slots replace B650's single PM slot (osc1.wt.pm is now FM source "Osc 2", type Phase).
 const SLOT_NAMES = ["ON","LVL","FRAME","FSPR","SYNCIN","SYNC","SYNCHZ","WIN","ASYM","BEND","UNI","DET","CPL","WID","TR","SEED",
-  "FMSRC","FMTYPE","FMSH","FMRM","FMR","FMHZ","FMI","FMMIX","FMDEC"];
+  "FMSRC","FMTYPE","FMSH","FMRM","FMR","FMHZ","FMI","FMMIX","FMDEC","SOFT"];   // B661: SOFT, the sync softness (a lab row)
 const SLOT = Object.fromEntries(SLOT_NAMES.map((n, i) => [n, i])), NPS = SLOT_NAMES.length, NR = 6;
-const SLOT_LAW = {LVL: [3, -60, 6], FRAME: [0, 0, 1], FSPR: [0, -1, 1], SYNC: [1, 1, 16], SYNCHZ: [1, 20, 12000], WIN: [0, 0, 1],
+const SLOT_LAW = {LVL: [3, -60, 6], FRAME: [0, 0, 1], FSPR: [0, -1, 1], SYNC: [1, 1, 16], SYNCHZ: [1, 20, 12000], WIN: [0, 0, 1], SOFT: [0, 0, 1],
   ASYM: [0, -1, 1], BEND: [0, -1, 1], DET: [0, 0, 1], CPL: [0, -1, 1], WID: [0, 0, 1], TR: [4, -1, 1],
   FMR: [1, 0.0625, 32], FMHZ: [1, 0.1, 20000], FMI: [2, 0, 10], FMMIX: [0, 0, 1]};
 // the FM menu's shapes (UI order) and SCALPEL's shape codes for them (RazorCore.wave/mod: 3 is square, 4 rev saw, 5 smooth, 7 S&H)
@@ -597,6 +597,8 @@ const FM_SHAPES = ["Sine", "Tri", "Saw", "Rev saw", "Square", "Smooth noise", "S
 const SELF_PM_MAX = 1.6;   // Self PM's index clamp, rad (see the FM section's note)
 const SCN = 520, STATS_LEN = 16 + 8*48 + 2*SCN;   // per-oscillator scope block in the stats buffer: 256 mod, 256 cents, 8 fields
 const SLOT_LAW_FLAT = SLOT_NAMES.flatMap(n => SLOT_LAW[n] || [-1, 0, 1]);
+// the worklet's global (per-instance) slots, in the order pushParams sends them; B661 adds SLAW and SFADE (see the worklet)
+const GLOB_NAMES = ["A1","D1","S1","R1","A2","D2","S2","R2","OUT","POLY","INTERP","XF","OSX","SLAW","SFADE"];
 // B659: the per-voice filter's slots, sent beside the two oscillators' (one block, not per oscillator). A route to a filter
 // row uses slot 2·NPS + its index. Mode is Weir's own index (0 is Weir's bit-exact bypass, the lab's Off).
 const F_NAMES = ["FMODE", "FCUT", "FRES", "FRING", "FKT", "FENV", "FVEL"];
@@ -654,7 +656,9 @@ function toV(j,x){const c=DLAW[3*j],lo=DLAW[3*j+1],hi=DLAW[3*j+2];if(c===1)retur
   if(c===3)return x<=0?0:0.02+0.98*(20*Math.log10(x)-lo)/(hi-lo);return (x-lo)/(hi-lo);}
 function fromV(j,v){const c=DLAW[3*j],lo=DLAW[3*j+1],hi=DLAW[3*j+2];if(c===1)return lo*Math.pow(hi/lo,v);if(c===2)return lo+(hi-lo)*v*v;
   if(c===3)return v<0.01?0:Math.pow(10,(lo+(hi-lo)*Math.max(0,(v-0.02)/0.98))/20);return lo+(hi-lo)*v;}
-const A1=0,D1=1,S1=2,R1=3,A2=4,D2=5,S2=6,R2=7,OUT=8,POLY=9,INTERP=10,XF=11,OSX=12,NG=13;
+// B661: SLAW the sync edge law (0 Tukey softness, 1 the WT-33 window crossfade), SFADE the softness fade-in constant K
+// (depth = clamp((r − 1)/K, 0, 1), so ratio 1 stays neutral; K = 0 means no fade, depth 1: the switchable (old) model)
+const ${GLOB_NAMES.map((n, i) => n + "=" + i).join(",")},NG=${GLOB_NAMES.length};
 // balanced seats: members alternate from the extremes inward, so pitch order is not pan order
 const SEAT=[];for(let U=0;U<=MAXM;U++){const q=[];let lo=0,hi=U-1;while(lo<=hi){q.push(lo++);if(lo<=hi)q.push(hi--);}const s=new Float32Array(MAXM);for(let i=0;i<U;i++){const k=q[i];s[i]=U>1?-1+2*k/(U-1):0;}SEAT.push(s);}
 function clamp01(x){return x<0?0:x>1?1:x;}
@@ -751,6 +755,7 @@ class WT extends AudioWorkletProcessor{
    buf[0]=ms;let a=0;for(let v=0;v<MAXV;v++)if(this.vAct[v])a++;buf[1]=a;buf[2]=this.clip;buf[3]=this.outPk;this.outPk=0;
    buf[4]=this.cur[0]?1:0;buf[5]=this.cur[1]?1:0;buf[6]=sampleRate;
    let nt=0;for(let v=0;v<MAXV;v++)if(this.vTl[v])nt++;buf[7]=this.wx?1:0;buf[8]=nt;   // B659: Weir loaded, filter tails ringing on freed voices
+   buf[9]=(this.cur[0]||this.pend[0])?1:0;buf[10]=(this.cur[1]||this.pend[1])?1:0;   // B661: a set is held or waiting (the offline self-checks wait on it)
    for(let v=0;v<MAXV;v++){const o=16+v*48;this.vst[v*48]=this.vAct[v];this.vst[v*48+1]=this.vNote[v];this.vst[v*48+2]=this.vEnv[v];this.vst[v*48+31]=this.vAge[v];this.vst[v*48+32]=this.vGate[v];
      for(let k=0;k<48;k++)buf[o+k]=this.vst[v*48+k];}
    // B652: the FM scope of the newest held voice's first member, per oscillator: a ring of the modulator and the pitch deviation in
@@ -776,7 +781,10 @@ class WT extends AudioWorkletProcessor{
   if(on<1e-4&&!(o===1&&this.pmNeed))return false;
   const old=this.xr[o]?this.old[o]:null,gx=this.gx[o],OS=this.os,sh=OS===2?1:0,BS2=2*BS,fsO=sampleRate*OS;
   const U=Math.max(1,Math.min(MAXM,P[b+UNI]|0)),fo=f0*Math.pow(2,P[b+TR]/12);
-  const syncIn=P[b+SYNCIN]|0,win=syncIn?P[b+WIN]:0;
+  // B661: in the always-on model syncIn is 1 (× pitch) or 2 (Hz) and ratio 1 is "no sync": the restart lands on the table's own
+  // wrap, so p = 1·θ is θ exactly and there is no step. 0 is the switchable (old) model's off, the old path, kept for A/B.
+  const syncIn=P[b+SYNCIN]|0,sLaw=this.GS[SLAW]|0,fK=this.GS[SFADE],winA=syncIn?clamp01(P[b+WIN]):0,soft=syncIn?clamp01(P[b+SOFT]):0;
+  const sT=0.5*soft,sI=soft>0?1/soft:0;   // the Tukey taper's width at each end (s × half the cycle) and 1/s for its cosine
   let aa=P[b+ASYM],bb=P[b+BEND];const hyp=Math.hypot(aa,bb);if(hyp>1){aa/=hyp;bb/=hyp;}const warpOn=hyp>1e-6,slope=1+0.9*Math.min(1,hyp);
   // ---- FM / PM (B652). src 0 the internal modulator, 1 osc 2 (osc 1 only: WT-30's PM, which absorbed osc1.wt.pm), 2 Self.
   // type 0 Phase: the read phase moves by I/2π·m (I in rad). type 1 Pitch, SCALPEL's law (RazorCore.fmStep): the read's rate is
@@ -792,7 +800,9 @@ class WT extends AudioWorkletProcessor{
   const base=(o*MAXV+v)*MAXM,mi=this.MI,seat=SEAT[U],cb=set.buf,ob=old?old.buf:null;
   for(let i=0;i<U;i++){const s=U>1?-1+2*i/(U-1):0,fi=fo*Math.pow(2,s*det*100/1200),k=i*28;
     const pan=wid*seat[i],ang=(pan+1)*Math.PI/4;
-    const r=syncIn===1?P[b+SYNC]:syncIn===2?Math.max(1,P[b+SYNCHZ]/fi):1;
+    const r=syncIn===1?Math.max(1,P[b+SYNC]):syncIn===2?Math.max(1,P[b+SYNCHZ]/fi):1;
+    // B661: the taper's depth fades in as the ratio leaves 1, so softness at ratio 1 notches nothing (K = 0: no fade, depth 1)
+    const dep=syncIn===0?0:fK>0?clamp01((r-1)/fK):1;mi[k+26]=dep;
     const rr0=fi*r*slope,pi=clamp01(pV+fsp*s);
     // WT-36: the level comes from the interval's maximum read rate, so FM's raised instantaneous rate picks a darker level.
     // Pitch: the rate times (1 + 0.1·I)^max|m|. Phase: plus I/2π · max|dm/dt| (the modulator's slope times its rate).
@@ -803,9 +813,12 @@ class WT extends AudioWorkletProcessor{
     mi[k+20]=fi;mi[k+21]=Math.cos(ang)*lg;mi[k+22]=Math.sin(ang)*lg;mi[k+23]=r;
     mi[k+24]=(rmode===0?mR*(per?fi:fo):mHz)/fsO;mi[k+25]=per?i*97:0;   // the modulator's increment per (sub)sample; SCALPEL's per-member noise seed i·97
     if(i===0){const vs=v*48;this.vst[vs+33+o]=this.hOf(set.lay,rr0,c);if(v===this.scV){this.scF[o]=fmOn&&src===0?fmHz:0;this.scH[o]=rr/rr0;}}
-    // the restart's value step, for the polyBLEP (ED-1's job in the engine; the corner correction is not in the lab)
-    if(syncIn&&win<1){let pe=r-Math.floor(r);if(warpOn){pe+=KW*(bb*SIN(pe)+aa*(1-COS(pe)));pe-=Math.floor(pe);}
-      const vEnd=RD(cb,mi[k],mi[k+1],mi[k+7],mi[k+2],pe),vSt=RD(cb,mi[k],mi[k+1],mi[k+7],mi[k+2],0);this.edge[i]=(1-win)*(vSt-vEnd);}else this.edge[i]=0;}
+    // the restart's value step, for the polyBLEP (ED-1's job in the engine; the corner correction is not in the lab). B661: applied
+    // only to a restart with a jump. pe = 0 (any integer ratio, 1 included) restarts on the table's own wrap: no step, no correction.
+    // gE is the edge law's gain at the restart (θ = 0 and θ → 1): what is left of the step after the window or the taper.
+    const gE=sLaw===1?1-winA*dep:(soft>0?1-dep:1);let pe=r-Math.floor(r);
+    if(syncIn&&gE>0&&pe!==0){if(warpOn){pe+=KW*(bb*SIN(pe)+aa*(1-COS(pe)));pe-=Math.floor(pe);}
+      const vEnd=RD(cb,mi[k],mi[k+1],mi[k+7],mi[k+2],pe),vSt=RD(cb,mi[k],mi[k+1],mi[k+7],mi[k+2],0);this.edge[i]=gE*(vSt-vEnd);}else this.edge[i]=0;}
   const vs=v*48,so=o===0?3:5;this.vst[vs+so]=mi[8];this.vst[vs+so+1]=mi[6]>0?mi[6]:0;this.vst[vs+8+o]=pV;this.vst[vs+19+o*10]=U;
   const K=P[b+CPL],aL=this.aL,aR=this.aR,y2=this.y2,env=this.envBuf,ph=this.ph,prvA=this.prv;let R=0;
   const mX=this.mX,mAcc=this.mAcc,mIx=this.mIx,mA=this.mA,mB=this.mB,fb1=this.fb1,fb2=this.fb2;let ypk=0;
@@ -815,7 +828,7 @@ class WT extends AudioWorkletProcessor{
    if(K!==0&&U>1){let zr=0,zi=0;for(let i=0;i<U;i++){const th=ph[base+i];zr+=COS(th);zi+=SIN(th);}zr/=U;zi/=U;R=Math.hypot(zr,zi);psi=Math.atan2(zi,zr)/TAU;}
    for(let i=0;i<U;i++){const k=i*28,mb=base+i;let th=ph[mb];const fi=mi[k+20];
     let dfi=0;if(K!==0&&U>1){let d=psi-th;d-=Math.floor(d);dfi=K*0.06*fo*R*SIN(d);}   // Kuramoto: dθ/dt = f + K·R·sin 2π(ψ − θ)
-    const inc=(fi+dfi)/fsO,r=mi[k+23],edge=this.edge[i],gL=mi[k+21],gR=mi[k+22],aInc=inc*(syncIn?r:1),mInc=mi[k+24],sd=mi[k+25];
+    const inc=(fi+dfi)/fsO,r=mi[k+23],edge=this.edge[i],gL=mi[k+21],gR=mi[k+22],aInc=inc*(syncIn?r:1),mInc=mi[k+24],sd=mi[k+25],dep=mi[k+26];
     let prv=prvA[mb],mx=mX[mb],acc=mAcc[mb],f1=fb1[mb],f2=fb2[mb];const ym=(i%U2)*BS2,sc0=scope&&i===0;
     for(let s=sb*OS,se=(sb+SUB)*OS;s<se;s++){const sx=s>>sh;
      th+=inc;let wr=false;if(th>=1){th-=1;wr=true;}
@@ -837,8 +850,12 @@ class WT extends AudioWorkletProcessor{
        this.scPrev[o]=off;if(ct<this.scLo[o])this.scLo[o]=ct;if(ct>this.scHi[o])this.scHi[o]=ct;
        if(++this.scC[o]>=dec){this.scC[o]=0;const w=this.scW[o];this.sc[sco+w]=mv;this.sc[sco+256+w]=ct;this.scW[o]=(w+1)&255;}}}
      else y=this.rdF(RD,cb,ob,mi,k,p,g);
-     if(syncIn){if(win>0)y*=(1-win)+win*0.5*(1-COS(th));                                 // window (WT-33)
-       if(wr&&edge!==0){const d=th/inc;prv+=edge*d*d*0.5;y-=edge*(1-d)*(1-d)*0.5;}}
+     // B661: the restart's edge law at its depth. Window crossfade (WT-33): (1 − a) + a·½(1 − cos 2πθ), written 1 − a·½(1 + cos 2πθ).
+     // Tukey softness: 1 in the middle, a raised-cosine taper ½(1 − cos πθ/τ) over τ = s/2 at each end (s = 1: Hann), value- and
+     // slope-continuous at its joins; scaled by the depth, so at depth 0 (ratio 1) nothing is multiplied and the read is untouched.
+     if(dep>0){if(sLaw===1){if(winA>0)y*=1-winA*dep*0.5*(1+COS(th));}
+       else if(soft>0){if(th<sT)y*=1-dep*0.5*(1+COS(th*sI));else if(th>1-sT)y*=1-dep*0.5*(1+COS((1-th)*sI));}}
+     if(wr&&edge!==0){const d=th/inc;prv+=edge*d*d*0.5;y-=edge*(1-d)*(1-d)*0.5;}           // the restart's polyBLEP (edge is 0 without a jump)
      const out=prv;prv=y;aL[s]+=out*gL;aR[s]+=out*gR;if(o===1){y2[i*BS2+s]=out;const a=out<0?-out:out;if(a>ypk)ypk=a;}}
     ph[mb]=th;prvA[mb]=prv;mX[mb]=mx;mAcc[mb]=acc;fb1[mb]=f1;fb2[mb]=f2;}}
   if(o===1)this.y2pk=ypk;
@@ -883,8 +900,10 @@ class WT extends AudioWorkletProcessor{
   const t0=Date.now();const out=outputs[0],oL=out[0],oR=out[1]||out[0],n=oL.length;oL.fill(0);if(oR!==oL)oR.fill(0);
   if(!this.init){return true;}
   const al=1-Math.exp(-n/(0.012*sampleRate));
-  for(let i=0;i<2*NP;i++){const j=i%NP;if(STEP.indexOf(j)>=0||j===UNI)this.S[i]=this.T[i];else this.S[i]+=(this.T[i]-this.S[i])*al;}
-  for(let i=0;i<NG;i++){if(i===POLY||i===INTERP||i===XF||i===OSX)this.GS[i]=this.GT[i];else this.GS[i]+=(this.GT[i]-this.GS[i])*al;}
+  // B661: a smoothed value within 1e-12 (relative) of its target lands on it, so a ratio gliding back to 1 becomes exactly 1 (no sync)
+  // instead of sitting one ulp away forever (the one-pole step falls under half an ulp there)
+  for(let i=0;i<2*NP;i++){const j=i%NP;if(STEP.indexOf(j)>=0||j===UNI)this.S[i]=this.T[i];else{const t=this.T[i],d=t-this.S[i];this.S[i]=Math.abs(d)<=1e-12*Math.max(1,Math.abs(t))?t:this.S[i]+d*al;}}
+  for(let i=0;i<NG;i++){if(i===POLY||i===INTERP||i===XF||i===OSX||i===SLAW||i===SFADE)this.GS[i]=this.GT[i];else this.GS[i]+=(this.GT[i]-this.GS[i])*al;}
   this.FS[FMODE]=this.FT[FMODE];for(let i=1;i<NFP;i++)this.FS[i]+=(this.FT[i]-this.FS[i])*al;   // B659: the mode steps (Structural); the rest glide like every slot
   // B652: the FM oversampling switch; a change clears the halfband's history and the 2× sum
   const OSn=this.GS[OSX]>=2?2:1;if(OSn!==this.os){this.os=OSn;this.hL.fill(0);this.hR.fill(0);this.o2L.fill(0);this.o2R.fill(0);for(let v=0;v<MAXV;v++)this.fReset(v);}   // B659: the other filter bank starts clear
@@ -1080,10 +1099,13 @@ const WT_ROWS = {
   law:         {off: 0x030, key: "wt.law", cls: "S", label: "Blend", law: "step", options: ["Linear", "Spectral log"], range: "Linear, Spectral log", def: 0, doc: "How the corner tables combine (WT-11, WT-12). Structural: one corner's law, by its pick. Changes by the rebuild crossfade (WT-15)."},
   frame:       {off: 0x031, key: "wt.frame", cls: "M", label: "Frame", law: "lin", lo: 0, hi: 1, def: 0, fmt: v => (1 + 15*v).toFixed(1), range: "0..1 (shown 1–16)", doc: "Where in each table the members read (WT-22). Per voice under both laws here (B651: Spectral log pre-blends all 16 frames), except in the old shared-frame mode."},
   frameSpread: {off: 0x032, key: "wt.frameSpread", cls: "M", label: "Frame spread", law: "lin", lo: -1, hi: 1, def: 0, fmt: fmtSgn, range: "−1..1", doc: "Fans the frame across the members (WT-22). Needs unison > 1."},
-  syncIn:      {off: 0x033, key: "wt.syncIn", cls: "S", label: "Sync", law: "step", options: ["off", "× pitch", "Hz"], range: "off, × pitch, Hz", def: 0, doc: "Turns sync on, following the note or fixed (WT-32). Structural: flips at its quantum boundary (PA-5's 5 ms crossfade in the engine)."},
-  sync:        {off: 0x034, key: "wt.sync", cls: "M", label: "Sync ratio", law: "log", lo: 1, hi: 16, def: 2, fmt: v => "×" + v.toFixed(2), range: "1..16", doc: "Table cycles per member cycle (WT-32). Live at × pitch."},
-  syncHz:      {off: 0x035, key: "wt.syncHz", cls: "M", label: "Sync Hz", law: "log", lo: 20, hi: 12000, def: 880, fmt: fmtHz, range: "20..12 000 Hz", doc: "The fixed sync frequency: a formant (WT-32, WT-33). Live at Hz."},
-  window:      {off: 0x036, key: "wt.window", cls: "M", label: "Window", law: "lin", lo: 0, hi: 1, def: 0, fmt: fmtPct, range: "0..1", doc: "Hard sync (0) to windowed bursts (1) (WT-33). Live while sync is on."},
+  // B661: sync is always on. "off" is gone from the mode: ratio 1 (× pitch), or a sync Hz below the note's pitch, is no sync, since the
+  // restart then lands on the table's own wrap. The lab's "Sync model" switch brings the old switchable row back for A/B.
+  syncIn:      {off: 0x033, key: "wt.syncIn", cls: "S", label: "Sync", law: "step", options: ["× pitch", "Hz"], range: "× pitch, Hz (B661: always on; ratio 1 is no sync)", def: 0, doc: "Sync follows the note (× pitch) or a fixed frequency (Hz) (WT-32). B661: always on, no off: × pitch at ratio 1, or Hz below the note's pitch, is no sync, bit for bit, so a morph from ratio 1 to ratio 3 sweeps instead of flipping. Structural (× pitch ↔ Hz still flips at its quantum boundary; PA-5's 5 ms crossfade in the engine)."},
+  sync:        {off: 0x034, key: "wt.sync", cls: "M", label: "Sync ratio", law: "log", lo: 1, hi: 16, def: 1, fmt: v => "×" + v.toFixed(2), range: "1..16 (1 = no sync)", doc: "Table cycles per member cycle (WT-32). Live at × pitch. B661: the default is 1, which is no sync; an integer ratio restarts on the table's own wrap (no step), any other ratio cuts it."},
+  syncHz:      {off: 0x035, key: "wt.syncHz", cls: "M", label: "Sync Hz", law: "log", lo: 20, hi: 12000, def: 880, fmt: fmtHz, range: "20..12 000 Hz", doc: "The fixed sync frequency: a formant (WT-32, WT-33). Live at Hz. The ratio is max(1, Hz / the member's pitch), so notes above it are unsynced."},
+  window:      {off: 0x036, key: "wt.window", cls: "M", label: "Window", law: "lin", lo: 0, hi: 1, def: 0, fmt: fmtPct, range: "0..1", doc: "Hard sync (0) to windowed bursts (1) (WT-33): the read times (1 − a) + a·½(1 − cos 2πθ). B661: live only under the lab's \"window crossfade\" edge law; the default law is Sync softness."},
+  syncSoft:    {key: "wt.syncSoft", cls: "M", label: "Sync softness", law: "lin", lo: 0, hi: 1, def: 0, fmt: fmtPct, range: "0..1 (a lab row, B661; no CONTRACT offset yet)", doc: "B661, Serum-style soft sync: 0 is a hard cut at the restart; 1 tapers the edges fully. The read is multiplied by a Tukey window over the synced cycle: 1 in the middle, a raised-cosine taper of width s × half the cycle at each end (1 = a full Hann window, the old window at 100 %), value- and slope-continuous at its joins. Its depth fades in as the ratio leaves 1 (clamp((r − 1)/0.25, 0, 1), a lab switch), so at ratio 1 it does nothing."},
   asym:        {off: 0x037, key: "wt.asym", cls: "M", label: "Asym", law: "lin", lo: -1, hi: 1, def: 0, fmt: fmtSgn, range: "−1..1", doc: "Moves the half-cycle point to 0.307 / 0.693 at ±1 (WT-34)."},
   bend:        {off: 0x038, key: "wt.bend", cls: "M", label: "Bend", law: "lin", lo: -1, hi: 1, def: 0, fmt: fmtSgn, range: "−1..1", doc: "Bends time toward the cycle's start or away (WT-34). With asym, one smooth warp."},
 };
@@ -1113,7 +1135,7 @@ const OSC_ROWS = {
 const PDEF = new Map();   // key → definition; the order is the resolver's and the export's
 function reg(key, d){ PDEF.set(key, Object.assign({key, fullKey: key}, d)); }
 for (let o = 0; o < 2; o++){ const N = o + 1, blk = N << 12;
-  for (const [nm, r] of Object.entries(WT_ROWS)){ reg(`osc${N}.${r.key}`, Object.assign({}, r, {id: blk | r.off, osc: o, nm})); }
+  for (const [nm, r] of Object.entries(WT_ROWS)){ reg(`osc${N}.${r.key}`, Object.assign({}, r, {id: r.off != null ? blk | r.off : undefined, osc: o, nm})); }   // B661: a lab row has no offset
   for (const [nm, r] of Object.entries(OSC_ROWS)) reg(`osc${N}.${r.key}`, Object.assign({}, r, {osc: o, nm}));
   for (const [nm, r] of Object.entries(FM_ROWS)) reg(`osc${N}.${r.key}`, Object.assign({}, r, {osc: o, nm: "fm." + nm}));
   reg(`mix.osc${N}`, {cls: "M", label: `Osc ${N} level`, law: "db", lo: -60, hi: 6, def: 0, fmt: fmtDb, range: "−∞, −60..+6 dB", doc: "SPEC-ENGINE 5.2 (the mixer). At −∞ osc 2 is silent but still modulates osc 1 (WT-30).", osc: o, nm: "level"});
@@ -1148,7 +1170,7 @@ const LFO_OPEN = [
 // route sources: 0 none, 1 LFO 1, 2 LFO 2, 3 ENV 2 (per voice)
 const SRC_NAMES = ["—", "LFO 1", "LFO 2", "ENV 2"];
 const DESTS = [];   // {code, label, key (the row whose value it moves), slot (worklet index, −1 for the pad)}
-[["wt.frame", "FRAME", "Frame"], ["wt.frameSpread", "FSPR", "Frame spread"], ["wt.sync", "SYNC", "Sync ratio"], ["wt.syncHz", "SYNCHZ", "Sync Hz"], ["wt.window", "WIN", "Window"],
+[["wt.frame", "FRAME", "Frame"], ["wt.frameSpread", "FSPR", "Frame spread"], ["wt.sync", "SYNC", "Sync ratio"], ["wt.syncHz", "SYNCHZ", "Sync Hz"], ["wt.syncSoft", "SOFT", "Sync softness"], ["wt.window", "WIN", "Window"],
  ["wt.asym", "ASYM", "Asym"], ["wt.bend", "BEND", "Bend"], ["fm.index", "FMI", "FM index"], ["fm.ratio", "FMR", "FM ratio"], ["fm.hz", "FMHZ", "FM Hz"], ["fm.mix", "FMMIX", "FM mix"],
  ["detune", "DET", "Detune"], ["coupling", "CPL", "Coupling"], ["width", "WID", "Width"], ["fine", "TR", "Pitch (±2 st)"], ["level", "LVL", "Level"]]
   .forEach(([k, sl, lab]) => [0, 1].forEach(o => { const N = o + 1;
@@ -1177,11 +1199,11 @@ const ALL = t => [t, t, t, t];
 // smooth-noise and S&H options in the FM shape menu
 const SMOOTH = 5, SH = 6;
 const BANK = [
- {id: "opening", group: "Start", name: "Opening · horde morph", desc: "LFO 1 and 2 move the morph by themselves. A: a wide saw swarm · B: a hard-sync lead, windowed, 3 locked members · C: a Spectral-log vowel pad with smooth-noise jitter, 9 members · D: the FM table phase-modulated by a silent osc 2, locked. Unison, sync and the law flip as it crosses.",
+ {id: "opening", group: "Start", name: "Opening · horde morph", desc: "LFO 1 and 2 move the morph by themselves. A: a wide saw swarm · B: a sync lead at ×3.2, soft-edged, 3 locked members · C: a Spectral-log vowel pad with smooth-noise jitter, 9 members · D: the FM table phase-modulated by a silent osc 2, locked. Unison and the law flip as it crosses; the sync ratio sweeps from 1 (no sync) to 3.2 (B661: sync is always on).",
   build(set, st, R){
    st.tables = [[TB.SS, TB.SY, TB.VO, TB.FM], [TB.SS, TB.FO, TB.VO, TB.OR]]; st.puck = [.5, .5];
    set("osc1.wt.law", [0, 0, 1, 0]); set("osc1.wt.frame", [1, .45, .3, .35]); set("osc1.wt.frameSpread", [0, .2, .5, -.3]);
-   set("osc1.wt.syncIn", [0, 1, 0, 0]); set("osc1.wt.sync", [2, 3.2, 2, 2]); set("osc1.wt.window", [0, .35, 0, 0]); set("osc1.wt.asym", [0, .2, 0, -.3]); set("osc1.wt.bend", [0, 0, .3, .2]);
+   set("osc1.wt.syncIn", 0); set("osc1.wt.sync", [1, 3.2, 1, 1]); set("osc1.wt.window", [0, .35, 0, 0]); set("osc1.wt.syncSoft", [0, .35, 0, 0]); set("osc1.wt.asym", [0, .2, 0, -.3]); set("osc1.wt.bend", [0, 0, .3, .2]);   // B661: the corners that had sync off hold ratio 1
    set("osc1.unison", [7, 3, 9, 5]); set("osc1.detune", [.22, .08, .3, .12]); set("osc1.coupling", [0, .6, -.2, .9]); set("osc1.width", [.9, .5, 1, .7]); set("mix.osc1", [-1, -2, 0, -1]);
    set("osc1.fm.source", [0, 0, 0, 1]); set("osc1.fm.type", [1, 1, 1, 0]); set("osc1.fm.shape", SMOOTH); set("osc1.fm.ratio", 3); set("osc1.fm.index", [.12, 0, .2, 2.2]); set("osc1.fm.mix", [1, 1, .7, 1]);
    set("osc2.on", [0, 1, 1, 1]); set("mix.osc2", [-9, -7, -10, -Infinity]); set("osc2.octave", [0, -1, 0, 0]); set("osc2.wt.frame", [.6, .35, .5, .4]); set("osc2.unison", [3, 1, 5, 1]);
@@ -1268,9 +1290,9 @@ const BANK = [
    set("env1.attack", [.6, .8, .4, 1.5]); set("env1.decay", 1); set("env1.sustain", .9); set("env1.release", [1.2, 1.5, 1, 2]); },
   fdesc: "B659: the PWM pad through a softly resonant low-pass that LFO 1 also breathes (route 3, ±0.5–1 octave, per sample) · B osc 2 an octave down, darker · C Spectral log, brighter · D faster and wider, the brightest. The A/B button plays the old version (no filter).",
   filt(set, st, R){ set("filter.mode", 1); set("filter.cutoff", [1300, 1000, 1700, 2100]); set("filter.resonance", [.25, .2, .3, .35]); set("filter.keytrack", .4); R(3, 1, "filter.cutoff", [.06, .05, .08, .1]); }},
- {id: "sync-lead", group: "Classic sounds", name: "Sync lead", desc: "Hard sync on a saw; ENV 2 sweeps the ratio down into each note · B a higher ratio, 3 members · C softer, windowed · D the highest ratio over an octave-down osc 2.",
+ {id: "sync-lead", group: "Classic sounds", name: "Sync lead", desc: "Hard sync on a saw; ENV 2 sweeps the ratio down into each note · B a higher ratio, 3 members · C softer (softness 30 %) · D the highest ratio over an octave-down osc 2.",
   build(set, st, R){ st.tables = [ALL(TB.SS), ALL(TB.SS)]; st.puck = [0, 0];
-   set("osc1.wt.frame", 1); set("osc1.wt.syncIn", 1); set("osc1.wt.sync", [2.2, 3.5, 1.6, 5]); set("osc1.wt.window", [0, 0, .3, 0]);
+   set("osc1.wt.frame", 1); set("osc1.wt.syncIn", 0); set("osc1.wt.sync", [2.2, 3.5, 1.6, 5]); set("osc1.wt.window", [0, 0, .3, 0]); set("osc1.wt.syncSoft", [0, 0, .3, 0]);
    R(1, 3, "osc1.wt.sync", [.3, .35, .25, .2]); set("env2.attack", .001); set("env2.decay", [.4, .5, .3, .6]); set("env2.sustain", [.15, .2, .1, .2]); set("env2.release", .2);
    set("osc1.unison", [1, 3, 1, 2]); set("osc1.detune", .06); set("osc1.coupling", .5);
    set("env1.attack", .004); set("env1.decay", .5); set("env1.sustain", .8); set("env1.release", .2);
@@ -1319,10 +1341,10 @@ const BANK = [
    set("osc2.on", 1); set("osc2.wt.frame", 1); set("osc2.unison", 9); set("osc2.detune", [.3, .4, .5, .2]); set("osc2.octave", [-1, -1, -1, 1]); set("mix.osc2", [-9, -9, -9, -13]);
    set("env1.attack", .01); set("env1.decay", .6); set("env1.sustain", .85); set("env1.release", .5); }},
 
- {id: "formants", group: "Motion and transforms", name: "Fixed formants", desc: "Sync at fixed Hz with a window: formants that stay put as you play (A 700 Hz, B 1.1 kHz, C 400 Hz, D 2.4 kHz) · LFO 1 wanders them, LFO 2 moves the morph up and down by itself · osc 2 adds a second formant at B and C.",
+ {id: "formants", group: "Motion and transforms", name: "Fixed formants", desc: "Sync at fixed Hz with soft edges (softness, or the window under its law): formants that stay put as you play (A 700 Hz, B 1.1 kHz, C 400 Hz, D 2.4 kHz) · LFO 1 wanders them, LFO 2 moves the morph up and down by itself · osc 2 adds a second formant at B and C.",
   build(set, st, R){ st.tables = [ALL(TB.SS), ALL(TB.VO)]; st.puck = [.4, .5];
-   set("osc1.wt.frame", [1, 1, .6, 1]); set("osc1.wt.syncIn", 2); set("osc1.wt.syncHz", [700, 1100, 400, 2400]); set("osc1.wt.window", [.7, .8, .9, .6]); set("osc1.unison", [3, 5, 3, 5]); set("osc1.detune", .08);
-   set("osc2.on", [0, 1, 1, 0]); set("osc2.wt.syncIn", 2); set("osc2.wt.syncHz", [800, 2500, 1200, 900]); set("osc2.wt.window", .8); set("osc2.unison", 3); set("mix.osc2", -6);
+   set("osc1.wt.frame", [1, 1, .6, 1]); set("osc1.wt.syncIn", 1); set("osc1.wt.syncHz", [700, 1100, 400, 2400]); set("osc1.wt.window", [.7, .8, .9, .6]); set("osc1.wt.syncSoft", [.7, .8, .9, .6]); set("osc1.unison", [3, 5, 3, 5]); set("osc1.detune", .08);
+   set("osc2.on", [0, 1, 1, 0]); set("osc2.wt.syncIn", 1); set("osc2.wt.syncHz", [800, 2500, 1200, 900]); set("osc2.wt.window", .8); set("osc2.wt.syncSoft", .8); set("osc2.unison", 3); set("mix.osc2", -6);
    st.lfo = [L4(SINE5, HUMP5, TRI5, SINE5), L4(TRI5)]; set("lfo1.rate", [.3, .5, .2, .4]); set("lfo2.rate", .07); R(1, 1, "osc1.wt.syncHz", [.08, .1, .12, .06]); R(2, 2, "morph.y", .7);
    set("env1.attack", [.02, .01, .3, .005]); set("env1.decay", .8); set("env1.sustain", .8); set("env1.release", .5); }},
  {id: "comb", group: "Motion and transforms", name: "Comb scanner", desc: "The moving comb scanned by LFO 1, frame spread across the members so each sits at its own comb · the law flips to Spectral log on the lower row · D a saw against the combs · LFO 2 moves the morph across by itself.",
@@ -1373,6 +1395,28 @@ const BANK = [
    set("filter.mode", [4, 5, 4, 5]); set("filter.cutoff", [600, 1500, 2500, 400]); set("filter.resonance", [.5, .8, .7, .85]);
    st.lfo = [L4(SINE5), L4(SINE5, TRI5, SINE5, TRI5)]; set("lfo1.rate", [.3, .5, .2, .4]); set("lfo2.rate", .06); R(1, 1, "filter.cutoff", [.12, .1, .15, .1]); R(2, 2, "morph.x", .9);
    set("env1.attack", .3); set("env1.decay", 1); set("env1.sustain", .9); set("env1.release", 1); }},
+
+ // B661: sync is always on (ratio 1 is no sync) and has a softness. These show both off; the old patches above were translated.
+ {id: "ss-sweep-lead", group: "Sync, always on (B661)", name: "Sync sweep lead", desc: "A saw lead whose corners run from no sync to deep sync and from hard to soft: A ratio 1 (no sync) · B ×4, a hard cut · C ×2, softness 50 % · D ×6.5, fully soft. LFO 1 and LFO 2 carry the morph across the pad by themselves, so the ratio sweeps 1 → 6.5 with no flip (compare Sync model: switchable (old) in the Lab switches); ENV 2 swoops the ratio down into each note.",
+  build(set, st, R){ st.tables = [ALL(TB.SS), ALL(TB.SS)]; st.puck = [.5, .5];
+   set("osc1.wt.frame", 1); set("osc1.wt.syncIn", 0); set("osc1.wt.sync", [1, 4, 2, 6.5]); set("osc1.wt.syncSoft", [0, 0, .5, 1]); set("osc1.wt.window", [0, 0, .5, 1]);
+   set("osc1.unison", [1, 3, 2, 3]); set("osc1.detune", .07); set("osc1.coupling", .4); set("osc1.width", .6); set("mix.osc1", -3);
+   st.lfo = [L4(TRI5), L4(SINE5)]; set("lfo1.rate", .11); set("lfo2.rate", .07); R(1, 1, "morph.x", .95); R(2, 2, "morph.y", .95); R(3, 3, "osc1.wt.sync", [0, .15, .1, .12]);
+   set("env2.attack", .001); set("env2.decay", .35); set("env2.sustain", 0); set("env2.release", .2);
+   set("env1.attack", .004); set("env1.decay", .6); set("env1.sustain", .85); set("env1.release", .25); }},
+ {id: "ss-soft-pad", group: "Sync, always on (B661)", name: "Soft-sync pad", desc: "Nine saw members with soft sync at gentle ratios: the tapered edges turn sync's buzz into a vowel-like sheen · A ×1.5 at 80 % · B ×2.3 at 100 % (a Hann window) · C ×1.2 at 60 %, only partly engaged (the fade-in reaches full depth at ×1.25) · D ×3 at 70 % · LFO 1 breathes the ratio, LFO 2 drifts the morph.",
+  build(set, st, R){ st.tables = [ALL(TB.SS), ALL(TB.SS)]; st.puck = [.3, .3];
+   set("osc1.wt.frame", [1, .9, 1, .8]); set("osc1.wt.syncIn", 0); set("osc1.wt.sync", [1.5, 2.3, 1.2, 3]); set("osc1.wt.syncSoft", [.8, 1, .6, .7]); set("osc1.wt.window", [.8, 1, .6, .7]);
+   set("osc1.unison", 9); set("osc1.detune", [.18, .22, .15, .25]); set("osc1.coupling", .1); set("osc1.width", 1); set("mix.osc1", -3);
+   st.lfo = [L4(SINE5), L4(SINE5, TRI5, SINE5, TRI5)]; set("lfo1.rate", .15); set("lfo2.rate", .05); R(1, 1, "osc1.wt.sync", .08); R(2, 2, "morph.x", .6);
+   set("env1.attack", [.8, 1.2, .6, 1]); set("env1.decay", 1); set("env1.sustain", .9); set("env1.release", [1.5, 2, 1.2, 1.8]); }},
+ {id: "ss-formant", group: "Sync, always on (B661)", name: "Soft formant voice", desc: "Fixed-Hz soft sync on a sine: each cycle is a tapered burst at the formant's frequency, so the formant stays put as you play · A 650 Hz at 60 % · B 1.1 kHz at 40 % · C 380 Hz at 90 % · D 2.2 kHz at 50 % · osc 2 adds a second formant · a note above a formant's frequency plays unsynced (ratio max(1, Hz/f)) · LFO 1 is vibrato, LFO 2 drifts the morph.",
+  build(set, st, R){ st.tables = [ALL(TB.SS), ALL(TB.SS)]; st.puck = [.4, .4];
+   set("osc1.wt.frame", 0); set("osc1.wt.syncIn", 1); set("osc1.wt.syncHz", [650, 1100, 380, 2200]); set("osc1.wt.syncSoft", [.6, .4, .9, .5]); set("osc1.wt.window", [.6, .4, .9, .5]);
+   set("osc1.unison", 3); set("osc1.detune", .05); set("osc1.width", .6); set("mix.osc1", 0);
+   set("osc2.on", 1); set("osc2.wt.frame", 0); set("osc2.wt.syncIn", 1); set("osc2.wt.syncHz", [1100, 2400, 900, 2900]); set("osc2.wt.syncSoft", .6); set("osc2.wt.window", .6); set("osc2.unison", 1); set("mix.osc2", -8);
+   st.lfo = [L4(SINE5), L4(TRI5)]; set("lfo1.rate", 5); set("lfo2.rate", .06); R(1, 1, "osc1.fine", .015); R(2, 1, "osc2.fine", .015); R(3, 2, "morph.x", .7);
+   set("env1.attack", .05); set("env1.decay", .8); set("env1.sustain", .8); set("env1.release", .5); }},
 ];
 // the shared base of the three SCALPEL jitter patches: SCALPEL's defaults where the lab has the row (A 4 ms, D 400 ms, S 0.85, R 280 ms)
 function jitterBase(set){ set("osc1.wt.frame", 1); set("osc1.fm.source", 0); set("osc1.fm.type", 1); set("osc1.fm.rateUnit", 0); set("osc1.width", .7);
@@ -1395,7 +1439,7 @@ const OPENING = () => Object.assign(PRESET("opening"), {
   morph: {x: 0.3, y: 0.3, law: 0, temperature: 1, cohesion: 0.3, seed: 1024, glide: 0.008},
   walk: {on: 0, tau: 1.5, sigma: 0.45, depth: 0.5, seed: 7},
   out: {level: 0}, poly: 8, vel: 0.85,
-  lab: {spacing: 0, interp: 4, xfade: 0, slFrames: 0, os: 0},
+  lab: {spacing: 0, interp: 4, xfade: 0, slFrames: 0, os: 0, syncModel: 0, edgeLaw: 0, fade: 0},   // B661: the three sync switches
   vizOsc: 0, preset: "opening", presetOld: false,
 });
 let ST = OPENING();
@@ -1407,7 +1451,7 @@ const genIdOf = g => FACT_IDS[FACTORY.findIndex(f => f.gen === g)];
    (MO-7; h = cohesion, T = temperature); the pick is the highest. Structural keys hold their corner until another
    beats it by ln(0.55/0.45)/T (MO-8's latch, a 0.1-wide band on an edge). Morphable keys have no latch. It is a
    stand-in: no region locks, waypoints, counts, Stepped, Exempt or MO-26's restriction of blends to on corners. */
-const RES = {}, GLIDE = {}, LATCH = {}, DRAWS = new Map();
+const RES = {}, GLIDE = {}, LATCH = {}, DRAWS = new Map(), PICK = {};   // PICK: the corner each Structural key took (B661: the old sync model reads it)
 let TW = [[1, 0, 0, 0], [1, 0, 0, 0]];   // each oscillator's table weights (Blend: the morph's; Quantum: one-hot at the table key's pick)
 function drawsFor(purpose, seed){ const k = purpose + "|" + seed; let g = DRAWS.get(k); if (g) return g;
   let h = 0x811c9dc5; for (const b of [...new TextEncoder().encode(purpose), seed & 255, (seed >>> 8) & 255, (seed >>> 16) & 255, (seed >>> 24) & 255]){ h ^= b; h = Math.imul(h, 0x01000193) >>> 0; }
@@ -1454,7 +1498,7 @@ function resolve(dt){
   const w = bilinear(heard.x, heard.y), q = ST.morph.law === 1, gl = ST.morph.glide, a = gl > 0 && dt > 0 ? 1 - Math.exp(-dt/gl) : 1;
   for (const [key, d] of PDEF){ if (d.cls === "D") continue; const v = ST.cv[key];
     if (key === "osc2.on"){ RES[key] = q ? v[pickLatched("morph/key/" + key, w)] : w.reduce((s, x, c) => s + (v[c] ? x : 0), 0); continue; }   // MO-26 (1): fades as a level under Blend
-    if (d.cls === "S"){ RES[key] = v[pickLatched("morph/key/" + key, w)]; continue; }
+    if (d.cls === "S"){ const c = pickLatched("morph/key/" + key, w); PICK[key] = c; RES[key] = v[c]; continue; }
     const tgt = q ? toPos(d, v[pick("morph/key/" + key, w)]) : w.reduce((s, x, c) => s + x*toPos(d, v[c]), 0);   // MO-9: blended in v
     let g = GLIDE[key]; g = g == null ? tgt : g + (tgt - g)*a; if (Math.abs(g - tgt) < 1e-6) g = tgt; GLIDE[key] = g;
     RES[key] = fromPos(d, g); }
@@ -1545,10 +1589,21 @@ function buildOscPanel(o){
   slider(g, cdef(`mix.osc${N}`));
   H3(P, "Transformations");
   g = el("div", "cgrid"); P.append(g);
+  // B661: sync is always on; the hints say when an edge control can do nothing here (the other law is selected, the old model's
+  // "off", or ratio 1 under a fade-in, where there is no restart step to soften)
+  const oldOff = () => ST.lab.syncModel === 1 && syncOldOff(o, SEL === 4 ? (PICK[K("wt.syncIn")] || 0) : SEL);
+  const oldOffWhy = () => `inert ${inertAt()}: sync is off here (Sync model: switchable (old), where × pitch at ratio 1 is the old "off")`;
+  const atOne = () => ST.lab.syncModel === 0 && ST.lab.fade !== 2 && cval(K("wt.syncIn")) === 0 && cval(K("wt.sync")) <= 1 + 1e-9;
+  const oneWhy = () => `inert ${inertAt()}: ratio ×1 is no sync, nothing to soften (it engages as the ratio leaves 1, or as a route moves it)`;
   seg(g, cdef(K("wt.syncIn")));
-  slider(g, cdef(K("wt.sync"), {live: () => cval(K("wt.syncIn")) !== 1 ? `inert ${inertAt()}: needs Sync at × pitch` : ""}));
-  slider(g, cdef(K("wt.syncHz"), {live: () => cval(K("wt.syncIn")) !== 2 ? `inert ${inertAt()}: needs Sync at Hz` : ""}));
-  slider(g, cdef(K("wt.window"), {live: () => cval(K("wt.syncIn")) === 0 ? `inert ${inertAt()}: live while sync is on` : ""}));
+  slider(g, cdef(K("wt.sync"), {live: () => cval(K("wt.syncIn")) !== 0 ? `inert ${inertAt()}: needs Sync at × pitch` : ""}));
+  slider(g, cdef(K("wt.syncHz"), {live: () => cval(K("wt.syncIn")) !== 1 ? `inert ${inertAt()}: needs Sync at Hz` : ""}));
+  slider(g, cdef(K("wt.syncSoft"), {live: () => ST.lab.edgeLaw === 1 ? "inert: the window crossfade law is selected (Lab switches · Sync edge law)" : oldOff() ? oldOffWhy() : atOne() ? oneWhy() : ""}));
+  slider(g, cdef(K("wt.window"), {live: () => ST.lab.edgeLaw === 0 ? "inert: the Tukey softness law is selected (Lab switches · Sync edge law)" : oldOff() ? oldOffWhy() : atOne() ? oneWhy() : ""}));
+  const syncNote = el("p", "note"); g.after(syncNote);
+  CTLS.push({sync(){ syncNote.textContent = ST.lab.syncModel === 1
+    ? "Sync model: switchable (old), for A/B. A corner at × pitch with ratio 1 counts as the old \"off\", and the sync row flips Structurally at its latch boundary: a morph from a ratio-1 corner to a ×3 corner switches sync on at whatever ratio the blend has reached there (a jump). The window or softness acts only where sync is on, at full depth."
+    : `Sync is always on (B661). × pitch at ratio 1, or Hz below a note's pitch, is no sync, bit for bit: the restart lands on the table's own wrap, so there is no step to cut (the Lab switches' self-check proves it on the real worklet). A morph from ratio 1 to ×3 sweeps; it never flips. ${ST.lab.edgeLaw === 1 ? "Edge law: the window crossfade (WT-33)" : "Edge law: Tukey softness, 0 a hard cut, 1 a full Hann taper"}; its depth fades in as the ratio leaves 1: ${ST.lab.fade === 2 ? "fade off (depth 1 everywhere: at ratio 1 the taper notches every cycle)" : "depth = clamp(" + SYNC_FADE_NAMES[ST.lab.fade] + ", 0, 1)"}. The switches are under Lab switches.`; }});
   slider(g, cdef(K("wt.asym"))); slider(g, cdef(K("wt.bend")));
   buildFm(P, o);
   P.append(el("p", "note", "Ticks: each corner's value (A B above the track, C D below; the edited corner outlined). Pink line: the value resolved at the morph position, before modulation. S marks a Structural row: it never blends, it takes one corner's value."));
@@ -1694,6 +1749,15 @@ function buildLab(){
   seg(g, dev("lab: the member's read (WT-6)", {label: "Read", options: ["4-point cubic", "6-point Lagrange"], law: "step", range: "4-point, 6-point", defText: "4-point", doc: "The spec builds 6-point Lagrange at N = min(8192, max(2048, 16·H)). The lab opens on 4-point on the same layout for browser CPU; switch to hear the spec's read and watch the DSP load.", get: () => ST.lab.interp === 6 ? 1 : 0, set: v => ST.lab.interp = v ? 6 : 4}));
   seg(g, dev("lab: FM oversampling (B652)", {label: "FM oversampling", options: ["off (1×)", "2× halfband"], law: "step", range: "1×, 2×", defText: "off", doc: "B652. Runs every member at twice the sample rate and decimates the sum through a 63-tap halfband (Kaiser β 8, about 15 samples of delay), so FM/PM sidebands between fs/2 and about 0.57·fs are removed instead of folding back. The table's own band limit is unchanged (WT-36 picks the level for the raised read rate either way). Costs about twice the member work: watch the DSP load.", get: () => ST.lab.os, set: v => ST.lab.os = v}));
   seg(g, dev("lab: published-set crossfade (WT-15)", {label: "Set crossfade", options: ["R (spec)", "1024 samples"], law: "step", range: "R = 4 control intervals, 1024 samples", defText: "R", doc: "WT-15: each new published set crossfades in over R (116 samples at 44.1 kHz, 128 at 48 kHz). The lab can only publish about 60 sets a second, so motion is a staircase of R-long fades; the long setting smooths it, for comparison only.", get: () => ST.lab.xfade, set: v => ST.lab.xfade = v}));
+  // B661: the sync model, its edge law and the softness fade-in, side by side
+  H3(P, "Sync (B661)"); const g2 = el("div", "cgrid"); P.append(g2);
+  seg(g2, dev("lab: sync model (B661)", {label: "Sync model", options: ["always on (new)", "switchable (old)"], law: "step", range: "always on, switchable", defText: "always on", doc: "B661. Always on: the Sync row is × pitch or Hz, and ratio 1 is no sync, so a morph from a ratio-1 corner to a ×3 corner sweeps the ratio. Switchable (old): the B659 lab's behaviour for A/B; a corner at × pitch with ratio 1 counts as \"off\" and the sync row flips Structurally at its latch boundary, so the same morph switches sync on part-way (a jump). The same corner values drive both.", get: () => ST.lab.syncModel, set: v => ST.lab.syncModel = v}));
+  seg(g2, dev("lab: sync edge law (B661)", {label: "Sync edge law", options: ["Tukey softness (new)", "window crossfade (WT-33)"], law: "step", range: "Tukey softness, window crossfade", defText: "Tukey softness", doc: "B661. Tukey softness (the Sync softness row): 1 in the middle of the synced cycle, a raised-cosine taper of width s × half the cycle at each end; 0 a hard cut, 1 a full Hann window. Window crossfade (the Window row, WT-33 as written): the read times (1 − a) + a·½(1 − cos 2πθ), a crossfade between the hard read and a Hann-windowed one. Both reach the same sound at 100 %; they differ between.", get: () => ST.lab.edgeLaw, set: v => ST.lab.edgeLaw = v}));
+  seg(g2, dev("lab: softness fade-in (B661)", {label: "Softness fade-in", options: SYNC_FADE_NAMES, law: "step", range: SYNC_FADE_NAMES.join(", "), defText: SYNC_FADE_NAMES[0], doc: "B661. The edge law's depth = clamp((r − 1)/K, 0, 1), K = 0.25 by default: at ratio 1 there is no restart step to hide and a taper would notch every cycle, so the softness (or window) engages smoothly as the ratio leaves 1, fully by ×1.25. Off: depth 1 everywhere (hear the notch at ratio 1).", get: () => ST.lab.fade, set: v => ST.lab.fade = v,
+    live: () => ST.lab.syncModel === 1 ? "inert: the switchable (old) model has no fade (off is its neutral point)" : ""}));
+  const row = el("div", "formrow"), btn = el("button", "btn small", "Run sync self-checks"), stt = el("span", "hint", "offline renders of this page's own worklet: ratio 1 against the old sync-off path, with must-differ controls, then the cost of sync on the PF-3 chord at 9 members (about half a minute)");
+  btn.type = "button"; row.append(btn, stt); P.append(row); const out = el("div", "checks"); P.append(out);
+  btn.addEventListener("click", () => runSyncChecks(btn, stt, out));
 }
 const RND = Object.assign({}, RND_DEF);
 function buildRnd(){
@@ -1915,6 +1979,17 @@ async function ensureAudio(){
 }
 function showWarn(id, t){ const w = $(id); w.hidden = false; w.textContent = t; }
 const dbLin = v => v === -Infinity ? 0 : Math.pow(10, v/20);
+/* B661: the sync code the worklet plays: 1 × pitch, 2 Hz, or 0, the old path (sync off). In the always-on model (the default)
+   it is never 0: ratio 1 is no sync. The switchable (old) model, for A/B, reads a corner at × pitch with ratio 1 as the old "off"
+   and takes it Structurally, by the corner the sync row's own pick chose, so a morph from a ratio-1 corner to a ×3 corner flips
+   sync on at the latch boundary (at whatever ratio the blend has reached there), as the old row did. */
+const SYNC_FADES = [0.25, 0.5, 0], SYNC_FADE_NAMES = ["(r − 1)/0.25", "(r − 1)/0.5", "off (depth 1)"];
+const syncOldOff = (o, c) => ST.cv[`osc${o + 1}.wt.syncIn`][c] === 0 && ST.cv[`osc${o + 1}.wt.sync`][c] <= 1 + 1e-9;
+function syncCode(o){ const k = `osc${o + 1}.wt.syncIn`;
+  if (ST.lab.syncModel === 1 && syncOldOff(o, PICK[k] || 0)) return 0;
+  return RES[k] === 1 ? 2 : 1; }
+// the fade-in constant K sent to the worklet (0 = no fade, depth 1). The old model has no fade: its neutral point is "off".
+const syncFadeK = () => ST.lab.syncModel === 1 ? 0 : SYNC_FADES[ST.lab.fade];
 // the resolved values, one flat array per oscillator in the worklet's slot order (SLOT_NAMES), the envelopes, the routes
 let lastParamKey = "";
 function pushParams(){
@@ -1922,7 +1997,7 @@ function pushParams(){
   const osc = new Float64Array(2*NPS);
   for (let o = 0; o < 2; o++){ const N = o + 1, R = k => RES[`osc${N}.${k}`], b = o*NPS;
     const vals = {ON: o === 0 ? 1 : RES["osc2.on"], LVL: dbLin(RES[`mix.osc${N}`]), FRAME: R("wt.frame"), FSPR: R("wt.law") === 1 && ST.lab.slFrames === 2 ? 0 : R("wt.frameSpread"),
-      SYNCIN: R("wt.syncIn"), SYNC: R("wt.sync"), SYNCHZ: R("wt.syncHz"), WIN: R("wt.window"), ASYM: R("wt.asym"), BEND: R("wt.bend"),
+      SYNCIN: syncCode(o), SYNC: R("wt.sync"), SYNCHZ: R("wt.syncHz"), WIN: R("wt.window"), SOFT: R("wt.syncSoft"), ASYM: R("wt.asym"), BEND: R("wt.bend"),
       UNI: R("unison"), DET: R("detune"), CPL: R("coupling"), WID: R("width"), TR: R("octave")*12 + R("semitone") + R("fine")/100, SEED: ST.osc[o].seed,
       FMSRC: o === 1 && R("fm.source") === 1 ? 3 : R("fm.source"), FMTYPE: R("fm.type"), FMSH: R("fm.shape"), FMRM: R("fm.rateUnit"), FMR: R("fm.ratio"), FMHZ: R("fm.hz"),
       FMI: R("fm.index"), FMMIX: R("fm.mix"), FMDEC: R("fm.members")};
@@ -1930,7 +2005,7 @@ function pushParams(){
   const fs = ctx.sampleRate, Rx = 4*Math.round(fs/1512);   // WT-14: R = 4 control intervals (116 at 44.1 kHz, 128 at 48 kHz)
   const E = k => RES[k];
   const glob = new Float64Array([E("env1.attack"), E("env1.decay"), E("env1.sustain"), E("env1.release"), E("env2.attack"), E("env2.decay"), E("env2.sustain"), E("env2.release"),
-    dbLin(ST.out.level), ST.poly, ST.lab.interp, ST.lab.xfade ? 1024 : Rx, ST.lab.os ? 2 : 1]);
+    dbLin(ST.out.level), ST.poly, ST.lab.interp, ST.lab.xfade ? 1024 : Rx, ST.lab.os ? 2 : 1, ST.lab.edgeLaw, syncFadeK()]);
   const rs = new Int8Array(NR), rd = new Int16Array(NR), rk = new Float64Array(NR);
   ST.routes.forEach((R, r) => { const d = destOf(R.dst); rs[r] = R.src === 3 && d.slot < 0 ? 0 : R.src; rd[r] = d.slot; rk[r] = RES[`mod.r${r + 1}.depth`]; });
   // B659: the filter's resolved values, in F_NAMES order
@@ -2071,6 +2146,20 @@ function drawPad(){
 // what the visuals show: the newest voice's frame (the page mirrors ENV 2), or the frame knob when nothing is held
 function displayFrame(o){ const k = `osc${o + 1}.wt.frame`; return clamp01(modulated(k, k)); }
 const lawOf = o => RES[`osc${o + 1}.wt.law`];
+/* B661: the edge law's gain over the synced cycle, θ in [0, 1). The worklet's formula (renderOsc, with its cosine table), here with
+   Math.cos for the picture: law 1 the window crossfade 1 − a·dep·½(1 + cos 2πθ); law 0 the Tukey taper 1 − dep·½(1 + cos(πθ/τ))
+   within τ = s/2 of either end, 1 between. */
+function syncEdgeGain(th, law, s, a, dep){ if (!(dep > 0)) return 1;
+  if (law === 1) return 1 - a*dep*0.5*(1 + Math.cos(TAU*th));
+  if (!(s > 0)) return 1; const tau = 0.5*s;
+  if (th < tau) return 1 - dep*0.5*(1 + Math.cos(TAU*th/s)); if (th > 1 - tau) return 1 - dep*0.5*(1 + Math.cos(TAU*(1 - th)/s)); return 1; }
+// what the visualised oscillator's sync does at the newest held note (else C3): its ratio, edge law and depth, routes included
+// (warp and FM are left out of the picture). null: sync is off (the switchable model's "off").
+function syncPicture(o){ const N = o + 1, code = syncCode(o); if (!code) return null;
+  const vs = voices().filter(v => v.gate), nv = vs.length ? vs[vs.length - 1] : null, note = nv ? nv.note : 48, M = k => modulated(`osc${N}.${k}`, `osc${N}.${k}`);
+  const f0 = 440*Math.pow(2, (note + RES[`osc${N}.octave`]*12 + RES[`osc${N}.semitone`] + RES[`osc${N}.fine`]/100 - 69)/12), hz = M("wt.syncHz");
+  const r = code === 1 ? Math.max(1, M("wt.sync")) : Math.max(1, hz/f0), K = syncFadeK(), dep = K > 0 ? clamp01((r - 1)/K) : 1;
+  return {code, r, hz, note, dep, law: ST.lab.edgeLaw, s: clamp01(M("wt.syncSoft")), a: clamp01(M("wt.window"))}; }
 const vRe = new Float64Array(1025), vIm = new Float64Array(1025), cyc = new Float64Array(2048);
 function drawOutput(){
   const o = ST.vizOsc, s = ST.osc[o], law = lawOf(o), p = displayFrame(o), {tabs, ws} = pooled(s.corners, TW[o]);
@@ -2091,10 +2180,20 @@ function drawOutput(){
     c.strokeStyle = T["--hair"]; c.lineWidth = 1; c.beginPath(); c.moveTo(0, m + .5); c.lineTo(W, m + .5);
     [1, -1].forEach(v => { c.moveTo(0, m - v*sc + .5); c.lineTo(W, m - v*sc + .5); }); c.stroke();
     c.setLineDash([2, 3]); c.strokeStyle = T["--alarm"]; c.globalAlpha = .6; c.beginPath(); [2.6, -2.6].forEach(v => { c.moveTo(0, m - v*sc + .5); c.lineTo(W, m - v*sc + .5); }); c.stroke(); c.setLineDash([]); c.globalAlpha = 1;
-    c.beginPath(); for (let x = 0; x <= W; x++){ const k = Math.min(2047, Math.floor(x/W*2048)), Y = m - cyc[k]*g*sc; x ? c.lineTo(x, Y) : c.moveTo(x, Y); }
-    c.strokeStyle = T["--value"]; c.lineWidth = 2; c.stroke();
+    // B661: when sync acts, the table's cycle goes faint and the member's synced read is drawn over one member cycle, with its
+    // edge law (the window, or the softness taper at its depth) as a dashed envelope ±g(θ)
+    const sp = syncPicture(o), act = sp && (sp.r !== 1 || (sp.dep > 0 && (sp.law ? sp.a > 0 : sp.s > 0)));
+    const trace = (fy, col, lw, a) => { c.beginPath(); for (let x = 0; x <= W; x++){ const Y = m - fy(x/W)*sc; x ? c.lineTo(x, Y) : c.moveTo(x, Y); } c.strokeStyle = col; c.lineWidth = lw; c.globalAlpha = a; c.stroke(); c.globalAlpha = 1; };
+    const at = ph => cyc[Math.min(2047, Math.floor(ph*2048))]*g;
+    if (act){ trace(at, T["--hint"], 1, .45);
+      const gn = th => syncEdgeGain(th, sp.law, sp.s, sp.a, sp.dep);
+      trace(th => { const ph = sp.r*th; return at(ph - Math.floor(ph))*gn(th); }, T["--value"], 2, 1);
+      c.setLineDash([4, 3]); trace(gn, T["--physics"], 1.4, .9); trace(th => -gn(th), T["--physics"], 1.4, .9); c.setLineDash([]); }
+    else trace(at, T["--value"], 2, 1);
     c.font = `400 9px ${T.mono || "monospace"}`; c.fillStyle = T["--hint"]; c.textAlign = "left"; c.fillText("±1", 3, m - sc - 2); c.fillText("peak limit 2.6", 3, 10);
-    $("cycRead").textContent = `gain ${fmtDb(20*Math.log10(g))} · peak ${(pk*g).toFixed(2)}${limited ? " · LIMITED" : ""}${lg.capped ? " · CAPPED" : ""}`; }
+    const pct = v => Math.round(v*100) + " %";
+    const sy = !sp ? " · sync off here (switchable model)" : ` · sync ×${sp.r.toFixed(2)}${sp.code === 2 ? " (" + fmtHz(sp.hz) + ")" : ""} at ${noteName(sp.note)}${sp.r === 1 ? ": no sync" : ""} · ${sp.law ? "window " + pct(sp.a) : "softness " + pct(sp.s)} at depth ${sp.dep.toFixed(2)}${act ? " (dashed: the edge law; faint: the table's own cycle)" : ""}`;
+    $("cycRead").textContent = `gain ${fmtDb(20*Math.log10(g))} · peak ${(pk*g).toFixed(2)}${limited ? " · LIMITED" : ""}${lg.capped ? " · CAPPED" : ""}${sy}`; }
   // spectrum (dB re the blend's strongest harmonic, log n), centroid, and the newest voice's band limit
   { const [c, W, H] = fit($("spec")); c.clearRect(0, 0, W, H); const top = 6, bot = H - 14, floor = -90, x0 = 26, xw = W - x0 - 4;
     let mx = 1e-12; for (let n = 1; n <= NH; n++) mx = Math.max(mx, Math.hypot(vRe[n], vIm[n]));
@@ -2250,10 +2349,94 @@ function rndPreview(){ rndDirty = false; const r = rndRecipe(), b = buildGen(r);
   drawStack($("rndPrev"), rndTable, T["--value"], 0.5, 1, false);
   flashMsg("rndMsg", b.gate.ok ? `seed ${r.seed} · gates pass · id ${recipeId(r)}` : "This roll would be refused (WT-47): " + b.gate.msgs.join("; "), b.gate.ok); }
 
+/* ---------------- B661: offline renders of the real worklet (the sync self-checks and the cost of sync) ----------------
+   Each render makes its own OfflineAudioContext with this page's worklet source, two fresh table workers and the factory
+   Sine → saw at frame 16 (the saw: the brightest, where a wrong restart would show most), so it shares nothing with the live audio
+   and needs no audio permission. The params go in before the first block, so the worklet starts from them with no glide. The
+   render suspends after two blocks until both table sets have arrived and the notes are confirmed held (a poll answered after
+   the note messages proves they were handled), then the clock (performance.now) runs over the notes. */
+let offWorkletUrl = null, offWorkerUrl = null, SYNC_CHECKS = null, checking = false;
+const OFF_LEAD = 256;   // samples rendered before the notes (two blocks: the sets arrive and are picked up)
+function testOsc(ov1, ov2){
+  const base = {ON: 1, LVL: 1, FRAME: 1, FSPR: 0, SYNCIN: 0, SYNC: 1, SYNCHZ: 880, WIN: 0, SOFT: 0, ASYM: 0, BEND: 0, UNI: 9, DET: 0.2, CPL: 0.3, WID: 0.8, TR: 0, SEED: 1234,
+    FMSRC: 0, FMTYPE: 1, FMSH: 5, FMRM: 0, FMR: 3, FMHZ: 700, FMI: 0, FMMIX: 1, FMDEC: 0};
+  const a = new Float64Array(2*NPS);
+  [ov1, ov2].forEach((ov, o) => { const v = Object.assign({}, base, o ? {SEED: 1235, UNI: 3, LVL: 0.5, TR: -12} : {}, ov); SLOT_NAMES.forEach((n, i) => a[o*NPS + i] = v[n]); });
+  return a; }
+function testGlob(ov, sr){ const v = Object.assign({A1: 0.004, D1: 0.4, S1: 0.85, R1: 0.28, A2: 0.001, D2: 0.4, S2: 0, R2: 0.3, OUT: 1, POLY: 8, INTERP: 4, XF: 4*Math.round(sr/1512), OSX: 1, SLAW: 0, SFADE: 0.25}, ov);
+  return new Float64Array(GLOB_NAMES.map(n => v[n])); }
+async function offlineRender(cfg){
+  const sr = cfg.sr || 44100, n = Math.round(cfg.secs*sr), oc = new OfflineAudioContext(2, OFF_LEAD + n, sr);
+  offWorkletUrl = offWorkletUrl || URL.createObjectURL(new Blob([WORKLET_SRC], {type: "application/javascript"}));
+  offWorkerUrl = offWorkerUrl || URL.createObjectURL(new Blob([WORKER_SRC], {type: "application/javascript"}));
+  await oc.audioWorklet.addModule(offWorkletUrl);
+  const nd = new AudioWorkletNode(oc, "horde-wt", {numberOfInputs: 0, outputChannelCount: [2], processorOptions: {weir: WEIR.module, weirKind: WEIR.kind}});
+  nd.connect(oc.destination);
+  const ws = [new Worker(offWorkerUrl), new Worker(offWorkerUrl)], ch = [new MessageChannel(), new MessageChannel()];
+  nd.port.postMessage({type: "ports", p1: ch[0].port1, p2: ch[1].port1}, [ch[0].port1, ch[1].port1]);
+  const id = cfg.table || FACT_IDS[0], t = DICT.get(id);
+  ws.forEach((w, o) => { w.postMessage({type: "port", port: ch[o].port2}, [ch[o].port2]); w.postMessage({type: "table", id, re: t.re.slice(), im: t.im.slice()});
+    w.postMessage({type: "params", ids: [id, id, id, id], w: [1, 0, 0, 0], law: 0, frame: 1, slmode: 0, spacing: 0}); });
+  nd.port.postMessage({type: "params", osc: cfg.osc, glob: cfg.glob, rs: new Int8Array(NR), rd: new Int16Array(NR).fill(-1), rk: new Float64Array(NR), filt: new Float64Array(NFP)});
+  const poll1 = () => new Promise(res => { nd.port.onmessage = e => { if (e.data.type === "stats") res(e.data.buf); }; const b = new Float32Array(STATS_LEN); nd.port.postMessage({type: "poll", buf: b}, [b.buffer]); });
+  let t0 = 0, ready = false;
+  oc.suspend(OFF_LEAD/sr).then(async () => {
+    for (let i = 0; i < 500 && !ready; i++){ const b = await poll1(); ready = b[9] > 0 && b[10] > 0; if (!ready) await new Promise(r => setTimeout(r, 10)); }
+    cfg.notes.forEach((m, k) => nd.port.postMessage({type: "on", id: k + 1, note: m, vel: 0.85}));
+    const b = await poll1(); if (b[1] !== cfg.notes.length) ready = false;   // every note is held before the clock starts
+    t0 = performance.now(); oc.resume(); });
+  const out = await oc.startRendering(), ms = performance.now() - t0;
+  ws.forEach(w => w.terminate());
+  if (!ready) throw new Error("the offline worklet never received its tables or notes");
+  return {L: out.getChannelData(0).subarray(OFF_LEAD), R: out.getChannelData(1).subarray(OFF_LEAD), ms, secs: cfg.secs, sr};
+}
+// sample-by-sample comparison of two renders: how many samples differ, the largest difference, and the reference's RMS
+function compareRenders(a, b){ let nd = 0, mx = 0, s = 0; const n = a.L.length;
+  for (const ch of ["L", "R"]){ const x = a[ch], y = b[ch]; for (let i = 0; i < n; i++){ const d = Math.abs(x[i] - y[i]); if (d !== 0){ nd++; if (d > mx) mx = d; } s += x[i]*x[i]; } }
+  return {nd, mx, n: 2*n, rmsDb: 10*Math.log10(s/(2*n) + 1e-30)}; }
+async function runSyncChecks(btn, stt, out){
+  if (checking) return; checking = true; btn.disabled = true; out.textContent = ""; const sr = 44100;
+  const line = (t, cls) => { const d = el("div", cls || "hint", t); out.append(d); return d; };
+  const res = {when: "the last run in this page", sr, neutrality: [], cost: [], neutralityPatch: "PF-3 chord, factory Sine → saw at frame 16; osc 1 9 members with pitch FM (smooth noise ×3, I 0.12), osc 2 3 members an octave down; filter off; 4-point read", costPatch: "PF-3 chord, factory Sine → saw at frame 16; osc 1 9 members, FM off; osc 2 off; filter off; 4-point read; 4 s; median of 3 interleaved runs after one warm-up"};
+  try {
+    await weirLoading;
+    // 1. neutrality: every case against the old sync-off path (SYNCIN 0), sample for sample; the sync overrides apply to both oscillators
+    const fm = {FMI: 0.12};
+    const N = [
+      ["the old sync-off path, rendered again (determinism control)", {SYNCIN: 0}, {}, true],
+      ["always on: × pitch at ratio 1", {SYNCIN: 1, SYNC: 1}, {}, true],
+      ["ratio 1, softness 100 % (fade-in 0.25)", {SYNCIN: 1, SYNC: 1, SOFT: 1}, {}, true],
+      ["ratio 1, window 100 % under the window law (fade-in 0.25)", {SYNCIN: 1, SYNC: 1, WIN: 1}, {SLAW: 1}, true],
+      ["Hz at 50 Hz, softness 100 % (below every note: ratio max(1, 50/f) = 1)", {SYNCIN: 2, SYNCHZ: 50, SOFT: 1}, {}, true],
+      ["control, must differ: ratio 1.0001", {SYNCIN: 1, SYNC: 1.0001}, {}, false],
+      ["control, must differ: ratio 1, softness 100 %, fade-in off (the taper notches every cycle)", {SYNCIN: 1, SYNC: 1, SOFT: 1}, {SFADE: 0}, false]];
+    stt.textContent = "Running: the reference render…";
+    const ref = await offlineRender({sr, secs: 0.6, notes: PF3, osc: testOsc(Object.assign({SYNCIN: 0}, fm), {SYNCIN: 0}), glob: testGlob({}, sr)});
+    line(`Neutrality, against the old sync-off path (0.6 s, ${PF3.length} notes, ${2*ref.L.length} samples; reference RMS ${compareRenders(ref, ref).rmsDb.toFixed(1)} dBFS):`, "hint");
+    for (let i = 0; i < N.length; i++){ const [name, ov, gov, same] = N[i]; stt.textContent = `Running: neutrality ${i + 1}/${N.length}…`;
+      const r = await offlineRender({sr, secs: 0.6, notes: PF3, osc: testOsc(Object.assign({}, fm, ov), ov), glob: testGlob(gov, sr)}), c = compareRenders(ref, r), ok = same ? c.nd === 0 : c.nd > 0;
+      res.neutrality.push({case: name, expect: same ? "identical" : "different", differing: c.nd, of: c.n, maxAbsDiff: c.mx, pass: ok});
+      line(`${ok ? "PASS" : "FAIL"} · ${name}: ${c.nd === 0 ? "bit-identical" : `${c.nd} of ${c.n} samples differ, max |Δ| ${c.mx.toExponential(2)}`} (expected ${same ? "identical" : "a difference"})`, ok ? "msg ok" : "msg no"); }
+    // 2. cost: the PF-3 chord, osc 1 at 9 members (FM off, osc 2 off), 4 s each, one warm-up, three rounds interleaved, the median
+    const C = [["sync off (the old path)", {SYNCIN: 0}], ["always on, ratio 1", {SYNCIN: 1, SYNC: 1}], ["ratio 1.0001, softness 50 % (cut, correction and taper all running)", {SYNCIN: 1, SYNC: 1.0001, SOFT: 0.5}],
+      ["ratio 3, hard (integer: no step to correct)", {SYNCIN: 1, SYNC: 3}], ["ratio 3.5, hard (a corrected step every restart)", {SYNCIN: 1, SYNC: 3.5}], ["ratio 3.5, softness 50 %", {SYNCIN: 1, SYNC: 3.5, SOFT: 0.5}]];
+    const secs = 4, mk = ov => ({sr, secs, notes: PF3, osc: testOsc(ov, {ON: 0}), glob: testGlob({}, sr)}), times = C.map(() => []);
+    stt.textContent = "Running: cost, warm-up…"; await offlineRender(mk(C[0][1]));
+    for (let round = 0; round < 3; round++) for (let i = 0; i < C.length; i++){ stt.textContent = `Running: cost, round ${round + 1}/3, ${i + 1}/${C.length}…`; times[i].push((await offlineRender(mk(C[i][1]))).ms); }
+    line(`Cost, offline (the real worklet, ${secs} s of the PF-3 chord, osc 1 at 9 members, FM and osc 2 off; median of 3 runs as % of real time; this machine, this browser):`, "hint");
+    const med = a => a.slice().sort((x, y) => x - y)[1], base = med(times[0]);
+    C.forEach(([name], i) => { const m = med(times[i]); res.cost.push({case: name, msMedian: +m.toFixed(1), runs: times[i].map(x => +x.toFixed(1)), pctRealTime: +(100*m/(secs*1000)).toFixed(2), vsOff: +(m/base).toFixed(3)});
+      line(`${name}: ${m.toFixed(0)} ms for ${secs} s = ${(100*m/(secs*1000)).toFixed(2)} % of real time · ×${(m/base).toFixed(2)} the off path (runs ${times[i].map(x => x.toFixed(0)).join(", ")} ms)`, "hint"); });
+    const pass = res.neutrality.every(x => x.pass); res.pass = pass; SYNC_CHECKS = res;
+    stt.textContent = pass ? "Done: every neutrality check and control passed." : "Done: a check FAILED (see the red lines).";
+  } catch (e){ stt.textContent = "The self-checks could not run here: " + (e && e.message || e); SYNC_CHECKS = {error: String(e && e.message || e)}; }
+  checking = false; btn.disabled = false;
+}
+
 /* ---------------- notes for the lead ---------------- */
 const NOTE_SECTIONS = [
   ["corners", "Corners & the factory tables"], ["pad", "The pad & morph motion (LFO, 2-D random)"], ["law", "Blend laws & frames"],
-  ["swarm", "The swarm: unison, detune, coupling, width"], ["transform", "Sync, window, asym, bend"], ["fm", "FM / PM and the jitter patches"], ["filter", "The filter (Weir SVF 12): modes, resonance, Ring, keytrack, envelope"], ["presets", "The preset bank (and the A/B of the re-voiced ones)"], ["loud", "Loudness steadiness"],
+  ["swarm", "The swarm: unison, detune, coupling, width"], ["transform", "Sync, window, asym, bend"], ["sync", "Sync always on & softness (B661): the ratio-1 → ×3 morph, softness feel, the fade-in, aliasing, which edge law"], ["fm", "FM / PM and the jitter patches"], ["filter", "The filter (Weir SVF 12): modes, resonance, Ring, keytrack, envelope"], ["presets", "The preset bank (and the A/B of the re-voiced ones)"], ["loud", "Loudness steadiness"],
   ["capture", "Capture, recipes, library"], ["random", "Random table slot"], ["visuals", "Visuals (stacks, spectrum, mip, phases)"],
   ["names", "Names, ranges, layout"], ["sound", "How it sounds / feels"], ["other", "Anything else"]];
 let NOTES = {};
@@ -2265,7 +2448,11 @@ function exportJSON(){
   const recipes = {}; for (const id of patchRecipes([LIBRARY, ST.osc[0].corners, ST.osc[1].corners])) recipes[id] = DICT.get(id).recipe;
   // settings.cv holds every corner key's four values, A B C D; resolved is what sounded at the heard position
   const resolved = Object.fromEntries([...PDEF.keys()].map(k => [k, RES[k]]));
-  return JSON.stringify({lab: "horde wavetable lab", brief: "B650, B651, B652, B659", spec: "SPEC-WAVETABLE / CONTRACT on main", notes: NOTES,
+  return JSON.stringify({lab: "horde wavetable lab", brief: "B650, B651, B652, B659, B661", spec: "SPEC-WAVETABLE / CONTRACT on main", notes: NOTES,
+    // B661 changed the sync rows: an export from before it has wt.syncIn = off | × pitch | Hz (0 | 1 | 2) and no wt.syncSoft
+    version: {lab: "B661", sync: "always on: wt.syncIn = × pitch | Hz (0 | 1), no off; wt.sync defaults to 1, which is no sync; new lab row wt.syncSoft (Tukey taper, depth fade-in clamp((r − 1)/K, 0, 1))"},
+    syncSwitches: {model: ["always on", "switchable (old)"][ST.lab.syncModel], edgeLaw: ["Tukey softness", "window crossfade (WT-33)"][ST.lab.edgeLaw], fadeIn: SYNC_FADE_NAMES[ST.lab.fade], fadeK: syncFadeK()},
+    syncChecks: SYNC_CHECKS,
     weir: {loaded: WEIR.ok, build: WEIR.build, kind: "svf12", file: "weir/weir_lab.wasm", provenance: "weir/PROVENANCE.md", error: WEIR.err || undefined},
     settings: ST, corners: "settings.cv[key] = [A, B, C, D]; settings.lfo[n].pts[j].c[corner] = {t, v, u, parked}", resolved, lfoResolved: LRES, heard, sampleRate: ctx ? ctx.sampleRate : null, read: ST.lab.interp + "-point", dictionary: recipes, library: LIBRARY,
     names: Object.fromEntries(Object.entries(recipes).map(([id, r]) => [id, r.name]))}, null, 2);
@@ -2310,7 +2497,8 @@ function frame(){
   if (rndDirty) rndPreview();
   const busy = workerInfo.some(w => w.busy) && node;
   const st = $("status"), stt = $("statusText");
-  if (!WEIR.ok && !WEIR.err){ st.className = "pill busy"; stt.textContent = "Loading Weir's filter…"; }
+  if (checking){ st.className = "pill busy"; stt.textContent = "Running the sync self-checks (offline)…"; }   // B661
+  else if (!WEIR.ok && !WEIR.err){ st.className = "pill busy"; stt.textContent = "Loading Weir's filter…"; }
   else if (!node){ st.className = "pill"; stt.textContent = "Ready · audio off"; }
   else if (busy){ st.className = "pill busy"; stt.textContent = "Rebuilding tables…"; }
   else { st.className = "pill ok"; stt.textContent = "Playing"; }
@@ -2380,20 +2568,21 @@ function about(){
   $("aboutBody").innerHTML = `
   <p><b>What it is.</b> The wavetable member of horde's swarm (SPEC-WAVETABLE draft, B649, 279d253e): every member of an oscillator's swarm reads one band-limited cycle from a table set the oscillator shares. There is one engine (GUI-1); this lab never offers the table as an alternative to anything. Each oscillator has its own four corner tables; the corners are horde's morph corners and the pad is the morph position (ADR-384 #5). Blending different tables across the corners is the 1.0 design (ADR-385).</p>
   <p><b>How it is built here.</b> Tables are 16 frames × 1,024 harmonics, stored as spectra and peak-normalised per frame at 8,192 points (WT-1, WT-2). Two workers (one per oscillator) rebuild the published set only when a corner, the weights, the law or (in the old shared-frame mode only) the shared frame changes (WT-14), building every level each time (WT-9): Linear sums the corners' level sets for all 16 frames (WT-23 (b), so the per-voice frame and frame spread are read-time), Spectral log blends each of the 16 frames in the log domain (WT-12) and inverse-FFTs its levels, or, in the old mode, one shared frame by WT-3's log rule. Levels: one per octave, H = 1…1,024, N = min(8192, max(2048, 16·H)) (${lay.stride} samples per level set, ${(lay.stride*4/1024).toFixed(0)} KiB). Loudness: K-weighted at C3 against the ±1 saw, peak limit 2.6, +24 dB cap (WT-16). The worklet crossfades each new set in over R = 4 control intervals (WT-15, scheme (ii): one fused read of both sets), picks each member's level for its read rate (sync ratio and warp slope included, WT-36) under c = min(20 kHz, 0.45·fs), and mixes toward the darker level in the upper third of each range (WT-5).</p>
-  <p><b>Corners (B651).</b> As in horde, every setting has a value in each of the four corners (SPEC-ENGINE 5.1's classes, Appendix D). Morphable rows (class M: the frame, spread, sync ratio and Hz, window, asym, bend, PM, detune, coupling, width, fine, the levels, both envelopes, the LFO rates, the route depths) blend over the corners at the bilinear weights in their normalised form (MO-9), so time rows blend on their log taper. Structural rows (class S: <code>wt.law</code>, <code>wt.syncIn</code>, unison, octave, semitone) take one corner's value under every law (MO-13). osc 2's on switch fades as a level under Blend (MO-26 (1)). Device rows (polyphony, output level, the oscillator seeds, the morph's own settings, the walk, the lab switches) stay global. <b>Quantum</b>: every key picks its corner and Morphable values glide to it (morph glide); the tables take one corner (CONTRACT §4.2).</p>
+  <p><b>Corners (B651).</b> As in horde, every setting has a value in each of the four corners (SPEC-ENGINE 5.1's classes, Appendix D). Morphable rows (class M: the frame, spread, sync ratio and Hz, window, asym, bend, PM, detune, coupling, width, fine, the levels, both envelopes, the LFO rates, the route depths) blend over the corners at the bilinear weights in their normalised form (MO-9), so time rows blend on their log taper. Structural rows (class S: <code>wt.law</code>, <code>wt.syncIn</code> (× pitch or Hz since B661), unison, octave, semitone) take one corner's value under every law (MO-13). osc 2's on switch fades as a level under Blend (MO-26 (1)). Device rows (polyphony, output level, the oscillator seeds, the morph's own settings, the walk, the lab switches) stay global. <b>Quantum</b>: every key picks its corner and Morphable values glide to it (morph glide); the tables take one corner (CONTRACT §4.2).</p>
   <p><b>The picks are a stand-in for MO-6 to MO-8</b>, simple but exact where it matters: each key's four draws are Gumbel draws from mulberry32 seeded by FNV-1a of <code>morph/key/&lt;key&gt;</code> and the morph seed; a corner scores ln(w)/T + (1 − cohesion)·g<sub>key</sub> + cohesion·g<sub>shared</sub>; Structural keys hold their corner until another beats it by ln(0.55/0.45)/T (the latch). Not in the lab: Stepped, Count Two, Exempt, waypoints, region locks, MO-26's restriction of blends to on corners, PA-5's crossfade on a Structural flip (a 12 ms parameter smoother instead).</p>
   <p><b>The drawn LFOs</b> follow ADR-349 and LF-8: one point list (up to 32) shared by the four corners, each corner its own time, level and bend per point. Under Blend each point's time (in cycles, linearly), level and bend blend over the corners and the list is re-sorted by time (id breaking a tie); under Quantum each point picks its corner by the draw <code>morph/lfoN/point/&lt;id&gt;</code> (cohesion 1 is the whole-shape flip), glided. Adding a point in one corner parks it in the others on their curves (C.12's exact split: bend u at fraction f becomes u·f and u·(1 − f)). The shape law and editing are ported from the design system's ShapeMorph (GUI-37). Both LFOs are <b>global and free-running</b> here (not per note), so they may move the morph (MS-29); their phase is computed in closed form on the audio clock on the page and in the worklet alike.</p>
   <p><b>Spectral log without per-note rebuilds (B651).</b> Spectral log's blend, exp(Σ w ln|c|) per harmonic, is nonlinear but does not depend on the frame except through which frame it blends, so at the morph position all 16 frames are log-blended once and each voice crossfades its two adjacent frames in the time domain, as Linear's strategy (b) does. A rebuild happens only when the morph position, a corner table or the law changes, never for a note or a frame envelope; the frame, frame spread and ENV 2 → frame work per voice under both laws. The cost moves to the morph: a move rebuilds 16 frames instead of 1. The lazy switch builds only the adjacent pair each sounding voice reads (the worker polls the worklet every 15 ms; a frame not built yet is read as its nearest built frame until it arrives). <b>Between integer frames this interpolates linearly between two log-blended frames, not in the log domain</b> (CONTRACT §7 C6 is still open; a this-frame capture at a fractional frame bakes the log-domain rule, so it can differ slightly from what was heard). The old shared frame stays on the switch for A/B.</p>
   <p><b>FM / PM (B652).</b> Each oscillator has an FM section whose every value is a corner value. The source is its own internal modulator, osc 2 (osc 1 only: this is WT-30's PM, and it absorbed <code>osc1.wt.pm</code>; osc 2 may sit at −∞) or Self (the mean of its last two outputs, clamped to ±1; under Phase the index is clamped at ${SELF_PM_MAX} rad). Phase moves the read by I/2π × the modulator; Pitch is SCALPEL's law, the read rate times (1 + 0.1·I)<sup>m</sup>, integrated, so ±1200·log2(1 + 0.1·I) cents at full swing. The internal modulator's seven shapes, its smooth and S&amp;H noise (a seeded hash, one value per modulator cycle, member seeds i·97) and its unbounded phase wrapped at 65,536 are ported exactly from <code>RazorCore.mod</code>; only SCALPEL's <code>Math.random()</code> start phases are replaced by mulberry32 draws. FM mix is SCALPEL's blade depth (a second, unmodulated read mixed in). WT-36: each member's level is chosen from its maximum read rate with FM included (Pitch: × (1 + 0.1·I); Phase: + I/2π × the modulator's peak slope × its rate), and the mip ladder outlines where a voice would read without FM. A lab switch runs the members at 2× and decimates through a 63-tap halfband. Index, ratio, Hz and mix are matrix destinations.</p>
-  <p><b>The preset bank (B652, B659).</b> 28 patches in six groups; each sets every corner value, its corner tables (factory by name, three captures built from their recipes), routes, both LFO shapes and the puck, and shows one line on what the pad does. B659 re-voiced seven (growl, acid, brass, string machine, PWM pad, Reese, pluck) through Weir's filter; the A/B button next to the menu loads each one's old version, where the acid, brass and pluck scan Sine → saw with ENV 2 instead of a filter. There is still no noise source: the flute's breath is smooth-noise PM.</p>
+  <p><b>The preset bank (B652, B659, B661).</b> 31 patches in seven groups (B661 added "Sync, always on": a sync sweep lead, a soft-sync pad and a soft formant voice, and moved every old patch's sync-off corners to ratio 1); each sets every corner value, its corner tables (factory by name, three captures built from their recipes), routes, both LFO shapes and the puck, and shows one line on what the pad does. B659 re-voiced seven (growl, acid, brass, string machine, PWM pad, Reese, pluck) through Weir's filter; the A/B button next to the menu loads each one's old version, where the acid, brass and pluck scan Sine → saw with ENV 2 instead of a filter. There is still no noise source: the flute's breath is smooth-noise PM.</p>
   <p><b>The filter (B659).</b> Each voice ends in one instance of Weir's SVF 12 (ADR-307: the filters live in Weir, a C++ library; Weir D-013: a 2-pole TPT state-variable filter in Simper's form with the energy level law; D-015: Ring). It is the real C++, compiled to WebAssembly by Weir's own <code>lab/build.sh</code> and vendored at <code>weir/weir_lab.wasm</code> (provenance, commit and sha256 in <code>weir/PROVENANCE.md</code>); there is no JavaScript copy, so what is heard is the code that ships. The page compiles the module once; the audio thread instantiates it synchronously (no Emscripten glue, Weir's own way) with 16 filter instances inside one module: 8 voices at the sample rate and 8 at twice it for the FM oversampling switch. Weir is prepared as horde calls it, <code>prepare(sr, block, 0.0)</code>: no smoothing (ADR-311). The slot sits after the amp envelope (RC-1: after each source's governing envelope), the same coefficients on both channels; a voice whose envelope has ended stays in its filter until <code>tail()</code> falls under 10<sup>−4</sup>, then it is free. Cutoff motion (Env amount × ENV 2, routes to the cutoff from both LFOs and ENV 2, and the knob's own move inside a block) reaches Weir per sample in octaves through <code>Mod.cutoffOct</code>; resonance, Ring and their routes go in per 128-sample block by <code>weir_set</code>, since the lab's ABI passes cutoff modulation only. The curves (the Filter card, and violet over Harmonics) are Weir's <code>response()</code> from a second instance on the page. Seven classic patches have a filter version and keep their old one behind the A/B button; four new patches are filter-first.</p>
+  <p><b>Sync always on, and its softness (B661).</b> The Sync row has no "off": it is × pitch or Hz, and <code>wt.sync</code> defaults to 1. At ratio 1 the read phase is frac(1·θ) = θ, so the restart lands on the table's own wrap: a table is periodic, so there is no value step and no slope corner, and the read equals the unsynced read bit for bit (the self-check under Lab switches renders the real worklet both ways and compares every sample, with ratio 1.0001 as a must-differ control). Hz mode reads ratio max(1, Hz/f), so a note above the sync frequency is unsynced too. A morph from a ratio-1 corner to a ×3 corner therefore sweeps the ratio continuously instead of flipping a Structural switch part-way; × pitch ↔ Hz is still Structural. The restart's polyBLEP runs only when a restart has a value step (any non-integer ratio); there is no always-on filter. <b>Softness</b> (<code>wt.syncSoft</code>, a lab row, a matrix destination) multiplies the read by a Tukey window over the synced cycle: 1 in the middle, a raised-cosine taper ½(1 − cos πθ/τ) of width τ = s/2 at each end, value- and slope-continuous at its joins; s = 0 is a hard cut, s = 1 a full Hann window (the old window at 100 %). Its depth fades in with the ratio, depth = clamp((r − 1)/K, 0, 1), K = 0.25 by default (0.5 and off on a switch), so at ratio 1 softness does nothing and engages smoothly as the ratio leaves 1; the polyBLEP corrects what the taper leaves of the step, (1 − depth). The window crossfade law (WT-33 as written: (1 − a) + a·½(1 − cos 2πθ)) is kept on the "Sync edge law" switch for comparison, at the same depth. <b>Aliasing:</b> the level is still chosen from the read rate r·f (WT-36); the taper itself is not band-limited, so a short taper (small s) at a high note is a fast fade that aliases at 1×. Measured offline at C6 (42 samples a cycle), ratio 3.5, one member, as the inharmonic share of the energy: the hard cut (polyBLEP-corrected) −32 dB; s = 0.02 and 0.05 (a taper of 0.4 and 1 sample a side: a step again, now uncorrected, because the taper took the step the polyBLEP would have corrected) −30 and −29 dB, slightly worse than hard; s = 0.1 −33 dB; s = 0.3 and up −47 to −48 dB, the measurement's floor (no sync reads −48.5). The FM oversampling switch (2×) runs every member at twice the rate and is the remedy: at 2× every case reads −42 dB or lower. The "Sync model" switch brings back the switchable (old) row for A/B: a corner at × pitch with ratio 1 counts as "off" and the row flips Structurally, with no fade.</p>
   <p><b>The read: 4-point cubic (Catmull-Rom) by default</b>, on the 6-point layout, for browser CPU. The spec builds 6-point Lagrange (WT-6); the Read switch plays it.</p>
   <p><b>The swarm here</b> is a sketch of SW-1..17: members with even detune (cents law), balanced stereo seats, seeded start phases (mulberry32 at <code>oscN.seed</code>), and a plain Kuramoto mean-field coupling (the members' phases pull together as coupling rises; R is the order parameter). No drift, inertia, onset scatter or C.1 taper.</p>
   <p><b>Determinism.</b> No <code>Math.random</code> anywhere: start phases, the S&amp;H LFO, the 2-D random and the random table draw from mulberry32 streams with visible seeds. Table ids are the 64-bit FNV-1a hash of each recipe's canonical text (CONTRACT §3.1). Morph motion advances on the audio clock.</p>
   <p><b>Lab limits against the spec</b> (each is visible, none is hidden):</p>
   <ul class="limits">
     <li>Sets are published at about 60 per second from the page's frame loop, not at every rebuild boundary (every 116 samples); motion is a staircase of R-long crossfades. The "Set crossfade" switch lengthens them for comparison. Crossfades start at 128-sample block starts, not on the engine's boundary clock.</li>
-    <li>Sync's restart step is corrected by a 2-sample polyBLEP (ED-1's job); the slope corner (ED-6) is not corrected, and <code>bandLimit</code> is not in the lab. Every member runs one sample late so the correction can reach back.</li>
+    <li>Sync's restart step is corrected by a 2-sample polyBLEP (ED-1's job), only at a restart with a value step (B661: never at an integer ratio, ratio 1 included); the slope corner (ED-6) is not corrected, and <code>bandLimit</code> is not in the lab. Every member runs one sample late, always, so the correction can reach back.</li>
     <li>DC from sync, the warp and the window is removed by one 8 Hz blocker at the output (WT-25's fallback), not by the exact cycle means.</li>
     <li>Parameters are smoothed per 128-sample block (about 12 ms), not glided by PA-1; unison changes during a note are not crossfaded (PA-6); <code>wt.syncIn</code> and the law step at a block edge (the law then crossfades by WT-15).</li>
     <li>Routes are applied once per 128-sample block (about 2.9 ms) in the worklet, added to the smoothed values; the LFOs have no per-note mode, sync, S&amp;H or random kinds, and the lab has no host tempo (rates in Hz). Route sources are LFO 1, LFO 2 and ENV 2 only. The 2-D random is a seeded Ornstein–Uhlenbeck walk and is not a corner value. Stepped and Count Two of the morph's laws are not in the lab.</li>
