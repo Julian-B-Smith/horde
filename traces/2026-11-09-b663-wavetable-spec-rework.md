@@ -43,3 +43,28 @@ stub with no ids); the test plug-in's host ids (`preview_plugin.cpp` line 81, `f
 kept quiet). `./verify` not run (the lead runs it after 06:00).
 
 **Verify.** Left to the lead.
+
+## Rework on the critic's review (REWORK, scoped), 2026-11-09 01:10
+
+Text edits only; no computation (the 2–6 am quiet window). What needs a number is an S0 item with its method
+(CONTRACT §5.6, "S0's pending engine-free items").
+
+- **B1:** WT-24 and §7 J2 rewritten on the right history: round 42's filter E fixed B-51 for DT-3 (ADR-289), and a
+  synced table read is a curved smooth part with steps. Recommended, pending S0 item 1: delay the table read itself
+  by τ on every path at every ratio (not a filter; nothing switches). WT-F42 applies DT-3 to synced members with a
+  mutation plant; WT-25 gains the residuals' mean term.
+- **M1:** Δ = g·(…), g = 1 at softness 0; WT-F41 runs at softness 0. **m8:** Δ read at the actual read phases.
+- **M2, M3, M6:** the bake is a focused port with the frozen engine as an oracle in the build repo (BB-12, BB-60,
+  BB-F12, J8); the oracle's tap via `HordeEngine::prepare(192000, …)`; every pitch- or rate-dependent law listed and
+  evaluated at C4 and 44.1 kHz (BB-13).
+- **M4:** frame routes at depth 1 from base 0, frames along the swing's sign; BB-F10. **m14:** BB-20 (d).
+- **M5:** J9 for the human; BB-F11 reported at U = 9; the spread-frame mapping. **M9:** `s0-1-unison-at-rest`.
+- **M7:** 380.2 per second at 44.1 kHz in WT-F19 and TEST-PLAN TP-5.
+- **M8:** S6b restored to the C++ generators; the bake is S6c; BB-F3 (b), F4, F9, F11 run at S8.
+- **m1, m7, m15:** WT-38, WT-F39 (`bandLimit` 0), WT-F38 (a glide back to 1 lands exactly).
+- **m2, m11, m12, m13, m16:** J10, K table sets, osc 3's seed 1236 (J11), the migration A/B exemption (J12), C2a.
+- **m3, m4, m5, m6:** BB-30 reports live rows and the base wave; BB-F3's detector is harmonic 2; BB-41 keys by id
+  (worst case about 2.6 KiB, S0 item 4); noise draws from the taken cycle.
+- **m9, m10:** GN-57 blends only the 63 harmonics 128 points show; GN-59 a gated accumulator with a 16,384-sample
+  ring.
+- **m17:** CONTRACT §7 is one table of 72 rows, duplicates merged, the PROPOSED numbers listed by gate.

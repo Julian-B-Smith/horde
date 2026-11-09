@@ -92,7 +92,7 @@ bit-identically to the engine without the table code (WT-P4, tested as RC-6.4 te
 
 ### 1.5 The table set: a new block, per oscillator, per instance
 
-A new concept, `TableSet`, owned by the engine (`HordeEngine`), two of them. Voices read it through a const view
+A new concept, `TableSet`, owned by the engine (`HordeEngine`), one per oscillator: K of them, three in 1.0. Voices read it through a const view
 in `VoiceContext`. Proposed structure id `instrument.table_set`, multiplicity 2 (the lead adds it).
 
 | call | thread, when | what |
@@ -218,9 +218,9 @@ not a build path. The blade law survives only frozen inside the blade-bake gener
 
   | need | what is published | where it is computed | cost while asked |
   |---|---|---|---|
-  | **GN-57** (as GUI-63 narrows it) | per oscillator, the table read at the puck as its 16 frames, each a cycle of 128 points (PROPOSED), **always**; and each corner's 16 frames **only while the morph is on** | **on the main thread**, from the canonical spectra, the weights and the law the audio thread last published in the snapshot (a blend at display resolution); never on the audio thread | per oscillator about 16 × 1,024 harmonic blends (× 4 corners with the morph on) and 16 inverse transforms of 128 points, at most 60 times a second: well under 1 % of one core, off the audio thread |
+  | **GN-57** (as GUI-63 narrows it) | per oscillator, the table read at the puck as its 16 frames, each a cycle of 128 points (PROPOSED), **always**; and each corner's 16 frames **only while the morph is on** | **on the main thread**, from the canonical spectra, the weights and the law the audio thread last published in the snapshot; never on the audio thread. **Only the harmonics 128 points can show (1 to 63) are blended**: Spectral log over all 1,024 harmonics at 60 frames a second would cost about 20 % of a core (the critic's estimate) | per oscillator 16 × 63 harmonic blends (× 4 corners with the morph on) and 16 inverse transforms of 128 points per frame, at most 60 a second: well under 1 % of one core, off the audio thread |
   | **GN-58** | per voice, per back-edge, the clamp's engagement count (WT-65; forward edges never clamp), and per voice the interleaved flag of its latest segment (WT-64) | counted on the audio thread always (they are IF-9's counters, per voice); copied into the snapshot only while asked | 64 voices × 3 back-edges × 4 bytes plus 64 flags: under 1 KiB a frame |
-  | **GN-59** | per oscillator, for the voice the page names (default: the newest held), its output after every transformation and PM, before the filter: the last cycle of the oscillator's mono member sum at the voice's pitch, up to 4,096 samples, with its pitch; and member 0's y⁰ over the same span (IF-10's) | the audio thread copies the samples it already rendered into the snapshot; the page resamples to a cycle and takes its spectrum | a copy of up to 3 × 2 × 4,096 floats per GUI frame, about 6 MiB/s at 60 frames: small, and only while asked |
+  | **GN-59** (its text's "window" reads "sync softness" since ADR-389) | per oscillator, for the voice the page names (default: the newest held), its output after every transformation and PM, before the filter: one cycle of the oscillator's mono member sum at the voice's pitch, with the pitch; and member 0's y⁰ over the same span (IF-10's) | **a gated mono accumulator** per oscillator, written by the audio thread only while asked: it sums the named voice's members (before pan) into a ring of 16,384 samples, enough for a whole cycle down to about 2.7 Hz at 44.1 kHz (a 4,096-sample ring would cut cycles below about 10.8 Hz); the snapshot takes the latest whole cycle; the page resamples it and takes its spectrum | one add per member-sample for one voice while asked, and a copy of up to 3 × 2 × 16,384 floats per GUI frame (about 23 MiB/s at 60 frames, PROPOSED; the copy may run at 30 frames) |
 
 ---
 
@@ -275,7 +275,7 @@ finalised. The lab's FM mix, if adopted (§7 I8), takes **0x043**; a further row
 **Osc 3's block, 0x8000** (ADR-388 #4b): `osc3.on` at 0x8000 (osc 1's `on` is offset 0x00); its oscillator rows at
 osc 1's offsets, **without the six blade-only rows** (`baseWave`, `quantize`, `stacking`, `upperHears`,
 `collisionPitch`, `collisionBite`) and without blade blocks or a `ratios` text, their offsets left empty; the `wt.`
-rows above at 0x8030 to 0x8042; the internal modulator from 0x803B; `stream` at 0x8300. **`mix.osc3`** is voice
+rows above at 0x8030 to 0x8042; the internal modulator from 0x803B; `stream` at 0x8300; its defaults are osc 1's except `seed`, **1236** (osc 1's 1234, osc 2's 1235, clean-room `manifest.cpp` line 100; §7 J11). **`mix.osc3`** is voice
 offset **0x0013** (`kQuality` is 0x0012). `osc3.on` defaults to off (§7 H3).
 
 **Not host parameters:** WT-19's test switch `member` (engine state through S8, gone in 1.0) and each corner's
@@ -519,7 +519,7 @@ The clean-room build measured CPU only at the end and read 7 to 10 times its tar
 | S5a | cell 3 (one oscillator) | ≤ 100 % of 4 % |
 | S5b | cells 4 and 5 (K = 3, the matrix; segment and interleaved) | ≤ 100 % of 12 % |
 | S6 | cells 1 to 5: no audio-path change | within 2 % of S5b |
-| S6b | the blade bake runs at load, off the audio thread: cells 1 to 5 unchanged; the bake's own time reported (BB-51) | within 2 % of S5b |
+| S6b, S6c | the generators and the bake run at load, off the audio thread: cells 1 to 5 unchanged; the bake's own time reported (BB-51) | within 2 % of S5b |
 | S7, S8 | the cells in the clean-room engine at K = 3 (ADR-388 #4a); the swarm's own cost reported apart (PF-1, re-anchored to cells 2 and 5, holds the whole oscillator; PF-2 judged at two oscillators, reported at three, ruled again after S5b) | ≤ 100 % |
 
 - **When a timed run exceeds its share** (likely: B648 measured a cheaper design at 3.9 %, its follow-up counts
@@ -547,7 +547,7 @@ is in BRIEF.md. **A stage closes only by §6.1.**
 
 | stage | scope | the human hears | gates (spec section 9) | CPU |
 |---|---|---|---|---|
-| **S0** (lead) | repo, harness skeleton, alias meter, click detector, instruction counter; WT-BUDGET's first timed confirmation; the conversion factor | — | every S1 gate's detector plants and controls proven engine-free | conversion fixed |
+| **S0** (lead) | repo, harness skeleton, alias meter, click detector, instruction counter; WT-BUDGET's first timed confirmation; the conversion factor; **the pending engine-free items** (below) | **`s0-1-unison-at-rest`**: no wavetable build needed: four bank presets in the old engine at U = 1 at rest (what the bake will give) against the original at U = 9 | every S1 gate's detector plants and controls proven engine-free | conversion fixed |
 | **S1** | the data model, the factory generators, levels, the read; one member, a static table | factory tables | WT-F1, WT-F5, WT-F8 (static), WT-F9, WT-F13 (rtsan); WT-41, WT-43, WT-47 | ≤ 35 % |
 | **S2** | the four-corner blend, both laws and WT-3's frame rule, rebuild and crossfade (scheme (ii), with (iii) measured), WT-16's loudness | morph sweeps | WT-F4 (the moving-phase probe, differing corners, law switch, Quantum flip), WT-F6, WT-F7, WT-F10, WT-F5 at every block split | ≤ 55 % |
 | **S3** | levels across pitch, the pitch crossfade, WT-36's level choice; ρ a constant | glides at three spacings | WT-F1 at C1 to C8 at 44.1, 48, 96 kHz; WT-F2 (the design figure); WT-F4 over glides | ≤ 65 % |
@@ -555,9 +555,10 @@ is in BRIEF.md. **A stage closes only by §6.1.**
 | **S5a** | the internal modulator (if the lab has ruled, else it moves to the first unstarted stage after the ruling), always-on sync with its softness taper and the plain restart correction (WT-24, WT-32, WT-33), asym and bend, the loop on table members, DC removal, High; one oscillator | sync leads, soft formants, jitter | WT-F3, WT-F8 with every transformation, WT-F12, WT-F4 with each amount swept, WT-F26, WT-F38 to WT-F41; sync's edges by QS-1's method at r = 2.5; the loop's stability map (WT-31) | ≤ 100 % of 4 % |
 | **S5b** | K = 3; the PM matrix, every modulator's taps and fades (WT-62), the two render modes (WT-64), the back-edge clamp (WT-65), the PM buffers | operator stacks: EP, bell, growl, feedback | WT-F14; WT-F4 with depths swept and a modulator switched off; WT-F12 with every entry fuzzed; WT-F3 for the matrix; the back-edge stability map (WT-65) | ≤ 100 % of 12 % |
 | **S6** | recipes, the dictionary and its bounds, capture, the library, the slot handoff (§1.6), state, the random slot | captures against live blends | WT-F11, WT-F5's load and mid-render cases, WT-F13 (TSan plant), WT-F22, WT-F30; recipe round trip byte-identical; bounds refused at assignment; fallbacks reported | within 2 % |
-| **S6b** | the blade bake (BLADE-BAKE.md): the frozen engine, the render, the frame axis, the mappings, the report, IF-4's version-2 migration | old patches baked into tables | BB-F1 to BB-F9 | within 2 % |
+| **S6b** | the C++ generators (INTEGRATION §11 step 8): the eight factory tables, "Basic shapes", TABLECASTER's ten engines (§7 I18), each frozen by goldens | factory and rolled tables | WT-F15, WT-F29, WT-41, WT-43, WT-47 for every generator | within 2 % |
+| **S6c** | the blade bake (BLADE-BAKE.md): the focused port and its oracle, the render, the frame axis, the mappings, the report | old patches baked into tables (migration A/B) | BB-F1, F2, F3 (a), F5 to F8, F10, F12 | within 2 % |
 | **S7** | the seam in `seam/` (§5.8) **at K = 3** (ADR-388 #4a): the table member in `Swarm::render`, the table sets in `HordeEngine`, osc 3 (its block, `mix.osc3`, the five-source arrays), the voice's render order, both render modes and PM buffers, the loop amendment, the retired class | the table member in the real swarm, three oscillators | WT-P4 (every `member` at `base`: all 83 bank presets bit-identical to the pinned commit); the clean-room suite green, by-index tests reseeded by key (WT-F36); WT-F1, WT-F4, WT-F5, WT-F14 (a), WT-F35 in the engine | cells in the engine |
-| **S8** | the spectral-blend class in the resolver, `set_corner_tables`, five sources in the shared switch pick, the modulation destinations, the engine's `wt` state and IF-4 version 2, the GUI observations (GN-57 to GN-59), the test plug-in | morphing tables, old patches loading, the human playing it | the morph rows the class touches (WT-F31); MS-29 refusals; RC-9 round trips; BB-F9 in the plug-in; rtsan and TSan on the plug-in render | cells, timed |
+| **S8** | the spectral-blend class in the resolver, `set_corner_tables`, five sources in the shared switch pick, the modulation destinations, the engine's `wt` state and IF-4 version 2, the GUI observations (GN-57 to GN-59), the test plug-in | morphing tables, old patches loading, the human playing it | the morph rows the class touches (WT-F31); MS-29 refusals; RC-9 round trips; IF-4 version 2's migration with BB-F3 (b), BB-F4, BB-F9, BB-F11; rtsan and TSan on the plug-in render | cells, timed |
 
 **The listening batches** (≤ 6 clips each):
 
@@ -601,12 +602,12 @@ is in BRIEF.md. **A stage closes only by §6.1.**
 | S6 | `s6-1-capture-vs-live` | a blend, then its capture in all four corners | Identical? |
 | | `s6-2-blend-of-captures` | a sweep across four captures | New ground? |
 | | `s6-3-portable-preset` | a preset reloaded after its library table is deleted | Identical? |
-| S6b | `s6b-1-static-blades` | four static-blade bank presets, old engine then baked | Close enough? |
-| | `s6b-2-blade-envelopes` | two blade-envelope presets (Blade pluck, Zap bass), old then baked with the frame route | Does the frame sweep carry the pluck? |
-| | `s6b-3-rotation` | a rotating-blade preset, old then baked with the frame LFO | Is 16 positions per turn acceptable? |
-| | `s6b-4-jitter` | Trance and Operator jitter, old then baked with the internal modulator | Same jitter? |
-| | `s6b-5-sync-formant` | a whole-cycle Sync blade and a fixed-Hz formant, old then baked as sync | Same? |
-| | `s6b-6-not-carried` | a cross-mod and a noise-blade preset, old then baked, with the load report on the page | Is the loss acceptable, and is the report clear? |
+| S6c | `s6c-1-static-blades` | four static-blade bank presets, old engine then baked | Close enough? |
+| | `s6c-2-blade-envelopes` | two blade-envelope presets (Blade pluck, Zap bass), old then baked with the frame route | Does the frame sweep carry the pluck? |
+| | `s6c-3-rotation` | a rotating-blade preset, old then baked with the frame LFO | Is 16 positions per turn acceptable? |
+| | `s6c-4-jitter` | Trance and Operator jitter, old then baked with the internal modulator | Same jitter? |
+| | `s6c-5-sync-formant` | a whole-cycle Sync blade and a fixed-Hz formant, old then baked as sync | Same? |
+| | `s6c-6-not-carried` | a cross-mod and a noise-blade preset, old then baked, with the load report on the page | Is the loss acceptable, and is the report clear? |
 | S7 | `s7-1-coupling` | coupling −1 → +1 on a table swarm | Does the swarm's physics still read? |
 | | `s7-2-drift-inertia` | drift and inertia on a table pad | Same character? |
 | | `s7-3-gravity` | gravity on a held table chord | Still settles to just intervals? |
@@ -616,7 +617,21 @@ is in BRIEF.md. **A stage closes only by §6.1.**
 | | `s8-3-lfo-x-env-frame` | a global LFO on X, an envelope on the frame | Does modulation feel fluid? |
 | | `s8-4-human-take` | the human playing the test plug-in | The human's notes |
 
-Every clip is one oscillator's member, never two engines (GUI-1).
+Every clip is one oscillator's member, never two engines (GUI-1). **The one exemption is a migration A/B** (`s0-1`
+and S6c's clips): the old engine and the baked patch played one after the other so the human can judge what an old
+patch keeps. It compares a patch before and after its migration, not two engines a patch could choose between, and
+is never offered on a page.
+
+**S0's pending engine-free items** (computed by the lead at S0, never by the builder; methods fixed here):
+1. **J2's delayed read** (WT-24): with the table read delayed by τ on every path, show engine-free that a synced
+   table member's step and corner residuals sum to a band-limited restart and that DT-3 holds (WT-F42), on Sine →
+   saw frame 15 and Vowel frame 7 at r = 2.5 and 3.5, s = 0, at 44.1, 48 and 96 kHz; and whether E's pinned moment
+   leaves the residuals' mean at zero (WT-25's term). Method: an engine-free render of the law in double precision
+   against an ideal band-limited synced read (additive, every harmonic of the synced cycle below 20 kHz).
+2. **WT-F2's design figures** per spacing (re-derive the drafter's −6.84 / −5.30 / −2.54 dB at C6).
+3. **The loop's stability map** (WT-31) and **I_back** (WT-65), by B521's method.
+4. **BB-41's worst-case recipe size** on the real row keys.
+5. **WT-6's read designs** (the drafter's numpy alias figures), re-derived by QS-1's method.
 
 ### 5.7 A change in the middle of the build
 
@@ -699,139 +714,84 @@ answered it.
 - **ADR-389 (2026-11-09):** sync always on (× pitch or Hz; ratio 1 is no sync); a restart corrected only when it has
   a step; no filter on a member at 1×; the softness taper with depth fading in by ×1.25; `wt.syncSoft` a row.
 
-**Open**, each with the drafter's recommendation.
+**The decisions, in one table.** Each row: its id (never renumbered), the question, the drafter's recommendation
+(or the ADR that answered it), and the stage before which it is needed. Duplicates are merged under one id: F3 is
+I23, H4 is I10, H8 is I8. The PROPOSED numbers are listed by gate (C3a to C3k), never approved as a block.
 
-### A. Direction
-
-- **A1. Replace or beside?** **Answered: replace** (ADR-387).
-- **A2. How base and table appear.** **Answered in part:** the base/table switch is test-only and gone in 1.0
-  (ADR-388 #4c); old patches bake (ADR-388 #1). Still open: one wave menu on the page. Recommendation: the base waves
-  become one factory table, "Basic shapes" (sine, triangle, saw, square as frames), so the menu holds every wave
-  (G1).
-
-### B. Morph and modulation
-
-- **B2. Spectral log's shared frame under MS-47's Refuse.** Moot if I6 adopts the lab's per-voice model.
-  Recommendation, if it does not: **mute per-note routes to `wt.frame` while the law is Spectral log**, named on the
-  page (ADR-379 A1 #3's wish).
-
-### C. Fidelity, memory, CPU
-
-- **C1. Level spacing, and ADR-384 #8 against QS-2.** QS-2's 3 dB at C6 cannot be met under #8's ceiling with WT-5's
-  crossfade (engine-free: −6.84 dB at one level per octave, −5.30 at half and quarter, −2.54 at an eighth, about
-  155 MiB for three oscillators even with strategy (b)). Recommendation: **judge WT-F2 as the design's own figure,
-  hear S3's three glides, then rule the spacing**; half-octave is the one that fits the cap, with strategy (b).
-- **C2. WT-BUDGET.** **To be ruled after the 2026-11-09 timed run** (ADR-388 #2); 4 % provisional.
-- **C3. The PROPOSED numbers** in the spec's section 9, WT-F15 to WT-F41 included (TEST-PLAN Q-9). Recommendation:
-  approve; S0 proves each gate's plants and controls before S1.
-- **C4. The memory cap**, 24 MiB per oscillator, 72 MiB for three. Recommendation: approve: it allows strategy (a)
-  at one level per octave (59.7 MiB) and strategy (b) at half-octave (44.3 MiB).
-- **C5. The rebuild interval:** 4 control intervals. Recommendation: approve.
-- **C6. Spectral log's frame interpolation** (WT-3). Recommendation: **the log domain**, the test written to match.
-- **C7. The rebuild crossfade's scheme** (WT-15). Recommendation: the fused read; the once-per-interval set if it
-  passes WT-F4's moving-phase probe.
-- **C8. The level size cap** (WT-6). Recommendation: **8,192 samples, the 6-point read**; 8-point at 4,096 if the
-  timed runs show cache misses.
-- **C9. Linear's strategy** (WT-23). Recommendation: **(a), read-time**, at one level per octave; measure (b) at S4.
-- **C10. Loudness** (WT-16): K-weighted at C3, level-matched to the base saw, peak limit 2.6, gain cap +24 dB.
-  Recommendation: approve; WT-F7 at ±1.0 dB.
-
-### D. The sound's controls
-
-- **D1. The warps:** asym and bend; sync with its softness (the law ruled, ADR-389); mirror out. Recommendation:
-  approve; hear S5a.
-- **D2. Reuse `crossMod`, `feedback` and `loopDrive`** for table members (amends C.14, C.16, PA-8), put to the human
-  only after the lead's engine-free stability map (WT-31). Recommendation: approve then.
-- **D3. No Normalise toggle.** Recommendation: approve.
-
-### E. Transformations
-
-- **E1. Audio-rate `wt.sync`, `wt.syncHz` and the matrix rows** (PA-4). Recommendation: approve; PF-2 re-measured.
-- **E2. Superseded** by ADR-385 A1.
-- **E3. High has no opt-out** for table members. Recommendation: approve.
-
-### F. Process
-
-- **F1. The repo name** `horde-wavetable`, local only. Recommendation: approve.
-- **F2. The clips** in §5.6. The human may swap any before a stage closes.
-- **F3. How the patch series lands** (§5.8): the same item as I23.
-
-### G. Tables
-
-- **G1. The factory set:** the bench's eight at 1,024 harmonics, Sine → saw negated to the base wave's polarity,
-  plus "Basic shapes" (A2). Recommendation: approve.
-- **G2. The random generator's slot.** Superseded by TABLECASTER (ADR-386, CANDIDATE): I18.
-- **G3. Import of wavetable files made elsewhere.** Recommendation: after 1.0, as a user table with its own recipe
-  kind.
-
-### H. Three oscillators and the PM matrix
-
-- **H1. Named algorithms** as page presets that fill the matrix. Recommendation: yes, never as an engine mode.
-- **H2. The back-edge law** (WT-63). Recommendation: **averaged over two samples**, C.14's law.
-- **H3. Osc 3 off in a new patch.** Recommendation: **off**.
-- **H4. The diagonal is C.14's `feedback`** (WT-61; also I10). Recommendation: reuse; make `feedback` audio-rate if
-  S5b's clip shows it too narrow.
-- **H5. The fixed render order** 3 → 2 → 1. Recommendation: approve.
-- **H6. The back-edge clamp** I_back: 4 until the stability map. Recommendation: approve.
-- **H7. Segment mode by default, interleaving only while a back-edge is live.** Recommendation: approve.
-- **H8. The internal modulator's rows** (also I8). Recommendation: finalise them when the lab (B652) is ruled, before
-  S5a.
-- **H9. The real engine's third oscillator.** **Answered: in 1.0** (ADR-387); the seam at three from S7 (ADR-388
-  #4a); §10.
-
-### I. The integration's decisions (INTEGRATION.md §12.2, same numbers)
-
-Answered there by ADR-388: **1** (the seam at K = 3, #4a), **2** (osc 3's ids, #4b), **3** (the retired class, #3),
-**4** (old patches: **baked**, #1, not flagged as recommended), **5** (the switch test-only, #4c), **7** (the budget,
-#2), **14** (five sources, #4d). Open:
-
-- **I6. Spectral log's frame per voice** (the lab's model) if S4's timed run affords it, WT-22's shared frame
-  otherwise. Recommendation: the lab's model, on the timed evidence; it makes B2 moot.
-- **I8. The internal modulator's rows:** WT-70's set plus `wt.modMix` (0x043), the lab's ranges (×1/16..×32,
-  0.1..20,000 Hz), decorrelation continuous with an A/B against the lab's switch. Recommendation: approve before S5a.
-- **I9. The internal modulator is not a modulation source.** Recommendation: approve.
-- **I10. Self-PM** is `feedback` (H4), judged against the lab's Self in `s5b-4-feedback`. Recommendation: H4.
-- **I11. MO-27 for tables:** one-hot weights publish the corner's own level sets under both laws. Recommendation:
-  approve.
-- **I12. No waypoints or region locks on table keys in 1.0**, refused and counted. Recommendation: approve.
-- **I13. Save current sound past the bounds:** refuse the whole save, named. Recommendation: approve.
-- **I15. Aftertouch's default route** on all three oscillators. Recommendation: approve.
-- **I16. The chunk's ceiling**, one ruled figure with the tables (up to 32 KiB) counted in it. Recommendation: rule it
-  before S6.
-- **I17. Osc 3 in Random:** never alone; off at low chaos; untouched while off; ADR-374 A2 includes it.
-  Recommendation: approve.
-- **I18. TABLECASTER:** ADR-386's five points; its engines as recipe generators with goldens; a refused roll re-drawn
-  up to 8 times, then refused and named. Recommendation: approve.
-- **I19. Random's wavetable roles** on a chaos ladder; with sync always on, "sync off at low chaos" reads "the ratio
-  at 1 at low chaos". Recommendation: approve as the starting point for the chaos-curve session.
-- **I20. The oscillator preset tier:** one oscillator's rows and one table, slot-agnostic. Recommendation: approve.
-- **I21. The banks:** a "Demo (wavetable)" section from the lab's 24 presets at S8; the blade demos kept until the
-  retirement round; the factory bank re-voiced, not translated. Recommendation: approve; with baking, the bank and
-  demos also load baked (S6b's clips).
-- **I22. When the blade code leaves the engine:** one retirement round after the factory patch session; the frozen
-  copy inside the bake stays (BB-60). Recommendation: approve.
-- **I23. How the patch series lands** (§5.8): merged, the clean-room builder reviewing it, with the round.
-  Recommendation: merged.
-- **I24. Who regenerates the random roles lab.** Recommendation: the lead updates the generator; the GUI session
-  regenerates the page.
-
-### J. New with this rework (B663)
-
-- **J1. The bake's frame axis** (BB-20): static corners single-frame; one moving parameter swept across the frames
-  with its route or rotation moved to `wt.frame`; several, the largest swing. Recommendation: approve. The
-  alternative, always single-frame, loses every blade envelope and rotation.
-- **J2. The restart correction without filter E** (WT-24): a plain minimum-phase residual, so nothing switches as the
-  ratio crosses an integer. Recommendation: approve, measured at S5a against QS-1's floors; if it misses, E with a
-  PA-5 crossfade when the ratio leaves an integer.
-- **J3. Short tapers** (WT-37): a minimum taper half-width of 2 internal samples, or a correction of the leftover step
-  by ED-7's law. Recommendation: **the minimum width** (deterministic, free, inaudible at the widths it touches),
-  measured at S5a (WT-F40).
-- **J4. The bake and the internal modulator** (BB-32): jitter presets need WT-70. Recommendation: rule I8 before S6b,
-  so `genV` 1 carries jitter; otherwise they bake at rest and a later `genV` would re-voice them.
-- **J5. The bake's reference pitch** for Hz settings: C4 (BB-13). Recommendation: approve.
-- **J6. The bake's stage:** S6b, after the library and before the seam. Recommendation: approve.
-- **J7. `wt.syncSoft` at control rate**, not audio rate. Recommendation: approve; a per-note envelope on softness is
-  smooth enough at 1,500 ramps a second.
+| id | question | recommendation | needed by |
+|---|---|---|---|
+| A1 | Replace the blades, or sit beside them? | **Answered: replace** (ADR-387). | — |
+| A2 | One wave menu on the page? | The base waves as one factory table, "Basic shapes" (sine, triangle, saw, square as frames), beside the eight (G1). The base/table switch itself is answered: test-only, gone in 1.0 (ADR-388 #4c). | S6b |
+| B2 | Spectral log's shared frame under MS-47's Refuse | Moot if I6 adopts the per-voice frame; otherwise mute per-note routes to `wt.frame` while the law is Spectral log, named on the page (ADR-379 A1 #3). | S4 |
+| C1 | Level spacing, and ADR-384 #8 against QS-2 at C6 (WT-F2) | Judge WT-F2 as the design's own figure (within 0.5 dB, as built); hear S3's three glides; then rule the spacing. Half-octave fits the cap with strategy (b); an eighth would meet QS-2 at about 155 MiB for three oscillators. | S3 |
+| C2 | WT-BUDGET | **To be ruled after the 2026-11-09 timed run** (ADR-388 #2); 4 % provisional. | S1 |
+| C2a | PF-1's re-anchored figure (cells 2 and 5, whole oscillator) | Set from the same timed run beside WT-BUDGET; PF-2 judged at two oscillators, reported at three, ruled again after S5b (ADR-388 #2). | S1; S5b |
+| C3a | QS-1's floors for a table alone: 110, 104, 98, 93 dB at C2, C4, C6, C8 (WT-F1) | Approve: the drafter's engine-free 6-point read reaches the 140 dB cap at C1, C2, C4 (S0 item 5 re-derives it). | S1 |
+| C3b | Arithmetic tolerances: 10⁻⁶ of peak (WT-F14 (c), WT-F15, WT-F39), 10⁻⁵ (WT-F10's equivalence and sweeps, WT-F41), 10⁻⁴ (WT-F11), 10⁻³ (WT-F10's corner identity, and its sweep under WT-15 (iii)) | Approve: float32 tables against double-precision references. | S1 to S6 |
+| C3c | Loudness across the pad: ±1.0 dB at C3 (WT-F7) | Approve; C2 and C5 reported. | S2 |
+| C3d | A glide never steps: 0.5 dB tracking, 0.2 dB hop excess (WT-F17) | Approve. | S3 |
+| C3e | Short tapers: no more than 1 dB worse than the corrected hard cut (WT-F40) | Approve with J3's minimum width. | S5a |
+| C3f | Polarity: correlations 0.99 and 0.999 (WT-F23) | Approve. | S1 |
+| C3g | A static patch: 0 rebuilds in 10 s (WT-F6) | Approve. | S2 |
+| C3h | The table gate's band rule: energy under 20 kHz at C3 within 12 dB of full (WT-47) | Approve. | S1 |
+| C3i | State bounds: capture depth 8, 64 recipes, 512 bytes each, 3 KiB for a bake recipe, 32 KiB in all (WT-44, BB-41) | Approve; S0 item 4 checks the bake's worst case. | S6 |
+| C3j | WT-F3's plant: sync's level chosen for fᵢ worsens the alias report by at least 20 dB at r = 4, C5 | Approve. | S5a |
+| C3k | The bake's tolerances: BB-F2 10⁻⁵, BB-F3 10⁻⁵ and DT-3's 0.5 dB, BB-F10 1 dB per harmonic, BB-F12 10⁻⁶ | Approve. | S6c, S8 |
+| C4 | The memory cap: 24 MiB per oscillator, 72 MiB for three (WT-8) | Approve: it allows strategy (a) at one level per octave (59.7 MiB) and strategy (b) at half-octave (44.3 MiB). | S4 |
+| C5 | The rebuild interval: 4 control intervals (WT-14) | Approve. | S2 |
+| C6 | Spectral log's frame interpolation (WT-3) | The log domain, the test written to match. | S2 |
+| C7 | The rebuild crossfade's scheme (WT-15) | The fused read; the once-per-interval set if it passes WT-F4's moving-phase probe. | S2 |
+| C8 | The level size cap (WT-6) | 8,192 samples with the 6-point read; 8-point at 4,096 if the timed runs show cache misses. | S1 |
+| C9 | Linear's strategy (WT-23) | (a), read-time, at one level per octave; measure (b) at S4. | S4 |
+| C10 | Loudness (WT-16): K-weighted at C3, level-matched to the base saw, peak limit 2.6, gain cap +24 dB | Approve. | S2 |
+| D1 | The warps: asym and bend; sync softness (the law ruled, ADR-389); mirror out | Approve; hear S5a. | S5a |
+| D2 | Reuse `crossMod`, `feedback`, `loopDrive` for table members (C.14, C.16, PA-8 amended) | Put to the human only after S0 item 3's stability map; then approve. | S5a |
+| D3 | No Normalise toggle | Approve. | S2 |
+| E1 | Audio-rate `wt.sync`, `wt.syncHz` and the matrix rows (PA-4) | Approve; PF-2 re-measured. | S5a |
+| E2 | PM osc 1 → osc 2 | **Superseded** by ADR-385 A1 (any to any). | — |
+| E3 | High has no opt-out for table members | Approve. | S5a |
+| F1 | The repo name `horde-wavetable`, local only | Approve. | S0 |
+| F2 | The clips (§5.6) | The human may swap any before its stage closes. | each stage |
+| G1 | The factory set: the bench's eight at 1,024 harmonics, Sine → saw negated, plus "Basic shapes" (A2) | Approve. | S1 |
+| G2 | The random generator's slot | **Superseded** by TABLECASTER (ADR-386): I18. | — |
+| G3 | Import of wavetable files made elsewhere | After 1.0, as a user table with its own recipe kind. | after 1.0 |
+| H1 | Named algorithms (stacks, loops) | As page presets that fill the matrix, never an engine mode. | S5b |
+| H2 | The back-edge law (WT-63) | Averaged over two samples, C.14's law. | S5b |
+| H3 | Osc 3 in a new patch | Off. | S5b |
+| H5 | The fixed render order 3 → 2 → 1 | Approve. | S5b |
+| H6 | The back-edge clamp I_back | 4 until S0 item 3's map, then the map's limit. | S5b |
+| H7 | Segment mode by default, interleaving only while a back-edge is live | Approve. | S5b |
+| H9 | The real engine's third oscillator | **Answered: in 1.0** (ADR-387); the seam at three from S7 (ADR-388 #4a). | — |
+| I1–I5, I7, I14 | INTEGRATION §12.2's seam at K = 3, osc 3's ids, the retired class, old patches, the switch, the budget, five sources | **Answered** by ADR-388 (#4a, #4b, #3, #1 (baked, not flagged), #4c, #2, #4d). | — |
+| I6 | Spectral log's frame per voice (the lab's model) | Adopt on S4's timed evidence; WT-22's shared frame otherwise. | S4 |
+| I8 (= H8) | The internal modulator's rows: WT-70's set, `wt.modMix` at 0x043, the lab's ranges (×1/16..×32, 0.1..20,000 Hz), decorrelation continuous with an A/B against the lab's switch | Approve. | S5a (and S6c, J4) |
+| I9 | The internal modulator is not a modulation source | Approve. | S5a |
+| I10 (= H4) | Self-PM is C.14's `feedback`, the matrix's diagonal | Reuse; make `feedback` audio-rate if `s5b-4` shows it too narrow. | S5b |
+| I11 | MO-27 for tables: one-hot weights publish the corner's own level sets | Approve. | the round |
+| I12 | No waypoints or region locks on table keys in 1.0 | Approve; refused and counted. | the round |
+| I13 | Save current sound past the bounds | Refuse the whole save, named. | the round |
+| I15 | Aftertouch's default route on all three oscillators | Approve. | the round |
+| I16 | The host chunk's ceiling, the tables counted in it | Rule one figure. | S6 |
+| I17 | Osc 3 in Random | Never alone; off at low chaos; untouched while off; ADR-374 A2 includes it. | the round |
+| I18 | TABLECASTER as recipe generators | ADR-386's five points; engines with goldens; a refused roll re-drawn up to 8 times, then refused and named. | S6b |
+| I19 | Random's wavetable roles | The chaos ladder as INTEGRATION §5 proposes; "sync off at low chaos" now reads "ratio 1". | the round |
+| I20 | The oscillator preset tier | One oscillator's rows and one table, slot-agnostic. | S6 |
+| I21 | The banks | A "Demo (wavetable)" section at S8; the blade demos kept until the retirement round; the factory bank re-voiced; the bank and demos also load baked. | S8 |
+| I22 | When the blade code leaves the engine | One retirement round after the factory patch session; the bake's port stays (BB-60). | after S8 |
+| I23 (= F3) | How the patch series lands (§5.8) | Merged, the clean-room builder reviewing it, with the round. | S8 |
+| I24 | Who regenerates the random roles lab | The lead updates the generator; the GUI session the page. | the round |
+| J1 | The bake's frame axis (BB-20) | Approve: static corners single-frame; one moving parameter swept across the frames, its route or LFO moved to `wt.frame` at depth 1. | S6c |
+| J2 | **The sync restart's smooth part** (WT-24). ED-1 delays each step's correction by τ (about 2.4 samples) while an undelayed curved smooth part between steps gets none: that is B-51, which round 42's filter E fixed for DT-3 (ADR-289), not for QS-1. A synced table read is a curved smooth part with steps; and before round 42, ED-6 left curved corners uncorrected because a corner residual's tail ends only on a delayed smooth part. So a correction with no delay of the smooth part fails DT-3 at every ratio that is not whole. | **Delay the table read itself by τ** (read at θᵢ − τ·fᵢ/f_int, on every path, at every ratio): exact for a table, not a filter, nothing switches as the ratio crosses an integer, so ADR-389 holds; the step and corner residuals then meet the delayed smooth part ED-1 assumes (the B661 lab already runs every member a sample late). **Pending S0 item 1's engine-free proof and WT-F42** before it goes to the human. Not recommended: E with a PA-5 crossfade at integer crossings (switching ADR-389 removed, combing during the fade, a 33- to 65-tap filter per member-sample). | S0, then S5a |
+| J3 | Short tapers (WT-37) | A minimum taper half-width of 2 internal samples; ED-7's correction of the leftover step as the alternative; measured by WT-F40. | S5a |
+| J4 | The bake needs the internal modulator for jitter presets (BB-32) | Rule I8 before S6c, so `genV` 1 carries jitter. | S6c |
+| J5 | The bake's reference pitch and rate (BB-13) | C4 and 44.1 kHz for every pitch- or rate-dependent law. | S6c |
+| J6 | The stages: S6b the C++ generators, S6c the bake | Approve. | S6 |
+| J7 | `wt.syncSoft` at control rate | Approve. | S5a |
+| J8 | What the bake ships (BB-12, BB-60) | A focused C++ port of the single-member blade path, in its own namespace, sized for one voice; the frozen clean-room engine stays in the build repo as its oracle (BB-F12). Not the whole engine in the plug-in (never ruled; a dependency gate; publishes the clean-room source in a public tree; symbol clashes; 43 MB per bake). | S6c |
+| J9 | **Swarm presets:** does "the nearest wavetable sound" (ADR-388 #1) mean the single-member cycle, or must the bake carry per-member texture (blade spreads, cut rules, `frame` = swarm)? | Carry what is cheap: when a corner's frame axis is unused, bake its frames at spread positions −1 to 1 and map the spread to `wt.frameSpread` (BB-20 (a)); report the rest; BB-F11 compares U = 9 renders (reported); `s0-1` lets the human hear the loss before anything is built. | S0 (by ear), S6c |
+| J10 | `wt.syncSoft`'s offset | 0x042, with 0x036 (the withdrawn `wt.window`) left empty, so no draft or lab file that named 0x036 can be misread; 0x036 would also be legal, since nothing is ratified. | the round |
+| J11 | Osc 3's defaults | Osc 1's, except `seed` 1236 and `on` off. | the round |
+| J12 | The migration A/B clips as an exemption from "never two engines" (§5.6) | Approve: they compare one patch before and after its migration. | S0 |
 
 ---
 
