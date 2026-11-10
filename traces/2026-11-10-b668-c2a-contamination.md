@@ -41,3 +41,15 @@ told the human "about two-thirds per voice" on 2026-11-09, from a misreading of 
 and the sine base costs 13–15 % more per member than the triangle in time, though the counts showed them level.
 
 **Verify.** `./verify fast` exit 0 on this tree before the warm-up edit; rerun after it and the records, exit 0 again. Base: origin/main bbdea650.
+
+## ADR-391 A2: the AU bench gets the same check
+
+`tools/au-bench/au_bench.cpp` (B638, the Serum 2 reference): PF-3's load guard replaced by the same contamination check, so the
+reference and horde's figures are read alike. `measure()` takes `strict`: a 30 s warm-up, then rounds until every cell has 5
+clean runs (calibration within 2 % of the fastest, the timed span's wall time within 2 % of the rendering thread's CPU time), 20
+rounds then exit 2; `contamination_controls()` after every measurement (exit 4 if blind). `--controls` C1 (the guard rule) is
+replaced by the two spinner plants. `kCleanTol` registered and the file's inline-float-compare entry re-approved without the
+guard's 3.0 and 0.5, both on the human's "Yes, give the AU bench the same check." README and B668 updated.
+
+`--controls` (sandbox off, Live running, load 5.96): CONTROL (1) x3.052 REJECTED, CONTROL (2) wall/thread CPU 1.109 REJECTED;
+C1 to C9 ok; "CONTROLS PASSED 0 control(s) failed". `./verify fast` exit 0 on this tree before the trace edit.

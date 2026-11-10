@@ -523,13 +523,22 @@
       "value": ">=0.125 | <0.08"
     },
     {
-      "approved": "the human, 2026-11-07, by poll: Approve (the AU bench's measuring thresholds: load guard 3.0 and 0.5 core from the CPU tool, silence floor, self-test bounds)",
+      "approved": "the human 2026-11-10: \"Yes, give the AU bench the same check.\" (ADR-391 A2, B668: the load guard (3.0, 0.5 core) replaced by calibration within 2 % of the fastest and wall within 2 % of thread CPU)",
       "file": "tools/au-bench/au_bench.cpp",
       "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
       "id": "tools/au-bench/au_bench.cpp::inline-float-compare",
       "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
       "ref": "unattributed",
-      "value": "<=3.0 | <=0.5 | 100.0 > | >1e-5 | <1.0 | <1e-3f | <1e-4f | >=1e-4f"
+      "value": "100.0 > | >1e-5 | <1.0 | <1e-3f | <1e-4f | >=1e-4f"
+    },
+    {
+      "approved": "the human 2026-11-10: \"Yes, give the AU bench the same check.\" (ADR-391 A2, B668: the load guard (3.0, 0.5 core) replaced by calibration within 2 % of the fastest and wall within 2 % of thread CPU)",
+      "file": "tools/au-bench/au_bench.cpp",
+      "governs": "ADR-391 A2: calibration within 2 % of the fastest; wall within 2 % of thread CPU",
+      "id": "tools/au-bench/au_bench.cpp::kCleanTol",
+      "locator": "(?<![\\w])kCleanTol(?:\\s*:\\s*[\\w\\[\\], .]+?)?\\s*=(?!=)\\s*([-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)(?:\\s*[-+*/]\\s*\\(?\\s*[-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)\\)?)*)(?=\\s*(?:[;,)\\]}]|$))",
+      "ref": "ADR-391",
+      "value": "1.02"
     },
     {
       "approved": "baseline 2026-10-08",
