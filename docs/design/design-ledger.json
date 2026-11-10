@@ -7618,7 +7618,7 @@
    "adr": "GUI-72",
    "id": "gui72-six-views-six-slots",
    "clause": "all six views stay in the viewer's switch for now; plain sideways moves nothing; the drag mapping has six slots (up and down and sideways, each plain, with Shift and with Option), each any continuous wt. row or Nothing with an invert; the button up-and-down slots default to Frame; the legend lists a button's slot only where it differs from the plain one",
-   "note": "Command stays fine, not a slot; Option outranks Shift. In the Sonogram only the plain pair swaps. Still open: pips or name, per-machine storage. Engine: none. FX device: none."
+   "note": "The button up-and-down slots default to Frame, confirmed by the human 2026-11-10 (GUI-72 A1). Command stays fine, not a slot; Option outranks Shift. In the Sonogram only the plain pair swaps. Still open: pips or name, per-machine storage. Engine: none. FX device: none."
   }
  ],
  "not_design": [
