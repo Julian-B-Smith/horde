@@ -215,15 +215,15 @@ def freshness_rows(tmp):
 
 
 def workflow_rows():
-    wf = NIGHTLY / "nightly.workflow.yml"
+    wf = ROOT / ".github" / "workflows" / "nightly.yml"   # installed 2026-11-10 (ADR-393); was the draft under tools/nightly/
     text = wf.read_text(encoding="utf-8") if wf.exists() else ""
     runs = [l.strip() for l in text.splitlines() if l.strip().startswith("run:") or "./verify" in l]
     row(bool(text) and "schedule:" in text and "workflow_dispatch:" in text and "drill" in text,
-        "workflow draft: a schedule and a manual trigger with a drill input")
+        "workflow: a schedule and a manual trigger with a drill input")
     row(any("./verify nightly" in l for l in runs) and not any(
-        "./verify" in l and "nightly" not in l for l in runs), "workflow draft only calls ./verify nightly")
+        "./verify" in l and "nightly" not in l for l in runs), "workflow only calls ./verify nightly")
     p = subprocess.run([PY, str(ROOT / "tools" / "workflow_pin_check.py"), "--paths", str(wf)], capture_output=True, text=True)
-    row(p.returncode == 0, "workflow draft passes the house pin rules (workflow_pin_check)", p.stdout.strip().splitlines()[-1][:70] if p.stdout.strip() else "")
+    row(p.returncode == 0, "workflow passes the house pin rules (workflow_pin_check)", p.stdout.strip().splitlines()[-1][:70] if p.stdout.strip() else "")
 
 
 def main():
