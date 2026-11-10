@@ -1,0 +1,37 @@
+# b666-wavetable-amend — fold ADR-390, S0's P1 to P7, J9 and GN-60 into the wavetable spec
+
+- **Queue item:** B666 (ROADMAP row on the B665 branch, #1487: "every ADR-390 clause traceable to a spec or contract line; no clause beyond the ruling; `./verify fast` green").
+- **Why:** the human approved the lead's recommendations on 2026-11-09 ("Recommendations approved", ADR-390). The spec and contract still said WT-BUDGET was pending at a provisional 4 %, and that J2's delayed read waited on S0. This change writes the ruled figures and S0's adopted proposals where the builder reads them.
+- **What changed:**
+  - `specs/SPEC-WAVETABLE.md`:
+    - the ADR-390 ruled block and the origin line; the 4 % and 12 % bullets marked retired;
+    - WT-P1: 5 % per oscillator and 15 % for three, under the timed run's conditions;
+    - WT-15: scheme (iii), still subject to WT-F4;
+    - WT-24 (P1), WT-F42's ratios (P2), WT-37's sync row and WT-F3 (P3), WT-25 (P4), WT-65 (P5), WT-6 (P7);
+    - WT-31: the map done, with D2a.
+  - `docs/wavetable/CONTRACT.md`:
+    - the origin line;
+    - §1.9: GN-60 beside GN-57 to GN-59. Its "where" and "cost" cells read "not yet designed / not yet estimated".
+    - §3.2: the 2.5 KiB bound and 20 KiB per migrated patch, plus the open notes on `ratios` and the number form;
+    - §5.4: the budget, and the shares at 5 % and 15 %;
+    - §5.6: S2 at scheme (iii), S5a's sync edges reported, S8 and §8 with GN-60, S0's items marked done;
+    - §7: ADR-390 in the Ruled list, every answered row prefixed "**Answered** (ADR-390)" with its text kept, and the new row D2a.
+  - `docs/wavetable/BLADE-BAKE.md`:
+    - BB-41 and BB-F8 at 2.5 KiB, with S0's figures;
+    - J9 in BB-11, BB-20 (a) and BB-F11.
+- **Evidence consulted:**
+  - ADR-390 (`origin/b665-wavetable-s0:DECISIONS.md`);
+  - `origin/b665-wavetable-s0:docs/wavetable/S0-RESULTS.md`, §1 to §5 and "Proposed changes";
+  - the B666 and B665 ROADMAP rows on that branch;
+  - `traces/2026-11-09-b648-timed-run.md`: 4.80 % at scheme (iii), 6.49 % at (i);
+  - GN-60 from PR #1486's diff of `docs/design/gui3/ENGINE-NEEDS.md`.
+- **Alternatives rejected:**
+  - Marking I16 answered: its recommendation, "Rule one figure", names no figure. Left unmarked and raised with the lead.
+  - Filling GN-60's mechanism and cost: neither has been designed. Writing one would invent a clause.
+  - Editing TEST-PLAN.md's stale 4 % and 12 % (lines 91 and 396): out of scope, raised with the lead.
+- **Verify:** `nice -n 10 ./verify fast`, exit 0, on the tree before the trace was added. `.harness/last-verify.json`: git 040613ee, tree 34f24641. It was re-run on the commit; see the handback.
+- **Open questions:**
+  - I16 is still unmarked.
+  - GN-60's design and cost are not written.
+  - TEST-PLAN.md still says 4 % and 12 % (S5a and S5b shares, E2E-8), and INTEGRATION.md's history lines still say 4 %.
+  - WT-P1 now reads "one core", as ADR-390 does. The earlier "Apple M3 performance core" wording was dropped.
