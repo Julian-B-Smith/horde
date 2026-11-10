@@ -568,13 +568,13 @@
       "value": ">0.01"
     },
     {
-      "approved": "the human 2026-11-09, by poll: \"Register them\" (B667: PF-3 load guard, load <= 3.0, no other process > 0.5 core)",
+      "approved": "the human 2026-11-10, by poll: \"Check contamination\" then \"Bench now, PF-3 next\" (ADR-391, B668: calibration within 2 % of the run's fastest; wall within 2 % of thread CPU)",
       "file": "tools/c2a_remainder/main.cpp",
-      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
-      "id": "tools/c2a_remainder/main.cpp::inline-float-compare",
-      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
-      "ref": "unattributed",
-      "value": "<=3.0 | <=0.5"
+      "governs": "ADR-391: calibration within 2 % of the run's fastest; wall within 2 % of thread CPU",
+      "id": "tools/c2a_remainder/main.cpp::kCleanTol",
+      "locator": "(?<![\\w])kCleanTol(?:\\s*:\\s*[\\w\\[\\], .]+?)?\\s*=(?!=)\\s*([-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)(?:\\s*[-+*/]\\s*\\(?\\s*[-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)\\)?)*)(?=\\s*(?:[;,)\\]}]|$))",
+      "ref": "ADR-391",
+      "value": "1.02"
     },
     {
       "approved": "baseline 2026-10-08",
