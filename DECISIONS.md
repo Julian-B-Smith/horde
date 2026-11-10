@@ -13305,3 +13305,18 @@ The GUI session built it as GUI-55 A2 (#1455). Its reading, for the human to con
 **ADR-391 A1 (the human, 2026-11-10, by poll: "Warm up, then fastest (Recommended)").** The first run under item 1 rejected every repeat for calibration. Measured cause (B668 trace): this M3 boosts to about 3.98 GHz for the first seconds of sustained work, then holds about 3.74 GHz, 6 % slower, so "the run's fastest" was always the boost. The bench now runs 30 s of its own work (cell B) first, and only calibrations after that count towards "the run's fastest". Every repeat is judged at the steady clock; a clock lowered by other apps is still rejected. A finding for B669: PF-3's best of 5 without this warm-up may take a boosted repeat for an early cell, reading up to about 6 % low; whether the earlier timed figures (B648's) were affected is not known.
 
 **ADR-391 A2 (the human, 2026-11-10: "Yes, give the AU bench the same check.").** `tools/au-bench` (B638, the Serum 2 reference bench) drops PF-3's load guard for the same check: 30 s warm-up, each run bracketed by the calibration loop, counted only if both calibrations are within 2 % of the fastest and the timed span's wall time is within 2 % of the rendering thread's CPU time; the first 5 clean runs per cell; 20 rounds, then refuse (exit 2); the two spinner controls after every measurement (exit 4 if blind) and in `--controls` (C1, replacing the guard-rule control). So the reference and horde's figures are read the same way. A plug-in that renders on its own worker threads fails the preemption test on every run; the process-CPU column shows that case.
+
+## ADR-392 — RULED by the human: C2a's baseline is recorded against Serum 2, S1 opens, and the target waits for a swarm speed-up probe (B667, B670)
+
+**Context.** CONTRACT §7 C2a (PF-1's re-anchored figure, left open by ADR-390). Measured on this M3 under PF-3's conditions with ADR-391's check (B668), 48 kHz, 8 notes, 128-sample blocks:
+- horde, one swarm oscillator apart from its member reads (the remainder): **13.5 %** of one core; with WT-BUDGET's 5 % table read, **about 18.5 % per whole wavetable oscillator**, about 55 % for three. About 3/4 of the remainder is per member (the member's swarm law, drift and gain), 1/4 per voice.
+- Serum 2 (the human's patch: three wavetable oscillators, 9 unison voices each, no filter, no FX; `tools/au-bench`, ADR-391 A2, single-threaded render): **13.7 %**, about **4.6 % per oscillator**; its default patch 2.2 % (the check that the patch loaded). The patch and the reports stay outside the repo (rule: no competitor material committed).
+- So a horde oscillator costs about 4x a Serum oscillator; PF-2's current 7.1 % is about 1.5x.
+
+**Ruling** (the human, 2026-11-10, by poll: "Decide after the probe"; earlier: "Serum reference seems like a decent idea here"):
+1. **The baseline is recorded:** about 18.5 % per whole oscillator, about 4x Serum 2 per oscillator. Not a gate.
+2. **S1 opens** (ADR-390's "S1 opens once C2a is ruled"): the table member fits its own 5 %; the overrun is the swarm's, which costs this whatever the wave source.
+3. **A probe measures how far the swarm's per-member path can be sped up** (B670) before any target is set. The options put to the human, for the ruling after it: 1.5x Serum (7.1 %, PF-2 as it stands), 2x (about 9 %), 3x (about 14 %).
+4. **C2a's target is ruled after the probe,** in Serum-ratio terms; PF-2 is still ruled again after S5b (ADR-388 #2).
+
+**FX device (ADR-254).** None: an oscillator's CPU budget.

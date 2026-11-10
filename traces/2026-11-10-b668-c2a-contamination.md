@@ -53,3 +53,18 @@ guard's 3.0 and 0.5, both on the human's "Yes, give the AU bench the same check.
 
 `--controls` (sandbox off, Live running, load 5.96): CONTROL (1) x3.052 REJECTED, CONTROL (2) wall/thread CPU 1.109 REJECTED;
 C1 to C9 ok; "CONTROLS PASSED 0 control(s) failed". `./verify fast` exit 0 on this tree before the trace edit.
+
+## The Serum 2 reference and ADR-392 (C2a)
+
+`tools/au-bench` (this branch's build), sandbox off, Live closed, 2026-11-10 12:33–12:39, Serum 2 v2.1.5 (aumu Xf2X XFER) as an
+Audio Unit, the human's patch saved from Live as an `.aupreset` (kept under `~/horde-gauntlet/`, never committed), 8 notes, 128-sample blocks:
+
+| patch | 44.1 kHz | 48 kHz | rounds | controls |
+|---|---|---|---|---|
+| the human's: 3 wavetable oscillators x 9 unison, no filter, no FX | 12.61 % | 13.68 % | 11 | x2.972, wall/CPU 2.348: both REJECTED |
+| Serum 2's default patch (did the preset load?) | 2.05 % | 2.21 % | 11 | x3.383, wall/CPU 1.043: both REJECTED |
+
+Process CPU (all threads) equals the wall share (12.43 / 13.47 %): Serum renders on the calling thread. Peaks at +9.6 / +10.0 dBFS
+(the patch clips at 8 notes; it does not change the timing). About 4.6 % per Serum oscillator against about 18.5 % per horde
+wavetable oscillator (5 % + 13.5 %): about 4x. Put to the human with targets of 1.5x (PF-2's 7.1 %), 2x and 3x; ruled "Decide after
+the probe" (ADR-392): baseline recorded, S1 opens, B670 probes the swarm's per-member path. CONTRACT §7 C2a answered in part.
