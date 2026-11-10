@@ -61,6 +61,50 @@ if [ -n "${SANITIZE_ONLY:-}" ]; then
   SUBSET=" SUBSET (SANITIZE_ONLY=$SANITIZE_ONLY), not a coverage verdict;"
 fi
 
+# THE NOT-BUILT RATCHET (audit 2026-11-10 finding 7). A skipped oracle used to
+# leave the job GREEN, so a twentieth oracle could stop linking unseen. The
+# not-built set must now be a SUBSET of the per-shard list pinned in
+# tools/sanitize_unbuilt.pin (names, not a count: a new break stays red even
+# while another oracle got fixed). Per shard, so one shard cannot absorb
+# another's slack. Oracles built but still pinned are printed as FIXED so the
+# list can shrink; that never fails. $1 = pin file, $2 = key, $3.. = unbuilt
+# names. Exit 0 within the pin, 1 over it, 2 no pin for this key.
+ratchet() {
+  python3 - "$@" <<'PY'
+import sys
+pin_file, key, got = sys.argv[1], sys.argv[2], set(sys.argv[3:])
+pins = {}
+for line in open(pin_file, encoding="utf-8"):
+    if line.strip() and not line.startswith("#"):
+        k, *names = line.split()
+        pins[k] = names
+if key not in pins:
+    print(f"   ratchet: no pinned list for '{key}' in {pin_file}")
+    sys.exit(2)
+pinned = set(pins[key])
+new, fixed = sorted(got - pinned), sorted(pinned - got)
+for n in fixed:
+    print(f"   ratchet: FIXED {n} builds now; delete it from the '{key}' list in sanitize_unbuilt.pin")
+if new:
+    print(f"   ratchet: RED {len(new)} NEW not-built oracle(s) over the pinned {len(pinned)}: {' '.join(new)}")
+    sys.exit(1)
+print(f"   ratchet: {len(got)} not built, within the {len(pinned)} pinned for '{key}'")
+PY
+}
+UNBUILT_PIN="$ROOT/tools/sanitize_unbuilt.pin"
+# MUST-FAIL CONTROL, every run (L0032): a planted extra name over the first
+# real list must read RED and the real list itself must read GREEN, or the
+# ratchet is dead and the run stops before it can report a green it can't earn.
+first_line=$(grep -vE '^(#|$)' "$UNBUILT_PIN" | head -1) || exit 1
+first_key=${first_line%% *} first_names=${first_line#* }
+[ -n "$first_key" ] && [ "$first_names" != "$first_line" ] || { echo "sanitize_oracles: $UNBUILT_PIN has no pinned list" >&2; exit 1; }
+if ratchet "$UNBUILT_PIN" "$first_key" $first_names planted_unbuilt_control >/dev/null; then
+  echo "sanitize_oracles: ratchet control FAILED: a planted unbuilt oracle read green" >&2; exit 1
+fi
+ratchet "$UNBUILT_PIN" "$first_key" $first_names >/dev/null \
+  || { echo "sanitize_oracles: ratchet control FAILED: the pinned list itself read red" >&2; exit 1; }
+echo "== ratchet control: planted extra unbuilt oracle reads RED, the pinned list reads GREEN"
+
 in_list() { case " $2 " in *" $1 "*) return 0 ;; esac; return 1; }
 
 # SANITIZE_SHARD="i/n" (B505 round 2, CI's two address,undefined legs) builds
@@ -281,5 +325,15 @@ done <<<"$ORACLES"
 
 echo "== parallel batch: ${t_batch}s wall for $NRUN oracle(s) on $NPROC job(s); slowest:" \
      $(printf '%s' "$TIMES" | sort -rn | head -5 | awk '{printf "%s (%ss) ", $2, $1}')
-echo "== sanitize_oracles [$SAN]: $pass oracle(s) passed, $NUNBUILT not built on this platform (${UNBUILT# }) —$SHARDTAG$SUBSET $([ $status -eq 0 ] && echo GREEN || echo RED)"
+# The ratchet verdict. Not applied to a SANITIZE_ONLY subset (a debugging aid,
+# never a verdict). No pin for this sanitizer/shard: red under CI (a new matrix
+# leg must be pinned), a note locally.
+RATCHET=""
+if [ -z "$SUBSET" ]; then
+  echo "== not-built ratchet (shard $SHARD_I/$SHARD_N):"
+  ratchet "$UNBUILT_PIN" "$SAN|$SHARD_I/$SHARD_N" $UNBUILT
+  rrc=$?
+  if [ $rrc -eq 1 ] || { [ $rrc -eq 2 ] && [ -n "${CI:-}" ]; }; then status=1; RATCHET=" ratchet RED;"; fi
+fi
+echo "== sanitize_oracles [$SAN]: $pass oracle(s) passed, $NUNBUILT not built on this platform (${UNBUILT# }) —$SHARDTAG$SUBSET$RATCHET $([ $status -eq 0 ] && echo GREEN || echo RED)"
 exit $status

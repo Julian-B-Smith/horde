@@ -2,7 +2,12 @@
 # account hit its free Actions minutes). Cost model that drained it: macOS
 # runners bill 10x, and we were running the full matrix on BOTH push and
 # pull_request (2x) for EVERY change including docs-only PRs. This config:
-#   - skips CI entirely on docs-only changes (paths-ignore);
+#   - skips CI entirely on docs-only changes, EXCEPT docs/presets/** (the factory
+#     bank, whose oracles are compiled): the `changes` job below reads the diff and
+#     gates the jobs. Docs-only: nothing runs but `changes`. Preset-only: the LINUX
+#     jobs (verify-fast, sanitize) run, never the 10x macOS or the Windows ones.
+#     Anything else: every job, as before. (Audit 2026-11-10 finding 9. GitHub
+#     cannot negate a paths-ignore per job, so the filter moved into `changes`.)
 #   - runs once per change (PRs on pull_request; push CI is main-only, the
 #     post-merge net — so a branch push doesn't double-run alongside its PR);
 #   - cancels superseded runs (concurrency);
@@ -45,9 +50,7 @@ on:
   push:
     branches: [main]
     tags: ['v*']
-    paths-ignore: ['**.md', 'docs/**', 'traces/**']
   pull_request:
-    paths-ignore: ['**.md', 'docs/**', 'traces/**']
 
 permissions:
   contents: read
@@ -64,11 +67,63 @@ env:
   PLUGINVAL_WINDOWS_SHA256: c08e61ce3b96db41636f8ec7e76f4c7e2c13ebdac7fa1b5a1f52b4f32ec715ab
 
 jobs:
-  verify-fast:
+  # The path filter, as a job. Two outputs from the diff:
+  #   code     some changed file is NOT docs-only (not **.md, docs/**, traces/**):
+  #            every job runs, exactly as the old paths-ignore allowed.
+  #   linux    code, OR a changed file under docs/presets/: the Linux jobs run.
+  # FAIL TOWARD RUNNING: a tag, a push whose `before` is unknown (new branch,
+  # force push), or a diff that cannot be computed sets code=true. Only a diff
+  # that was read and found docs-only skips anything. `**.md` anywhere is
+  # docs-only, as the old filter had it, so docs/presets/factory/BANK.md alone
+  # does not trigger the Linux jobs; the bank's JSON does.
+  changes:
     runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+      linux: ${{ steps.diff.outputs.linux }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: classify the diff
+        id: diff
+        env:
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          set -u
+          code=true; linux=true
+          case "$REF" in refs/tags/*) base="" ;; *)
+            if [ "$EVENT" = pull_request ]; then base="$(git rev-parse HEAD^1 2>/dev/null)"; else base="$BEFORE"; fi ;;
+          esac
+          if [ -n "${base:-}" ] && ! printf '%s' "$base" | grep -qE '^0+$' \
+             && files="$(git diff --name-only "$base" HEAD 2>/dev/null)" && [ -n "$files" ]; then
+            code=false; linux=false
+            while IFS= read -r f; do
+              case "$f" in
+                docs/presets/*.md) ;;   # prose, like any .md (a shell `*` spans slashes)
+                docs/presets/*) linux=true ;;
+                *.md|docs/*|traces/*) ;;
+                *) code=true; linux=true ;;
+              esac
+            done <<< "$files"
+          fi
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "linux=$linux" >> "$GITHUB_OUTPUT"
+          echo "code=$code linux=$linux"
+
+  verify-fast:
+    needs: changes
+    if: needs.changes.outputs.linux == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      # submodules: the license-audit and choc-patch rows read libs/ and print
+      # "DID NOT RUN" without it (audit 2026-11-10 finding 8).
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          submodules: recursive
           persist-credentials: false
       - name: verify fast
         run: ./verify fast
@@ -93,6 +148,8 @@ jobs:
   #     the parsed total. Check names: "sanitize (address,undefined, 1/2)",
   #     "sanitize (address,undefined, 2/2)", "sanitize (thread)".
   sanitize:
+    needs: changes
+    if: needs.changes.outputs.linux == 'true'
     name: sanitize (${{ matrix.sanitizer }}${{ matrix.shard && format(', {0}', matrix.shard) || '' }})
     runs-on: ubuntu-latest
     strategy:
@@ -125,6 +182,8 @@ jobs:
           if grep -q "SKIPPED" "$RUNNER_TEMP/tsan_stress.out"; then echo "tsan_stress_check measured nothing"; exit 1; fi
 
   build-windows:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: windows-latest
     outputs:
       sha256: ${{ steps.stage.outputs.sha256 }}
@@ -219,7 +278,8 @@ jobs:
   # macOS is the 10x runner: post-merge net only (push to main, and tags). PR-time
   # macOS is covered by the maintainer's local build + pluginval 10 + auval + install.
   build-macos:
-    if: github.event_name == 'push'
+    needs: changes
+    if: github.event_name == 'push' && needs.changes.outputs.code == 'true'
     runs-on: macos-latest
     outputs:
       sha256: ${{ steps.stage.outputs.sha256 }}

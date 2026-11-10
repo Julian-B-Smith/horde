@@ -36,8 +36,12 @@ something no other gate in ./verify looks at:
    invariant ("mulberry32 streams only; no wall-clock reads anywhere in the core",
    SPEC §5.7) had no gate: rtsafety_probe counts allocations, not clock reads.
    A token scan over src/*.h and src/*.cpp (the cores and the shells — NOT
-   src/gui/, which is the editor's thread), with C/C++ comments stripped so prose
-   ABOUT the rule cannot trip it.
+   src/gui/, which is the editor's thread), and over the new engines' core
+   sources (ENGINE_GLOBS: h2/**, engine2/core/**; audit 2026-11-10 finding 11:
+   the ban had no check on the engine that will ship), with C/C++ comments
+   stripped so prose ABOUT the rule cannot trip it. h2/harness (the render and
+   fuzz test harness, never shipped) is excluded; engine2/core has no tests/tools
+   directory (those live in engine2/tests and engine2/tools, outside the glob).
 
 CALIBRATED ON EVERY RUN (L0032): selftest() feeds each rule synthetic inputs that
 must fail and ones that must pass, and a rule that stops firing fails the run.
@@ -116,6 +120,18 @@ def check_marker(texts):
     return fails, distinct
 
 
+# The new engines' core sources. A directory named in EXCLUDED_DIRS anywhere in
+# a path drops the file: harness/tests/tools are test and build scaffolding.
+ENGINE_GLOBS = ["h2/**/*.h", "h2/**/*.cpp", "engine2/core/**/*.h", "engine2/core/**/*.cpp"]
+EXCLUDED_DIRS = {"harness", "tests", "tools"}
+
+
+def engine_sources(root=ROOT):
+    found = {p for g in ENGINE_GLOBS for p in root.glob(g)
+             if not EXCLUDED_DIRS & set(p.relative_to(root).parts[:-1])}
+    return sorted(found)
+
+
 def strip_comments(code):
     code = re.sub(r"/\*.*?\*/", " ", code, flags=re.S)
     return re.sub(r"//[^\n]*", " ", code)
@@ -169,6 +185,23 @@ def selftest():
     for code in clean:
         if check_determinism([("s.cpp", code)]):
             return f"selftest (determinism): `{code}` was flagged and must not be"
+    # the widened globs: a planted clock read under h2/ and engine2/core/ must be
+    # found and a planted one under a tests/ or harness/ dir must be skipped
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        t = pathlib.Path(td)
+        for rel, planted in [("h2/cores/x/a.h", True), ("engine2/core/voice/b.cpp", True),
+                             ("engine2/tests/c.cpp", True), ("h2/harness/d.cpp", True),
+                             ("engine2/core/api/e.h", False)]:
+            f = t / rel
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_text("auto t = std::chrono::steady_clock::now();" if planted else "int x;")
+        got = [p.relative_to(t).as_posix() for p in engine_sources(t)]
+        want = ["engine2/core/api/e.h", "engine2/core/voice/b.cpp", "h2/cores/x/a.h"]
+        if got != want:
+            return f"selftest (engine globs): scanned {got}, want {want}"
+        if len(check_determinism([(p, (t / p).read_text()) for p in got])) != 2:
+            return "selftest (engine globs): the planted clock reads under the new globs were not both caught"
     return None
 
 
@@ -195,7 +228,9 @@ def main():
                                for p in MARKER_WRITERS])
     fail += mf
 
-    sources = sorted(ROOT.glob("src/*.h")) + sorted(ROOT.glob("src/*.cpp"))
+    sources = sorted(ROOT.glob("src/*.h")) + sorted(ROOT.glob("src/*.cpp")) + engine_sources()
+    if not engine_sources():
+        fail.append("the engine globs matched NO files (h2/, engine2/core/ moved?) — nothing was checked there")
     fail += check_determinism([(p.relative_to(ROOT).as_posix(), p.read_text(encoding="utf-8"))
                                for p in sources])
 
@@ -210,7 +245,7 @@ def main():
         print(f"  note  drift: {d}")
     print(f"playbook_check: GREEN ({total} citations — {at_line} at their cited line, "
           f"{len(drifts)} drifted (advisory); morphLayout {marker[0] if marker else '?'} at "
-          f"{MARKER_WRITER_COUNT} writers; {len(sources)} engine sources free of clocks and "
+          f"{MARKER_WRITER_COUNT} writers; {len(sources)} engine sources (src/ + {len(engine_sources())} under h2/, engine2/core/) free of clocks and "
           f"unseeded RNG)")
     return 0
 
