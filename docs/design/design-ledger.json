@@ -8691,6 +8691,14 @@
    "reason": "The wavetable build's process, scope and budget, and ADR-377 A3 (corner tables blend in 1.0); the page's corner-table controls are the GUI session's once the build reaches the shell (the B650 lab is a bench, not the shell)."
   },
   {
+   "adr": "ADR-392",
+   "reason": "An oscillator CPU baseline and the order of the wavetable stages; nothing on the page or in the design master."
+  },
+  {
+   "adr": "ADR-391",
+   "reason": "A CPU measurement method for the C2a bench (and a proposed PF-3 change); nothing on the page or in the design master."
+  },
+  {
    "adr": "ADR-390",
    "reason": "A CPU budget, oscillator laws and the wavetable decision table's engine rows; the page's wavetable controls stay the GUI session's (GB37), and GN-60 reaches the engine through B666's spec round."
   },

@@ -21,8 +21,15 @@
  *   - the calibration loop (10^8 dependent multiply-adds), timed before every run; the build uses the
  *     tool's Release flags (-O3 -DNDEBUG, no -ffp-contract flag), so the loop compiles to the same code
  *     and its seconds compare across the two reports;
- *   - the load guard before every run: one-minute load average at most 3.0 and no other process above
- *     half a core, else wait 20 s and re-check, for up to 10 minutes, then REFUSE (exit 2). Never bypassed.
+ *   - NOT PF-3's load guard (ADR-391 A2, the human 2026-11-10: "give the AU bench the same check"): the
+ *     contamination check of tools/c2a_remainder instead. 30 s of the first cell's work first, so the M3's
+ *     short boost is spent; then each run is bracketed by the calibration loop and counts only if both
+ *     calibrations are within 2 % of the fastest after the warm-up AND the timed span's wall time is within
+ *     2 % of the rendering thread's own CPU time; the first 5 clean runs of each cell are the best of 5. Up
+ *     to 20 rounds, then REFUSE (exit 2). Load is printed every round, never gating. Two must-fail controls
+ *     run after the measurement (a calibration and a run beside twice as many spinning threads as cores);
+ *     if either passes, nothing is reported (exit 4). A plug-in that renders on its own worker threads
+ *     fails the preemption test on every run (the render thread waits); the process CPU column shows it.
  * PF-3 itself fixes 128-sample blocks; 512 is measured too because a DAW user's buffer often is.
  *
  * WHAT DIFFERS, AND WHY.
@@ -43,12 +50,13 @@
  *   - After Initialize and the preset, the main run loop runs for 0.2 s, untimed: a plug-in that
  *     finishes loading on the main queue would otherwise never get to, because this thread renders.
  *
- * MUST-FAIL CONTROLS (--controls), on Apple's DLSMusicDevice: the guard rule refuses planted readings;
+ * MUST-FAIL CONTROLS (--controls), on Apple's DLSMusicDevice: a slowed calibration and a preempted run are
+ * rejected by the contamination check (C1, ADR-391 A2);
  * the stand-in's share is finite and plausible; a planted "skip the render" reads near 0 % and is
  * flagged silent; missing, garbage and wrong-component presets are refused; an .adv carrying the
  * stand-in's state round-trips (a parameter set before saving reads back after loading); an .adv
  * holding a VST3 device, or a corrupt buffer, is refused. The controls test the pipeline, report no
- * reference reading and judge with margins of 10x, so the guard is read and printed there, not waited on.
+ * reference reading and judge with margins of 10x, so they run one round with no warm-up and nothing required clean.
  *
  * SILENCE IS A FAILURE. A patch that renders silence (timed-span peak below -100 dBFS) or any NaN/inf
  * is a failed measurement, never a cheap one: the cell is marked and the exit status is 3.
@@ -61,11 +69,15 @@
 #include <AudioToolbox/AudioToolbox.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <mach/mach_time.h>
+#include <pthread.h>
+#include <pthread/qos.h>
+#include <time.h>
 #include <sys/resource.h>
 #include <unistd.h>
 #include <zlib.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cctype>
 #include <cmath>
 #include <cstdint>
@@ -76,6 +88,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace {
@@ -88,6 +101,9 @@ constexpr bool kRelease = false;
 
 // ---- PF-3's protocol, as the CPU tool runs it ------------------------------------------------
 constexpr int kRepeats = 5;
+constexpr double kCleanTol = 1.02;       // ADR-391 A2: calibration within 2 % of the fastest; wall within 2 % of thread CPU
+constexpr double kWarmupSeconds = 30;    // ADR-391 A1: the M3's boost is spent before the first counted run
+constexpr int kMaxRounds = 20;           // then refuse
 constexpr double kWarmSeconds = 0.25, kTimedSeconds = 2.0;
 constexpr int kVelocity = 108;                         // round(0.85 x 127): PF-3's velocity 0.85
 constexpr double kSilentPeak = 1e-5;                   // -100 dBFS
@@ -100,14 +116,18 @@ double ticks_to_s(uint64_t t) {
   static const mach_timebase_info_data_t tb = [] { mach_timebase_info_data_t x{}; mach_timebase_info(&x); return x; }();
   return double(t) * double(tb.numer) / double(tb.denom) * 1e-9;
 }
+double thread_cpu_seconds() {   // the calling thread alone: what preemption cannot inflate
+  timespec ts{};
+  clock_gettime(CLOCK_THREAD_CPUTIME_ID, &ts);
+  return double(ts.tv_sec) + 1e-9 * double(ts.tv_nsec);
+}
 double cpu_seconds() {   // the whole process, every thread: user + system
   rusage r{};
   getrusage(RUSAGE_SELF, &r);
   return double(r.ru_utime.tv_sec + r.ru_stime.tv_sec) + 1e-6 * double(r.ru_utime.tv_usec + r.ru_stime.tv_usec);
 }
 
-// ---- the load guard (PF-3), as the CPU tool's ----------------------------------------------------
-bool quiet(double load, double other) { return load <= 3.0 && other <= 0.5; }   // pure: the controls plant readings into it
+// ---- the machine's load: printed every round, never gating since ADR-391 A2 -------------------------------
 struct Reading { double load = INFINITY, other = INFINITY; std::string who; };
 Reading read_load() {
   Reading r;
@@ -136,19 +156,9 @@ Reading read_load() {
   return r;
 }
 void print_reading(const char* what, const Reading& r) {
-  std::printf("%s  one-minute load %.2f (at most 3.0), busiest other process %.2f cores (at most 0.5): %s\n", what, r.load, r.other, r.who.c_str());
+  std::printf("%s  one-minute load %.2f, busiest other process %.2f cores (%s): reported, not gating\n", what, r.load, r.other, r.who.c_str());
   std::fflush(stdout);
 }
-bool load_guard() {   // waits 20 s between checks, for up to 10 minutes
-  for (int tries = 0; tries <= 30; ++tries) {
-    const Reading r = read_load();
-    if (quiet(r.load, r.other)) return true;
-    print_reading(tries == 30 ? "REFUSED" : "LOAD   ", r);
-    if (tries < 30) sleep(20);
-  }
-  return false;
-}
-
 double calibration() {   // 10^8 dependent multiply-adds, seconds (the CPU tool's loop, verbatim)
   volatile double seed = 1.0000001;
   double x = seed;
@@ -158,6 +168,23 @@ double calibration() {   // 10^8 dependent multiply-adds, seconds (the CPU tool'
   seed = x;
   return ticks_to_s(t1 - t0);
 }
+
+// Twice as many spinning threads as cores, for the controls: whatever runs beside them is preempted.
+struct Spinners {
+  std::atomic<bool> stop{false};
+  std::vector<std::thread> spin;
+  unsigned n = 2 * std::max(1u, std::thread::hardware_concurrency());
+  Spinners() {
+    for (unsigned i = 0; i < n; ++i)
+      spin.emplace_back([this] {
+        pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE, 0);
+        volatile double x = 1;
+        while (!stop.load(std::memory_order_relaxed)) x = x * 0.999 + 1;
+      });
+  }
+  ~Spinners() { stop = true; for (auto& t : spin) t.join(); }
+};
+double calibration_beside_spinners() { Spinners s; return calibration(); }
 
 // ---- small helpers -------------------------------------------------------------------------------
 std::string fourcc_str(UInt32 v) {
@@ -399,18 +426,28 @@ struct Cell {
   double sr = 44100;
   int block = 128, voices = 8;
   bool skip_render = false;                    // the planted control: time an empty span instead of the render
-  std::vector<double> times, worst, process;   // per repeat: share of a core, worst block share, process CPU share
+  std::vector<double> times, worst, process;   // per run: share of a core, worst block share, process CPU share
+  std::vector<double> span_wall, span_cpu, cal_before, cal_after;   // per run: the contamination check's readings (ADR-391 A2)
+  std::vector<size_t> use;                     // the runs that count: the first 5 clean ones (all of them when not strict)
+  double pick(const std::vector<double>& v, bool lo) const {
+    double r = NAN;
+    for (size_t i : use) if (i < v.size()) r = std::isnan(r) ? v[i] : lo ? std::min(r, v[i]) : std::max(r, v[i]);
+    return r;
+  }
   double peak = 0, sumsq = 0;
   uint64_t frames = 0;
   bool nonfinite = false;
   std::string error;
-  double best() const { return times.empty() ? NAN : *std::min_element(times.begin(), times.end()); }
-  double spread() const { return times.empty() ? NAN : *std::max_element(times.begin(), times.end()) / best(); }
-  double worst_block() const { return worst.empty() ? NAN : *std::min_element(worst.begin(), worst.end()); }
-  double process_best() const { return process.empty() ? NAN : *std::min_element(process.begin(), process.end()); }
+  double best() const { return pick(times, true); }
+  double spread() const { return pick(times, false) / best(); }
+  double worst_block() const { return pick(worst, true); }
+  double process_best() const { return pick(process, true); }
+  bool clean(size_t i, double fastest) const {
+    return std::max(cal_before[i], cal_after[i]) <= kCleanTol * fastest && span_wall[i] <= kCleanTol * span_cpu[i];
+  }
   double rms() const { return frames ? std::sqrt(sumsq / double(frames)) : 0; }
   bool silent() const { return !times.empty() && peak < kSilentPeak; }
-  bool failed() const { return !error.empty() || nonfinite || silent() || times.empty(); }
+  bool failed() const { return !error.empty() || nonfinite || silent() || use.empty(); }
 };
 
 bool run_once(Cell& c, AudioComponent comp, const Preset& preset) {
@@ -423,7 +460,8 @@ bool run_once(Cell& c, AudioComponent comp, const Preset& preset) {
   auto* abl = static_cast<AudioBufferList*>(std::calloc(1, offsetof(AudioBufferList, mBuffers) + 2 * sizeof(AudioBuffer)));
   const int warm = int(std::lround(kWarmSeconds * c.sr / B)), timed = int(std::lround(kTimedSeconds * c.sr / B));
   for (int k = 0; k < c.voices; ++k) MusicDeviceMIDIEvent(u, UInt32(0x90 | chord_channel(k)), UInt32(chord_key(k)), kVelocity, 0);   // held before the first block
-  double seconds = 0, longest = 0, cpu0 = 0;
+  double seconds = 0, longest = 0, cpu0 = 0, tcpu0 = 0;
+  uint64_t span0 = 0;
   for (int b = 0; b < warm + timed; ++b) {
     std::fill(l.begin(), l.end(), 0.f);
     std::fill(r.begin(), r.end(), 0.f);
@@ -435,7 +473,7 @@ bool run_once(Cell& c, AudioComponent comp, const Preset& preset) {
     ts.mSampleTime = Float64(int64_t(b) * B);
     ts.mFlags = kAudioTimeStampSampleTimeValid;
     ht.pos = int64_t(b) * B;
-    if (b == warm) cpu0 = cpu_seconds();
+    if (b == warm) { cpu0 = cpu_seconds(); tcpu0 = thread_cpu_seconds(); span0 = mach_absolute_time(); }
     const uint64_t t0 = mach_absolute_time();
     const OSStatus st = c.skip_render ? noErr : AudioUnitRender(u, &flags, &ts, 0, UInt32(B), abl);
     const uint64_t t1 = mach_absolute_time();
@@ -456,28 +494,76 @@ bool run_once(Cell& c, AudioComponent comp, const Preset& preset) {
       c.frames += uint64_t(B);
     }
   }
-  const double cpu1 = cpu_seconds();
+  const uint64_t span1 = mach_absolute_time();
+  const double tcpu1 = thread_cpu_seconds(), cpu1 = cpu_seconds();
   std::free(abl);
   const double audio = double(timed) * B / c.sr;
   c.times.push_back(seconds / audio);
   c.worst.push_back(longest / (double(B) / c.sr));
   c.process.push_back((cpu1 - cpu0) / audio);
+  c.span_wall.push_back(ticks_to_s(span1 - span0));
+  c.span_cpu.push_back(tcpu1 - tcpu0);
   return true;
 }
 
-// Every cell once per repeat, a load-guard check and a calibration before each run. False: the guard refused.
-bool measure(std::vector<Cell>& cells, AudioComponent comp, const Preset& preset, bool guard, std::vector<double>& calib) {
-  for (int rep = 0; rep < kRepeats; ++rep) {
+// ADR-391 A2. strict (a measurement): 30 s of the first cell's work, then rounds of every cell, each run bracketed by the
+// calibration loop, until every cell has 5 clean runs (true) or 20 rounds pass (false: refuse). Not strict (the controls):
+// one round, no warm-up, every run counts. `fastest` is the run's fastest calibration after the warm-up.
+bool measure(std::vector<Cell>& cells, AudioComponent comp, const Preset& preset, bool strict, std::vector<double>& calib, double& fastest) {
+  pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE, 0);   // ask for a performance core; the calibration confirms it
+  if (strict && !cells.empty()) {
+    const uint64_t w0 = mach_absolute_time();
+    while (ticks_to_s(mach_absolute_time() - w0) < kWarmupSeconds) { Cell scratch = cells[0]; scratch.times.clear(); run_once(scratch, comp, preset); }
+    std::printf("WARM-UP  %.0f s of the first cell before the first counted run (ADR-391 A1); not counted\n", kWarmupSeconds);
+  }
+  for (int round = 0; round < (strict ? kMaxRounds : 1); ++round) {
+    int rej_cal = 0, rej_pre = 0;
     for (Cell& c : cells) {
       if (!c.error.empty()) continue;
-      if (guard && !load_guard()) return false;
-      calib.push_back(calibration());
-      if (!run_once(c, comp, preset)) std::printf("FAIL  %.0f Hz, %d-sample blocks, %d notes: %s\n", c.sr, c.block, c.voices, c.error.c_str());
+      const double cb = calibration();
+      if (!run_once(c, comp, preset)) { std::printf("FAIL  %.0f Hz, %d-sample blocks, %d notes: %s\n", c.sr, c.block, c.voices, c.error.c_str()); continue; }
+      const double ca = calibration();
+      c.cal_before.push_back(cb); c.cal_after.push_back(ca);
+      calib.push_back(cb); calib.push_back(ca);
     }
-    std::printf("repeat %d of %d done\n", rep + 1, kRepeats);
+    fastest = calib.empty() ? NAN : *std::min_element(calib.begin(), calib.end());
+    int least = kRepeats;
+    for (Cell& c : cells) {
+      if (!c.error.empty()) continue;
+      c.use.clear();
+      for (size_t i = 0; i < c.times.size(); ++i)
+        if (!strict || (c.clean(i, fastest) && int(c.use.size()) < kRepeats)) c.use.push_back(i);
+      least = std::min(least, int(c.use.size()));
+      if (!c.times.empty()) {
+        const size_t i = c.times.size() - 1;
+        rej_cal += std::max(c.cal_before[i], c.cal_after[i]) > kCleanTol * fastest;
+        rej_pre += c.span_wall[i] > kCleanTol * c.span_cpu[i];
+      }
+    }
+    if (!strict) return true;
+    const Reading r = read_load();
+    std::printf("round %d: fewest clean runs of any cell %d of %d; this round rejected %d for calibration, %d for preemption (load %.2f, busiest other process %.2f cores, %s: not gating)\n",
+                round + 1, least, kRepeats, rej_cal, rej_pre, r.load, r.other, r.who.c_str());
     std::fflush(stdout);
+    if (least >= kRepeats) return true;
   }
-  return true;
+  return false;
+}
+
+// The two must-fail controls after a strict measurement (ADR-391 A2): false means the check is blind.
+bool contamination_controls(const std::vector<Cell>& cells, AudioComponent comp, const Preset& preset, double fastest, std::string& out) {
+  char line[512];
+  const double slowed = calibration_beside_spinners();
+  Cell pre = cells.empty() ? Cell{} : cells[0];
+  pre.times.clear(); pre.span_wall.clear(); pre.span_cpu.clear();
+  { Spinners s; run_once(pre, comp, preset); }
+  const bool c1 = slowed > kCleanTol * fastest;
+  const bool c2 = !pre.span_wall.empty() && pre.span_wall[0] > kCleanTol * pre.span_cpu[0];
+  std::snprintf(line, sizeof line, "CONTROL (1) calibration beside %u spinning threads: x%.3f of the fastest: %s\nCONTROL (2) a run beside them: wall/thread CPU %.3f: %s\n", Spinners{}.n,
+                slowed / fastest, c1 ? "REJECTED, as it must be" : "PASSED: the calibration test is blind", pre.span_wall.empty() ? NAN : pre.span_wall[0] / pre.span_cpu[0],
+                c2 ? "REJECTED, as it must be" : "PASSED: the preemption test is blind");
+  out += line;
+  return c1 && c2;
 }
 
 // ---- finding the component ----------------------------------------------------------------------------------
@@ -543,7 +629,7 @@ std::string table(const std::vector<Cell>& cells, const std::vector<double>& cal
   }
   if (!calib.empty()) {
     const double lo = *std::min_element(calib.begin(), calib.end()), hi = *std::max_element(calib.begin(), calib.end());
-    std::snprintf(line, sizeof line, "\nCalibration (10^8 dependent multiply-adds, before every run): %.3f to %.3f s over %zu runs, a spread of %.1f %% (above 10 %% suggests the core changed).\n", lo, hi,
+    std::snprintf(line, sizeof line, "\nCalibration (10^8 dependent multiply-adds, before and after every run, after the warm-up): %.3f to %.3f s over %zu readings, a spread of %.1f %%; only runs within 2 %% of the fastest count (ADR-391 A2).\n", lo, hi,
                   calib.size(), 100 * (hi / lo - 1));
     o += line;
   }
@@ -575,7 +661,7 @@ void usage() {
       "        --report <file.md>   also write the table there (keep third-party results outside the repo)\n"
       "        --allow-third-party  required for anything not Apple's or horde's (B381's latch)\n"
       "  au_bench --controls                                 the must-fail controls on Apple's DLSMusicDevice\n"
-      "exit: 0 measured; 1 refused (component, preset, arguments); 2 the load guard refused; 3 a cell failed or was silent");
+      "exit: 0 measured; 1 refused (component, preset, arguments); 2 too few clean runs after 20 rounds (ADR-391 A2); 3 a cell failed or was silent; 4 a contamination control was blind");
 }
 
 std::vector<double> parse_list(const char* s) {
@@ -645,10 +731,7 @@ bool probe(const Found& f, double sr, int block, const Preset& preset, std::stri
 int controls() {
   int failures = 0;
   auto verdict = [&](bool ok, const std::string& what) { std::printf("%s  %s\n", ok ? "ok  " : "FAIL", what.c_str()); failures += !ok; };
-  print_reading("guard read (printed, not waited on: see the header)", read_load());
-
-  // C1: the guard's rule refuses planted readings and passes a quiet one.
-  verdict(!quiet(3.5, 0.1) && !quiet(1.0, 0.6) && quiet(2.9, 0.4), "C1 the guard's rule: load 3.5 refused, 0.6 of a core refused, 2.9 and 0.4 passed");
+  print_reading("machine load", read_load());
 
   Found dls;
   if (!find_desc(kAudioUnitType_MusicDevice, fourcc("dls "), fourcc("appl"), dls)) { verdict(false, "Apple's DLSMusicDevice is not installed: no stand-in"); return 1; }
@@ -658,8 +741,16 @@ int controls() {
   std::vector<Cell> cells(2);
   cells[1].skip_render = true;
   std::vector<double> calib;
-  measure(cells, dls.comp, none, false, calib);
+  double fastest = NAN;
+  measure(cells, dls.comp, none, false, calib, fastest);
   std::fputs(table(cells, calib).c_str(), stdout);
+  // C1 (ADR-391 A2): the contamination check's own plants, on the stand-in: a slowed calibration and a preempted run.
+  {
+    std::string ctl;
+    const bool fired = contamination_controls(cells, dls.comp, none, fastest, ctl);
+    std::fputs(ctl.c_str(), stdout);
+    verdict(fired, "C1 the contamination check rejects a calibration and a run beside twice as many spinning threads as cores");
+  }
   const Cell &real = cells[0], &skip = cells[1];
   verdict(real.error.empty() && std::isfinite(real.best()) && real.best() > 1e-5 && real.best() < 1.0 && !real.silent() && !real.nonfinite,
           "C2 the stand-in (DLSMusicDevice, 8 notes, 44.1 kHz, 128): " + std::to_string(100 * real.best()) + " % of a core, finite and plausible, not silent");
@@ -828,7 +919,7 @@ int main(int argc, char** argv) {
   std::string out = "# AU bench (B638): " + describe(f) + "\n\n";
   out += "Instantiated in process (AudioComponentInstanceNew). Preset: " + (preset.dict ? preset.source : std::string("none: the plug-in's DEFAULT PATCH (--default), not a reference")) + ".\n";
   out += "PF-3's protocol: the k-th note on key 48 + 3 (k mod 8), velocity 108/127 (0.85), on at sample 0 and held; notes 9 and up on MIDI channels 2 and up; "
-         "0.25 s untimed, then 2 s timed; best of 5 interleaved repeats, a fresh instance each; the load guard and the calibration loop before every run.\n\n";
+         "0.25 s untimed, then 2 s timed; 30 s warm-up, then the first 5 clean runs of each cell (ADR-391 A2: calibration within 2 % of the fastest, wall within 2 % of thread CPU), interleaved, a fresh instance each.\n\n";
   std::string report;
   if (!probe(f, rates[0], int(blocks[0]), preset, report)) { std::fputs((out + report).c_str(), stdout); return 1; }
   out += report + "\n";
@@ -844,11 +935,21 @@ int main(int argc, char** argv) {
         cells.push_back(c);
       }
   std::vector<double> calib;
-  if (!measure(cells, f.comp, preset, true, calib)) {
-    std::puts("REFUSED  the load guard waited 10 minutes for a quiet machine (PF-3); nothing is reported");
+  double fastest = NAN;
+  if (!measure(cells, f.comp, preset, true, calib, fastest)) {
+    std::printf("REFUSED  fewer than %d clean runs of some cell after %d rounds (ADR-391 A2); nothing is reported\n", kRepeats, kMaxRounds);
     if (preset.dict) CFRelease(preset.dict);
     return 2;
   }
+  std::string ctl;
+  const bool fired = contamination_controls(cells, f.comp, preset, fastest, ctl);
+  std::fputs(ctl.c_str(), stdout);
+  if (!fired) {
+    std::puts("REFUSED  a contamination control did not fire (ADR-391 A2); nothing is reported");
+    if (preset.dict) CFRelease(preset.dict);
+    return 4;
+  }
+  out += ctl;
   const std::string t = table(cells, calib);
   std::fputs(("\n" + t).c_str(), stdout);
   if (!reportPath.empty()) {

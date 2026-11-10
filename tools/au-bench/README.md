@@ -8,7 +8,7 @@ duration × 100. It exists to give the human a reference reading for a heavy
 horde's CPU target.
 
 It measures and never judges. It is not a `./verify` gate: it needs
-real installed AUs and a quiet machine, so it runs by hand.
+real installed AUs, so it runs by hand.
 
 | file | what it is |
 |---|---|
@@ -40,8 +40,15 @@ the command line, and a missing or bad preset file is refused, never rendered at
 the defaults. Anything not Apple's or horde's is refused without
 `--allow-third-party` (the same latch as `tools/auhost`, B381).
 
-Exit status: 0 measured; 1 refused (component, preset, arguments); 2 the load
-guard refused; 3 a cell failed or rendered silence.
+Exit status: 0 measured; 1 refused (component, preset, arguments); 2 too few
+clean runs after 20 rounds; 3 a cell failed or rendered silence; 4 a contamination
+control was blind.
+
+**Timing (ADR-391 A2).** Not PF-3's load guard: 30 s warm-up, then each run is
+bracketed by the calibration loop and counts only if both calibrations are within
+2 % of the fastest and its wall time is within 2 % of the rendering thread's CPU
+time (the same check as `tools/c2a_remainder`). Load is printed, never gating, so it
+may run with other apps open; Live itself should be closed.
 
 ## Preset files it takes
 
