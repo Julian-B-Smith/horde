@@ -1,0 +1,282 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>horde Audit 2026-11-10</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: one column, a four-figure strip, then ten ranked rows. Each row is rank | claim | evidence. */
+:root {
+  --bg: #f6f7f9; --surface: #ffffff; --ink: #161b22; --muted: #5b6573; --rule: #d9dee5;
+  --accent: #0b6e77; --evidence-bg: #eef1f4;
+  --human: #8a4b00; --human-bg: #fdf0dc; --lead: #1f4f8f; --lead-bg: #e4eefb;
+  --bad: #a3271f; --bar: #0b6e77; --bar-2: #9fb3bd;
+  --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f1317; --surface: #171c22; --ink: #e7ebf0; --muted: #98a3b0; --rule: #2a323c;
+  --accent: #5cc4cd; --evidence-bg: #1e252d;
+  --human: #f2b765; --human-bg: #3a2a12; --lead: #8fbcf5; --lead-bg: #172a44;
+  --bad: #f08a80; --bar: #5cc4cd; --bar-2: #4a5966; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0f1317; --surface: #171c22; --ink: #e7ebf0; --muted: #98a3b0; --rule: #2a323c;
+  --accent: #5cc4cd; --evidence-bg: #1e252d;
+  --human: #f2b765; --human-bg: #3a2a12; --lead: #8fbcf5; --lead-bg: #172a44;
+  --bad: #f08a80; --bar: #5cc4cd; --bar-2: #4a5966; color-scheme: dark }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--sans); }
+.page { max-width: 1040px; margin: 0 auto; padding-block: 28px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 28px; }
+h1 { font-size: 26px; line-height: 1.2; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0; font-weight: 600; }
+p { margin: 0; }
+.lede { color: var(--muted); max-width: 68ch; }
+header { display: flex; flex-direction: column; gap: 10px; }
+.meta { font: 12px/1.4 var(--mono); color: var(--muted); }
+.figures { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.fig { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 14px 16px; min-width: 0; }
+.fig b { display: block; font-size: 26px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.fig span { display: block; color: var(--muted); font-size: 13px; margin-top: 4px; }
+.fig b.bad { color: var(--bad); }
+.list { display: flex; flex-direction: column; gap: 0; background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; }
+.row { display: grid; grid-template-columns: 44px minmax(0, 5fr) minmax(0, 6fr); gap: 16px; padding: 18px 18px; border-top: 1px solid var(--rule); }
+.row:first-child { border-top: 0; }
+.rank { font: 600 22px/1 var(--sans); color: var(--accent); font-variant-numeric: tabular-nums; padding-top: 2px; }
+.claim { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.claim h3 { margin: 0; font-size: 16px; line-height: 1.3; text-wrap: balance; }
+.claim .fix { color: var(--muted); font-size: 14px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font: 600 11px/1 var(--sans); letter-spacing: 0.04em; text-transform: uppercase; padding: 5px 8px; border-radius: 3px; }
+.chip.human { background: var(--human-bg); color: var(--human); }
+.chip.lead { background: var(--lead-bg); color: var(--lead); }
+.chip.cost { background: var(--evidence-bg); color: var(--muted); }
+.ev { min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.ev pre { margin: 0; background: var(--evidence-bg); border-radius: 4px; padding: 10px 12px; font: 12px/1.5 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.ev .note { font-size: 13px; color: var(--muted); }
+.bars { display: grid; grid-template-columns: max-content minmax(0, 1fr) max-content; gap: 5px 10px; align-items: center; font: 12px/1.3 var(--mono); }
+.bars i { display: block; height: 10px; background: var(--bar); border-radius: 2px; }
+.bars i.rest { background: var(--bar-2); }
+.bars .n { font-variant-numeric: tabular-nums; text-align: right; }
+.split { display: flex; height: 14px; border-radius: 3px; overflow: hidden; }
+.split i { display: block; height: 100%; }
+.split .a { background: var(--bad); } .split .b { background: var(--bar); } .split .c { background: var(--bar-2); }
+.legend { font: 12px/1.4 var(--mono); color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.legend b { color: var(--ink); font-weight: 600; }
+.tablewrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 9px 14px; border-top: 1px solid var(--rule); vertical-align: top; }
+th { font: 600 12px/1.3 var(--sans); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); border-top: 0; }
+td.open { color: var(--bad); font-weight: 600; white-space: nowrap; }
+td.ok { color: var(--accent); font-weight: 600; }
+.cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.cols ul { margin: 6px 0 0; padding-left: 18px; color: var(--muted); font-size: 14px; }
+.cols li { margin: 3px 0; }
+code { font: 0.92em var(--mono); }
+@media (max-width: 760px) {
+  .figures { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .row { grid-template-columns: 32px minmax(0, 1fr); }
+  .ev { grid-column: 2; }
+  .cols { grid-template-columns: minmax(0, 1fr); }
+}
+</style>
+
+<div class="page">
+<header>
+  <p class="meta">horde · origin/main 622b0cf3 · 2026-11-10 · independent audit, Fable 5.2 · read-only</p>
+  <h1>Ten things that would most improve horde's efficiency and quality</h1>
+  <p class="lede">Ranked by value against cost. Every number was measured today unless the row says whose it is. Two need only the human's hand and take minutes. The full report, with ten more items and what could not be checked, is <code>docs/audits/2026-11-10-fable-audit.md</code>.</p>
+</header>
+
+<section class="figures" aria-label="Headline figures">
+  <div class="fig"><b class="bad">85 + 69</b><span>clean-room commits that exist on one disk</span></div>
+  <div class="fig"><b>4 min 25 s</b><span><code>./verify fast</code>, one gate at a time</span></div>
+  <div class="fig"><b>37 %</b><span>of 300 merged PRs were records-only</span></div>
+  <div class="fig"><b>2.1 MB</b><span>ROADMAP.md, with no status field</span></div>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:10px">
+<h2>The ten</h2>
+<div class="list">
+
+<div class="row">
+  <div class="rank">1</div>
+  <div class="claim">
+    <h3>The clean-room engine and its tests are not backed up off the machine</h3>
+    <div class="chips"><span class="chip human">Human</span><span class="chip cost">two pushes</span></div>
+    <p class="fix">Push both repos. Then print the unpushed count in every session roundup until it reads zero. Raised by the last two audits, when it was 12 and 15.</p>
+  </div>
+  <div class="ev"><pre>engine repo  main...origin/main [ahead 85]
+tests repo   main...origin/main [ahead 69]
+origin/main last moved 2026-10-27; HEAD is 2026-11-07</pre>
+  <p class="note">Everything since stage 8: the bank, the morph, three CPU batches, spec rounds to 64.</p></div>
+</div>
+
+<div class="row">
+  <div class="rank">2</div>
+  <div class="claim">
+    <h3>The nightly workflow was never installed, so its six long jobs have never run</h3>
+    <div class="chips"><span class="chip human">Human</span><span class="chip cost">one file</span></div>
+    <p class="fix">Copy the draft into <code>.github/workflows/</code> and run the drill once. Or decide against it and remove the jobs from the armor rows that cite them.</p>
+  </div>
+  <div class="ev"><pre>$ python3 tools/nightly/freshness.py
+NIGHTLY UNKNOWN -- gh failed: HTTP 404: workflow
+nightly.yml not found on the default branch</pre>
+  <p class="note">Drafted 2026-10-10. Soaks, deep fuzz, RTSan and TSan are checked for their plumbing every run and executed never.</p></div>
+</div>
+
+<div class="row">
+  <div class="rank">3</div>
+  <div class="claim">
+    <h3>The new engine rebuilds its whole parameter context thousands of times a second</h3>
+    <div class="chips"><span class="chip lead">Lead</span><span class="chip cost">small · bit-identical</span></div>
+    <p class="fix">An id-to-index table at prepare; build the context only when an action is due; share one per tick. No golden moves. This path survives the blades' retirement.</p>
+  </div>
+  <div class="ev"><pre>engine.cpp:207  voices_.run_actions(context(), …)  // every segment
+engine.cpp:185,189  context() again per grid and control tick
+manifest.cpp:370  param_index = std::lower_bound(…)   // per read</pre>
+  <p class="note">The builder's own note-start profile, blades off: about 18 % of <code>process()</code> for the first line and 28 % for the ticks. Not measured by me.</p></div>
+</div>
+
+<div class="row">
+  <div class="rank">4</div>
+  <div class="claim">
+    <h3><code>./verify fast</code> takes four and a half minutes and runs in series</h3>
+    <div class="chips"><span class="chip lead">Lead</span><span class="chip cost">small</span></div>
+    <p class="fix">Run the five slow gates side by side (four slots) and record seconds per gate. Same gates, same verdicts, roughly 90 s. Its own header says "seconds, not minutes"; it is the Stop gate for every edit.</p>
+  </div>
+  <div class="ev">
+    <div class="bars" role="img" aria-label="Seconds per gate in verify fast, total 242.5">
+      <span>gui3_seam_check</span><i style="width:75%"></i><span class="n">56.3 s</span>
+      <span>gui3_browser_check</span><i style="width:66.5%"></i><span class="n">49.8 s</span>
+      <span>sandbox_check</span><i style="width:34.3%"></i><span class="n">25.7 s</span>
+      <span>build_flags_check</span><i style="width:29.9%"></i><span class="n">22.4 s</span>
+      <span>stop_gate_check</span><i style="width:17.9%"></i><span class="n">13.4 s</span>
+      <span>everything else</span><i class="rest" style="width:100%"></i><span class="n">74.9 s</span>
+    </div>
+    <p class="note">real 264.66 s, user 266.01 s on the timed run: nothing ran concurrently. Five gates are 69 %.</p>
+  </div>
+</div>
+
+<div class="row">
+  <div class="rank">5</div>
+  <div class="claim">
+    <h3>More than a third of what the human merges is a records-only PR</h3>
+    <div class="chips"><span class="chip human">Human</span><span class="chip cost">a workflow change</span></div>
+    <p class="fix">Carry the row, ledger entry and trace as the last commit of the PR they record, or batch them into one records PR per session. Either removes about six merges a day.</p>
+  </div>
+  <div class="ev">
+    <div class="split" role="img" aria-label="300 merged PRs: 110 records, 100 GUI, 90 other"><i class="a" style="width:36.7%"></i><i class="b" style="width:33.3%"></i><i class="c" style="width:30%"></i></div>
+    <div class="legend"><span><b>110</b> records-only</span><span><b>100</b> GUI session</span><span><b>90</b> other</span></div>
+    <p class="note">300 PRs in 19 days, all merged by one person. Records PRs: median 40 lines in 3 files, median 56 minutes waiting, a 5-minute CI run each.</p>
+  </div>
+</div>
+
+<div class="row">
+  <div class="rank">6</div>
+  <div class="claim">
+    <h3>The "single source of truth" cannot be read by a session or shown by GitHub</h3>
+    <div class="chips"><span class="chip lead">Lead</span><span class="chip human">Human</span><span class="chip cost">medium</span></div>
+    <p class="fix">First a <code>roadmap_check</code>: unique ids, three cells, a status from a closed list. Then move closed rows and old narrative to an archive so the live file can be read whole.</p>
+  </div>
+  <div class="ev"><pre>ROADMAP.md   2 100 289 bytes  (132 KB on 2026-08-01)
+DECISIONS.md 1 274 326 bytes  (+300 KB in ten days)
+696 rows: 329 with no status word, 84 with no status cell,
+          51 with extra cells; B147 and B155 each appear twice
+303 of the last 784 commits touch ROADMAP.md</pre>
+  <p class="note">GitHub answers "can't show files that are this big".</p></div>
+</div>
+
+<div class="row">
+  <div class="rank">7</div>
+  <div class="claim">
+    <h3>CI's sanitize job is green with 19 oracles not built</h3>
+    <div class="chips"><span class="chip lead">Lead</span><span class="chip cost">about 5 lines</span></div>
+    <p class="fix">Fail when the count rises above 19. Fourth audit to say so. The missing ones are the oracles that parse outside input.</p>
+  </div>
+  <div class="ev"><pre>run 42746638614, main, 2026-11-10
+1/2: 27 oracle(s) passed, 11 not built on this platform
+2/2: 27 oracle(s) passed, 8 not built … GREEN</pre></div>
+</div>
+
+<div class="row">
+  <div class="rank">8</div>
+  <div class="claim">
+    <h3>A gate that skips leaves the same green record as one that ran</h3>
+    <div class="chips"><span class="chip lead">Lead</span><span class="chip cost">small</span></div>
+    <p class="fix">Use the kit's own <code>gate</code> wrapper (built on this repo's brief, used by nothing) and add submodules to CI's two <code>verify-fast</code> jobs.</p>
+  </div>
+  <div class="ev"><pre>license audit: libs/choc is not checked out;
+  the rows that read its files DID NOT RUN   (×3)
+license_audit_check: GREEN
+last-verify.json: {"exit":0, …, "gates":[]}</pre>
+  <p class="note">True in every agent worktree and on CI. Those rows run only on the root checkout.</p></div>
+</div>
+
+<div class="row">
+  <div class="rank">9</div>
+  <div class="claim">
+    <h3>The compiled preset oracles run on no PR in CI</h3>
+    <div class="chips"><span class="chip lead">Lead</span><span class="chip cost">small</span></div>
+    <p class="fix">Carve <code>docs/presets/**</code> out of the Linux jobs' path filter, and see finding 7. This matters before the planned re-voicing of the bank.</p>
+  </div>
+  <div class="ev"><pre>ci.yml:48  paths-ignore: ['**.md', 'docs/**', 'traces/**']
+factory bank: docs/presets/factory/
+bank_check, preset_pitch_check, morphlayout_check,
+offcorner_check: all four in the "not built" nineteen</pre></div>
+</div>
+
+<div class="row">
+  <div class="rank">10</div>
+  <div class="claim">
+    <h3>The CPU budget still has no gate, and the armor dashboard has one colour</h3>
+    <div class="chips"><span class="chip lead">Lead</span><span class="chip human">Human</span><span class="chip cost">medium</span></div>
+    <p class="fix">Pin instruction counts per bench cell (the tool exists and needs no root) and go red on a rise. Give each partial row dated items so the dashboard can move.</p>
+  </div>
+  <div class="ev"><pre>armor: 0/12 green, 12 partial, 0 hole
+signatures 0/7 green · security 0/4 green
+R12: "the CPU measurement is run by hand;
+      no per-release gate on the worst-case patch"</pre>
+  <p class="note">The engine reached 293 of 295 tests before its CPU was timed, then read 7 to 10 times over (the lead's note).</p></div>
+</div>
+
+</div>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:10px">
+<h2>Earlier audits: still open</h2>
+<div class="tablewrap">
+<table>
+  <tr><th>Finding</th><th>First raised</th><th>Today</th></tr>
+  <tr><td>Clean-room repos not pushed</td><td>2026-10-21</td><td class="open">Open, worse</td></tr>
+  <tr><td>Sanitize job green with oracles not built</td><td>2026-10-10</td><td class="open">Open</td></tr>
+  <tr><td>Duplicate ids B147 and B155; no roadmap check</td><td>2026-10-10</td><td class="open">Open</td></tr>
+  <tr><td>Nightly never run; verify record lists no gates</td><td>2026-10-21</td><td class="open">Open</td></tr>
+  <tr><td>Protected references guarded by prose only</td><td>2026-10-29</td><td class="open">Open</td></tr>
+  <tr><td>CLAUDE.md §Domain and README stale statements</td><td>2026-10-10</td><td class="open">Open</td></tr>
+  <tr><td>Tolerance exclusions pin no value</td><td>2026-10-29</td><td class="ok">Fixed</td></tr>
+</table>
+</div>
+<p class="lede">The weekly audit is not the bottleneck: its cheapest findings are open three and four audits later. I would pause it until this list is empty, or give each item a dated row or a written "won't do".</p>
+</section>
+
+<section class="cols">
+  <div>
+    <h2>Open questions for the human</h2>
+    <ul>
+      <li>Is there a backup of the clean-room repos outside git?</li>
+      <li>Do you read a records PR as the moment you check a ruling back? If so, batch them; do not fold them.</li>
+      <li>Is the nightly worth its CI minutes?</li>
+      <li>May ROADMAP.md become a live file plus an archive?</li>
+    </ul>
+  </div>
+  <div>
+    <h2>Not checked</h2>
+    <ul>
+      <li>No engine timing of my own; a timed run was scheduled.</li>
+      <li><code>./verify full</code> was not run.</li>
+      <li>Whether the five slow gates are safe to run together.</li>
+      <li>GitHub branch protection; the mailbox items themselves.</li>
+    </ul>
+  </div>
+</section>
+</div>
