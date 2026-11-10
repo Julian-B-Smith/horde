@@ -8,5 +8,5 @@ Glass horde pad translated (PF-1's patch), 8 voices, PF-3's chord, Standard qual
     <out>/build-<commit>/c2a_remainder --timed       # PF-3's protocol (load guard, calibration, best of 5): quiet window only
     <out>/build-<commit>/c2a_remainder --timed --smoke   # plumbing check, one repeat, NOT a measurement
 
-Cells A to G are in `main.cpp`. Instruction counts come from `proc_pid_rusage` (no root); they are a floor on a time ratio, not
+Cells A to J are in `main.cpp`. Instruction counts come from `proc_pid_rusage` (no root); they are a floor on a time ratio, not
 the PF-1 figure. The per-member slope holds the base-wave read AND the member's swarm law; the cells cannot split them.

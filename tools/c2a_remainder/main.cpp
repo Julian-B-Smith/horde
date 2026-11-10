@@ -44,6 +44,7 @@ struct CellSpec {
   bool blades_off;     // both blades' `on` switch at off, so no blade code runs
   bool width_zero;     // blades stay on, both widths at the law's off zone (an alternative reading of "off")
   bool silent;         // no notes: the idle floor
+  int base = -1;       // baseWave option index (0 sine, 1 triangle, 2 saw, 3 reverse saw, 4 square); -1: the patch's own
 };
 const CellSpec kCells[] = {
     {"A as is, patch's own unison (PF-1 anchor)", 0, false, false, false},
@@ -53,12 +54,18 @@ const CellSpec kCells[] = {
     {"E blades off, unison 5 (a third point)", 5, true, false, false},
     {"F blades on but width 0, unison 9", 9, false, true, false},
     {"G silent control (no notes), unison 9", 9, false, false, true},
+    // The base wave changes the per-member path (swarm.cpp sets s.base; wide.h/blades.cpp branch on Triangle's corners and on
+    // Sine against the straight waves), so these three split the per-member slope into wave read and swarm law.
+    {"H blades off, sine base, unison 1", 1, true, false, false, 0},
+    {"I blades off, sine base, unison 5", 5, true, false, false, 0},
+    {"J blades off, sine base, unison 9", 9, true, false, false, 0},
 };
 constexpr int kCellCount = int(sizeof(kCells) / sizeof(kCells[0]));
 
 void apply(horde::Engine& e, const CellSpec& s) {
   if (s.unison) set_params(e, {{"osc1.unison", double(s.unison), true}});
   if (s.blades_off) set_params(e, {{"osc1.blade1.on", 0}, {"osc1.blade2.on", 0}});
+  if (s.base >= 0) set_params(e, {{"osc1.baseWave", double(s.base)}});
   if (s.width_zero) set_params(e, {{"osc1.blade1.width", 0}, {"osc1.blade2.width", 0}});
 }
 
@@ -172,6 +179,12 @@ void analyse(const char* unit, double scale, const std::vector<double>& v, doubl
   std::printf("    idle floor G (no notes, as a share of B): %.4f = %.1f %%\n", G * scale, 100 * G / B);
   std::printf("    REMAINDER, upper bound (cell C, blades off, all members, including their base-wave reads, less the idle floor): %.4f\n", (C - G) * scale);
   if (voice_samples_per_s > 0) std::printf("    intercept per voice-sample (8 voices x sample rate): %.1f\n", ln.intercept / voice_samples_per_s);
+  const Line sn = fit({{1, v[7]}, {5, v[8]}, {9, v[9]}});
+  std::printf("    SINE base, blades off (cells H, I, J): slope %.4f, intercept %.4f, line's error at 9 against J %+.4f\n", sn.slope * scale, sn.intercept * scale, (sn.intercept + sn.slope * 9 - v[9]) * scale);
+  std::printf("    SPLIT of the patch's own per-member slope (%.4f): wave-specific excess over sine = %.4f (%.1f %%); sine slope = %.4f (%.1f %%) = swarm law, drift, gain AND sine's own read, so the swarm law alone is at most this\n",
+              ln.slope * scale, (ln.slope - sn.slope) * scale, 100 * (ln.slope - sn.slope) / ln.slope, sn.slope * scale, 100 * sn.slope / ln.slope);
+  std::printf("    per-voice intercept, sine vs own base: %.4f vs %.4f (the base wave should not move it)\n", sn.intercept * scale, ln.intercept * scale);
+  std::printf("    REMAINDER with the sine base (cell J less the idle floor): %.4f\n", (v[9] - G) * scale);
   std::printf("    REMAINDER, per-voice part only (the intercept): %.4f; plus members x slope = the upper bound above, the base-wave read being inside the slope\n", ln.intercept * scale);
 }
 
