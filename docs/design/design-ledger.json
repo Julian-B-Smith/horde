@@ -8676,6 +8676,10 @@
    "reason": "The wavetable build's process, scope and budget, and ADR-377 A3 (corner tables blend in 1.0); the page's corner-table controls are the GUI session's once the build reaches the shell (the B650 lab is a bench, not the shell)."
   },
   {
+   "adr": "ADR-390",
+   "reason": "A CPU budget, oscillator laws and the wavetable decision table's engine rows; the page's wavetable controls stay the GUI session's (GB37), and GN-60 reaches the engine through B666's spec round."
+  },
+  {
    "adr": "ADR-389",
    "reason": "An oscillator law (sync always on, the softness taper); GUI-66 already maps wt.syncSoft on the page, and it reaches the engine through the spec round."
   },
