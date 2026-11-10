@@ -54,3 +54,9 @@
 - **A screenshot** of the Osc 1 page with the mapping box open was read: six rows, and the box fits.
 
 **Verify.** `./verify fast` on the commit this trace ships in.
+
+## Addendum (2026-11-10): the Frame default confirmed
+
+The human, asked which default the new Shift and Option up-and-down slots should take: "Keep Frame". GUI-72 marks that reading confirmed (A1), and the ledger row `gui72-six-views-six-slots` notes it. The lab is unchanged; it already defaults those slots to Frame.
+
+**Verify.** `./verify fast` on the commit this addendum ships in.

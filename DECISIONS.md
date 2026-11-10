@@ -12728,7 +12728,7 @@ The tile's frame carries the corner's colour, and inside the glass the corner is
 
 **Readings, for the human to correct.**
 - "Buttons" means Shift and Option. Command stays the fine key (GUI-68) and is not a slot. With Shift and Option both held, Option still wins (GUI-68's reading), so there is no separate Shift + Option slot.
-- The new Shift and Option up-and-down slots start on Frame, matching what those drags did before, not on Nothing.
+- The new Shift and Option up-and-down slots start on Frame, matching what those drags did before, not on Nothing. **Confirmed by the human, 2026-11-10: "Keep Frame"** (A1).
 - In the Sonogram (GUI-70) only the plain pair swaps. With Shift or Option held, each direction feeds that button's slot as drawn, in every view.
 
 **State (GUI-27).** The mapping gains two slots. The lab keeps it per machine under a new storage key, and a mapping remembered from round 6 carries over, with the two new slots on their defaults. Whether the view and the mapping persist per machine, and pips or the view's name, are still open (GUI-66). Each gesture is still one undo step, and a drag whose slots map Nothing writes nothing.
