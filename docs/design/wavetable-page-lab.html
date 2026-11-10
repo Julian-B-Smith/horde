@@ -73,6 +73,12 @@
      cells. The modifier slots (Shift, Option) are the same in every view.
      Then (GUI-71): "Keep both". Both frame marks stay, the dashed frame in the picture and the rail; the Frame mark pills stay as the record.
 
+     ROUND 8 (the human, 2026-11-09). "I like all of the views for now. If I want any removed we can do it down the line. I don't think plain sideways
+     should move anything at the moment, but let's make both directions (and all button+direction combos) mappable for now" (GUI-72). All six views stay
+     in the switch; plain sideways stays Nothing; and the mapping has SIX slots, both directions under no button, Shift and Option. The new Shift and
+     Option up / down slots start on Frame, so nothing moves differently until they are mapped, and the legend lists a button's slot only where it
+     differs from the plain one. Option still outranks Shift, and Command is still fine, never a slot. A mapping remembered from round 6 carries over.
+
      HOUSE RULES. No Math.random (seeded mulberry32). No clock: motion is a frame count (L.tick). No wheel listener (B301). Reduced motion starts Still. -->
 <html lang="en" data-theme="dark">
 <head>
@@ -293,18 +299,26 @@ const ROWS = {
 Object.keys(ROWS).forEach(k => { const r = ROWS[k]; r.key = k; if (!r.get) { r.get = o => S.osc[o].wt[k]; r.set = (o, v) => { S.osc[o].wt[k] = v; }; } });
 const toN = (r, v) => r.law === 'log' ? Math.log(v / r.min) / Math.log(r.max / r.min) : r.law === 'pow' ? Math.sqrt((v - r.min) / (r.max - r.min)) : (v - r.min) / (r.max - r.min);
 const fromN = (r, n) => { n = Math.min(1, Math.max(0, n)); return r.law === 'log' ? r.min * Math.pow(r.max / r.min, n) : r.law === 'pow' ? r.min + (r.max - r.min) * n * n : r.min + (r.max - r.min) * n; };
-// the mapping: four slots (vertical, horizontal, shift + horizontal, option + horizontal), each a row or nothing ('') and an invert. One for every
-// viewer, per machine. GUI-68: plain sideways moves nothing until the human picks something for it; Bend is on Option, sync on Shift
-const MAP_DEFAULT = { v: { row: 'frame', inv: false }, h: { row: '', inv: false }, sh: { row: 'sync', inv: false }, oh: { row: 'bend', inv: false } };
+// the mapping: six slots, both directions under no button, Shift and Option (GUI-72), each a row or nothing ('') and an invert. One for every
+// viewer, per machine. GUI-68: plain sideways moves nothing until the human picks something for it; Bend is on Option, sync on Shift. The button
+// up / down slots start on Frame, as up / down moved the frame whatever was held before GUI-72, so the default drag is unchanged
+const MAP_DEFAULT = { v: { row: 'frame', inv: false }, h: { row: '', inv: false }, sv: { row: 'frame', inv: false }, sh: { row: 'sync', inv: false }, ov: { row: 'frame', inv: false }, oh: { row: 'bend', inv: false } };
 // GUI-69: how far a drag goes to cross a row's whole range. Up and down is tighter than BladeView's 420 px: 150 px, about the viewer's own height, so
 // the 16 frames sweep in one short stroke (the human: "it takes almost the whole length of the page to get through all 16"). Sideways keeps 420
 const DRAG_PX = { v: 150, h: 420 };
-const SLOTS = ['v', 'h', 'sh', 'oh'], SLOT = { v: '↕', h: '↔', sh: '⇧↔', oh: '⌥↔' };
-// which horizontal slot a sideways move feeds. Option outranks Shift when both are held (a reading GUI-68 records); Command is fine, never a slot
-const sideSlot = e => e.altKey ? 'oh' : e.shiftKey ? 'sh' : 'h';
+const SLOTS = ['v', 'h', 'sv', 'sh', 'ov', 'oh'], SLOT = { v: '↕', h: '↔', sv: '⇧↕', sh: '⇧↔', ov: '⌥↕', oh: '⌥↔' };
+// which slots a move feeds: the button held picks the pair. Option outranks Shift when both are held (a reading GUI-68 records); Command is fine, never a slot
+const btn = e => e.altKey ? 'o' : e.shiftKey ? 's' : '', vSlot = e => btn(e) + 'v', sideSlot = e => btn(e) + 'h';
+// a button's slot that maps what the plain slot of its direction maps adds nothing to read, so the legend leaves it out
+const plainOf = sl => sl.slice(-1), shown = sl => MAP[sl].row && (sl.length === 1 || MAP[sl].row !== MAP[plainOf(sl)].row || MAP[sl].inv !== MAP[plainOf(sl)].inv);
 const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
-let MAP = (() => { try { const m = JSON.parse(store.get('horde-wtlab-xymap3')); if (m && SLOTS.every(s => m[s] && (m[s].row === '' || ROWS[m[s].row]))) return m; } catch (e) {} return JSON.parse(JSON.stringify(MAP_DEFAULT)); })();
-const saveMap = () => store.set('horde-wtlab-xymap3', JSON.stringify(MAP));   // '3': a new default on a remembered control needs a new key, or round 4's stored mapping would keep Bend on plain sideways
+const okSlot = x => x && (x.row === '' || ROWS[x.row]);
+const loadMap = () => { try { const m = JSON.parse(store.get('horde-wtlab-xymap4')); if (m && SLOTS.every(s => okSlot(m[s]))) return m; } catch (e) {}
+  // GUI-72 adds the two button up / down slots and changes no default, so a round-6 mapping carries over and the new slots take their default
+  try { const m = JSON.parse(store.get('horde-wtlab-xymap3')); if (m && ['v', 'h', 'sh', 'oh'].every(s => okSlot(m[s]))) return Object.assign(JSON.parse(JSON.stringify(MAP_DEFAULT)), m); } catch (e) {}
+  return JSON.parse(JSON.stringify(MAP_DEFAULT)); };
+let MAP = loadMap();
+const saveMap = () => store.set('horde-wtlab-xymap4', JSON.stringify(MAP));   // '4': six slots (GUI-72); '3' is read once above. A new default on a remembered control needs a new key (round 4's lesson)
 const weights = () => [(1 - S.x) * (1 - S.y), S.x * (1 - S.y), (1 - S.x) * S.y, S.x * S.y];
 // the blend is memoised on its inputs, so a still puck hands every look the same frames (and the sonogram's harmonics cache holds)
 const BL = [{}, {}, {}];
@@ -516,13 +530,13 @@ function leadPicture(parent, o, hgt, under) {
   return p;
 }
 /* ===== THE VIEWER: the switch, the XY drag (BladeView's pattern) and the legend that opens the mapping ===== */
-function readout(K, o, drag) { const parts = [], moving = drag ? drag.moving : null;
-  SLOTS.forEach(sl => { const r = ROWS[MAP[sl].row]; if (r && (!moving || moving.includes(sl))) parts.push(r.key === 'frame' ? frameText(o) : r.label.toUpperCase().replace('PM FROM THE ', 'PM ').replace(' OTHER OSC', '') + ' ' + r.fmt(r.get(o))); });
+function readout(K, o, drag) { const parts = [], moving = drag ? drag.moving : null, seen = {};
+  SLOTS.forEach(sl => { const r = ROWS[MAP[sl].row]; if (r && !seen[r.key] && (!moving || moving.includes(sl))) seen[r.key] = parts.push(r.key === 'frame' ? frameText(o) : r.label.toUpperCase().replace('PM FROM THE ', 'PM ').replace(' OTHER OSC', '') + ' ' + r.fmt(r.get(o))); });
   const t = parts.join('  ·  '); K.g.font = '600 ' + (9 * K.V) + 'px ' + MONO(); const w = K.g.measureText(t).width;
   K.g.fillStyle = K.c('ground', .78 / K.sc.alpha); K.g.fillRect(K.W - w - 10 * K.V, 2 * K.V, w + 8 * K.V, 13 * K.V); label(K, t, K.W - 6 * K.V, 12 * K.V, 'right', moving ? 'physics' : 'grid'); }
 function viewer(st, o) {
-  const c = st.cv; c.tabIndex = 0; const sym = sl => LOOK().across && (sl === 'v' || sl === 'h') ? SLOT[sl === 'v' ? 'h' : 'v'] : SLOT[sl], legText = () => SLOTS.filter(sl => MAP[sl].row).map(sl => sym(sl) + ' ' + ROWS[MAP[sl].row].label.replace('PM from the ', 'PM ').replace(' other osc', '')).join('   ');
-  c.setAttribute('aria-label', 'Osc ' + (o + 1) + ' table viewer, ' + LOOKS.find(x => x.id === look).name + '. Drag: ' + legText().replace(/↕/g, 'up and down,').replace(/⇧↔/g, 'shift and sideways,').replace(/⌥↔/g, 'option and sideways,').replace(/↔/g, 'sideways,') + '. Double-click: Bend to 0');
+  const c = st.cv; c.tabIndex = 0; const sym = sl => LOOK().across && (sl === 'v' || sl === 'h') ? SLOT[sl === 'v' ? 'h' : 'v'] : SLOT[sl], legText = () => SLOTS.filter(shown).map(sl => sym(sl) + ' ' + ROWS[MAP[sl].row].label.replace('PM from the ', 'PM ').replace(' other osc', '')).join('   ');
+  c.setAttribute('aria-label', 'Osc ' + (o + 1) + ' table viewer, ' + LOOKS.find(x => x.id === look).name + '. Drag: ' + legText().replace(/↕/g, 'up and down,').replace(/⇧↕/g, 'shift and up and down,').replace(/⌥↕/g, 'option and up and down,').replace(/⇧↔/g, 'shift and sideways,').replace(/⌥↔/g, 'option and sideways,').replace(/↔/g, 'sideways,') + '. Double-click: Bend to 0');
   // the switch: six pips, or the view's name that steps on a click (shift-click steps back)
   const sw = h('div', 'vw-sw'); sw.setAttribute('role', 'radiogroup'); sw.setAttribute('aria-label', 'View');
   if (L.sw === 'pips') { LOOKS.forEach(x => { const b = h('button', 'pip'); b.type = 'button'; b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', String(x.id === look)); b.setAttribute('aria-label', x.name); b.title = x.name; b.addEventListener('click', e => { e.stopPropagation(); setLook(x.id); say('View: ' + x.name); render(); }); sw.append(b); }); sw.append(h('span', 'cur', SHORT[look])); }
@@ -536,10 +550,11 @@ function viewer(st, o) {
     const x0 = e.clientX, y0 = e.clientY, n0 = {}; SLOTS.forEach(sl => { const r = ROWS[MAP[sl].row]; if (r) n0[sl] = toN(r, r.get(o)); }); const before = JSON.stringify(snapRows(o));
     st.drag = { moving: [] };
     /* GUI-70: in a view whose frames run across (the Sonogram), plain sideways feeds the vertical slot (the frame, by default) and moves it one to one
-       with the picture, (FR - 1) cells across the glass, and up and down feeds the plain sideways slot. Shift and Option sideways are the same everywhere */
+       with the picture, (FR - 1) cells across the glass, and up and down feeds the plain sideways slot. Only the plain pair swaps: with Shift or Option
+       held, each direction feeds that button's slot for it, in every view (GUI-72) */
     const across = !!LOOK().across, spanX = (c.getBoundingClientRect().width - 8) * (FR - 1) / FR;
-    c.onpointermove = ev => { if (!ev.buttons) return; const q = ev.metaKey ? .25 : 1, hs = sideSlot(ev), dd = { v: 0, h: 0, sh: 0, oh: 0 }, mx = ev.clientX - x0, my = y0 - ev.clientY;
-      if (!across) { dd.v = my * q / DRAG_PX.v; dd[hs] = mx * q / DRAG_PX.h; } else { dd.h = my * q / DRAG_PX.v; if (hs === 'h') dd.v = mx * q / spanX; else dd[hs] = mx * q / DRAG_PX.h; }
+    c.onpointermove = ev => { if (!ev.buttons) return; const q = ev.metaKey ? .25 : 1, vs = vSlot(ev), hs = sideSlot(ev), dd = {}, mx = ev.clientX - x0, my = y0 - ev.clientY; SLOTS.forEach(sl => dd[sl] = 0);
+      if (across && !btn(ev)) { dd.h = my * q / DRAG_PX.v; dd.v = mx * q / spanX; } else { dd[vs] = my * q / DRAG_PX.v; dd[hs] = mx * q / DRAG_PX.h; }
       /* each ROW moves once, by the sum of its slots' moves: two slots mapped to one row (both Bend, say) add up, where writing slot by slot let a still
          slot's zero overwrite the moving one (found by the real-mouse probe, round 4) */
       const byRow = {};
@@ -550,27 +565,27 @@ function viewer(st, o) {
   // GUI-67: a double-click returns Bend to 0, whatever the mapping, in one undo step; at 0 it writes nothing. Its two clicks are grabs with no
   // motion, which write nothing themselves (the drag's control), so the double-click is the only step
   c.addEventListener('dblclick', e => { e.preventDefault(); if (!S.osc[o].wt.bend) { say('Bend is already 0'); return; } S.osc[o].wt.bend = 0; L.steps++; say('Double-click: Bend back to 0, one undo step'); paint(); });
-  c.addEventListener('keydown', e => { const ac = LOOK().across, hs = sideSlot(e), side = ac && hs === 'h' ? 'v' : hs, upd = ac ? 'h' : 'v';   // the Sonogram swaps, as the drag does
+  c.addEventListener('keydown', e => { const sw = LOOK().across && !btn(e), side = sw ? 'v' : sideSlot(e), upd = sw ? 'h' : vSlot(e);   // the Sonogram swaps the plain pair, as the drag does
     const d = { ArrowUp: [upd, 1], ArrowDown: [upd, -1], ArrowRight: [side, 1], ArrowLeft: [side, -1] }[e.key]; if (!d) return; e.preventDefault();
     const r = ROWS[MAP[d[0]].row]; if (!r) return; const step = (e.metaKey ? .005 : .02) * d[1] * (MAP[d[0]].inv ? -1 : 1); r.set(o, fromN(r, toN(r, r.get(o)) + step)); L.steps++; paint(); });
 }
 const snapRows = o => Object.keys(ROWS).map(k => ROWS[k].get(o));
-// the mapping: four slots, each any continuous wt row or nothing, an invert, and Default. On the chassis, under the glass
+// the mapping: six slots, each any continuous wt row or nothing, an invert, and Default. On the chassis, under the glass
 let mbox = null;
 function closeMap() { if (mbox) { mbox.remove(); mbox = null; } }
 document.addEventListener('pointerdown', e => { if (mbox && !mbox.contains(e.target) && !e.target.closest('.vw-leg')) closeMap(); }, true);
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMap(); });
 function mapBox(st) { closeMap(); const win = st.closest('.win'), r = st.getBoundingClientRect(), wr = win.getBoundingClientRect(); mbox = h('div', 'mapbox'); mbox.setAttribute('role', 'dialog'); mbox.setAttribute('aria-label', 'What the drag moves');
-  mbox.append(Object.assign(h('b'), { textContent: 'What the drag moves' }), Object.assign(h('div', 'note'), { textContent: 'One mapping for every viewer, remembered on this machine, never saved with a patch. In the Sonogram, whose frames run sideways, up / down and sideways swap.' }));
-  [['v', 'Up / down'], ['h', 'Sideways'], ['sh', 'Shift + side'], ['oh', 'Option + side']].forEach(([sl, name]) => { const row = h('div', 'mr'), sel = h('select'); sel.setAttribute('aria-label', name);
+  mbox.append(Object.assign(h('b'), { textContent: 'What the drag moves' }), Object.assign(h('div', 'note'), { textContent: 'One mapping for every viewer, remembered on this machine, never saved with a patch. In the Sonogram, whose frames run sideways, plain up / down and sideways swap.' }));
+  [['v', 'Up / down'], ['h', 'Sideways'], ['sv', 'Shift + up'], ['sh', 'Shift + side'], ['ov', 'Option + up'], ['oh', 'Option + side']].forEach(([sl, name]) => { const row = h('div', 'mr'), sel = h('select'); sel.setAttribute('aria-label', name);
     { const op = h('option', null, 'Nothing'); op.value = ''; if (!MAP[sl].row) op.selected = true; sel.append(op); }
     Object.keys(ROWS).forEach(k => { const op = h('option', null, ROWS[k].label); op.value = k; if (MAP[sl].row === k) op.selected = true; sel.append(op); });
     sel.addEventListener('change', () => { MAP[sl].row = sel.value; saveMap(); render(); mapBox(document.querySelector('#win3 .vw')); });
     const inv = h('label'); const cb = h('input'); cb.type = 'checkbox'; cb.checked = MAP[sl].inv; cb.addEventListener('change', () => { MAP[sl].inv = cb.checked; saveMap(); render(); mapBox(document.querySelector('#win3 .vw')); }); inv.append(cb, document.createTextNode(' invert'));
     row.append(Object.assign(h('span'), { textContent: SLOT[sl] + ' ' + name }), sel, inv); mbox.append(row); });
-  const ft = h('div', 'ft'), def = h('button', 'pill', 'Default'); def.type = 'button'; def.addEventListener('click', () => { MAP = JSON.parse(JSON.stringify(MAP_DEFAULT)); saveMap(); render(); say('Mapping back to its default: up and down Frame, sideways nothing, shift Sync ratio, option Bend'); });
+  const ft = h('div', 'ft'), def = h('button', 'pill', 'Default'); def.type = 'button'; def.addEventListener('click', () => { MAP = JSON.parse(JSON.stringify(MAP_DEFAULT)); saveMap(); render(); say('Mapping back to its default: up and down Frame (with or without a button), sideways nothing, shift sideways Sync ratio, option sideways Bend'); });
   ft.append(def, Object.assign(h('span', 'note'), { textContent: 'Command: a quarter as far. Esc closes' })); mbox.append(ft);
-  mbox.style.left = Math.max(4, Math.min(r.right - wr.left - 352, wr.width - 356)) + 'px'; mbox.style.top = Math.min(r.bottom - wr.top + 4, wr.height - 232) + 'px'; win.append(mbox); }
+  mbox.style.left = Math.max(4, Math.min(r.right - wr.left - 352, wr.width - 356)) + 'px'; mbox.style.top = Math.min(r.bottom - wr.top + 4, wr.height - 290) + 'px'; win.append(mbox); }
 // a corner's tile: chip and picker on the chassis, the corner's colour on its frame, its table on the glass
 function cornerTile(o, k, hgt, opts) {
   opts = opts || {}; const p = h('div', 'pane ctile'); p.style.setProperty('--ccol', 'var(' + CVAR[k] + ')'); p.style.borderColor = 'var(' + CVAR[k] + ')';
@@ -803,10 +818,10 @@ function selfcheck() {
   reset(); st0 = L.steps; drag(0, 0); ok(L.steps === st0 && S.osc[0].frame === 4 && S.osc[0].wt.bend === 0 && S.osc[0].wt.sync === 1, 'control: a grab with no motion writes nothing and makes no undo step');
   MAP.v = { row: 'asym', inv: false }; render(); reset(); drag(0, -30); const a1 = S.osc[0].wt.asym, f2 = S.osc[0].frame; MAP.v.inv = true; render(); reset(); drag(0, -30); const a2 = S.osc[0].wt.asym;
   ok(Math.abs(a1 - .2 * 2) < 1e-6 && f2 === 4 && Math.abs(a2 + .4) < 1e-6, 'mapped to Asym: up moves asym (+' + a1.toFixed(2) + '), not the frame (control); inverted, the same drag moves it the other way (' + a2.toFixed(2) + ')');
-  MAP = { v: { row: 'bend', inv: false }, h: { row: 'bend', inv: false }, sh: { row: 'sync', inv: false }, oh: { row: '', inv: false } }; render(); reset(); drag(84, -30); const bb = S.osc[0].wt.bend;
+  MAP = { v: { row: 'bend', inv: false }, h: { row: 'bend', inv: false }, sv: { row: '', inv: false }, sh: { row: 'sync', inv: false }, ov: { row: '', inv: false }, oh: { row: '', inv: false } }; render(); reset(); drag(84, -30); const bb = S.osc[0].wt.bend;
   ok(Math.abs(bb - .8) < 1e-6, 'two directions mapped to Bend add up: up 30 px and right 84 px each move it +0.40, together +' + bb.toFixed(2) + ' (a still direction no longer overwrites a moving one)');
   // GUI-67: a double-click puts Bend back to 0, whatever the mapping (here Bend is mapped nowhere), as one undo step
-  { MAP = { v: { row: 'asym', inv: false }, h: { row: 'syncSoft', inv: false }, sh: { row: 'sync', inv: false }, oh: { row: '', inv: false } }; render(); reset(); S.osc[0].wt.bend = .4; S.osc[0].wt.sync = 2;
+  { MAP = { v: { row: 'asym', inv: false }, h: { row: 'syncSoft', inv: false }, sv: { row: '', inv: false }, sh: { row: 'sync', inv: false }, ov: { row: '', inv: false }, oh: { row: '', inv: false } }; render(); reset(); S.osc[0].wt.bend = .4; S.osc[0].wt.sync = 2;
     const c = vcv(), r = c.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2, dbl = () => c.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true, clientX: x, clientY: y, detail: 2 })); st0 = L.steps;
     PE(c, 'pointerdown', x, y); PE(c, 'pointerup', x, y); PE(c, 'pointerdown', x, y); PE(c, 'pointerup', x, y); dbl(); const b0 = S.osc[0].wt.bend, rest = S.osc[0].frame === 4 && S.osc[0].wt.sync === 2 && S.osc[0].wt.asym === 0, d1 = L.steps - st0; dbl(); const d2 = L.steps - st0 - d1;
     ok(b0 === 0 && rest && d1 === 1 && d2 === 0, 'double-click: Bend +0.40 → ' + b0.toFixed(2) + ' with Bend mapped to no direction, the frame, sync and asym untouched (control), one undo step; at 0 a second one writes nothing'); }
@@ -815,6 +830,23 @@ function selfcheck() {
   { MAP = JSON.parse(JSON.stringify(MAP_DEFAULT)); look = 'L4'; render(); reset(); const cw = (vcv().getBoundingClientRect().width - 8) / FR; st0 = L.steps;
     drag(3 * cw, 0); const fS = S.osc[0].frame, stS = L.steps; reset(); drag(0, -84); const fU = S.osc[0].frame, stU = L.steps; reset(); drag(84, 0, { shiftKey: true }); const syS = S.osc[0].wt.sync, fSh = S.osc[0].frame;
     ok(Math.abs(fS - 7) < 1e-6 && stS === st0 + 1 && fU === 4 && stU === stS && syS > 1 && fSh === 4, 'Sonogram: sideways 3 cells moves the frame 5.0 → ' + (fS + 1).toFixed(1) + ' (the bracket follows the pointer), up moves nothing and makes no undo step; Shift sideways still moves sync to ×' + syS.toFixed(2) + ', the frame untouched (control)'); }
+  // GUI-72: six slots. By default a button's up / down still moves the frame and the legend reads as before; mapped, each moves its own row
+  { MAP = JSON.parse(JSON.stringify(MAP_DEFAULT)); look = 'L1'; render(); const leg0 = $('win3').querySelector('.vw-leg').textContent;
+    reset(); st0 = L.steps; drag(0, -30, { shiftKey: true }); const fD = S.osc[0].frame, syD = S.osc[0].wt.sync;
+    MAP.sv = { row: 'asym', inv: false }; MAP.ov = { row: 'pmA', inv: false }; render(); const leg1 = $('win3').querySelector('.vw-leg').textContent;
+    reset(); drag(0, -30, { shiftKey: true }); const aS = S.osc[0].wt.asym, fS2 = S.osc[0].frame;
+    reset(); const pm0 = ROWS.pmA.get(0); drag(0, -30, { altKey: true }); const pmO = ROWS.pmA.get(0), fO = S.osc[0].frame, bO = S.osc[0].wt.bend; ROWS.pmA.set(0, pm0);
+    reset(); drag(0, -30); const fP = S.osc[0].frame, aP = S.osc[0].wt.asym;
+    reset(); drag(84, -30, { altKey: true, shiftKey: true }); const pmB = ROWS.pmA.get(0) !== pm0, aB = S.osc[0].wt.asym; ROWS.pmA.set(0, pm0);
+    const c = vcv(); reset(); c.focus(); c.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', shiftKey: true, bubbles: true, cancelable: true })); const aK = S.osc[0].wt.asym, fK = S.osc[0].frame;
+    ok(Math.abs(fD - (4 + 30 / DRAG_PX.v * (FR - 1))) < 1e-6 && syD === 1 && leg0 === '↕ Frame   ⇧↔ Sync ratio   ⌥↔ Bend' && /⇧↕ Asym/.test(leg1) && /⌥↕ PM/.test(leg1) && aS > 0 && fS2 === 4 && pmO !== pm0 && fO === 4 && bO === 0 && Math.abs(fP - fD) < 1e-6 && aP === 0 && pmB && aB === 0 && aK > 0 && fK === 4,
+      'six slots (GUI-72): by default Shift + up still moves the frame (5.0 → ' + (fD + 1).toFixed(1) + ') and the legend reads as before ("' + leg0 + '"); mapped, Shift + up moves Asym and Option + up moves PM A, not the frame or Bend; plain up still moves the frame (control); Option + Shift is Option; Shift + the up key steps Asym'); }
+  { MAP = JSON.parse(JSON.stringify(MAP_DEFAULT)); MAP.sv = { row: 'asym', inv: false }; look = 'L4'; render(); reset(); drag(0, -30, { shiftKey: true }); const aSo = S.osc[0].wt.asym, fSo = S.osc[0].frame; reset(); drag(0, -30); const fSp = S.osc[0].frame;
+    ok(aSo > 0 && fSo === 4 && fSp === 4, 'Sonogram: only the plain pair swaps, so Shift + up still feeds Shift + up\'s row (Asym ' + aSo.toFixed(2) + '), and plain up moves nothing (control)'); }
+  { const k3 = store.get('horde-wtlab-xymap3'), k4 = store.get('horde-wtlab-xymap4'), rm = k => { try { localStorage.removeItem(k); } catch (e) {} }, put = (k, v) => v === null ? rm(k) : store.set(k, v);
+    store.set('horde-wtlab-xymap3', JSON.stringify({ v: { row: 'frame', inv: false }, h: { row: 'asym', inv: true }, sh: { row: 'sync', inv: false }, oh: { row: 'bend', inv: false } })); rm('horde-wtlab-xymap4');
+    const m = loadMap(), canStore = store.get('horde-wtlab-xymap3') !== null; put('horde-wtlab-xymap3', k3); put('horde-wtlab-xymap4', k4);
+    ok(!canStore || (m.h.row === 'asym' && m.h.inv && m.sv.row === 'frame' && m.ov.row === 'frame' && SLOTS.every(sl => okSlot(m[sl]))), canStore ? 'a round-6 mapping carries over: sideways on inverted Asym kept, the new Shift and Option up / down slots on Frame' : 'storage blocked here: the round-6 carry-over is not testable (skipped)'); }
   look = kLook; MAP = JSON.parse(keepMap); render();
   // the switch: a pip changes the view and the picture; the name steps to the next
   { const before = pix(lead()).join(), pips = $('win3').querySelectorAll('.vw-sw .pip'), tgt = LOOKS[(LOOKS.findIndex(x => x.id === look) + 2) % 6].id; pips[LOOKS.findIndex(x => x.id === tgt)].click(); paint(); const after = pix(lead()).join(), lk = look, kept = store.get('horde-wtlab-view');

@@ -12707,6 +12707,36 @@ The tile's frame carries the corner's colour, and inside the glass the corner is
 
 **FX device (ADR-254).** None: it has no oscillators.
 
+## GUI-72 — RULED by the human: all six views stay on the wavetable viewer; plain sideways moves nothing; every direction, plain or under Shift or Option, is mappable (GB37; 2026-11-09)
+
+**The human, 2026-11-09.** "I like all of the views for now. If I want any removed we can do it down the line. I don't think plain sideways should move anything at the moment, but let's make both directions (and all button+direction combos) mappable for now".
+
+**What it fixes.**
+- **The views:** all six stay in the viewer's switch (Stack, Ridges, Turntable, Sonogram, Rings, Swarm), for now. Removing one later is a new ruling.
+- **Plain sideways moves nothing** by default, as GUI-68 left it, now ruled rather than pending.
+- **Six mappable slots:** up and down, and sideways, each plain, with Shift and with Option. Each is any continuous `wt.` row or Nothing, with an invert. Before, only sideways had a Shift and an Option slot; up and down moved the frame whatever was held.
+- **Defaults:**
+  - up and down: Frame, plain and with either button;
+  - plain sideways: Nothing;
+  - Shift + sideways: the sync ratio;
+  - Option + sideways: Bend.
+
+  So nothing moves differently until a slot is mapped.
+- **The legend** lists a button's slot only where it maps something other than the plain slot of its direction, so by default it reads as before ("↕ Frame ⇧↔ Sync ratio ⌥↔ Bend").
+- **The readout** names each moving row once.
+- **The arrow keys follow:** Shift or Option with up or down steps that button's up-and-down slot.
+
+**Readings, for the human to correct.**
+- "Buttons" means Shift and Option. Command stays the fine key (GUI-68) and is not a slot. With Shift and Option both held, Option still wins (GUI-68's reading), so there is no separate Shift + Option slot.
+- The new Shift and Option up-and-down slots start on Frame, matching what those drags did before, not on Nothing.
+- In the Sonogram (GUI-70) only the plain pair swaps. With Shift or Option held, each direction feeds that button's slot as drawn, in every view.
+
+**State (GUI-27).** The mapping gains two slots. The lab keeps it per machine under a new storage key, and a mapping remembered from round 6 carries over, with the two new slots on their defaults. Whether the view and the mapping persist per machine, and pips or the view's name, are still open (GUI-66). Each gesture is still one undo step, and a drag whose slots map Nothing writes nothing.
+
+**Engine impact.** None: which key and direction reach which `wt.` row is the GUI's alone (CONTRACT §2.1), and the views are drawings of what GN-58 to GN-60 already ask for.
+
+**FX device (ADR-254).** None: it has no oscillators.
+
 ## ADR-365 — RULED by the human: the 8 Hz blocker for FM free in pitch FM; item 7.8's table remade; spec round 58 (B621, B623; 2026-11-04)
 
 **Context.** FM free in pitch FM runs an accumulator that never restarts, while each of C.16's readings starts it at 0, so the estimate cannot see its mean and BL-19 cannot hold by the law alone (Q-TA-71: engine-free, 95 of its 144 one-member cases over 0.003, up to 0.046). ADR-363 sent this to a scratch trial of C.16's existing blocker, with clips for the human. Separately, item 7.8's reference R2 places FM free's modulator half a cycle from round 56's start, and 7.8 plays before its settings settle (Q-TA-77).
