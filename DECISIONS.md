@@ -13350,3 +13350,17 @@ The GUI session built it as GUI-55 A2 (#1455). Its reading, for the human to con
 4. **C2a's target is ruled after the probe,** in Serum-ratio terms; PF-2 is still ruled again after S5b (ADR-388 #2).
 
 **FX device (ADR-254).** None: an oscillator's CPU budget.
+
+## ADR-393 — RULED by the human: the Fable audit's first decisions — push the clean-room repos, records ride on the work PR, install the nightly, and the lead's verify and CI batch (B671–B676)
+
+**Context.** The independent audit of 2026-11-10 (`docs/audits/2026-11-10-fable-audit.md`, Fable 5.2, merged as #1493) ranked ten findings and observed that the cheapest fixes from earlier audits were still open three and four audits later. The lead re-checked finding 1 the same day: the clean-room engine and tests repos were 85 and 69 commits ahead of their remotes (last pushed 2026-10-27), and Time Machine's destination would not mount.
+
+**Rulings** (the human, 2026-11-10, by one poll):
+1. **Finding 1: push both clean-room repos now** ("Push both now"). The harness blocks an agent's push to `main`, so the human runs the two fast-forward pushes. From now on the lead's session roundup counts the commits on each clean-room `main` that its origin lacks, until it reads zero (B675).
+2. **Finding 5: records ride on the work PR** ("Fold into the work PR"). No more separate `lead-records-N` PRs: the lead adds the ROADMAP row, ledger entry, DECISIONS entry and trace as the last commit on the PR they record, still the only writer of ROADMAP.md. A ruling made in conversation with no work PR rides on the session's next work PR. This ADR is the first such record.
+3. **Finding 2: install the nightly** ("Install it"). The draft moves to `.github/workflows/nightly.yml` (B671); `tools/nightly_check.py` reads the installed file. The drill runs once by hand before the schedule is trusted, and the first night's CI minutes are reported.
+4. **The lead's batch** (all four boxes ticked; edits to `./verify` and CI are a charter human gate, approved here on the condition that no gate changes its verdict and none is loosened): finding 4, the five slow gates of `verify fast` run concurrently and every gate's seconds are printed (B672); finding 8, a skip is recorded as a skip through the kit's `gate` wrapper and counted on verify's last line, and CI's `verify-fast` checks out submodules (B672, B673); findings 7, 9 and 11, the sanitize job's not-built ratchet, preset-only PRs running the preset oracles on Linux, and the clock and RNG ban widened to the new engine (B673); finding 6 step 1, a `roadmap_check` and one records pass to make every row conform (B674).
+
+**Also placed.** Finding 3 (the new engine rebuilds its whole parameter context thousands of times a second; output bit-identical if fixed) becomes B670's first candidate. **Not ruled yet** (B676): finding 6 step 2 (archiving closed rows), finding 10 (an instruction-count CPU gate; its headroom is a budget, the human's), items 12 (protected references by hash), 13 (README, engine READMEs, CLAUDE.md §Domain), 14 (LIBRARY at 76 entries against 30), 16 (`specs/ACCEPTANCE.md`, protected), and the audit's advice to pause the weekly audit until the carried list is empty.
+
+**FX device (ADR-254).** None: repository process, CI and an engine speed-up with bit-identical output.

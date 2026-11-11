@@ -1,13 +1,8 @@
-# DRAFT -- NOT ACTIVE. This file lives under tools/nightly/ because the agent token
-# cannot push under .github/workflows/ (B448, ADR-209 item 4). To install it, the
-# human copies it, from their own login, to
-#
-#     .github/workflows/nightly.yml
-#
-# and pushes that one file. The name matters: tools/nightly/freshness.py asks GitHub
-# for the workflow `nightly.yml`. Nothing else needs to change, ever: this workflow
-# only calls `./verify nightly`, and the jobs it runs are the entries in
-# tools/nightly/jobs.json, so a later package adds a job without editing this file.
+# INSTALLED 2026-11-10 (ADR-393, the human: "Install it", on the Fable audit's finding 2). Drafted 2026-10-10 under
+# tools/nightly/ (B448, ADR-209 item 4), where it sat unrun for a month while four armor rows counted it as coverage.
+# The name matters: tools/nightly/freshness.py asks GitHub for the workflow `nightly.yml`. This workflow only calls
+# `./verify nightly`; the jobs it runs are the entries in tools/nightly/jobs.json, so a later package adds a job
+# without editing this file. tools/nightly_check.py reads this file (its workflow rows).
 #
 # WHAT IT DOES. Once a night on main (and on demand) it runs `./verify nightly` on a
 # Linux runner and on a macOS runner, and uploads each runner's receipt as an artifact.

@@ -12,7 +12,7 @@ artifacts, never commits.
 | `freshness.py` | Prints the one roundup line: last green night, `HOLE`, or `UNKNOWN`. |
 | `stability_job.py` | The first real job: the legacy SAW stability check, run long. |
 | `legacy_gate.py` | Runs an older gate that prints `SKIPPED` and turns that into a recorded skip. |
-| `nightly.workflow.yml` | DRAFT of the workflow. The human installs it; see below. |
+| `../../.github/workflows/nightly.yml` | The workflow, installed 2026-11-10 (ADR-393). |
 | `../nightly_check.py` | The fast offline check of all of the above (must-fail controls). |
 
 ## The job protocol
@@ -86,13 +86,10 @@ The check, `tools/nightly_check.py`, is already wired: `verify` calls it from th
 `fast` target, right after `test_table_check.py`, and its header says
 `WIRED: ./verify fast`. The only `verify` change left is the `nightly)` line above.
 
-## What the human does with the workflow
+## The workflow
 
-1. Read `nightly.workflow.yml` (its header lists what is unverified).
-2. From their own login, copy it to `.github/workflows/nightly.yml` and push. The
-   file name must stay `nightly.yml`; `freshness.py` asks for it by that name.
-3. Run it once by hand with `drill` ticked, then once without, and read the two
-   receipts in the run's artifacts before trusting the schedule.
+Installed at `.github/workflows/nightly.yml` on 2026-11-10 (ADR-393; drafted here 2026-10-10). Before trusting the schedule,
+run it once by hand with `drill` ticked, then once without, and read the two receipts in the run's artifacts.
 
 ## Unverified until the first run on GitHub
 
