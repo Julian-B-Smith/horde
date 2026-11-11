@@ -703,6 +703,8 @@ def main():
                 control("C38 a patch that leans on another's lines fails ORDER",
                         rc6 == 0 and bool(rule_order(rc8, dep_rev, dep_ok)))
         else:
+            # Read by the kit's receipt (`gate` in .kit/kit-gates.sh): a partial run is recorded as skipped.
+            print("KIT-GATE skipped: libs/choc is not checked out; APPLY, ORDER, ALONE, CRLF, UPSTREAM and controls did not run")
             notes.append("WARNING: libs/choc is not checked out; APPLY, ORDER, ALONE, CRLF, UPSTREAM and controls "
                          "C1, C2, C10, C11, C17 and C35 to C38 not run here, and the origin rules use FALLBACK_SERVING "
                          "(every build job applies the patches at configure, with a hard stop)")

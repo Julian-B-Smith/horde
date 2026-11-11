@@ -895,6 +895,11 @@ def main(argv):
     fails += doc_fails(ROOT, inv, allow)
     for w in warns:
         print(f"verify: WARNING -- license audit: {w}", file=sys.stderr)
+    # The kit's receipt (.kit/kit-gates.sh `gate`) reads this line, so the record says "skipped"
+    # for a run whose submodule rows did not run, not "ran" (audit 2026-11-10, finding 8).
+    unread = [w.split(" ")[0] for w in warns if "DID NOT RUN" in w]
+    if unread:
+        print("KIT-GATE skipped: rows reading " + ", ".join(unread) + " did not run (not checked out)")
     if fails:
         print(f"license_audit_check: FAILED ({len(fails)})", file=sys.stderr)
         for rule, msg in fails:

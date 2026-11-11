@@ -317,6 +317,7 @@ def main():
     if not os.path.isfile(os.path.join(tree, mod["marker"])):
         print(f"admission_check: WARNING — no {mod['name']} tree at {tree} (set {mod['env']})")
         print("admission_check: SKIPPED — nothing was measured; this is NOT a pass")
+        print(f"KIT-GATE skipped: no {mod['name']} tree, nothing was measured")   # read by the kit's receipt (`gate`)
         return 0
     rev = revision(tree, mod)
     build_root = os.path.join(ROOT, "build-admission")

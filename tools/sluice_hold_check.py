@@ -679,6 +679,7 @@ def main():
     detail = "--detail" in sys.argv[1:]
     t0 = time.monotonic()
     if not os.path.isdir(LINK):
+        print("KIT-GATE skipped: local/sluice absent, nothing was scanned")   # read by the kit's receipt (`gate`)
         print("sluice_hold: local/sluice absent — Sluice-hold scan SKIPPED "
               "(expected off this Mac and in CI; see the tool header)")
         return 0

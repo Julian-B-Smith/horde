@@ -184,6 +184,7 @@ def main():
         print("rtsan_check: WARNING — no sanitizer compiler (set HORDE_SANITIZER_CXX, or `brew install llvm`)"
               if not cxx else "rtsan_check: WARNING — xcrun cannot find an SDK")
         print("rtsan_check: SKIPPED — nothing was measured; this is NOT a pass (ADR-199)")
+        print("KIT-GATE skipped: no sanitizer compiler, nothing was measured")   # read by the kit's receipt (`gate`)
         return 0
 
     # Every log goes INSIDE the build dir: `build-*/` is ignored, a sibling

@@ -162,6 +162,7 @@ def main():
         print("WARNING: tsan_stress_check: no TSan-capable compiler (set HORDE_SANITIZER_CXX, or "
               "install Homebrew llvm)")
         print("tsan_stress_check: SKIPPED — nothing was measured; this is NOT a pass (ADR-199)")
+        print("KIT-GATE skipped: no TSan-capable compiler, nothing was measured")   # read by the kit's receipt (`gate`)
         return 0
 
     # Every log goes INSIDE the build dir: `build-*/` is ignored, a sibling
