@@ -48,3 +48,11 @@ roadmap_check: GREEN (705 rows; IN PROGRESS 14, OPEN 171, QUEUED 1, BLOCKED 0, P
 ## Open questions
 - 404 UNSTATED rows need a lead or human pass to say what they are (the closed-list words are not in their bold text). Many are probably old DONE rows with plain-text status.
 - B517's escaped pipe in its last cell makes a plain grep miss it; not touched.
+
+## The lead's records on this PR (ADR-393 item 2: records ride on the work PR)
+
+The lead reviewed the pass (spot-checked rows, the round-trip claim, B438's join, `roadmap_check` and its controls) and added: ADR-394
+(the row format; status read, never guessed), its design-ledger `not_design` entry, B671 (drill passed, run 42931019358), B672 and
+B673 DONE (#1496, #1495), B674 DONE (this PR), B675 DONE (the human's pushes 2026-11-11: engine `bca2782..e72a092`, tests
+`22fc9ac..2df071d`, both 0 unpushed), and B677 PROPOSED (reading the 404 UNSTATED rows). After them: roadmap_check GREEN (706 rows;
+IN PROGRESS 12, OPEN 170, PROPOSED 5, PARKED 3, DONE 61, UNSTATED 404; 51 GUI rows pending).
