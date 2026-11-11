@@ -110,7 +110,8 @@ def check(cwd, require):
                "but the owner; on the owner's machine it means this gate is blind.")
         if require:
             return 1, [msg.replace("WARNING", "FAILED"), f"  ({STRICT_ENV} is set)"]
-        return 0, [msg]
+        # Read by the kit's receipt (`gate`): a check that judged nothing is recorded as skipped.
+        return 0, [msg, f"KIT-GATE skipped: {NAMES} absent, nothing was checked"]
     try:
         pat = pattern(nf)
     except (OSError, UnicodeDecodeError) as e:

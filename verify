@@ -54,7 +54,9 @@ portability_gate() {
 # WARNING rather than a quiet SKIP (CI and clones still pass), and runs its own
 # must-fail controls every time.
 private_name_gate() {
-  python3 tools/private_name_check.py
+  # tgate inside the function, not at its call site: tools/armor_coverage_check.py finds a gate
+  # function by the call shape `private_name_gate || ok=1`.
+  tgate private_name_check python3 tools/private_name_check.py
 }
 
 # B507 (human-approved 2026-10-17, ADR-237 item 11): an oracle that presses PANIC writes
@@ -76,13 +78,97 @@ in_scratch_home() {
   return $rc
 }
 
+# TIMING AND CONCURRENCY (the independent audit of 2026-11-10, findings 4 and 8; the human approved
+# these edits to ./verify on condition that no gate changes its verdict and none is loosened).
+#
+# tgate <name> <cmd...>: the kit's `gate` (so .harness/last-verify.json says ran, skipped or failed,
+# read from a `KIT-GATE skipped:` line the tool prints) plus seconds. Same shell, same exit code.
+# Seconds are whole (bash 3.2 has no sub-second clock); a gate under a second reads 0.
+TIMINGS="$HARNESS_DIR/timings.$$.tsv"
+rm -f "$TIMINGS"
+tgate() {
+  local t0=$SECONDS rc
+  gate "$@"; rc=$?
+  printf '%s\t%s\n' "$1" $((SECONDS - t0)) >> "$TIMINGS"
+  return $rc
+}
+
+# The five slowest `fast` gates (70 % of its wall time) run as background jobs while the rest of fast()
+# runs in the foreground, and are reaped, printed and judged at the END of fast() in the order they ran
+# in before. Checked 2026-11-10, in the five tools' sources: none writes a file in the repo tree or
+# .harness/, none takes a fixed port or fixed scratch path (sandbox_check, stop_gate_check and
+# gui3_browser_check use mkdtemp; the browser check listens on port 0 with its own --user-data-dir),
+# none edits the git index (their git work is in scratch repositories), so no two share state.
+# Four background slots at most: the three node checks, and build_flags then stop_gate as one chain.
+FAST_JOBDIR=""; FAST_PIDS=""; JOB_RC=0
+# Runs <cmd...> to the end in THIS (sub)shell. The exact exit code is written LAST, so a job that was
+# killed leaves no .rc, and the reader counts that as failed (never as a pass).
+fast_run() {
+  local name="$1" t0=$SECONDS rc; shift
+  "$@" > "$FAST_JOBDIR/$name.out" 2>&1; rc=$?
+  echo $((SECONDS - t0)) > "$FAST_JOBDIR/$name.secs"
+  echo $rc > "$FAST_JOBDIR/$name.rc"
+  return $rc
+}
+# fast_collect <pid> <name>: wait for the job, set JOB_RC to the exit code it recorded, log its seconds.
+fast_collect() {
+  local secs
+  wait "$1" 2>/dev/null
+  JOB_RC=$(cat "$FAST_JOBDIR/$2.rc" 2>/dev/null) || JOB_RC=1
+  case "$JOB_RC" in ''|*[!0-9]*) JOB_RC=1 ;; esac
+  secs=$(cat "$FAST_JOBDIR/$2.secs" 2>/dev/null || echo 0)
+  printf '%s\t%s\n' "$2" "$secs" >> "$TIMINGS"
+}
+# No job outlives fast(): this is the EXIT trap, so an early exit on any path still waits for them.
+fast_job_cleanup() {
+  local p
+  for p in $FAST_PIDS; do wait "$p" 2>/dev/null; done
+  FAST_PIDS=""
+  [ -n "$FAST_JOBDIR" ] && rm -rf "$FAST_JOBDIR"
+  FAST_JOBDIR=""
+}
+# One line at the end of fast, and the same data as a JSON list in .harness/verify-timings.json.
+fast_timings_report() {
+  local total=$((SECONDS - FAST_T0)) rows
+  rows=$(awk -F'\t' '{printf "%s{\"name\":\"%s\",\"seconds\":%d}", (NR>1?",":""), $1, $2}' "$TIMINGS")
+  printf '[%s%s{"name":"fast_total","seconds":%d}]\n' "$rows" "${rows:+,}" "$total" > "$HARNESS_DIR/verify-timings.json"
+  echo "verify timings: total $total s; slowest: $(sort -t "$(printf '\t')" -k2,2nr "$TIMINGS" | head -3 \
+    | awk -F'\t' '{printf "%s%s %s s", (NR>1?", ":""), $1, $2}')"
+}
+# The last line of fast and full: how many gates the receipt recorded and which of them skipped.
+verify_receipt_line() {
+  python3 -c '
+import json, sys
+try:
+    g = json.load(open(sys.argv[1]))["gates"]
+except (OSError, ValueError, KeyError):
+    g = []
+sk = [x["name"] for x in g if x.get("result") == "skipped"]
+print("verify: %d gates recorded, %d skipped%s" % (len(g), len(sk), ": " + ", ".join(sk) if sk else ""))
+' "$HARNESS_DIR/last-verify.json"
+  rm -f "$TIMINGS"
+}
+
 fast() {
   # ---- Layer-0: seconds, not minutes. CI-blocking. -------------------------
   # Honestly-scoped day-zero oracle: structure + manifest sanity. The real L0
   # suite (L0-1 parity vs JS reference, L0-2..13 trajectories — specs/ACCEPTANCE.md)
   # lands in Phase 1 and REPLACES nothing here; it adds. Never weaken without
   # a human decision recorded in ROADMAP.md.
-  local ok=0
+  local ok=0 have_node=0 pid_chain pid_sandbox pid_seam pid_browser FAST_T0=$SECONDS
+  command -v node >/dev/null && have_node=1
+  FAST_JOBDIR=$(mktemp -d "${TMPDIR:-/tmp}/verify-jobs.XXXXXX") || { echo "verify: cannot make the job directory" >&2; return 1; }
+  trap fast_job_cleanup EXIT
+  trap 'exit 130' INT   # so the EXIT trap above still runs
+  trap 'exit 143' TERM
+  # Longest first. Their commands, arguments and environment are exactly what they were inline; the
+  # judging and printing is at the end of fast(), under "THE FIVE BACKGROUND GATES".
+  if [ $have_node -eq 1 ]; then
+    ( fast_run gui3_seam node tools/labharness/gui3_seam_check.mjs ) & pid_seam=$!; FAST_PIDS="$FAST_PIDS $!"
+    ( fast_run gui3_browser node tools/labharness/gui3_browser_check.mjs ) & pid_browser=$!; FAST_PIDS="$FAST_PIDS $!"
+    ( fast_run sandbox node tools/labharness/sandbox_check.mjs ) & pid_sandbox=$!; FAST_PIDS="$FAST_PIDS $!"
+  fi
+  ( fast_run build_flags python3 tools/build_flags_check.py; fast_run stop_gate python3 tools/stop_gate_check.py ) & pid_chain=$!; FAST_PIDS="$FAST_PIDS $!"
   kit_integrity || ok=1   # kit-owned files match .kit/MANIFEST
   leak_gate || ok=1          # privacy gate: kit-core, keep it first
   private_name_gate || ok=1  # privacy gate: OURS (ADR-014 alias rule)
@@ -100,7 +186,7 @@ fast() {
   # It still runs and still ledgers what it fails, but a hit never fails verify: the
   # human owns both repos, and false positives (horde wording Sluice adopted, generic
   # phrases in other siblings' filings) cost more than the hold protects.
-  python3 tools/sluice_hold_check.py || echo "verify[fast]: WARNING — sluice_hold flagged text (advisory, B418); see its lines above" >&2
+  tgate sluice_hold python3 tools/sluice_hold_check.py || echo "verify[fast]: WARNING — sluice_hold flagged text (advisory, B418); see its lines above" >&2
 
   # OUTBOUND FILINGS ACTUALLY REACHED THE READER. Three forms of one failure in a
   # single day (uncommitted / side-branch / committed-but-never-pushed) stranded
@@ -126,7 +212,7 @@ fast() {
   # listed in `pending_human` prints PENDING THE HUMAN and exits 0: a visible
   # hole, not a pass. Self-calibrating: its planted controls run every time.
   # Added under ADR-180 §1.
-  python3 tools/license_audit_check.py || ok=1
+  tgate license_audit python3 tools/license_audit_check.py || ok=1
   # horde 2's structural rules (ADR-186 item 4, ADR-187 item 3; B332 critic
   # review): h2 and src never include each other, no h2 target links the legacy
   # shell, every h2 build is contraction-off (ruled 2026-09-30: the shipped
@@ -158,7 +244,7 @@ fast() {
   # flags.make. Self-calibrating (planted -ffast-math and each sibling, a changed -O
   # level, a changed -ffp-contract, a removed target, a new global flag, an --append
   # that would alter an entry, an empty approval ref). ~0.3 s. Added under ADR-180 §1.
-  python3 tools/build_flags_check.py || ok=1
+  # RUNS IN THE BACKGROUND since 2026-11-10 (started at the top of fast(), judged at its end).
   # THE REAL PLUGIN AND ITS SIDE-BY-SIDE TEST IDENTITY SHARE NO ID (B456). The same
   # sources build under a second identity (a CMake option, default OFF) so unmerged
   # code can run in a host BESIDE the plugin real projects load. A host finds a
@@ -289,7 +375,7 @@ fast() {
   # record must each block; verify-then-commit must not. Two faulty hooks are the
   # controls: one that never blocks, and the hook as it stood before this change,
   # which must fail exactly the tree-state rows. ~2 s. Added under ADR-180 §1.
-  python3 tools/stop_gate_check.py || ok=1
+  # RUNS IN THE BACKGROUND since 2026-11-10, after build_flags_check in the same slot.
   # GUI PAGE SINKS AND POLICY (B446 W3a). In src/gui/*.html every innerHTML /
   # outerHTML / insertAdjacentHTML / document.write gets literals only (named
   # exceptions carry a reason), and the content policy the build embeds is
@@ -313,7 +399,7 @@ fast() {
   # option and on the interface query. Thirty-eight must-fail controls. Without a choc
   # checkout (CI's fast job) the apply rows print a WARNING; every build job
   # applies the patches with a hard stop. Added under ADR-180 §1.
-  python3 tools/choc_patch_check.py || ok=1
+  tgate choc_patch python3 tools/choc_patch_check.py || ok=1
   # THE PAGE-ONLY RULE, BY BEHAVIOUR (B446 D-S5, critic round). The Windows GUI's
   # navigation policy is a pure function (src/gui/embedded_page_policy.h); this
   # compiles its check with the host compiler (no build tree, no choc) and drives
@@ -438,10 +524,7 @@ PY
     # spawn, read outside the grant, call process.binding and start a worker; each
     # must be refused, after the same payload is shown to fire outside the sandbox.
     # It also pins that an untracked HTML in a lab tree is not executed. ~2 s.
-    node tools/labharness/sandbox_check.mjs > /tmp/sandboxchk.$$ 2>&1 || {
-      echo "verify: lab sandbox check FAILED" >&2; cat /tmp/sandboxchk.$$ >&2; ok=1; }
-    tail -1 /tmp/sandboxchk.$$
-    rm -f /tmp/sandboxchk.$$
+    # RUNS IN THE BACKGROUND since 2026-11-10 (judged at the end of fast()).
 
     # THE FX LAB'S EQ AND COMP PICTURES ARE THE DSP'S (B234). The lab draws an
     # EQ curve and a compressor transfer curve and measures both at load with
@@ -578,24 +661,13 @@ PY
     # envelope edited as the shared keys (ADR-333), map mode on the design system's real session and knob, the Set tab,
     # an envelope readout that follows its source, seeded determinism); planted faults must each turn their own
     # test red (~1 s). The check prints its own counts; none is written here (ADR-180 §1).
-    node tools/labharness/gui3_seam_check.mjs > /tmp/gui3seam.$$ 2>&1 || {
-      echo "verify: GUI 3 seam check FAILED" >&2; cat /tmp/gui3seam.$$ >&2; ok=1; }
-    tail -1 /tmp/gui3seam.$$   # the harness prints its own name; do not prefix it twice
-    rm -f /tmp/gui3seam.$$
+    # RUNS IN THE BACKGROUND since 2026-11-10 (judged at the end of fast()).
     # GUI 3 in a real browser (GB24, GUI-44): the page loads WITHOUT ?fast, every self-check passes, and the pictures still move
     # after them, with a planted freeze that must read frozen as its control. The seam check above runs the shell's pure parts in
     # node and cannot see either (a freeze the self-checks caused shipped twice, 2026-11-05). Headless Chrome, ~25 s. No browser
     # (CI's ubuntu runner, a fresh Mac) is exit 3: a HOLE line on every run, never a failure and never a silent pass (the human,
     # GUI-44: "fast, hole if absent").
-    node tools/labharness/gui3_browser_check.mjs > /tmp/gui3browser.$$ 2>&1; gb_rc=$?
-    if [ $gb_rc -eq 3 ]; then
-      echo "verify: $(tail -1 /tmp/gui3browser.$$)" >&2   # the check names itself and says HOLE
-    elif [ $gb_rc -ne 0 ]; then
-      echo "verify: GUI 3 browser check FAILED" >&2; cat /tmp/gui3browser.$$ >&2; ok=1
-    else
-      tail -1 /tmp/gui3browser.$$
-    fi
-    rm -f /tmp/gui3browser.$$
+    # RUNS IN THE BACKGROUND since 2026-11-10 (judged at the end of fast(); exit 3 is still the HOLE line).
   else
     echo "verify: node missing — lab load check SKIPPED" >&2
   fi
@@ -729,6 +801,37 @@ PY
   # snapshot / compare of the REAL store. Python only, well under 1 s; quiet but for one
   # GREEN line.
   python3 tools/store_logs_check.py || ok=1
+
+  # ---- THE FIVE BACKGROUND GATES (started at the top of fast()) ------------------------------------
+  # Waited for one PID at a time, printed in the order they ran in when this was serial, judged exactly
+  # as they were: a nonzero exit is ok=1 with the same message; the browser check's exit 3 is a HOLE
+  # line and never a failure. build_flags_check and stop_gate_check print their own words.
+  fast_collect "$pid_chain" build_flags
+  if [ $JOB_RC -ne 0 ]; then cat "$FAST_JOBDIR/build_flags.out" >&2; ok=1; else cat "$FAST_JOBDIR/build_flags.out"; fi
+  fast_collect "$pid_chain" stop_gate
+  if [ $JOB_RC -ne 0 ]; then cat "$FAST_JOBDIR/stop_gate.out" >&2; ok=1; else cat "$FAST_JOBDIR/stop_gate.out"; fi
+  if [ $have_node -eq 1 ]; then
+    fast_collect "$pid_sandbox" sandbox
+    if [ $JOB_RC -ne 0 ]; then
+      echo "verify: lab sandbox check FAILED" >&2; cat "$FAST_JOBDIR/sandbox.out" >&2; ok=1; fi
+    tail -1 "$FAST_JOBDIR/sandbox.out"
+    fast_collect "$pid_seam" gui3_seam
+    if [ $JOB_RC -ne 0 ]; then
+      echo "verify: GUI 3 seam check FAILED" >&2; cat "$FAST_JOBDIR/gui3_seam.out" >&2; ok=1; fi
+    tail -1 "$FAST_JOBDIR/gui3_seam.out"   # the harness prints its own name; do not prefix it twice
+    fast_collect "$pid_browser" gui3_browser
+    gb_rc=$JOB_RC
+    if [ $gb_rc -eq 3 ]; then
+      echo "verify: $(tail -1 "$FAST_JOBDIR/gui3_browser.out")" >&2   # the check names itself and says HOLE
+    elif [ $gb_rc -ne 0 ]; then
+      echo "verify: GUI 3 browser check FAILED" >&2; cat "$FAST_JOBDIR/gui3_browser.out" >&2; ok=1
+    else
+      tail -1 "$FAST_JOBDIR/gui3_browser.out"
+    fi
+  fi
+  fast_job_cleanup
+  trap - EXIT INT TERM
+  fast_timings_report
 
   return $ok
 }
@@ -1412,8 +1515,8 @@ full() {
   # plug_activate). No compiler (HORDE_SANITIZER_CXX / brew llvm) prints
   # WARNING + SKIPPED, never GREEN. Never baselined or allowlisted. Added under
   # ADR-180 §1.
-  python3 tools/rtsan_check.py || return 1
-  python3 tools/h2_engine_rtsan_check.py || return 1
+  gate rtsan_check python3 tools/rtsan_check.py || return 1
+  gate h2_engine_rtsan_check python3 tools/h2_engine_rtsan_check.py || return 1
 
   # THE HOSTED-MODULE ADMISSION TEST, MODULE-ONLY ROWS (B561, ADR-295; specified in
   # docs/proposals/rack-slot-contract.md §2.2 with §12). Builds a hosted module's own sources
@@ -1425,7 +1528,7 @@ full() {
   # malloc first. HERE, not in fast: a sibling tree CI does not have, and ~1 min of builds and
   # renders. No tree: WARNING + SKIPPED, never GREEN. The slot rows (A6 tests 4-6, A7, A13,
   # A14, A16) wait for the shell (B398). Added under ADR-180 §1.
-  python3 tools/admission_check.py || return 1
+  gate admission_check python3 tools/admission_check.py || return 1
 
   # THREAD SAFETY, THE MAIN-THREAD/AUDIO-THREAD HANDOFF (B448 B2, ADR-197 risk
   # row 2, ADR-199). The real shell under ThreadSanitizer: the audio thread
@@ -1438,7 +1541,7 @@ full() {
   # main-thread read as a READ, and the audio-thread-only control must have no
   # report at all. No compiler prints WARNING + SKIPPED, never GREEN. ~5 min
   # here. Added under ADR-180 §1.
-  python3 tools/tsan_stress_check.py || return 1
+  gate tsan_stress_check python3 tools/tsan_stress_check.py || return 1
 
   # PARAMETER SCOPE (A12, 2026-08-11; ADR-089 conditions met). A GLOBAL core
   # param must reach EVERY oscillator, and a PER-OSC param must reach ONLY its
@@ -1489,9 +1592,11 @@ full() {
   # and theirs is private (human ruling 2026-08-15), so every CI runner lands
   # here. A skip that announces itself beats a gate that quietly is not a gate.
   if [ -x "$build_dir/conformance_check" ]; then
-    "$build_dir/conformance_check" || return 1
+    gate conformance_check "$build_dir/conformance_check" || return 1
   else
     echo "verify: FOUNDATIONS headers absent — conformance_check SKIPPED (expected off this Mac)" >&2
+    # Recorded as skipped in the receipt (audit 2026-11-10, finding 8): the line below is what `gate` reads.
+    gate conformance_check echo "KIT-GATE skipped: FOUNDATIONS headers absent, binary not built"
   fi
 
   # SUBDIVISION INVARIANCE (ADR-086, gate ratified 2026-08-10). Rendering must
@@ -1634,12 +1739,14 @@ case "$TARGET" in
           python3 tools/store_logs_check.py snapshot "$store_snap" || exit 1
           fast; rc=$?
           python3 tools/store_logs_check.py compare "$store_snap" || rc=1
-          rm -f "$store_snap"; record fast $rc ;;
+          rm -f "$store_snap"; record fast $rc; rc=$?
+          verify_receipt_line; exit $rc ;;
   full)   store_snap="$HARNESS_DIR/store-logs.$$.json"
           python3 tools/store_logs_check.py snapshot "$store_snap" || exit 1
           full; rc=$?
           python3 tools/store_logs_check.py compare "$store_snap" || rc=1
-          rm -f "$store_snap"; record full $rc ;;
+          rm -f "$store_snap"; record full $rc; rc=$?
+          verify_receipt_line; exit $rc ;;
   # The nightly's long jobs (B448 P5, ADR-209 item 4). No `record`: a local nightly or a drill
   # must not overwrite the fast/full record that the push gate and the Stop gate read.
   nightly) shift; exec python3 tools/nightly/run.py "$@" ;;
