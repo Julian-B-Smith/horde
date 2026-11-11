@@ -1,0 +1,11 @@
+# RATCHET for tools/sanitize_oracles.sh (audit 2026-11-10 finding 7).
+# These oracles do not link on Linux (the hypersaw_debug_* hooks are Apple/Windows-only in
+# src/hypersaw_clap.cpp), so the sanitize job skips them. A skip is a coverage gap, not a pass:
+# the script is RED when a shard's not-built set is not a SUBSET of its line below. Fixing an
+# oracle never turns anything red; the script prints it as FIXED so the name can be deleted here.
+# GROWING a line needs a human decision. One line per '<sanitizer>|<shard i/n>' key, then the
+# names; CI runs exactly the two below, and under CI a missing key is red (locally, a note).
+# Names from CI run 42903763815 (main, 2026-11-10). Plain text, not .json: a .json under tools/
+# is a golden by golden_registry_check's rule, and this is a ledger, not an expected result.
+address,undefined|1/2 state_check statefix_check bank_check penv_check morphlayout_check lfoenv_check modreadback_check paramclass_check hostile_events_check routing_check subosc_check
+address,undefined|2/2 undo_check anchor_check preset_pitch_check polarity_check offcorner_check load_handoff_check bridge_utf8_check intent_check
