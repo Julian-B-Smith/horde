@@ -8691,6 +8691,10 @@
    "reason": "The wavetable build's process, scope and budget, and ADR-377 A3 (corner tables blend in 1.0); the page's corner-table controls are the GUI session's once the build reaches the shell (the B650 lab is a bench, not the shell)."
   },
   {
+   "adr": "ADR-395",
+   "reason": "A ROADMAP scope ruling (140 pre-horde-2 rows superseded); nothing on the page or in the design master."
+  },
+  {
    "adr": "ADR-394",
    "reason": "The ROADMAP row format and its check; nothing on the page or in the design master."
   },

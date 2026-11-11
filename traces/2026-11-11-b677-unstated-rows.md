@@ -6,7 +6,7 @@
 - **Method:** the 404 rows split into six chunks of about 158k characters (the 16 multi-class rows first, in chunk 1); six Sonnet readers (pinned), one brief: pick one closed-list word per row, the last dated state wins, `plain:true` only when the row's words or one unambiguous merged PR settle it, anything else `plain:false` with its reason. Five readers read every row in full; the chunk-4 reader (B190 to B309, 70 rows) read each row's dated tail and the start of long rows. Verdicts were applied by a script that changes only the leading `UNSTATED` of cell 3 on the named line and refuses any id or line mismatch (0 refused).
 - **Lead review:** ten plain verdicts sampled (seed 677) against the row tails, all held (B111, B93, B138, B423, B405, B124, B212, B118, B322, B508). Every judged verdict read by reason (list below); one changed: B246 WONTDO to SUPERSEDED ("moot per B257" is superseded, not a ruled drop). The rest are accepted as the best reading and stay tagged.
 - **Alternatives rejected:** leaving judged rows UNSTATED (the queue would still not read); writing judged rows with no mark (ADR-394: a status is read, never guessed, so a guess must be visible as one); ruling the 140 pre-horde-2 rows SUPERSEDED here (that is a scope ruling, the human's: B678).
-- **Verify:** see the end.
+- **Verify:** `nice -n 10 ./verify fast` exit 0 (2019 s, load 8.3) on ce9321ad; rerun after the rebuild and ADR-395 (see the PR).
 
 ## Result
 404 rows, UNSTATED 0: DONE 192, OPEN 147, BLOCKED 18, PROPOSED 14, PARKED 13, SUPERSEDED 8, IN PROGRESS 6, QUEUED 5, WONTDO 1.
@@ -292,3 +292,7 @@ B1 B2 B3 B6 B7 B8 B9 B10 B11 B19 B20 B21 B22 B24 B25 B26 B15 B42 B70 B73 B75 B78
 
 ## Multi-class rows (read first)
 B365, B466, B467, B493, B514, B526, B537, B562, B522, B396 DONE (plain); B487, B491 PARKED (plain, ADR-223); B52, B351, B364, B460 DONE (judged: a standing condition or an open follow-up).
+
+## Rebuilt on main after #1498, and B678 ruled (2026-11-11)
+- #1498 (the GUI session's 51 rows) merged first and conflicted on adjacent lines. ROADMAP.md was rebuilt: main's file verbatim, the 404 verdicts re-applied by the same refusing script (0 refused), and the B677 and B678 rows re-added. Diff against this branch's previous head: exactly #1498's 102 changed lines.
+- The human ruled B678: "mark the 140 superseded" (ADR-395). The 140 rows listed above now read `SUPERSEDED · ruled B678 (ADR-395)`; 117 judged rows keep the tag.
