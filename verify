@@ -331,6 +331,10 @@ fast() {
   # per finding kind, plus must-read-clean controls, every run. Python only, well under 1 s.
   python3 tools/design_chain_check.py || ok=1
 
+  # EVERY QUEUE ROW HAS A UNIQUE ID, THREE CELLS AND A STATUS WORD (B674, ADR-393 item 4; added under ADR-180 §1).
+  # `grep '| OPEN' ROADMAP.md` is a true open list; five must-fail controls run each time.
+  python3 tools/roadmap_check.py || ok=1
+
   # EVERY GUI RULING STATES ITS ENGINE IMPACT, AND THE NEEDS LIST AGREES (ADR-361, B617; added under ADR-180 §1).
   # A ruling with no entry, a dangling GN id or a disagreement either way is red; ten must-fail plants run
   # each time. How many needs no ROADMAP row cites yet is printed, and never fails.

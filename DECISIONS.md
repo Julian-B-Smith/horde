@@ -13364,3 +13364,15 @@ The GUI session built it as GUI-55 A2 (#1455). Its reading, for the human to con
 **Also placed.** Finding 3 (the new engine rebuilds its whole parameter context thousands of times a second; output bit-identical if fixed) becomes B670's first candidate. **Not ruled yet** (B676): finding 6 step 2 (archiving closed rows), finding 10 (an instruction-count CPU gate; its headroom is a budget, the human's), items 12 (protected references by hash), 13 (README, engine READMEs, CLAUDE.md §Domain), 14 (LIBRARY at 76 entries against 30), 16 (`specs/ACCEPTANCE.md`, protected), and the audit's advice to pause the weekly audit until the carried list is empty.
 
 **FX device (ADR-254).** None: repository process, CI and an engine speed-up with bit-identical output.
+
+## ADR-394 — DECIDED by the lead under ADR-393 item 4: the ROADMAP row format, and status words are read, never guessed (B674, B677)
+
+**Context.** ADR-393 item 4 (the human: "ROADMAP check + cleanup") approved a `roadmap_check` and one records pass. Measured on 2026-11-11: 705 queue rows under a `| # | Item | Status |` header; the third cell mostly held references, the status lived as a bold word inside the item text, 425 rows had none, about 140 rows had two or four-plus cells (prose pipes), and B147 and B155 each appear twice.
+
+**Decisions** (the lead's, as the only writer of the lead rows; they fix a format, not a gate's threshold):
+1. **A row is `| id | item | STATUS · references |`.** The third cell starts with one word from a closed list: OPEN, QUEUED, IN PROGRESS, BLOCKED, PROPOSED, PARKED, DONE, SUPERSEDED, WONTDO, UNSTATED. A `|` inside the item is written `\|`. `tools/roadmap_check.py` (in `verify fast`) holds this, with unique ids except the two pinned duplicates (ADR-346: numbers never change).
+2. **A status the row does not state is UNSTATED, never guessed.** The pass moved each row's bold status word into the third cell and wrote UNSTATED where there was none or where the words disagreed (404 rows). Reading those is B677, proposed to the human first.
+3. **The GUI session's rows are theirs** (ADR-336): its 51 nonconforming rows are pinned in `tools/roadmap_gui_pending.txt`, a list that may only shrink; the GUI session conforms them in its own PRs.
+4. **The bold status word in the item stays** as the row's prose; the third cell is what tools read.
+
+**FX device (ADR-254).** None: the queue's format.

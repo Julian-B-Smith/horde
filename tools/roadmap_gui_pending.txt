@@ -1,0 +1,59 @@
+# GUI-session rows that do not yet have a status word in cell 3 (B674, ADR-393 item 4).
+#
+# tools/roadmap_check.py requires every queue row to have three cells and a status word. The rows
+# below belong to the GUI session (ADR-336; docs/design/CLAUDE.md "Owns"), so the lead's records
+# pass could not edit them. Each is allowed to stay nonconforming ONLY while listed here.
+# THE LIST MAY ONLY SHRINK: when the GUI session conforms a row the check prints
+# "now conforms: remove <id> from the list"; delete that line. A new GUI row, or a listed id that
+# is not on this list, is red. One id per line.
+B261
+B532
+B555
+B556
+B557
+B581
+B582
+B583
+B584
+B589
+B591
+B593
+B594
+B595
+B596
+GB1
+GB2
+GB3
+GB4
+GB5
+GB6
+GB17
+GB13
+GB19
+GB32
+GB21
+GB22
+GB23
+GB24
+GB14
+GB15
+GB33
+GB34
+GB35
+GB36
+GB37
+GB38
+GB16
+GB25
+GB28
+GB26
+GB27
+GB30
+GB31
+GB29
+GB12
+GB10
+GB9
+GB7
+GB8
+GB11
