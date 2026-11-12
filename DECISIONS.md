@@ -13376,3 +13376,15 @@ The GUI session built it as GUI-55 A2 (#1455). Its reading, for the human to con
 4. **The bold status word in the item stays** as the row's prose; the third cell is what tools read.
 
 **FX device (ADR-254).** None: the queue's format.
+
+
+## ADR-395 — RULED by the human: the 140 pre-horde-2 rows judged live by silence are SUPERSEDED (B678, 2026-11-11)
+
+**Context.** B677 gave each of the 404 UNSTATED rows a status. 140 rows from B1 to B305 read OPEN (120), BLOCKED (13), PROPOSED (6) or QUEUED (1) only as judgements: nothing in the merge record shows them landing, while horde 2 (ADR-186), the rebuilt engine (ADR-223) and the wavetable oscillators (ADR-387) came after them. B678 put the class to the human: keep open, mark superseded, or archive.
+
+**Ruling** (the human, 2026-11-11: "mark the 140 superseded"):
+1. **The 140 rows are SUPERSEDED** by ADR-186 and ADR-223; cell 3 reads `SUPERSEDED · ruled B678 (ADR-395)` and the B677 judgement tag is dropped. No row was named as still wanted. The rows: B1, B2, B3, B6, B7, B8, B9, B10, B11, B19, B20, B21, B22, B24, B25, B26, B15, B42, B70, B73, B75, B78, B80, B81, B87, B88, B90, B91, B96, B97, B98, B100, B112, B113, B128, B136, B137, B143, B144, B145, B147, B147, B152, B163, B164, B165, B166, B167, B168, B169, B170, B187, B189, B193, B213, B216, B219, B220, B221, B218, B217, B215, B214, B223, B231, B242, B243, B244, B245, B247, B248, B250, B251, B239, B230, B229, B254, B256, B257, B258, B259, B260, B264, B272, B273, B275, B278, B279, B284, B206, B205, B204, B201, B200, B199, B196, B197, B194, B190, B185, B180, B179, B175, B173, B101, B103, B109, B108, B82, B83, B85, B86, B68, B66, B67, B65, B63, B62, B57, B56, B55, B53, B46, B45, B41, B39, B288, B289, B290, B31, B30, B29, B303, B304, B37, B35, B34, B32, B33, B17.
+2. **The rows' text is unchanged.** Work in one of them that is still wanted returns as a new row citing it, never by reopening the old one.
+3. **The other 117 judged rows** keep their `judged (B677)` tag until the lead or the human confirms them.
+
+**FX device (ADR-254).** None: rows from before horde 2 that the device never depended on. The FX device's own rows (B528 onward) are not in the class.
