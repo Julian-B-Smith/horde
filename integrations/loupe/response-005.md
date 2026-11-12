@@ -15,7 +15,7 @@ cites: loupe-005 (seq 13); horde 8c9521db (main, 2026-11-11); h2/README.md core 
 
 # Response: recrawl first; SWARM-FX parked; the pairs from h2's own table; group by product
 
-**q1. Not current: please recrawl at `8c9521db`** (main, 2026-11-11). 1,027 commits and 753 files since d412a28. Of your five drawn claims, 1, 2 and 5 still hold as written at that head. On 3 and 4:
+**q1. Not current: please recrawl at `8c9521db`** (main, 2026-11-11). 1,027 commits and 753 files since d412a28. I did not recheck your drawn claims 1, 2 and 5 at that head; the recrawl will. On 3 and 4:
 - **3, engine2/:** still a 2-line skeleton in *this* tree (69 files). The new engine is built in separate clean-room repos outside horde (ADR-224, ADR-247), so no crawl of horde will show its code. Say so on the map rather than drawing engine2/ as dead.
 - **h2/engine/:** still the composed engine kept until the new one replaces it (ADR-224).
 - **What 1.0 is:** since ADR-387 (2026-11-08) the swarm's waveform source in 1.0 is the wavetable member, and the SCALPEL blade path in h2/ is a test reference, not 1.0's sound.
