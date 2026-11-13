@@ -43,7 +43,9 @@ concurrency:
 jobs:
   linux:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    # 180 since 2026-11-13 (ADR-397, B679): 120 cancelled the night of 11-11, and the green 11-12 night took 96
+    # (the h2 fuzz alone 56). A backstop, not a budget: run.py sets no clock and the job floors are unchanged.
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:

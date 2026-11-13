@@ -13402,3 +13402,13 @@ The GUI session built it as GUI-55 A2 (#1455). Its reading, for the human to con
 **FX device (ADR-254).** None: an oscillator's CPU cost.
 
 **A1 (the human, 2026-11-13, by poll: "After candidate 1").** The probe found that a 1.0 table member skips about half of today's swarm cost (filter E, WT-24; the spread walk). Timed on that path, one wavetable oscillator is about 10.3 to 11.8 % of a core, 2.2 to 2.6x Serum 2 (trace `traces/2026-11-12-b670-swarm-probe.md`). C2a's target (ADR-392 item 4) is ruled after the builder's candidate 1 lands and the lead re-times the 1.0 path on top of it. Candidates 2 to 4 go to no builder brief: they are moot on that path, and 4 changes bits. FX device: none.
+
+## ADR-397 — RULED by the human: the nightly's Linux job gets 180 minutes (B679, 2026-11-13)
+
+**Context.** B671's first real nights: the Linux job of `.github/workflows/nightly.yml` hit its 120-minute `timeout-minutes` on 2026-11-11 (cancelled) and took 96 minutes on the green night of 2026-11-12 (run 43205570893), the h2 engine fuzz's 20,000 cases taking 56 of them. B679 put two options to the human: raise the limit (GitHub allows 360) or give the fuzz job its own runner.
+
+**Ruling** (the human, 2026-11-13: "raise the nightly timeout"). The Linux job's `timeout-minutes` goes from 120 to 180, about 1.9x the green night. The macOS job keeps 90 (it took 6). No job floor, case count or job list changes; the timeout is the external backstop (`tools/nightly/run.py` sets no clock), so this strengthens nothing and weakens nothing.
+
+**Consequences.** If a night ever needs more than 180, the other option (fuzz on its own runner) is the next step, not a further raise. The repo is public, so the minutes are not billed.
+
+**FX device (ADR-254).** None: CI scheduling only.
