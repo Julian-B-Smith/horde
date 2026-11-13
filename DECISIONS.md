@@ -13388,3 +13388,17 @@ The GUI session built it as GUI-55 A2 (#1455). Its reading, for the human to con
 3. **The other 117 judged rows** keep their `judged (B677)` tag until the lead or the human confirms them.
 
 **FX device (ADR-254).** None: rows from before horde 2 that the device never depended on. The FX device's own rows (B528 onward) are not in the class.
+
+## ADR-396 — RULED by the human: the swarm speed-up probe measures all four candidates in order; the builder builds candidate 1, the lead probes the rest in scratch (B670, 2026-11-11)
+
+**Context.** ADR-392 item 3: before C2a's target is set, measure how far one swarm oscillator's per-member path can be sped up. B670 named four candidates and left its scope and its builder to the human (the clean room's engine is the builder's, ADR-247). No builder session was running.
+
+**Ruling** (the human, 2026-11-11, by poll):
+1. **"All four, in order."** (1) the Fable audit's finding 3: `context()` built once per need, with an id-to-index table at `prepare`, bit-identical; (2) members 4 at a time (NEON); (3) per-voice and per-oscillator work hoisted out of the member loop; (4) cheaper forms of the coupling law at 9 members. Each is applied on top of the last, with a figure after each (`tools/c2a_remainder`, ADR-391) and its effect on the output: 1 and 3 must be bit-identical; for 2 and 4, the largest difference from the current engine on the bank, held against the engine's tolerances.
+2. **"Split."** The builder builds candidate 1 for real (brief: the clean-room engine's `ANSWERS.md`, "The swarm speed-up probe, candidate 1", lead commit `11b8c6f`, after rounds 63 and 64 and before their PF-3 run). The lead probes 2 to 4 in a scratch copy of the engine, outside both clean-room repos, with a pinned Sonnet implementer; nothing from it enters the builder's tree. Whatever the human rules to ship from 2 to 4 goes to the builder as its own brief.
+
+**Consequences.** Builder figures stay out of anything sent to the test author (B519). C2a's target is still ruled after the probe (ADR-392 item 4).
+
+**FX device (ADR-254).** None: an oscillator's CPU cost.
+
+**A1 (the human, 2026-11-13, by poll: "After candidate 1").** The probe found that a 1.0 table member skips about half of today's swarm cost (filter E, WT-24; the spread walk). Timed on that path, one wavetable oscillator is about 10.3 to 11.8 % of a core, 2.2 to 2.6x Serum 2 (trace `traces/2026-11-12-b670-swarm-probe.md`). C2a's target (ADR-392 item 4) is ruled after the builder's candidate 1 lands and the lead re-times the 1.0 path on top of it. Candidates 2 to 4 go to no builder brief: they are moot on that path, and 4 changes bits. FX device: none.
