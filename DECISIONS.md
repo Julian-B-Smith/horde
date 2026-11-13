@@ -13400,3 +13400,5 @@ The GUI session built it as GUI-55 A2 (#1455). Its reading, for the human to con
 **Consequences.** Builder figures stay out of anything sent to the test author (B519). C2a's target is still ruled after the probe (ADR-392 item 4).
 
 **FX device (ADR-254).** None: an oscillator's CPU cost.
+
+**A1 (the human, 2026-11-13, by poll: "After candidate 1").** The probe found that a 1.0 table member skips about half of today's swarm cost (filter E, WT-24; the spread walk). Timed on that path, one wavetable oscillator is about 10.3 to 11.8 % of a core, 2.2 to 2.6x Serum 2 (trace `traces/2026-11-12-b670-swarm-probe.md`). C2a's target (ADR-392 item 4) is ruled after the builder's candidate 1 lands and the lead re-times the 1.0 path on top of it. Candidates 2 to 4 go to no builder brief: they are moot on that path, and 4 changes bits. FX device: none.
