@@ -1,0 +1,19 @@
+# b676-audit-rulings — the human rules the 2026-11-10 audit's seven open findings; two drafts for sanction
+
+- **Queue item:** B676 (ADR-393's unruled findings). Closes B676; opens B683 to B691; records ADR-398.
+- **Why:** the 2026-11-10 audit (`docs/audits/2026-11-10-fable-audit.md`) left seven findings for the human. Its own observation was that cheap fixes sat open for three and four audits because nothing ruled them.
+- **Evidence consulted:** the audit's findings 6 and 10 and items 11 to 20; ADR-393; on main `e4b0cebc`: `ROADMAP.md` 2,130,250 bytes, split by a script into closed rows (DONE, SUPERSEDED, WONTDO) 929 KB, narrative sections dated before September about 599 KB, and the rest (open rows) 549 KB; `DECISIONS.md` 1,291,413 bytes; LIBRARY 76 entries; README "Last verified 2026-10-17"; `tools/weakening_check.py:204` (the soft_fail pattern) and `tools/test_table_check.py:186` (the wiring glob), both still as item 15 says; the eight tools and `./verify` that read ROADMAP or DECISIONS (`git grep`).
+
+## The rulings (two polls, 2026-11-14; each the option the lead recommended)
+Archive both (B683); an instruction-count CPU gate at 3% with a variance measurement first, and dated items for every partial armor row (B684, B685); a hash ledger for the protected references (B686); the lead refreshes the docs and drafts a trimmed §Domain (B687); LIBRARY consolidated to about 30 with stable ids (B688); the ACCEPTANCE text corrected by a draft the human sanctions (B689); the weekly audit paused while any of B683 to B690 is neither DONE nor WONTDO. The lead placed item 15 as B690 (it was on the audit's carried table) and items 18 to 20 as B691, PROPOSED and not carried.
+
+## What changed
+- `DECISIONS.md`: ADR-398. `docs/design/design-ledger.json`: its `not_design` entry.
+- `ROADMAP.md`: B676 DONE; B683 to B690 OPEN, B691 PROPOSED, each with an opened date.
+- `docs/proposals/2026-11-14-acceptance-l0.md` (B689): the exact replacement for `specs/ACCEPTANCE.md` line 3 and L0-18, the ruled deliverable; a separate optional section for L0-16, 17 and 19 to 21, each its own yes; the per-item map of tool, verify target and CI reach. Finding: no L0 oracle runs in `./verify fast`; CI reaches them only through the sanitize job; L0-18 has no tool. `specs/ACCEPTANCE.md` is untouched.
+- `docs/proposals/2026-11-14-domain-trim.md` (B687): a complete replacement §Domain, 12,858 bytes down to about 6.5 KB, with all 42 protected entries kept, and the paused-audit paragraph matching ADR-398 item 7. `CLAUDE.md` is untouched.
+
+## Review
+Two drafters (Sonnet for ACCEPTANCE, Opus for §Domain), each followed by an Opus adversarial reviewer, then a fix round and a fresh Opus reviewer, then the lead applied the last round by hand. Round 1 found 14 and 13 problems: among them, the §Domain pause condition would have ended the pause the moment it was approved (a dated row already existed for each); "founding engine" survived (GUI-1); the ACCEPTANCE draft called the 60 dB criterion "the reference measurement", said "blocking" and "only through the sanitize job" though the nightly runs `stability_check`, and mapped `notchslot_check` (a routing test) to L0-16. Round 2 found 6 and 4: the optional ACCEPTANCE sentences added comparison signs that `tolerance_registry_check` would read as new unregistered tolerances (now words); "the nightly runs only" read as one job of six; the resume condition said "all closed", which counts SUPERSEDED; "at the next boundary" was dropped; `engine2/CLEANROOM.md` describes a sparse worktree, not the separate clean-room repos (now an open item in the proposal).
+
+- **Verify:** see the PR; the first run in this worktree went red only on `sandbox_check` under load (its 60 s spawn limit, exit null, with the sweep's own output GREEN); the check alone passed.
