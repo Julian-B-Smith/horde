@@ -149,8 +149,8 @@
       "id": "S5",
       "title": "Happy-path tests",
       "status": "partial",
-      "gates": ["engine_enrolment_check"],
-      "gaps": "engine_enrolment_check (verify fast) is red for any code directory under h2/ with no entry in docs/armor/engines.json, for any real code in engine2/core (B535; stub headers pass as PENDING until the engine lands) and for engine2 code outside core, tests, tools and wasm, and the harness selftest (verify full) proves each enrolled adapter makes sound, with a silent adapter failing. Not yet: the extreme-parameter fuzz and the sweep matrix that run over every enrolled engine (phase 2 packages P3 and P4), so enrolment does not yet imply those cases",
+      "gates": ["engine_enrolment_check", "h2_fuzz_check", "h2_soak_check"],
+      "gaps": "engine_enrolment_check (verify fast) is red for any code directory under h2/ with no entry in docs/armor/engines.json, for any real code in engine2/core (B535; stub headers pass as PENDING until the engine lands) and for engine2 code outside core, tests, tools and wasm, and the harness selftest (verify full) proves each enrolled adapter makes sound, with a silent adapter failing. The parameter fuzz (phase 2 package P3, h2_fuzz_check) and the soak (h2_soak_check) are each red for an enrolled engine with no entry of its own, so enrolment implies their cases; both run in verify full and the nightly (not in PR CI), and both ran green over the one enrolled engine, composed, on the nightlies of 2026-11-12 and 13 (runs 43205570893 and 43412915840). Not yet: the sweep matrix over every enrolled engine (phase 2 package P4), so enrolment does not yet imply those cases; and enrolment implies the fuzz only over the keys an engine's table gives a range: 24 of the composed engine's keys have none and are never fuzzed (printed as a HOLE every night), and kCustom is held at its one value",
       "tracked_by": "B448",
       "tripwire": "Engine suites without extreme and sweep cases: 0"
     },

@@ -22,7 +22,7 @@ ROWS
   the default receipt path is gitignored (nothing the runner writes is committed)
   freshness: 47 h fresh, 49 h HOLE, no run HOLE, newest night red HOLE, a drill run
     does not renew a stale result, unreadable input UNKNOWN, gh missing UNKNOWN
-  the workflow draft is thin: only `./verify nightly`, pinned actions, no tokens widened
+  the workflow calls no ./verify target but nightly, pins its actions and widens no token
 """
 import importlib.util
 import json

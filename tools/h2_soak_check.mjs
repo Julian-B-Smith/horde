@@ -181,8 +181,11 @@
  *     to the median frame around it. The control's click is a tone as loud as two
  *     voices jumping in phase; a quieter one would not be found.
  *   - Four hours at the extreme settings. The maximum corner, the densest preset and
- *     the loud chord are soaked for forty minutes a night each third night, because
- *     four hours of one is about 5.7 hours of a hosted runner as assumed (RUN TIME). The corner
+ *     the loud chord are soaked for forty minutes a night each third night: four hours
+ *     of the maximum corner or the densest preset is about 3.5 to 4.2 hours of the
+ *     hosted runner, more than the whole 180-minute job (RUN TIME); the loud chord's
+ *     would be about 1.2 to 1.4 hours, which leaves the night little margin, and it is
+ *     held to forty minutes like the other two. The corner
  *     with every toggle on is not soaked at all: it renders slower than real time.
  *   - Sustain 0 on the nightly. A held voice at sustain 0 is never freed, and without
  *     flush-to-zero (the harness sets none; the shell will, ADR-211) it computes on
@@ -342,30 +345,37 @@ export const THRESHOLDS = Object.fromEntries(THRESHOLD_TABLE.map(r => [r.name, r
  *                     GREEN, 611 CPU s, 593 s of wall)
  * So a whole long job is about 18 minutes of this machine quiet, and the dearest
  * extreme job about 22: a little over the scaled figures above.
- *   ASSUMED, NOT MEASURED (no nightly has run): a hosted runner's core takes THREE
- *   TIMES this machine's quiet CPU time for this work. The parameter fuzz's header
- *   assumes four to six for its four processes side by side; a soak cell is one
- *   render process and this reader.
- *   soak-h2-long      52 to 65 minutes (long-defaults and long-fold; long-192)
- *   soak-h2-extreme   31 to 67 minutes (extreme-loud to extreme-max)
- * At five times instead of three: 86 to 108 and 51 to 112 minutes. Every job is well
- * inside two hours at three; at five, long-192 and extreme-max are inside it by
- * about ten minutes. long-192 cannot be made shorter: it has to pass 2^31 frames in
- * one render. If its first night runs over, it needs a longer limit, not a shorter
- * run; an extreme cell can lose windows (its floor in jobs.json with them).
- *   BOTH JOBS TOGETHER ARE 96 TO 121 MINUTES A NIGHT at three times (the pairs are
- *   long-192 with extreme-loud, long-defaults with extreme-dense, long-fold with
- *   extreme-max), 0.5 to 0.7 core-hours of this machine, quiet. tools/nightly/run.py
- *   runs every Linux entry one after another inside the draft workflow's ONE job of
- *   120 minutes, and the parameter fuzz's entry alone expects two to three hours
- *   there (its header). Each soak job fits a two-hour job of its own; the night as a
- *   whole does not fit the draft's one. The workflow is the human's to change.
+ *   Before the first nights a hosted runner was ASSUMED three times this machine's
+ *   quiet CPU time (52 to 65 minutes a long job, 31 to 67 an extreme one).
+ *   MEASURED on GitHub's Linux runner (the nightly; receipt seconds, build included,
+ *   except 11-11, read from its log; B681). The pairs rotate by night number mod 3:
+ *     2026-11-11  long-fold       1608 s   extreme-max   read 100 of 150 periods at
+ *                                                        23.0 min, then cancelled 32.1
+ *                                                        min in, unfinished (the 120-minute
+ *                                                        limit then); about 2070 s whole,
+ *                                                        extrapolated (both extreme cells
+ *                                                        that finished took 1.50 times
+ *                                                        their 100-period mark)
+ *     2026-11-12  long-192        1267 s   extreme-loud    713 s
+ *     2026-11-13  long-defaults   2082 s   extreme-dense  2274 s
+ *   Against the quiet column above that is 1.0 (long-192, whose reader and pipe are a
+ *   quarter of its CPU), 1.7 (extreme-loud), 2.0 (long-defaults) and 2.1
+ *   (extreme-dense); long-fold is 1.6 against its job figure here (1014 s). Not three.
+ *   long-192 cannot be made shorter: it has to pass 2^31 frames in one render; an
+ *   extreme cell can lose windows (its floor in jobs.json with them).
+ *   tools/nightly/run.py runs every Linux entry one after another inside the
+ *   workflow's ONE job, whose limit is 180 minutes (ADR-397). The whole Linux night
+ *   was cancelled at 120 on 11-11, took 96 minutes on 11-12 and 146.5 on 11-13; the
+ *   parameter fuzz alone 54, 56 and 65. The dearest pair's whole night projects to
+ *   about 123 minutes at 11-11's runner speed and 148 at 11-13's (B682).
  *
  * WHY NOT FOUR HOURS AT THE EXTREME SETTINGS, which is what the proposal's row asks.
  * The heavy cells render at about twice real time on this machine when it is quiet
- * (extreme-max: 2.10). Four hours of one is 1.9 core-hours here and, at the assumed
- * three times, 5.7 hours of a hosted runner: no two-hour job holds it, and the
- * proposal's "about 6 core-hours a night" is the size of one such cell there. So the
+ * (extreme-max: 2.10). Four hours of one is 1.9 core-hours here and about 3.5 to 4.2
+ * hours of the hosted runner (its forty minutes of extreme-max take about 34.5 to 41.5
+ * there, RUN TIME): more than the night's whole 180-minute job, which whole nights
+ * already fill to 96 to 146.5 minutes (measured). (Before the first nights it was put at 5.7 hours, at an assumed three times;
+ * the proposal's "about 6 core-hours a night" was the size of one such cell then.) So the
  * nightly holds FOUR HOURS where four hours can be afforded (three cells, among them
  * the 192 kHz one) and FORTY MINUTES at the extremes, and says so. The full four
  * hours of a heavy cell is one command on the dev Mac:

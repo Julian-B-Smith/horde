@@ -13,14 +13,17 @@
 #
 # HOUSE STYLE. Copied from ci.yml: actions pinned by commit SHA with a version
 # comment, the same checkout options, a read-only token. tools/workflow_pin_check.py
-# holds those rules once the file is installed; tools/nightly_check.py runs it on
-# this draft today.
+# holds those rules, and tools/nightly_check.py runs it on this file.
 #
-# UNVERIFIED (nothing here has run on GitHub): the cron time, the runners' memory and
-# speed against the dev Mac, `brew install llvm` on the macOS runner, and whether
-# Homebrew LLVM's sanitizers start there (ADR-199's crash was specific to one
-# toolchain). The macOS jobs print SKIPPED, recorded as skipped and never as ran, when
-# they cannot measure.
+# WHAT THE FIRST NIGHTS SETTLED (B671, B681). The drill passed on GitHub (run
+# 42931019358). The schedule fires late: the 03:17 cron started runs at 10:54 to 11:02
+# UTC on 2026-11-11 to 13. `brew install llvm` worked on the macOS runner and both
+# sanitizer checks ran there every night so far, none skipped. The Linux job was
+# cancelled at 120 minutes on 11-11 (the dearest soak pair; the soak cells rotate over
+# three nights, tools/h2_soak_check.mjs RUN TIME) and took 96 on 11-12, so its limit
+# became 180 (ADR-397); 11-13 then took 146.5. macOS takes 6 to 7. STILL UNMEASURED:
+# the runners' memory. The macOS jobs print SKIPPED, recorded as skipped and never as
+# ran, when they cannot measure.
 name: nightly
 run-name: "nightly${{ inputs.drill && ' (drill)' || '' }}"
 on:
@@ -44,7 +47,8 @@ jobs:
   linux:
     runs-on: ubuntu-latest
     # 180 since 2026-11-13 (ADR-397, B679): 120 cancelled the night of 11-11, and the green 11-12 night took 96
-    # (the h2 fuzz alone 56). A backstop, not a budget: run.py sets no clock and the job floors are unchanged.
+    # (the h2 fuzz alone 56). The first night under 180, 11-13, took 146.5 (fuzz 65); the dearest pair projects to
+    # about 123 to 148 (B682). A backstop, not a budget: run.py sets no clock and the job floors are unchanged.
     timeout-minutes: 180
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -66,8 +70,9 @@ jobs:
           retention-days: 30
 
   macos:
-    # macOS is the 10x runner (see ci.yml). Free on a public repository only if the
-    # brief's recorded answer holds; unverified for macOS runners.
+    # macOS is the 10x runner (see ci.yml). Whether this repo's macOS minutes are billed
+    # is UNCHECKED: ci.yml records the account using up its free minutes on 2026-07-19,
+    # and no one has read the account's usage page since the nightly began.
     runs-on: macos-latest
     timeout-minutes: 90
     steps:
@@ -75,11 +80,12 @@ jobs:
         with:
           submodules: recursive
           persist-credentials: false
-      # UNVERIFIED on GitHub's runners: the compiler for the sanitizer checks
-      # (ADR-199). tools/rtsan_check.py and tools/tsan_stress_check.py find it
-      # through `brew --prefix llvm`. If this step or the sanitizers fail to start
-      # there, the checks print SKIPPED and the receipt says skipped, not ran.
-      - name: Homebrew LLVM (unverified on GitHub's runners)
+      # The compiler for the sanitizer checks (ADR-199). tools/rtsan_check.py and
+      # tools/tsan_stress_check.py find it through `brew --prefix llvm`; it installed
+      # and ran on GitHub's runner on every night from 2026-11-11 to 13 (B671, B681). If
+      # this step or the sanitizers ever fail to start, the checks print SKIPPED and
+      # the receipt says skipped, not ran.
+      - name: Homebrew LLVM
         if: ${{ !inputs.drill }}
         run: brew install llvm
       - name: nightly
