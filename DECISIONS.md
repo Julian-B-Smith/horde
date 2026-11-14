@@ -13412,3 +13412,5 @@ The GUI session built it as GUI-55 A2 (#1455). Its reading, for the human to con
 **Consequences.** If a night ever needs more than 180, the other option (fuzz on its own runner) is the next step, not a further raise. The repo is public, so the minutes are not billed.
 
 **FX device (ADR-254).** None: CI scheduling only.
+
+**A1 (the lead, 2026-11-14, B681).** "The repo is public, so the minutes are not billed" above is UNCHECKED, for Linux and macOS alike: `.github/workflows/ci.yml` records the account using up its free Actions minutes on 2026-07-19, and no one has read the account's usage page since the nightly began. The ruling (180 minutes) does not rest on it.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""stability_job -- the nightly's one real job: the legacy SAW core's stability
+"""stability_job -- one of the nightly's six jobs: the legacy SAW core's stability
 check (tools/stability_check.cpp, B147 layer 2) run long (B448 P5/P6, ADR-209).
 
     tools/nightly/stability_job.py [--seconds=N] [--build-dir DIR]
@@ -16,6 +16,8 @@ peak memory is linear in N: measured 474 MB at 600 s on the dev Mac, which puts 
 at about 11 GB (extrapolated, NOT measured) against a 16 GB hosted runner. jobs.json
 passes 3600 (about 3 GB, about 6 minutes here) until P6 has measured the long run
 or the check stops holding the render. Raising it is a one-number edit in jobs.json.
+On GitHub's Linux runner the 3600 s run took 417 s (2026-11-11), 410 s (11-12) and
+508 s (11-13), build included, green every night; its peak memory there is still NOT measured.
 """
 import os
 import pathlib

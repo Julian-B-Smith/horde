@@ -245,9 +245,11 @@
  * minutes. A deep run of 2702 cases (8 rounds, 12 s long holds) took 235 s: 87 ms a
  * case, so the deep run's 20000 cases are about 29 minutes here, where the build
  * before this one needed 11 to 14. The ten plants read every case again and are
- * most of that. A hosted 4-core runner is ASSUMED four to six times slower (not
- * measured: no nightly has run), which makes the deep run about two to three hours
- * there. The count is one number in tools/nightly/jobs.json, beside its floor.
+ * most of that. A hosted 4-core runner was ASSUMED four to six times slower, two to
+ * three hours. MEASURED on GitHub's Linux runner (the nightly, B671): 3251 s on
+ * 2026-11-11, 3343 s on 11-12 and 3914 s on 11-13, build included (about 19 s), so 54,
+ * 56 and 65 minutes, 1.9 to 2.2 times this machine's 29. The count is one number in
+ * tools/nightly/jobs.json, beside its floor.
  *
  * DETERMINISM. mulberry32 streams from the printed seed, nothing else. No clock is
  * read anywhere in this file, so no verdict can depend on time taken; --procs changes
@@ -255,7 +257,8 @@
  * line, which states it.
  *
  * WHAT IT DOES NOT COVER (each is printed or stated, none is hidden):
- *   - Engine keys with NO declared range (21 on 2026-10-11: bend, poly, grav, ...).
+ *   - Engine keys with NO declared range (21 on 2026-10-11, 24 on the nightlies of
+ *     2026-11-11 to 13: bend, poly, grav, ...).
  *     The table lists them as fixed, so there is nothing to draw from. The run prints
  *     them as a HOLE every time. Declaring their ranges is the table owner's edit.
  *   - kCustom, the one string row: the table declares one value. It is set, never varied.
@@ -302,7 +305,10 @@ import { ROOT, binPath, enrolled, jobText, listAdapters, mtof, parseOutput } fro
  *              what a healthy engine does when its loudest stretch is held longer.
  *   rise       172 and 166 of 6000 cases rose by more than riseProbe from the third
  *              quarter of the peak's stretch to the last (2.8 %): the cases a normal
- *              run probes. NOT MEASURED: growth over the deep run's 12 s holds.
+ *              run probes. Growth over the deep run's 12 s holds, MEASURED on the
+ *              nightlies of 2026-11-11 to 13 (11-11 read from its log; the same cases
+ *              each night): 573 cases
+ *              probed, worst 1.658 at case 14929, against growPass 2.54.
  *   reading    a direct output sample against tanh(its reading through the divided
  *              gain): worst 1.750 and 1.749 units in the last place over 178 and 175
  *              cases compared in full, and 1.694 in the named chord. These three are
