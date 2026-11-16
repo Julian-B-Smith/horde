@@ -66,3 +66,9 @@
   refresh it in the ADR-402 PR (./verify is human-gated, not edited here).
 - **Verify:** Kiln origin/main 45c8b36 (clean export), FOUNDATIONS fx_operator.h sha256 d60b7eba2239;
   results in the report that carries this amendment.
+
+**Addendum, 2026-11-15: Kiln's reply (seq 11).** `integrations/kiln/response-admission-landed.md` is committed here as residents.
+- Kiln reproduced every row verdict from b90e866a against its main 45c8b36, once without `nice` and once under `nice -n 10`. Under `nice`, RTSan reported the planted malloc with 20 violations per module, so Kiln demoted its lesson L0006.
+- Kiln agreed to vendor `fx_operator.h` (pinned, sha256 d60b7eba…6d91). The copy is on Kiln's working branch, so the harness keeps its FOUNDATIONS lookup until Kiln's main has it.
+- Kiln first numbered the reply seq 10, which clashed with our B603 notice on this thread. Kiln renumbered it to 11 before it was committed.
+- B605's row gets a dated note.
