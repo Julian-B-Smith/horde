@@ -1,0 +1,15 @@
+{
+  "_about": "The one budget table the admission harness reads (ROADMAP B701, ADR-401 rulings 1-4, ADR-359 r1). Per-corner bytes, counting what the module writes, measured its own way; horde's wrapper and the basis go to the open ceiling, not here. It mirrors the table under the state-budget-table marker in docs/proposals/rack-slot-contract.md §12.9, row for row (module, bytes, counted figure, status); tools/state_budget_check.py in ./verify fast is red when the two differ. `counts` is the counted figure as the harness can measure it: patch-text where the contract's cell names the patch text, state where the cell reads 'its state', own for a measure the module's adapter must supply (A19 fails no-measure until it does). Keys: tools/admission_check.py's MODULES keys where a module has an adapter (scape, kiln-eq, kiln-drive), a stable lowercase key otherwise. Change a figure only by a ruling, in the contract and here in one PR.",
+  "modules": {
+    "arp": {"name": "Arp", "bytes": 4096, "counts": "own", "status": "ruled", "adr": "ADR-401"},
+    "bulwark": {"name": "Bulwark", "bytes": 4096, "counts": "own", "status": "ruled", "adr": "ADR-401"},
+    "echo": {"name": "Echo", "bytes": 4096, "counts": "state", "status": "ruled", "adr": "ADR-401"},
+    "kiln-eq": {"name": "Kiln EQ", "bytes": 4096, "counts": "patch-text", "status": "ruled", "adr": "ADR-401"},
+    "kiln-drive": {"name": "Kiln Drive", "bytes": 4096, "counts": "patch-text", "status": "ruled", "adr": "ADR-401"},
+    "mangle": {"name": "Mangle", "bytes": 4096, "counts": "patch-text", "status": "ruled", "adr": "ADR-401"},
+    "scape": {"name": "Scape", "bytes": 4096, "counts": "patch-text", "status": "ruled", "adr": "ADR-401"},
+    "shriek": {"name": "Shriek", "bytes": 4096, "counts": "own", "status": "ruled", "adr": "ADR-401"},
+    "sluice": {"name": "Sluice", "bytes": 12288, "counts": "own", "status": "ruled", "adr": "ADR-359 r1; ADR-401 r2"},
+    "weir": {"name": "Weir", "bytes": 4096, "counts": "own", "status": "provisional", "adr": "ADR-401"}
+  }
+}

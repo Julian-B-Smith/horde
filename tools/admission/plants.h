@@ -31,6 +31,13 @@
 
 namespace admission {
 
+// A19's ruled per-corner figure (ADR-401), which the harness takes by --budget from
+// tools/admission/state_budgets.json and sets here before any plant wraps a module. Read only by
+// the three A19 plants below, which must land one byte past the figure of whatever module they
+// wrap: a plant with its own hard-coded number would stop proving anything the day the figure moves.
+// 0 until the harness sets it; tools/state_budget_check.py holds this default (and the harness's) at 0.
+inline std::size_t ruledFigure = 0;
+
 // Forwards everything; a plant overrides only the entry its fault lives in.
 class Forward : public Module {
  public:
@@ -519,6 +526,36 @@ class OversizeCopied final : public Forward {
   }
 };
 
+// A19: a module that declares one byte more than its ruled figure (4,097 B against 4,096 B).
+class BudgetOverFigure final : public Forward {
+ public:
+  using Forward::Forward;
+  std::size_t stateBudget() const override { return ruledFigure + 1; }
+};
+
+// A19: a module that writes a factory preset back as patch text one byte over its ruled figure
+// (ruling 1 counts the patch text). The padding need not parse: the row measures, it does not load.
+class PatchTextOver final : public Forward {
+ public:
+  using Forward::Forward;
+  std::string writePatch(const Patch& p) const override {
+    std::string t = in_->writePatch(p);
+    if (t.size() <= ruledFigure) t.append(ruledFigure + 1 - t.size(), ' ');
+    return t;
+  }
+};
+
+// A19: a factory preset SHIPPED one byte over the ruled figure. Planted on the preset list the
+// harness reads, not on the module (a wrapper never sees a shipped file), so it proves the
+// as-shipped text[] check, which patch-text-over (the written-back text) cannot reach. Padded with
+// newlines; A19 does not load an over-figure text, so whether a parser would accept the padding
+// does not matter. No presets = nothing planted: the control then reads as not fired, never a pass.
+inline void presetTextOver(std::vector<std::pair<std::string, std::string>>& presets) {
+  if (presets.empty()) return;
+  std::string& t = presets.front().second;
+  if (t.size() <= ruledFigure) t.append(ruledFigure + 1 - t.size(), '\n');
+}
+
 // A20: a meter latch serialised into the saved state.
 class LatchInState final : public Forward {
  public:
@@ -538,6 +575,8 @@ struct PlantDef {
   const char* row;
   const char* what;
   std::unique_ptr<Module> (*wrap)(std::unique_ptr<Module>);
+  // A plant on the shipped preset list rather than on the module (preset-text-over), or none.
+  void (*presets)(std::vector<std::pair<std::string, std::string>>&) = nullptr;
 };
 template <class P>
 std::unique_ptr<Module> wrapWith(std::unique_ptr<Module> m) { return std::make_unique<P>(std::move(m)); }
@@ -569,6 +608,9 @@ inline const std::vector<PlantDef>& plants() {
       {"state-drops-param", "A17", "one parameter missing from the saved state", wrapWith<StateDropsParam>},
       {"lossy-float", "A18", "a float written through a lossy decimal format", wrapWith<LossyFloat>},
       {"oversize-copied", "A19", "an oversized state copied before it is refused", wrapWith<OversizeCopied>},
+      {"budget-over-figure", "A19", "a module declaring its ruled figure + 1 byte", wrapWith<BudgetOverFigure>},
+      {"patch-text-over", "A19", "a preset written back one byte over the ruled figure", wrapWith<PatchTextOver>},
+      {"preset-text-over", "A19", "a factory preset shipped one byte over the ruled figure", wrapWith<Forward>, presetTextOver},
       {"latch-in-state", "A20", "a meter latch serialised into the state", wrapWith<LatchInState>},
   };
   return k;

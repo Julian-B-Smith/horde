@@ -21,11 +21,13 @@
 // threshold invented here would be a tolerance nobody ruled (docs/armor/tolerances.json). Where
 // the contract asks for a reading it does not judge (ADR-218's click readings), it is printed.
 //
-//   admission_harness --module scape|kiln-eq|kiln-drive --tree DIR [--rows A1,A2,...] [--plant ID] [--no-readings]
+//   admission_harness --module scape|kiln-eq|kiln-drive --tree DIR [--budget BYTES] [--counts patch-text|state]
+//                     [--rows A1,A2,...] [--plant ID] [--no-readings]
 //                     [--manifest-json] [--timing] [--rtsan control|session]
 //                     [--list-plants]
 #include <algorithm>
 #include <array>
+#include <cerrno>
 #include <chrono>
 #include <clocale>
 #include <cmath>
@@ -203,6 +205,14 @@ struct Ctx {
   std::function<std::unique_ptr<Module>()> make;
   std::vector<std::pair<std::string, std::string>> presets;
   bool readings = true;
+  // The module's ruled per-corner budget in bytes (--budget), which tools/admission_check.py
+  // reads from tools/admission/state_budgets.json (ADR-401, B701). 0 = none given: A19 then
+  // fails, never falls back to a figure written here.
+  std::size_t budget = 0;
+  // What the module's figure counts (--counts, the same table's `counts`; ADR-401 r1, "measured
+  // the module's way"): "patch-text" (Kiln, Scape, Mangle) or "state". Empty or any other kind =
+  // a measure this harness does not have: A19 then fails, never measures the wrong thing.
+  std::string counts;
 };
 std::unique_ptr<Module> fresh(const Ctx& c, const Settings& s, double sr, std::uint32_t mb) {
   auto m = c.make();
@@ -1318,21 +1328,62 @@ Out rowA18(const Ctx& c) {
   return o;
 }
 
-// A19 State size: every factory preset's state, and a worst-case state, fit the 2 KiB budget
-// (RS-6.12) and the module's own; an oversized state is refused with no allocation.
+// A19 State size (RS-6.12 with §12.9, ADR-401): the module is judged against its RULED figure,
+// passed in by the driver from tools/admission/state_budgets.json (Ctx::budget); no figure is
+// written here, so a figure changes by ruling in one table, never by an edit to this row. What the
+// figure counts comes from the same table (Ctx::counts): ruling 1 measures each module its own way,
+// and this row measures only the two ways it has. Judged:
+//   - the module's own declared stateBudget() is at or below the figure;
+//   - "patch-text" modules (Kiln, Scape, Mangle: the patch text carries the name and macros) only:
+//     each factory preset's patch TEXT fits the figure, both as shipped and as the module writes it
+//     back. A shipped text over the figure is red and is not loaded;
+//   - each factory preset's saved state, and a worst-case state, fit min(own budget, figure). The
+//     worst case is judged on STATE for every kind: a worst-case patch text (every binding, the
+//     longest names and labels) is bounded at creation (B702) and by the module's own parser
+//     refusal (ADR-401's notices), not here; the note says so;
+//   - an oversized state is refused with no allocation.
+// Must-fail controls (plants.h): oversize-copied (copy before refusing), budget-over-figure
+// (declares the figure + 1), patch-text-over (writes a patch one byte over the figure),
+// preset-text-over (ships a preset one byte over it); the driver runs this row with no --budget
+// and with no --counts, and each must read red (no-figure, no-measure).
 Out rowA19(const Ctx& c) {
   Out o{"A19"};
   const double sr = 48000;
-  const std::size_t kBudget = 2048;   // RS-6.12, provisional (Q9)
+  const std::size_t figure = c.budget;
+  if (figure == 0) {
+    o.fail("no-figure", "no ruled budget was given (--budget, from tools/admission/state_budgets.json): A19 cannot be judged");
+    o.summary = "NO RULED FIGURE: nothing judged";
+    return o;
+  }
+  const bool patchText = c.counts == "patch-text";
+  if (!patchText && c.counts != "state") {
+    o.fail("no-measure", "the ruled count is '" + (c.counts.empty() ? std::string("(none given)") : c.counts) +
+                             "' (--counts, from tools/admission/state_budgets.json); this harness measures only patch-text and "
+                             "state, so the adapter must supply the module's own measure before A19 can be judged");
+    o.summary = "NO MEASURE OF WHAT THE MODULE COUNTS: nothing judged";
+    return o;
+  }
+  const std::string fig = std::to_string(figure);
   auto m0 = c.make();
   const std::size_t own = m0->stateBudget();
-  if (own > kBudget) o.fail("budget", "the module's own budget " + std::to_string(own) + " exceeds 2048 bytes");
-  const std::size_t cap = std::min(own, kBudget);
-  std::size_t biggest = 0;
+  if (own > figure) o.fail("budget", "the module's own budget " + std::to_string(own) + " bytes exceeds its ruled figure of " + fig + " bytes");
+  const std::size_t cap = std::min(own, figure);
+  std::size_t biggest = 0, biggestText = 0;
   for (const auto& [f, t] : c.presets) {
+    if (patchText) {
+      biggestText = std::max(biggestText, t.size());
+      // Not loaded when over: a module whose parser refuses over-figure text (Kiln's does) would
+      // add a preset[] failure saying the same thing, and the control could not tell them apart.
+      if (t.size() > figure) { o.fail("text[" + f + "]", "the preset's patch text is " + std::to_string(t.size()) + " bytes as shipped, over the ruled " + fig + "-byte figure"); continue; }
+    }
     auto m = fresh(c, {}, sr, 512);
     Patch p;
     if (!m->parsePatch(t, p, nullptr) || !m->stagePatch(p) || !m->adoptStaged()) { o.fail("preset[" + f + "]", "the preset did not load"); continue; }
+    if (patchText) {
+      const std::size_t w = m->writePatch(p).size();
+      biggestText = std::max(biggestText, w);
+      if (w > figure) o.fail("written[" + f + "]", "the module writes the preset back as " + std::to_string(w) + " bytes of patch text, over the ruled " + fig + "-byte figure");
+    }
     const std::size_t n = save(*m).size();
     biggest = std::max(biggest, n);
     if (n > cap) o.fail("size[" + f + "]", std::to_string(n) + " bytes over the " + std::to_string(cap) + "-byte budget");
@@ -1353,8 +1404,14 @@ Out rowA19(const Ctx& c) {
   const long allocs = g_allocs;
   if (took) o.fail("oversize-accepted", "a " + std::to_string(big.size()) + "-byte state was accepted");
   if (allocs != 0) o.fail("oversize-allocated", std::to_string(allocs) + " allocation(s) while judging an oversized state");
-  o.note("largest factory state " + std::to_string(biggest) + " bytes; worst case " + std::to_string(ws.size()) + " bytes; module budget " + std::to_string(own) + " bytes");
-  o.summary = std::to_string(c.presets.size()) + " presets and a worst case under " + std::to_string(cap) + " bytes; a " + std::to_string(big.size()) + "-byte state refused";
+  o.note("ruled figure " + fig + " bytes per corner, counting " + c.counts + "; module budget " + std::to_string(own) + " bytes; " +
+         (patchText ? "largest factory patch text " + std::to_string(biggestText) + " bytes; " : std::string()) +
+         "largest factory state " + std::to_string(biggest) + " bytes; worst-case state " + std::to_string(ws.size()) + " bytes");
+  if (patchText)
+    o.note("the worst case here is a STATE; a worst-case patch text (every binding, the longest names and labels) is not built "
+           "here: it is bounded at creation (B702) and by the module's parser refusing text over the figure (ADR-401's notices)");
+  o.summary = std::to_string(c.presets.size()) + " presets" + (patchText ? "' patch text under the ruled " + fig + " bytes;" : ";") +
+              " their states and a worst-case state under " + std::to_string(cap) + " bytes; a " + std::to_string(big.size()) + "-byte state refused";
   return o;
 }
 
@@ -1555,6 +1612,8 @@ int main(int argc, char** argv) {
   std::string module, tree, plant, rtsanMode;
   std::set<std::string> want;
   bool readings = true, manifest = false, doTiming = false;
+  std::size_t budget = 0;   // none until --budget: A19 then fails no-figure (never a default here)
+  std::string counts;        // none until --counts: A19 then fails no-measure
   for (int i = 1; i < argc; ++i) {
     const std::string a = argv[i];
     auto val = [&]() -> std::string { return i + 1 < argc ? argv[++i] : ""; };
@@ -1562,6 +1621,17 @@ int main(int argc, char** argv) {
     else if (a == "--tree") tree = val();
     else if (a == "--plant") plant = val();
     else if (a == "--rtsan") rtsanMode = val();
+    else if (a == "--budget") {
+      const std::string v = val();
+      // Digits only: strtoull reads "-1" as ULLONG_MAX and " 7" or "+7" as numbers, and an
+      // unbounded figure would pass every A19 check.
+      char* e = nullptr;
+      errno = 0;
+      const unsigned long long b = std::strtoull(v.c_str(), &e, 10);
+      if (v.empty() || v.find_first_not_of("0123456789") != std::string::npos || errno == ERANGE || *e != '\0' || b == 0) { std::fprintf(stderr, "admission_harness: --budget takes a positive byte count, got '%s'\n", v.c_str()); return 2; }
+      budget = static_cast<std::size_t>(b);
+    }
+    else if (a == "--counts") counts = val();
     else if (a == "--no-readings") readings = false;
     else if (a == "--manifest-json") manifest = true;
     else if (a == "--timing") doTiming = true;
@@ -1589,6 +1659,9 @@ int main(int argc, char** argv) {
   c.make = info.make;
   c.presets = info.presets;
   c.readings = readings;
+  c.budget = budget;
+  c.counts = counts;
+  ruledFigure = budget;   // plants.h: budget-over-figure, patch-text-over and preset-text-over plant one byte past it
   if (!plant.empty()) {
     const PlantDef* d = nullptr;
     for (const auto& p : plants())
@@ -1597,6 +1670,7 @@ int main(int argc, char** argv) {
     auto base = info.make;
     auto wrap = d->wrap;
     c.make = [base, wrap] { return wrap(base()); };
+    if (d->presets) d->presets(c.presets);   // a plant on the shipped preset list (preset-text-over)
   }
   if (manifest) { std::fputs(c.make()->manifestJson().c_str(), stdout); return 0; }
   if (!rtsanMode.empty()) return rtsan(c, rtsanMode);

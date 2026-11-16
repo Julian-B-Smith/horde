@@ -7,8 +7,8 @@
 > FOUNDATIONS says about them.
 
 **Status: RATIFIED by the human 2026-10-09** ("contract ratified"), with the lead's recommendation
-on every open question (§10) accepted. Q3 (the 3 dB click ceiling) and Q9 (the 2 KiB state budget)
-are PROVISIONAL: set from measurement before 1.0. ADR-201 records the ruling. **Amended 2026-10-13 (ADR-218, §12):** the 3 dB click ceiling is suspended as a pass/fail rule until the first listening batch; A4, A11, A16, RS-4.4 and RS-7.6 are read with §12. Clauses marked P
+on every open question (§10) accepted. Q3 (the 3 dB click ceiling) is PROVISIONAL: set from
+measurement before 1.0. ADR-201 records the ruling. **Amended 2026-10-13 (ADR-218, §12):** the 3 dB click ceiling is suspended as a pass/fail rule until the first listening batch; A4, A11, A16, RS-4.4 and RS-7.6 are read with §12. **Amended 2026-11-15 (ADR-401, §12.9):** the state budgets are ruled and Q9 is no longer provisional; ADR-300's 2 KiB is superseded. Only Weir's figure stays provisional, until its manifest, and the patch ceiling stays open (ADR-359 r2). RS-6.12, A19, Q9 and §11's A17–A19 rows are read with §12.9. Clauses marked P
 below are now ruled, except where §10 says provisional. Last verified
 2026-10-09 against horde `main` at `cebe17e`, FOUNDATIONS `1a5995e` (`fx_operator.h`), Bulwark
 `d2a4f2d`, Sluice `04fb7a1`, Shriek `bab145c` and Scape `8b5dc33`. Queue item: **B450**.
@@ -137,7 +137,7 @@ control: a planted faulty version that must turn the row red, naming the module 
 | A16 Sleep and wake (see §12) | quiet input until sleep, then a note | no step on wake (click metric); parameters changed during sleep land at their targets | a module that ramps from its stale values on wake |
 | A17 State completeness | save state mid-session; load it into a fresh instance; `reset()` the original | the two render bit-identically from there on, so nothing outside the saved state and `reset()` shapes the sound | a module with one parameter missing from its saved state |
 | A18 Restore exactness | save → load → save | the two saved states are byte-identical, and the renders after each load are bit-identical | a float written through a lossy decimal format (L0008) |
-| A19 State size | every factory preset, and a worst-case state | saved state fits the per-module budget (RS-6.12) | an oversized state, which must be refused before allocation |
+| A19 State size (ADR-401, §12.9) | every factory preset, and a worst-case state. The worst case is a state for every module: where the figure counts the patch text (Kiln, Scape, Mangle), a worst-case patch text (every binding, the longest names and labels) is bounded at creation (B702) and by the module's parser refusing text over its figure (ADR-401's notices, due 2026-12-11), not by this input. **Once the shell exists (B398, B702):** each creation entrance as well: the module's editor and randomizer, import, paste, copy to all corners, and random-and-follow (ADR-339), each driven toward its largest record | saved state fits the module's ruled budget per corner (RS-6.12, §12.9's table), counted as RS-6.12 says, and the module's declared `stateBudget()` is at or below that figure. Where the figure counts the patch text, each factory preset's patch text fits it as shipped and as the module writes it back. **Judged when the shell exists (B398):** no entrance creates a record over budget | an oversized state, which must be refused at load before allocation (the guard); a module declaring its figure + 1; a factory preset shipped, or written back, one byte over its figure; the row run with no ruled figure, or with no count, which must read red rather than fall back to one. **Judged when the shell exists (B398):** an entrance with its check removed reads red |
 | A20 Live-state exclusion | save during a ringing tail, a ramp in flight and a latched clip | the saved state is identical to one saved at rest with the same parameters | a module that serialises its tail buffer or meter latch |
 | A21 Morph position (RS-4.10, only for a module declaring it) | a morph sweep across four corners with different continuous values, once with `morphWeights` and once from the values alone; again with a macro offset on a design key (`exact` false) and on a non-design key (`exact` true); and a corner edited mid-session | the two renders agree within the module's stated tolerance; with `exact` false the render equals the values-only render; after the edit the module's designs follow the new corner | a module that keeps blending designs when `exact` is false; weights in the wrong corner order (a permuted-weights control must read red); a stale corner design after an edit |
 
@@ -279,13 +279,14 @@ horde converts at import. This avoids a third preset scheme. Q7 asks the human.
 
 FOUNDATIONS has no undo or history clause. horde's history is a shell-owned tree of **snapshots**,
 one node per gesture, preset load or corner apply, held in memory with 200 nodes (ADR-160). For
-horde 2 it must survive FX module edits (B389). Every clause here is **P**.
+horde 2 it must survive FX module edits (B389). Every clause here is **P**, except RS-6.12, which
+the human ruled (ADR-401, ADR-359, ADR-351).
 
 | id | Clause | Admission row |
 |---|---|---|
 | RS-6.10 | **Complete state.** A module's saved state holds every input to its sound: every parameter, its structure blob, its seed. Nothing outside the saved state and `reset()` changes what it renders (no hidden state). | A17 |
 | RS-6.11 | **Deterministic restore.** Save then load is bit-exact. Save → load → save gives byte-identical text, and floats round-trip exactly (C99 hex, or a shortest round-trip format; never `%.6g`). | A18 |
-| RS-6.12 | **Bounded size.** A module's state per corner is at most **2 KiB**, and at most **4 KiB for Shriek**, whose own XY pad carries four snapshots and their per-snapshot macro ranges (ADR-300). With four modules and four corners that is 40 KiB of B446's 64 KiB cap on state text (`kMaxPastedStateBytes`, `src/input_guards.h`, re-derived from the factory bank by `paste_cap_check` as 4× the largest factory preset, rounded up to a power of two, so it grows with horde 2's bank). An oversized state is refused before anything is allocated. **Sluice: 12,288 bytes per corner, enforced at creation (ADR-359, ADR-351), so these figures no longer sum to 40 KiB. The other modules' figures and the ceiling are being re-derived (B603); the ceiling is open.** | A19 |
+| RS-6.12 | **Bounded size (ruled, ADR-401).** A module's state per corner is at most its ruled budget in **§12.9's table**, the one source of the figures: 4,096 B for every hosted module, Sluice 12,288 B (ADR-359 r1), Weir provisional until its manifest. ADR-300's 2 KiB and Shriek's 4 KiB are superseded. **What counts (ADR-401 r1):** what the module writes, measured its own way: its state and blobs, with the macros, labels and name they carry. For Kiln, Scape and Mangle that is their patch text. A module whose figure counts its patch text also declares a bound for its state alone (`stateBudget()`), at or below the figure, which A19 checks. horde's wrapper (`origin_id`, `module_version`, the JSON keys) and the basis beside each value are not in the budget; they count toward the ceiling. **Per corner and once per instance (§6.2; ADR-401):** the budget is per corner and covers the module patch at each corner (`values`, `absolute` and its blobs). The `device[<module>]` block of Device keys and the macro tier state are saved once per instance, outside every corner (RS-4.5), so they count toward the ceiling, not the budget. **Where it bites (ADR-401; ADR-351 r2):** no editor, randomizer, import, paste, copy-to-all-corners or random-and-follow action (ADR-339) creates a record over budget, and a knob move is never refused (ADR-359 r1). A load still refuses an oversized state before anything is allocated, as a guard against damaged or foreign files. Refusing at save as the user-facing rule stays rejected (ADR-351). Identical corners are stored once (ADR-339). **Shriek (ADR-401 r3):** its extra snapshots live in a v2 blob, inside its 4,096 B. Adding a snapshot that would take the blob over is refused at creation with a note; a refusal at save stays only as a guard. **Names and labels (ADR-401 r4):** horde's editor caps a name at 64 B and a label at 32 B of UTF-8, labels in a module's own format included (Bulwark's `slots` blob; Kiln's, Scape's and Mangle's patch text). Sluice's and Shriek's own label caps do not change. **The ceiling stays open (ADR-401; ADR-359 r2)** until B612's host save test. B446's 64 KiB (`kMaxPastedStateBytes`, `src/input_guards.h`, re-derived by `paste_cap_check` as 4× the largest factory preset, rounded up to a power of two) is a derived paste cap, not a host limit. | A19 |
 | RS-6.13 | **Live state is excluded by design**, in OQ 24's vocabulary: it is never snapshotted into a preset. The table below says which policy each kind of live state takes. | A20 |
 | RS-6.14 | **Edits arrive as gestures.** Every edit made inside a module's face (a knob, a snapshot capture, Sluice's randomiser drawing a new patch) reaches horde through its gesture brackets, so history makes one node per gesture. A module never changes its saved state silently. | A13 (round trip after an edit) |
 
@@ -366,7 +367,7 @@ the human rules.
 | Q6 | Should a module whose latency depends on a setting (Sluice's oversampling) have that setting fixed at activate, as Device class, and never different between corners? | RS-7.1 | **Yes.** This is ADR-193 D6 applied: a latency setting is a restart-time toggle. |
 | Q7 | Should a module patch at a corner be a FOUNDATIONS cascade `Preset` at the module's scope, with `ModulePreset` converted at import, rather than a third format? | §6.2 | **Yes.** It reuses the cascade's exact-identity rule and OQ 10's addressing. It changes nothing for Bulwark or Shriek, whose files convert. |
 | Q8 | Should a module with no load entry (Shriek) be loaded by ramped `setParam` calls in 1.0, rather than being required to add `loadState`? | RS-6.8 | **Yes, for 1.0.** FOUNDATIONS made an undeclared `LoadDecl` legal. List it as the module's known difference. |
-| Q9 | Should a module's state be capped at 2 KiB per corner? | RS-6.12 | **Yes.** Four modules × four corners is then half of B446's 64 KiB cap. Re-derive the figure once Sluice's largest factory patch is measured. **Amended (ADR-300, 2026-10-28):** Shriek 4 KiB, the others 2 KiB; still provisional, re-derived for every module once horde 2's factory bank exists. |
+| Q9 | Should a module's state be capped at 2 KiB per corner? | RS-6.12 | **Yes.** Four modules × four corners is then half of B446's 64 KiB cap. Re-derive the figure once Sluice's largest factory patch is measured. **Amended (ADR-300, 2026-10-28):** Shriek 4 KiB, the others 2 KiB; still provisional, re-derived for every module once horde 2's factory bank exists. **Ruled (ADR-401, 2026-11-15); no longer provisional.** ADR-300's 2 KiB and 4 KiB are superseded by §12.9's table: 4,096 B per corner for every hosted module, Sluice 12,288 B (ADR-359 r1), Weir provisional until its manifest. The count is what the module writes (RS-6.12). The ceiling stays open (ADR-359 r2). |
 | Q10 | The history clauses: complete state, deterministic restore, bounded size, live state excluded, and edits as gestures. | RS-6.10–6.14 | **Yes.** Each has an admission row (A13, A17–A20). |
 | Q11 | Should the memory figure be a MUST for hosted modules, not a SHOULD? | RS-2.6, RS-8.5 | **Yes.** Static nodes keep every module resident. |
 | Q12 | Should horde measure every module's CPU itself, judged at the E-6 reference? | RS-8.2 | **Yes.** It is what our seq-12 answer told Bulwark. |
@@ -399,13 +400,32 @@ allowed. Scape has a ratified browser lab, and its C++ core and hosting have not
 | Deterministic (A15) | met: 192 exact goldens; B230 isolation test | met: parity with the lab at 1e-6 | met: C++ goldens | partial: the lab is seeded and deterministic; no C++ |
 | CPU on horde's bench (RS-8.2) | unknown: indicative figures in `docs/cpu/` | unknown: its own bench (about 3 % per tail) | unknown: projected about 9.7 % per instance (B262); needs a cheaper mode | unknown |
 | Memory figure (RS-2.6) | unknown | met: `patchBytes` / `engineBytes` / `residentBytes` | unknown | unknown |
-| State complete, exact restore, bounded (A17–A19) | unknown | unknown | unknown | not met |
+| State complete, exact restore (A17–A18). Restated 2026-11-15 (ADR-401) | unknown | unknown | unknown | met: every module-only row passes in admission (B561) at Scape `8350fb8`, 2026-11-16 (horde `4f47edf3`, B701's run) |
+| State size within its ruled budget (A19; ADR-401, §12.9). Restated 2026-11-15 from the modules' replies to B603 | 4,096 B. Not yet in admission. Factory at most 1,191 B; at most 2,612 B + 4 × label length, slot labels uncapped until the 32 B cap lands (seq 35) | 12,288 B (ADR-359 r1). Not yet in admission. Factory at most 3,585 B; its largest pad is held to 12,288 B (seq 75) | 4,096 B. Not yet in admission. v1 at most 4,071 B, gated at 4,096 B (seq 42); the snapshot list goes in a v2 blob, which Shriek is asked for (ADR-401 r3) | 4,096 B, counting its patch text. A19 met against the ruled 4,096 B at Scape `8350fb8`, 2026-11-16 (horde `4f47edf3`, B701's run): factory patch text at most 655 B, worst-case state 912 B, declared `stateBudget()` still 2,048 B until Scape raises its constant; state at most 1,100 B by its reply (seq 7). Its patch text reaches 5,721 B (seq 7), so it fits only by refusal at creation (B702) and by its parser's refusal, due 2026-12-11 |
 
 **Summary.** Bulwark is closest: 13 of 18 rows met, with gaps in macro curves, the parameter
 handle, CPU, memory and the history rows. Sluice has 9 met and the most partials: latency, tail, the parameter
 handle, manifest classes and the preset format. Shriek has 8 met, and needs a tail declaration and a
 reporting NaN guard. Scape is a lab and is not yet hostable. Nothing here is a fault in the
-modules: the contract did not exist when they built their shims.
+modules: the contract did not exist when they built their shims. The counts are the 2026-10-09
+read's, before its A17–A19 row was split in two (2026-11-15).
+
+**A17–A19 for the modules not in the table** (restated 2026-11-15, ADR-401; figures from §12.9
+and each module's reply to B603).
+- **Kiln EQ and Kiln Drive:** 4,096 B each, counting the patch text. Every module-only row passes in
+  admission at Kiln main `45c8b36`, 2026-11-16 (horde `4f47edf3`, B701's run; first in B605),
+  A19 against the ruled 4,096 B: factory patch text at most 748 B (EQ) and 143 B (Drive), and the
+  declared state bounds (EQ 1,359 B, Drive 512 B) under it. They also pass at `5538537` on Kiln's
+  working branch, where its patch cap is 4,096 B, refused by its writer and its parser with plants
+  (Kiln seq 12). Kiln's main still caps patch text at 2,048 B until that branch lands.
+- **Echo:** 4,096 B. 910 B at most, calculated, with no macros (seq 4). Not yet in admission.
+- **Mangle:** 4,096 B, counting the patch text. State 268 B; a preset about 650 B with three macros
+  and about 1.2 KiB with eight, one binding each, both estimates (seq 6, 7). Its `writePatch` does
+  not yet check size. Not yet in admission.
+- **Arp:** 4,096 B. 3,431 B, and 3,499 B at its 16-layer cap, counted as the whole corner record
+  (seq 17), which is more than the ruled count. Factory presets not measured yet. Not yet in
+  admission.
+- **Weir:** 4,096 B, provisional until its manifest. Not built.
 
 ## 12. Amendments
 
@@ -491,3 +511,37 @@ Ruled by the human, 2026-10-29, by poll: "Adopt as the contract format". Where a
 
 **What the modules are asked.** Scape: nothing; its words are the format. Bulwark, Shriek and Sluice: declare each flip-class key's switch in this form, by notice from horde. **FX device (ADR-254):** the same, since every module is hosted there through the same slot and manifest.
 
+### 12.9 ADR-401 (2026-11-15), on the modules' state-budget replies (B603)
+
+Ruled by the human, 2026-11-15, by poll (ADR-401 rulings 1–4), from the lead's recommendations. Where a row above and this section disagree, this section holds. (§12.8 is reserved for ADR-399.)
+
+| Row | As amended |
+|---|---|
+| **RS-6.12** | Carries the ruled budgets by pointing to the table below, which is the one source of the figures. It states the count, which parts are per corner and which once per instance, the creation rule, Shriek's snapshot list, the name and label caps, and the open ceiling. |
+| **A19** | Judges each module against its row below, and its declared `stateBudget()` against the same figure. Where the figure counts the patch text, the factory presets' patch text is judged against it too; the worst case stays a state, and a worst-case patch text is bounded at creation (B702) and by the module's parser (due 2026-12-11). Its creation-entrance input, pass condition and must-fail control are judged when the shell exists (B398, B702). |
+| **Q9** | Ruled; no longer provisional. ADR-300's 2 KiB and 4 KiB are superseded. |
+| **§11** | A17–A19 restated per module, from the modules' replies to B603. |
+
+**The count (ruling 1).** What the module writes, measured its own way: its state and blobs, with the macros, labels and name they carry. horde's wrapper (`origin_id`, `module_version`, the JSON keys) and the basis beside each value go to the ceiling, not the budget. For Kiln, Scape and Mangle the counted figure is their patch text. Kiln's and Scape's adapters declare `stateBudget()` for their state alone, and it must also stay at or below the figure, which A19 checks.
+
+**The budgets (rulings 2 and 3; ADR-359 r1).** Bytes per corner.
+
+<!-- state-budget-table: read by tools/state_budget_check.py -->
+| Module | Budget per corner (bytes) | Counted figure | Status |
+|---|---|---|---|
+| Arp | 4096 | what Arp writes, its names map included | ruled |
+| Bulwark | 4096 | the corner block plus its slots blob, Device keys excluded | ruled |
+| Echo | 4096 | its state | ruled |
+| Kiln EQ | 4096 | its patch text, with its name and macros | ruled |
+| Kiln Drive | 4096 | its patch text, with its name and macros | ruled |
+| Mangle | 4096 | its patch text, with its name and macros | ruled |
+| Scape | 4096 | its patch text, with its name and macros | ruled |
+| Shriek | 4096 | its blob in base64 plus its cascade part; its snapshot list lives in its v2 blob, inside the budget | ruled |
+| Sluice | 12288 | its pad blob, labels included | ruled |
+| Weir | 4096 | to be declared in its manifest | provisional |
+
+**Names and labels (ruling 4).** A name is capped at 64 B and a label at 32 B of UTF-8, written by horde's editor, labels in a module's own format included. Sluice's and Shriek's own label caps do not change.
+
+**The ceiling** stays open (ADR-359 r2) until B612's host save test. 64 KiB is a derived paste cap (`src/input_guards.h`), not a host limit.
+
+**What the modules are asked** (notices filed 2026-11-15, due by the module cutoff, 2026-12-11, ADR-236; each refusal with a plant). Bulwark, Kiln, Scape, Echo and Mangle raise their 2,048 B constants to 4,096 B; Bulwark checks its corner block and slots together and adds the 32 B label cap; Kiln's `writePatch` and `parsePatch` stay in agreement; Scape's patch parser refuses a patch over 4,096 B; Mangle's `writePatch` refuses what its `parsePatch` refuses. Shriek decides on v2 and reports its overhead. Arp makes "save anyway" unreachable. Weir declares a budget and a creation bound in its manifest before admission. Sluice has nothing new to change. **FX device (ADR-254):** the same figures, caps and snapshot rule, since it hosts the same modules through the same slot; Arp's row does not apply there.
