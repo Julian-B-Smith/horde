@@ -431,6 +431,16 @@ fast() {
   # versions (copy-then-check, no cap) that must read red. ~1 s. Added under
   # ADR-180 §1.
   python3 tools/paste_cap_check.py || ok=1
+  # ONE STATE-BUDGET TABLE (B701, ADR-401). tools/admission/state_budgets.json is the
+  # table the admission harness reads (A19's --budget and --counts); red when it
+  # differs from the contract's §12.9 table row for row, when rowA19 carries a budget
+  # literal, a figure has a default, A19's over-figure plants are missing, or
+  # admission_check does not pass the table's figure, or when a factory preset horde
+  # holds is over its module's figure. Its must-fail controls run every run (the
+  # script's header lists them). The declared-4,097 B module control is plants.h
+  # budget-over-figure, fired by admission_check in full. ~1 s, no build. Added under
+  # ADR-180 §1.
+  python3 tools/state_budget_check.py || ok=1
   # THE ARMOR CATALOGUE (B448 A1, ADR-197). docs/armor/catalogue.json holds one row
   # per risk-register row, agent-signature rule and security category; each row is
   # a gate this file or a workflow actually runs (parsed, never listed), or a hole

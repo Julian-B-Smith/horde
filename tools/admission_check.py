@@ -47,6 +47,15 @@ offsets < latency for a module with none; every A4 report line names the window 
 own reference renders. The planted faults for both are in plants.h (pre-echo; io-jump and
 io-opens-ramped, which a non-exact module now reads too).
 
+A19's FIGURE (ADR-401, B701). Each module's ruled per-corner budget is read from ONE table,
+tools/admission/state_budgets.json (the mirror of the contract's §12.9 table, held to it by
+tools/state_budget_check.py in ./verify fast), and passed to the harness as --budget, with the row's `counts` (what the figure counts, ADR-401
+r1: patch-text or state) as --counts. The harness holds no figure of its own: a module with no row
+in the table is RED here, and a harness run with no --budget fails A19 (`no-figure`), one with no
+--counts too (`no-measure`). Both are shown on every run: A19 is run once with each left out, and
+each must read red, or A19 is NOT PROVEN. The two plants on patch text (PATCH_TEXT_PLANTS) run only
+for a module whose figure counts its patch text; on any other the row does not judge patch text.
+
 HOW A ROW IS JUDGED. tools/admission/harness.cpp prints, per row, the sub-checks that failed, each
 with a stable tag. Then every plant (tools/admission/plants.h: a wrapper that injects one fault
 through the neutral ABI) is run on its row. A control FIRED when its run reports a failure tag the
@@ -91,6 +100,9 @@ sys.path.insert(0, os.path.join(ROOT, "tools"))
 from rtsan_check import CALLEE, sanitizer_cxx, sdk_path  # ADR-199: one compiler rule, imported
 
 HARNESS_SRC = os.path.join(ROOT, "tools", "admission")
+BUDGETS = os.path.join(HARNESS_SRC, "state_budgets.json")   # A19's figures (ADR-401, B701)
+# A19's plants that judge patch text: they run only where the figure counts patch text (Ctx::counts)
+PATCH_TEXT_PLANTS = ("patch-text-over", "preset-text-over")
 
 # Kiln's sources and the harness's, for naming a sanitizer report's frame (both Kiln modules)
 KILN_SOURCES = ("eq.cpp", "eq_design.cpp", "drive.cpp", "drive_dsp.cpp", "manifest.cpp", "patch.cpp", "eq.h", "drive.h",
@@ -163,6 +175,20 @@ PINNED = {
 LINE = re.compile(r"^(FAIL|NOTE|DETAIL|ROW) (A\d+)(?: (\S+))? :: (.*)$")
 
 
+def ruled_budget(module):
+    """-> (bytes, row) of the module's ruled per-corner figure in tools/admission/state_budgets.json,
+    or (None, reason). Read on every call, so the table is the one place a figure lives."""
+    try:
+        with open(BUDGETS, encoding="utf-8") as f:
+            row = json.load(f)["modules"][module]
+    except (OSError, ValueError, KeyError, TypeError) as e:
+        return None, f"no ruled budget for {module!r} in tools/admission/state_budgets.json ({type(e).__name__}: {e})"
+    b = row.get("bytes") if isinstance(row, dict) else None
+    if not isinstance(b, int) or isinstance(b, bool) or b <= 0:
+        return None, f"tools/admission/state_budgets.json: {module!r} has no positive integer 'bytes'"
+    return b, row
+
+
 def resolve_tree(mod):
     env = os.environ.get(mod["env"])
     return os.path.abspath(os.path.expanduser(env if env else mod["default"]))
@@ -209,8 +235,17 @@ def build(build_dir, tree, mod, extra=()):
     return None
 
 
-def harness(exe, module, tree, *args):
-    r = subprocess.run([exe, "--module", module, "--tree", tree, *args], capture_output=True, text=True, cwd=ROOT)
+def harness(exe, module, tree, *args, omit=()):
+    # A19's figure and count ride on every run, the plants' included (three A19 plants land one byte
+    # past the figure). No figure or no count: the harness then fails A19 itself rather than guess.
+    # `omit` leaves one out on purpose, for A19's no-figure and no-measure controls.
+    b, row = ruled_budget(module)
+    ruled = []
+    if b and "--budget" not in omit:
+        ruled += ["--budget", str(b)]
+    if b and isinstance(row.get("counts"), str) and "--counts" not in omit:
+        ruled += ["--counts", row["counts"]]
+    r = subprocess.run([exe, "--module", module, "--tree", tree, *ruled, *args], capture_output=True, text=True, cwd=ROOT)
     return r.returncode, r.stdout, r.stderr
 
 
@@ -396,6 +431,12 @@ def run_module(module):
             return False, False, f"{mod['name']}: no FOUNDATIONS tree"
         extra = (f"-DHORDE_FOUNDATIONS_INCLUDE={inc}",)
         found = f"foundations/fx_operator.h sha256 {what[:12]}"
+    figure, brow = ruled_budget(module)
+    if figure is None:
+        print(f"admission_check: RED — {mod['name']}: {brow}; A19 has no figure to judge against (ADR-401)")
+        return True, True, ""
+    found = "; ".join(x for x in (found, f"A19 figure {figure} B per corner counting {brow.get('counts', '(no count)')} "
+                                  f"({brow.get('status', '?')}, {brow.get('adr', '?')}, tools/admission/state_budgets.json)") if x)
     rev = revision(tree, mod)
     build_root = os.path.join(ROOT, "build-admission")
     bdir = os.path.join(build_root, mod.get("build", module))
@@ -421,6 +462,8 @@ def run_module(module):
         if prow == "A10":
             continue   # run under the sanitizer, below
         what = rest.removeprefix(":: ")
+        if pid in PATCH_TEXT_PLANTS and brow.get("counts") != "patch-text":
+            continue   # the row judges no patch text for this module (its figure counts something else)
         rc, pout, perr = harness(exe, module, tree, "--plant", pid, "--rows", prow, "--no-readings")
         clean = set(rows.get(prow, {}).get("fails", {}))
         planted = parse(pout).get(prow, {"fails": {}})["fails"] if rc == 0 else {}
@@ -430,6 +473,15 @@ def run_module(module):
             entry["new"] = [f"the planted run exited {rc}: {perr.strip()[-200:]}"]
         rows.setdefault(prow, {"fails": {}, "notes": [], "details": [], "status": None, "summary": "", "controls": []})
         rows[prow]["controls"].append(entry)
+
+    # A19's figure and count come only from the table: shown by running the row with each left out
+    a19 = rows.setdefault("A19", {"fails": {}, "notes": [], "details": [], "status": None, "summary": "", "controls": []})
+    for flag, tag in (("--budget", "no-figure"), ("--counts", "no-measure")):
+        rc, pout, perr = harness(exe, module, tree, "--rows", "A19", "--no-readings", omit=(flag,))
+        got = parse(pout).get("A19", {"fails": {}})["fails"] if rc == 0 else {}
+        a19["controls"].append({"plant": tag, "what": f"the row run with no {flag}", "fired": tag in got,
+                                "new": [f"{tag}: {got[tag]}"] if tag in got else
+                                       [f"the run exited {rc}: {perr.strip()[-200:]}"] if rc != 0 else []})
 
     faults, fired, mem = manifest_half(exe, module, tree)
     a1 = rows.setdefault("A1", {"fails": {}, "notes": [], "details": [], "status": None, "summary": "", "controls": []})
