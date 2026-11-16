@@ -8741,6 +8741,14 @@
   {
    "adr": "ADR-387",
    "reason": "An engine-direction ruling (wavetables replace blades; three oscillators). Its page changes reach this ledger as the GUI session's own GUI-n rulings, from B656's GUI-needs handover; nothing here is drawn yet."
+  },
+  {
+   "adr": "ADR-399",
+   "reason": "Echo's fixed-row and import rulings (echo-003, echo-004): contract, admission and mailbox work. The keyed Time control and Type's selector are drawn by the GUI session as its own GUI-n rulings; nothing is drawn here yet."
+  },
+  {
+   "adr": "ADR-400",
+   "reason": "Who designs Sluice's FX module (Sluice, with horde's GUI session reviewing), where its source lives, and who finishes its pixel title. The GUI session records the carve-out, the GB13 handover and the title in its own GUI-n rulings and rows; nothing in the master changes here."
   }
  ],
  "engine_impact": {
