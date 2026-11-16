@@ -21,7 +21,7 @@
 // threshold invented here would be a tolerance nobody ruled (docs/armor/tolerances.json). Where
 // the contract asks for a reading it does not judge (ADR-218's click readings), it is printed.
 //
-//   admission_harness --module scape --tree DIR [--rows A1,A2,...] [--plant ID] [--no-readings]
+//   admission_harness --module scape|kiln-eq|kiln-drive --tree DIR [--rows A1,A2,...] [--plant ID] [--no-readings]
 //                     [--manifest-json] [--timing] [--rtsan control|session]
 //                     [--list-plants]
 #include <algorithm>
@@ -45,8 +45,17 @@
 #include "module.h"
 #include "plants.h"
 
+// One definition per adapter, each compiled in only when the build links that module's core
+// (CMakeLists.txt defines ADMISSION_SCAPE / ADMISSION_KILN): a harness built for one tree does
+// not need the other's sources. Kiln's two modules share one adapter file and one build.
 namespace admission {
+#ifdef ADMISSION_SCAPE
 ModuleInfo scapeModule(const std::string& tree);
+#endif
+#ifdef ADMISSION_KILN
+ModuleInfo kilnEqModule(const std::string& tree);
+ModuleInfo kilnDriveModule(const std::string& tree);
+#endif
 }
 
 #ifdef ADMISSION_RTSAN
@@ -380,11 +389,68 @@ Out rowA3(const Ctx& c) {
   return o;
 }
 
+// THE CAUSALITY CLAUSE (ADR-351, ruled by the human 2026-11-02; window amended by ADR-402,
+// 2026-11-15). "Nothing before the declared latency" read as the first NONZERO sample failed
+// every module with a half-band or any other linear-phase pre-ring: the ring is real and far below
+// anything audible. The ruling is a leading-edge threshold: nothing above kCausalThresholdDb of the
+// response's peak inside the judged window. The window depends on what the module DECLARES:
+//   - no early residual: offsets < latency (the whole stretch before the declared delay);
+//   - a declared early residual (an IIR oversampler: Kiln's drive, Shriek's half-band): offsets
+//     < latency - kCausalMarginSamples. The human kept -60 dB and shortened the window rather than
+//     loosening the threshold (ADR-402): the residual measures -73 dB (Kiln drive) and -70 dB
+//     (Shriek) re the peak at offset 0, i.e. under -60 but with only ~10 dB of room, and the last
+//     samples before the latency are where such a filter's main lobe starts to rise. (Shriek's
+//     pass depends on its declared latency: its offset-1 reading is -38 dB, trace open question 4.)
+// Both are registered in docs/armor/tolerances.json (--approve <id> ADR-402), named, never inlined.
+// The trailing comments are the registry's `governs` text: keep each one a sentence.
+constexpr double kCausalThresholdDb = -60.0;  // A sample in the judged window fails above this many dB re the response's peak (ADR-351, ADR-402)
+constexpr long kCausalMarginSamples = 3;  // A declared early residual is excused this many samples before the declared latency (ADR-402)
+
+struct Edge {
+  long at = 0;             // offset from the impulse of the loudest sample before the window's end
+  double db = -INFINITY;   // its level in dB re the response's peak (-inf: nothing there)
+  bool over = false;       // above the threshold
+};
+// The response `h` to an impulse at sample k0: the loudest sample, over both channels, at offsets
+// below `windowEnd`, judged against the response's peak over both channels and the whole render.
+// Scans from sample 0, so output ahead of the impulse itself reads here too.
+Edge leadingEdge(const Buf& h, long k0, long windowEnd, double floorDb) {
+  double peak = 0;
+  for (std::size_t i = 0; i < h.size(); ++i) peak = std::max({peak, std::fabs(h.L[i]), std::fabs(h.R[i])});
+  Edge e;
+  if (peak == 0) return e;
+  const long end = std::min<long>(k0 + windowEnd, static_cast<long>(h.size()));
+  double loud = 0;
+  for (long i = 0; i < end; ++i) {
+    const double a = std::max(std::fabs(h.L[static_cast<std::size_t>(i)]), std::fabs(h.R[static_cast<std::size_t>(i)]));
+    if (a > loud) { loud = a; e.at = i - k0; }
+  }
+  if (loud == 0) return e;
+  e.db = 20 * std::log10(loud / peak);
+  e.over = loud > peak * std::pow(10.0, floorDb / 20);
+  return e;
+}
+// The detector's own must-read-zero control, run before it judges anything (the lesson in
+// plants.h: a probe can confirm the expected answer for the wrong reason). A response with its
+// peak at offset 4 and a sample at offset 0 must read CLEAN at -70 dB and RED at -50 dB; a -50 dB
+// sample at the window's last offset (2 of 3) must read red and one just past it (3) must not: the
+// window is not off by one. The
+// amplitudes are fixture values set clear of the threshold, not tolerances.
+bool leadingEdgeCalibrated() {
+  auto at = [](long off, double db) {
+    Buf h(64);
+    h.L[20 + 4] = h.R[20 + 4] = 1;
+    h.L[static_cast<std::size_t>(20 + off)] = std::pow(10.0, db / 20);
+    return leadingEdge(h, 20, 3, kCausalThresholdDb).over;
+  };
+  return !at(0, -70) && at(0, -50) && at(2, -50) && !at(3, -50);
+}
+
 // ================================================================================================
 // A4 Latency truth, read on the module's dry setting where the output is the input delayed by the
 // latency: the impulse's peak and the swept sine's cross-correlation peak must sit at the declared
 // samples (or one off, on the side the declared residual's sign names). On every patch, no output
-// may come before the declared latency.
+// above kCausalThresholdDb of the response's peak may come before the window's end (ADR-351).
 Out rowA4(const Ctx& c) {
   Out o{"A4"};
   auto probe = c.make();
@@ -437,22 +503,48 @@ Out rowA4(const Ctx& c) {
     }
     if (!allowed(*p.latency, best)) o.fail("sweep@" + rate(sr), "swept-sine cross-correlation peaks at " + std::to_string(best) + " samples, declared " + std::to_string(p.latency->samples));
   }
-  // causality on every patch: nothing before the declared latency (less one sample if the
-  // residual is declared early)
+  // causality on every patch, as a leading-edge threshold (ADR-351, window ADR-402): nothing above
+  // kCausalThresholdDb of the peak inside the judged window. The window is `latency` for a module
+  // with no early residual and `latency - kCausalMarginSamples` for one that declares it.
+  if (!leadingEdgeCalibrated()) o.fail("early.calibration", "the leading-edge detector misreads its own fixture: a -70 dB sample must read clean and a -50 dB one red");
   std::vector<std::pair<std::string, Settings>> patches = {{"default", {}}};
   for (const auto& [f, t] : c.presets) patches.emplace_back(f, presetSettings(c, t));
+  double worst = -INFINITY;
+  bool anyMargin = false, anyFull = false;
+  int judgedPatches = 0;
   for (const auto& [name, s] : patches) {
     auto m = fresh(c, s, 48000, 4096);
     const auto p = m->properties();
     if (!p.latency) continue;
-    const long early = p.latency->residual > 0 && p.latency->sign == foundations::ResidualSign::kEarly ? 1 : 0;
+    const bool declaresEarly = p.latency->residual > 0 && p.latency->sign == foundations::ResidualSign::kEarly;
+    const long window = std::max(0L, static_cast<long>(p.latency->samples) - (declaresEarly ? kCausalMarginSamples : 0));
+    const std::string edge = declaresEarly ? "latency - " + std::to_string(kCausalMarginSamples) : std::string("latency");
+    (declaresEarly ? anyMargin : anyFull) = true;
+    ++judgedPatches;
     Buf imp(4096);
     imp.L[k0] = imp.R[k0] = 1;
-    const long f = firstNonzero(render(*m, imp, 512));
-    if (f >= 0 && f - static_cast<long>(k0) < static_cast<long>(p.latency->samples) - early)
-      o.fail("early[" + name + "]", "output " + std::to_string(static_cast<long>(p.latency->samples) - (f - static_cast<long>(k0))) + " samples before the declared latency");
+    const Edge e = leadingEdge(render(*m, imp, 512), static_cast<long>(k0), window, kCausalThresholdDb);
+    worst = std::max(worst, e.db);
+    o.details.push_back("causality[" + name + "]: loudest sample before " + edge + " (window " + std::to_string(window) + " samples) is " +
+                        (std::isinf(e.db) ? std::string("absent") : num(e.db) + " dB re the peak, at offset " + std::to_string(e.at)) +
+                        "; threshold " + num(kCausalThresholdDb) + " dB");
+    if (e.over)
+      o.fail("early[" + name + "]", "output at offset " + std::to_string(e.at) + " is " + num(e.db) + " dB re the response's peak, above " +
+             num(kCausalThresholdDb) + " dB, before " + edge + " (window " + std::to_string(window) + " samples)");
   }
-  o.summary = "impulse and swept sine on the dry setting at 48k and 96k; causality on the defaults and " + std::to_string(c.presets.size()) + " factory presets";
+  const std::string thr = num(kCausalThresholdDb);
+  if (judgedPatches == 0) {
+    // Nothing was judged: say so, never "reads absent" (a report line names what it judges, ADR-402).
+    o.note("causality not judged: no patch declares a latency");
+    o.summary = "impulse and swept sine on the dry setting at 48k and 96k; causality not judged: no patch declares a latency";
+    return o;
+  }
+  const std::string judged = anyMargin && anyFull ? "latency - " + std::to_string(kCausalMarginSamples) + " (declared early residual) or latency"
+                             : anyMargin          ? "latency - " + std::to_string(kCausalMarginSamples) + " (declared early residual)"
+                                                  : std::string("latency (no early residual declared)");
+  o.note("causality: the loudest sample before " + judged + " reads " + (std::isinf(worst) ? std::string("absent") : num(worst) + " dB re the peak") +
+         " over the worst patch (threshold " + thr + " dB, ADR-351/ADR-402)");
+  o.summary = "impulse and swept sine on the dry setting at 48k and 96k; leading-edge causality (" + thr + " dB re the peak, window " + judged + ") on " + std::to_string(judgedPatches) + " of the defaults and " + std::to_string(c.presets.size()) + " factory presets";
   return o;
 }
 
@@ -510,6 +602,140 @@ Out rowA5(const Ctx& c) {
   return o;
 }
 
+// A step 0 -> +6 dB read as a gain curve g[i] (1 before `pre`, the +6 dB gain after): a linear
+// amplitude ramp over 20 ms +- one sample. The one judge both A6 paths use, so a module on the
+// reference path is held to the very ramp an exact module is (ADR-351's third check). The tags
+// are the exact path's own, unchanged.
+void judgeRamp(Out& o, const std::vector<double>& g, std::size_t pre, std::size_t n, double sr, const std::string& tag, bool detail) {
+  const double g0 = g[pre - 1], g1 = g[n - 1];
+  if (g0 != 1 || g1 == g0) { o.fail("t2.levels[" + tag + "]", "before the step " + num(g0) + ", after " + num(g1) + " (must be 1, then the +6 dB gain)"); return; }
+  std::size_t s = n - 1;
+  while (s > pre && g[s - 1] == g1) --s;
+  const long N = static_cast<long>(s - pre) + 1, ideal = std::lround(0.02 * sr);
+  if (N < ideal - 1 || N > ideal + 1) o.fail("t2.length[" + tag + "]", "the ramp takes " + std::to_string(N) + " samples; 20 ms is " + std::to_string(ideal));
+  const double step = std::fabs(g1 - g0) / static_cast<double>(N);
+  long off = -1, back = -1;
+  for (long j = 0; j + 1 < N; ++j) {
+    const double ideal_g = g0 + (g1 - g0) * static_cast<double>(j + 1) / static_cast<double>(N);
+    if (off < 0 && std::fabs(g[pre + static_cast<std::size_t>(j)] - ideal_g) > step) off = j;
+    if (back < 0 && j > 0 && (g[pre + static_cast<std::size_t>(j)] - g[pre + static_cast<std::size_t>(j) - 1]) * (g1 - g0) < 0) back = j;
+  }
+  if (off >= 0) o.fail("t2.linear[" + tag + "]", "ramp sample " + std::to_string(off) + " is more than one step off the straight line");
+  if (back >= 0) o.fail("t2.monotone[" + tag + "]", "the ramp reverses at sample " + std::to_string(back));
+  if (detail) o.details.push_back("t2 " + tag + ": " + std::to_string(N) + " samples to +6 dB (20 ms = " + std::to_string(ideal) + ")");
+}
+
+// Bit-identical over [from, to) of two renders; -1 if they match, else the first differing sample.
+long firstDiff(const Buf& a, const Buf& b, std::size_t from, std::size_t to) {
+  for (std::size_t i = from; i < to; ++i)
+    if (std::memcmp(&a.L[i], &b.L[i], sizeof(Sample)) != 0 || std::memcmp(&a.R[i], &b.R[i], sizeof(Sample)) != 0) return static_cast<long>(i);
+  return -1;
+}
+Buf scaled(const Buf& in, double g, std::size_t from = 0) {
+  Buf b = in;
+  for (std::size_t i = from; i < b.size(); ++i) { b.L[i] *= g; b.R[i] *= g; }
+  return b;
+}
+
+// ADR-351: A6 for a module with NO exact dry setting (Kiln's drive). out = in x the gains cannot be
+// read off the output, so each test is judged against the module's own renders, with Kiln's three
+// checks and no tolerance of ours:
+//   io.outGain at g against g x out(0 dB):  fl(plain x g) is what a gain applied last must give,
+//                                           bit for bit.
+//   io.inGain at g against a 0 dB twin fed in x g, bit for bit.
+//   each 20 ms ramp against the ideal linear ramp, by the same judgeRamp the exact path uses: the
+//   out ramp is read as y / plain; the in ramp is read from the module's own input tap
+//   (meters().inPeak, a sample at a time), and a 0 dB twin fed exactly the tapped input must
+//   reproduce the module's output, which ties the tap to the audio: a module whose meter ramps
+//   while its audio jumps reads red.
+// Kiln's own 1e-12 ramp bound is NOT adopted: it would be a tolerance nobody ruled here (the
+// header's rule: exact or structural only), and the tap makes the readings exact anyway.
+// Each failure mode reads red, never a false pass: a module that cannot be read a sample at a
+// time (min_block > 1) fails t2.unreadable rather than reporting NOT RUN, because the driver
+// does not count NOT RUN as red.
+void referenceA6(Out& o, const Ctx& c, const std::string (&keys)[2], const Settings& d0, double g6, double sr0) {
+  const Settings at6[2] = {join(d0, {{keys[0], 6}}), join(d0, {{keys[1], 6}})};
+  // ---- test 1: 0 dB set explicitly is what never touching the gains gives; +6 dB at prepare is
+  // the module's own 0 dB render scaled (out) or fed scaled (in), from the first sample
+  {
+    const Buf in = noise(secs(0.5, sr0), 41);
+    const Settings dry = {d0.begin(), d0.end() - 2};
+    auto x = fresh(c, dry, sr0, 512), y = fresh(c, d0, sr0, 512);
+    applyTo(*y, {{keys[0], 0}, {keys[1], 0}});
+    std::size_t first = 0;
+    if (!same(render(*x, in, 512), render(*y, in, 512), &first)) o.fail("t1.explicit", "0 dB set explicitly differs from the gains never touched, from sample " + std::to_string(first));
+    const Buf plain = render(*fresh(c, d0, sr0, 512), in, 512);
+    long d = firstDiff(render(*fresh(c, at6[1], sr0, 512), in, 512), scaled(plain, g6), 0, in.size());
+    if (d >= 0) o.fail("t1.ref[" + keys[1] + "]", "prepared at a saved +6 dB the output is not out(0 dB) x g, from sample " + std::to_string(d));
+    d = firstDiff(render(*fresh(c, at6[0], sr0, 512), in, 512), render(*fresh(c, d0, sr0, 512), scaled(in, g6), 512), 0, in.size());
+    if (d >= 0) o.fail("t1.ref[" + keys[0] + "]", "prepared at a saved +6 dB the output is not a 0 dB twin fed in x g, from sample " + std::to_string(d));
+  }
+  // ---- test 2: the 20 ms ramps, read through the reference
+  for (double sr : {44100.0, 48000.0, 96000.0}) {
+    const std::size_t pre = secs(0.1, sr), n = pre + secs(0.1, sr);
+    const Buf in = constant(n, 0.25);
+    {   // outGain: y / out(0 dB)
+      const std::string tag = keys[1] + "@" + rate(sr);
+      Buf plain(n), y(n);
+      run(*fresh(c, d0, sr, 512), in, plain, 0, n, {64});
+      auto m = fresh(c, d0, sr, 512);
+      run(*m, in, y, 0, pre, {64});
+      m->setParam(m->resolve(keys[1]), 6);
+      run(*m, in, y, pre, n, {64});
+      const long d = firstDiff(y, plain, 0, pre);
+      if (d >= 0) { o.fail("t2.pre[" + tag + "]", "before the step the output differs from the 0 dB render, from sample " + std::to_string(d)); continue; }
+      std::vector<double> g(n, 1.0);
+      for (std::size_t i = 0; i < n; ++i) g[i] = plain.L[i] != 0 ? y.L[i] / plain.L[i] : (i ? g[i - 1] : 1.0);
+      judgeRamp(o, g, pre, n, sr, tag, sr == sr0);
+    }
+    {   // inGain: the input tap, a sample at a time, and a 0 dB twin fed the tapped input
+      const std::string tag = keys[0] + "@" + rate(sr);
+      auto m = fresh(c, d0, sr, 512);
+      const auto p = m->properties();
+      if (!p.min_block || *p.min_block > 1) { o.fail("t2.unreadable[" + tag + "]", "min_block > 1: the input tap cannot be read a sample at a time"); continue; }
+      Buf y(n), tin(n);
+      std::vector<double> g(n);
+      for (std::size_t i = 0; i < n; ++i) {
+        if (i == pre) m->setParam(m->resolve(keys[0]), 6);
+        m->clearMeters();
+        m->process(&in.L[i], &in.R[i], &y.L[i], &y.R[i], 1);
+        tin.L[i] = tin.R[i] = m->meters().inPeak;   // the tap: |input x gain|, exactly (0.25 is a power of two)
+        g[i] = tin.L[i] * 4;
+      }
+      judgeRamp(o, g, pre, n, sr, tag, sr == sr0);
+      Buf twin(n);
+      run(*fresh(c, d0, sr, 512), tin, twin, 0, n, {1});
+      const long d = firstDiff(y, twin, 0, n);
+      if (d >= 0) o.fail("t2.twin[" + tag + "]", "a 0 dB twin fed the tapped input does not reproduce the output, from sample " + std::to_string(d) + ": the tap and the audio disagree");
+    }
+  }
+  // ---- test 3: a state load at +6 dB, mid-render, is at +6 dB from the load on
+  for (int ki = 0; ki < 2; ++ki) {
+    const std::string& k = keys[ki];
+    const std::size_t at = 256, n = 2048;
+    const Buf in = noise(n, 43);
+    auto src = fresh(c, at6[ki], sr0, 512);
+    std::vector<char> st(64 * 1024);
+    const std::size_t len = src->saveState(st.data(), st.size());
+    auto l = fresh(c, d0, sr0, 512);
+    Buf y(n);
+    run(*l, in, y, 0, at, {64});
+    if (!len || !l->stageState(std::string_view(st.data(), len)) || !l->adoptStaged()) { o.fail("t3.load[" + k + "]", "the state did not load"); continue; }
+    run(*l, in, y, at, n, {64});
+    Buf want(n);
+    if (ki == 1) {
+      Buf plain = render(*fresh(c, d0, sr0, 512), in, 64);
+      for (std::size_t i = 0; i < n; ++i) { const double g = i < at ? 1.0 : g6; want.L[i] = plain.L[i] * g; want.R[i] = plain.R[i] * g; }
+    } else {
+      Buf fed = in;
+      for (std::size_t i = at; i < n; ++i) { fed.L[i] *= g6; fed.R[i] *= g6; }
+      want = render(*fresh(c, d0, sr0, 512), fed, 64);
+    }
+    const long d = firstDiff(y, want, 0, n);
+    if (d >= 0) o.fail("t3.load[" + k + "]", "after a state load at +6 dB the output departs from the reference render, from sample " + std::to_string(d));
+  }
+}
+
 // ================================================================================================
 // A6 I/O gain, tests 1-3 and 7 of docs/proposals/module-io-gain.md, read on the dry setting with a
 // constant input of 0.25: the output is then exactly 0.25 x the applied gain (a power of two
@@ -533,9 +759,12 @@ Out rowA6(const Ctx& c) {
   if (!both) { o.status = "NA"; o.summary = "the module declares no I/O gain pair: the slot provides it (test 6, a slot row)"; return o; }
   if (dry.empty()) { o.status = "NOTRUN"; o.summary = "the adapter names no dry setting"; return o; }
   const double sr0 = 48000;
+  const Settings d0 = join(dry, {{keys[0], 0}, {keys[1], 0}});
+  const double g6 = std::pow(10.0, 6.0 / 20);   // +6 dB by the standard's law, 10^(dB/20)
+  if (probe->dryExact()) {
   // ---- test 1: 0 dB is exactly unity
   {
-    auto m = fresh(c, join(dry, {{keys[0], 0}, {keys[1], 0}}), sr0, 512);
+    auto m = fresh(c, d0, sr0, 512);
     const Buf in = noise(secs(0.5, sr0), 41);
     std::size_t first = 0;
     if (!same(render(*m, in, 512), in, &first)) o.fail("t1.dry", "at 0 dB on the dry setting the output is not the input, from sample " + std::to_string(first));
@@ -546,7 +775,7 @@ Out rowA6(const Ctx& c) {
   // ---- test 2: a step 0 -> +6 dB is a linear amplitude ramp over 20 ms +- one sample
   for (double sr : {44100.0, 48000.0, 96000.0}) {
     for (const auto& k : keys) {
-      auto m = fresh(c, join(dry, {{keys[0], 0}, {keys[1], 0}}), sr, 512);
+      auto m = fresh(c, d0, sr, 512);
       const std::size_t pre = secs(0.1, sr), n = pre + secs(0.1, sr);
       const Buf in = constant(n, 0.25);
       Buf y(n);
@@ -555,43 +784,30 @@ Out rowA6(const Ctx& c) {
       run(*m, in, y, pre, n, {64});
       std::vector<double> g(n);
       for (std::size_t i = 0; i < n; ++i) g[i] = y.L[i] * 4;
-      const double g0 = g[pre - 1], g1 = g[n - 1];
-      const std::string tag = k + "@" + rate(sr);
-      if (g0 != 1 || g1 == g0) { o.fail("t2.levels[" + tag + "]", "before the step " + num(g0) + ", after " + num(g1) + " (must be 1, then the +6 dB gain)"); continue; }
-      std::size_t s = n - 1;
-      while (s > pre && g[s - 1] == g1) --s;
-      const long N = static_cast<long>(s - pre) + 1, ideal = std::lround(0.02 * sr);
-      if (N < ideal - 1 || N > ideal + 1) o.fail("t2.length[" + tag + "]", "the ramp takes " + std::to_string(N) + " samples; 20 ms is " + std::to_string(ideal));
-      const double step = std::fabs(g1 - g0) / static_cast<double>(N);
-      long off = -1, back = -1;
-      for (long j = 0; j + 1 < N; ++j) {
-        const double ideal_g = g0 + (g1 - g0) * static_cast<double>(j + 1) / static_cast<double>(N);
-        if (off < 0 && std::fabs(g[pre + static_cast<std::size_t>(j)] - ideal_g) > step) off = j;
-        if (back < 0 && j > 0 && (g[pre + static_cast<std::size_t>(j)] - g[pre + static_cast<std::size_t>(j) - 1]) * (g1 - g0) < 0) back = j;
-      }
-      if (off >= 0) o.fail("t2.linear[" + tag + "]", "ramp sample " + std::to_string(off) + " is more than one step off the straight line");
-      if (back >= 0) o.fail("t2.monotone[" + tag + "]", "the ramp reverses at sample " + std::to_string(back));
-      if (sr == sr0) o.details.push_back("t2 " + tag + ": " + std::to_string(N) + " samples to +6 dB (20 ms = " + std::to_string(ideal) + ")");
+      judgeRamp(o, g, pre, n, sr, k + "@" + rate(sr), sr == sr0);
     }
   }
   // ---- test 3: after prepare at a saved +6 dB, the first sample is already at +6 dB; and after
   // a state load the same. The reference is the same gain reached by a ramp and settled.
   for (const auto& k : keys) {
-    auto ref = fresh(c, join(dry, {{keys[0], 0}, {keys[1], 0}}), sr0, 512);
+    auto ref = fresh(c, d0, sr0, 512);
     render(*ref, constant(64, 0.25), 64);
     ref->setParam(ref->resolve(k), 6);
     const Buf yr = render(*ref, constant(secs(0.1, sr0), 0.25), 64);
     const double settled = yr.L.back() * 4;
-    auto m = fresh(c, join(dry, {{keys[0], 0}, {keys[1], 0}, {k, 6}}), sr0, 512);
+    auto m = fresh(c, join(d0, {{k, 6}}), sr0, 512);
     const double first = render(*m, constant(1, 0.25), 1).L[0] * 4;
     if (first != settled) o.fail("t3.prepare[" + k + "]", "first sample after prepare at +6 dB is at gain " + num(first) + ", settled +6 dB is " + num(settled));
     std::vector<char> st(64 * 1024);
     const std::size_t len = ref->saveState(st.data(), st.size());
-    auto l = fresh(c, join(dry, {{keys[0], 0}, {keys[1], 0}}), sr0, 512);
+    auto l = fresh(c, d0, sr0, 512);
     render(*l, constant(256, 0.25), 64);
     if (!len || !l->stageState(std::string_view(st.data(), len)) || !l->adoptStaged()) { o.fail("t3.load[" + k + "]", "the state did not load"); continue; }
     const double afterLoad = render(*l, constant(1, 0.25), 1).L[0] * 4;
     if (afterLoad != settled) o.fail("t3.load[" + k + "]", "first sample after a state load at +6 dB is at gain " + num(afterLoad) + ", settled +6 dB is " + num(settled));
+  }
+  } else {
+    referenceA6(o, c, keys, d0, g6, sr0);
   }
   // ---- test 7: both clip latches set on an over and hold until cleared
   {
@@ -613,7 +829,9 @@ Out rowA6(const Ctx& c) {
     mt = m->meters();
     if (mt.inClip || !mt.outClip) o.fail("t7.independent", std::string("an output-only over: input latch ") + (mt.inClip ? "set" : "clear") + ", output latch " + (mt.outClip ? "set" : "clear"));
   }
-  o.summary = "test 1 (0 dB exact, dry and explicit), test 2 (20 ms linear ramp at 44.1/48/96k, both trims), test 3 (opens at the saved gain, prepare and load), test 7 (latches hold until cleared)";
+  o.summary = probe->dryExact()
+      ? "test 1 (0 dB exact, dry and explicit), test 2 (20 ms linear ramp at 44.1/48/96k, both trims), test 3 (opens at the saved gain, prepare and load), test 7 (latches hold until cleared)"
+      : "read against the module's own reference renders (the adapter declares no exact dry setting, ADR-351): test 1 (0 dB explicit; +6 dB at prepare against out(0 dB) x g and a 0 dB twin fed in x g), test 2 (20 ms linear ramp at 44.1/48/96k, both trims), test 3 (load), test 7 (latches hold until cleared)";
   return o;
 }
 
@@ -1356,8 +1574,17 @@ int main(int argc, char** argv) {
     } else { std::fprintf(stderr, "admission_harness: unknown argument %s\n", a.c_str()); return 2; }
   }
   ModuleInfo info;
-  if (module == "scape") info = scapeModule(tree);
-  else { std::fprintf(stderr, "admission_harness: unknown module '%s' (known: scape)\n", module.c_str()); return 2; }
+  bool known = true;
+  if (false) {}
+#ifdef ADMISSION_SCAPE
+  else if (module == "scape") info = scapeModule(tree);
+#endif
+#ifdef ADMISSION_KILN
+  else if (module == "kiln-eq") info = kilnEqModule(tree);
+  else if (module == "kiln-drive") info = kilnDriveModule(tree);
+#endif
+  else known = false;
+  if (!known) { std::fprintf(stderr, "admission_harness: module '%s' is not built in this binary\n", module.c_str()); return 2; }
   Ctx c;
   c.make = info.make;
   c.presets = info.presets;

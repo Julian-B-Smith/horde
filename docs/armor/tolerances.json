@@ -514,6 +514,24 @@
       "value": "< 50%"
     },
     {
+      "approved": "ADR-402",
+      "file": "tools/admission/harness.cpp",
+      "governs": "A declared early residual is excused this many samples before the declared latency (ADR-402)",
+      "id": "tools/admission/harness.cpp::kCausalMarginSamples",
+      "locator": "(?<![\\w])kCausalMarginSamples(?:\\s*:\\s*[\\w\\[\\], .]+?)?\\s*=(?!=)\\s*([-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)(?:\\s*[-+*/]\\s*\\(?\\s*[-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)\\)?)*)(?=\\s*(?:[;,)\\]}]|$))",
+      "ref": "ADR-402",
+      "value": "3"
+    },
+    {
+      "approved": "ADR-402",
+      "file": "tools/admission/harness.cpp",
+      "governs": "A sample in the judged window fails above this many dB re the response's peak (ADR-351, ADR-402)",
+      "id": "tools/admission/harness.cpp::kCausalThresholdDb",
+      "locator": "(?<![\\w])kCausalThresholdDb(?:\\s*:\\s*[\\w\\[\\], .]+?)?\\s*=(?!=)\\s*([-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)(?:\\s*[-+*/]\\s*\\(?\\s*[-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)\\)?)*)(?=\\s*(?:[;,)\\]}]|$))",
+      "ref": "ADR-351, ADR-402",
+      "value": "-60.0"
+    },
+    {
       "approved": "baseline 2026-10-08",
       "file": "tools/anchor_check.cpp",
       "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",

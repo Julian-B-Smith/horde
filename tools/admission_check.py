@@ -14,15 +14,38 @@ The SLOT rows wait for the shell (B398) and are listed in the report as such, ne
 A6 tests 4-6, A7, A13, A14, A16. CPU is never a gate (ADR-187 §8, RS-8.3): A10's one timing is a
 reported figure.
 
-    tools/admission_check.py [--module scape]
+    tools/admission_check.py [--module scape|kiln-eq|kiln-drive]
+
+With no argument (what ./verify full calls) EVERY module below is run, in order: Scape, Kiln's EQ,
+Kiln's drive (B605, ADR-351). Each is judged on its own and the run is RED if any one is.
 
 THE MODULE'S TREE is located at run time, never committed: $HORDE_SCAPE_DIR, else
-~/Documents/Claude/synthetic-worlds/Scape (expanded here). A missing tree prints SKIPPED and exits
-0: nothing was measured, and nothing says GREEN (the convention of tools/rtsan_check.py). The tree
+~/Documents/Claude/synthetic-worlds/Scape; $HORDE_KILN_DIR, else ~/Documents/Claude/synthetic-worlds/Kiln
+(both expanded here). A missing tree prints SKIPPED for that module and does not fail the run:
+nothing was measured, and nothing says GREEN (the convention of tools/rtsan_check.py). When only
+SOME modules are skipped, the last stdout line and the `KIT-GATE skipped:` receipt line name the
+modules that were not measured and the ones that were: a green run beside a skip is a partial
+measurement, and the gate says so rather than reading as a full pass. The tree
 is only READ: tools/admission/CMakeLists.txt builds its sources with its own build into
-build-admission/<module>/ here. Point the variable at a clean export when the sibling's resident
-has work in progress (`git -C <tree> archive origin/main | tar -x -C <dir>`); set
-$HORDE_SCAPE_REV to label an export, which has no .git to read a revision from.
+build-admission/ here (Kiln's EQ and drive share one build, one binary). Point the variable at a
+clean export when the sibling's resident has work in progress (`git -C <tree> archive origin/main
+| tar -x -C <dir>`); set $HORDE_SCAPE_REV / $HORDE_KILN_REV to label an export, which has no .git
+to read a revision from.
+
+THE FOUNDATIONS HEADERS. Kiln vendors no copy of foundations/fx_operator.h (Scape does, inside its
+own tree), and FOUNDATIONS is private, so its headers are never copied into this repo (the human's
+ruling of 2026-08-15). A Kiln module is therefore built against a FOUNDATIONS tree located like a
+module's: $HORDE_FOUNDATIONS_DIR, else ~/Documents/Claude/synthetic-worlds/FOUNDATIONS, marker
+core/include/foundations/fx_operator.h. Absent: the Kiln modules print SKIPPED. The header's sha256
+is printed, so two runs on different trees say whether they read the same text.
+
+ADR-351's TWO AMENDMENTS to the contract's A4 and A6 are in tools/admission/harness.cpp: A4's
+causality clause reads a leading-edge threshold (nothing above -60 dB of the response's peak),
+whose window ADR-402 (the human's poll, 2026-11-15) sets by what the module DECLARES: offsets <
+latency - 3 for a declared early residual (an IIR oversampler: Kiln's drive, Shriek's half-band),
+offsets < latency for a module with none; every A4 report line names the window it judged. A6 for a module that declares no exact dry setting is judged against its
+own reference renders. The planted faults for both are in plants.h (pre-echo; io-jump and
+io-opens-ramped, which a non-exact module now reads too).
 
 HOW A ROW IS JUDGED. tools/admission/harness.cpp prints, per row, the sub-checks that failed, each
 with a stable tag. Then every plant (tools/admission/plants.h: a wrapper that injects one fault
@@ -48,11 +71,15 @@ SDK passed as the sysroot). Order: the planted malloc in process (plants.h Mallo
 the full session FIRST, and it must be reported, or nothing after it is believed; then an empty
 scope, which must read zero; then the clean session, which must read zero. No compiler: NOT RUN.
 The first block after a reset() whose parameters moved is TIMED and reported (Scape owes a decay
-design there), never judged.
+design there), never judged. Observed 2026-11-15 under `nice -n 10` (Kiln drive): A10 PASS with
+the planted malloc reported, so nice did not blind it there. Kiln L0006 recorded a zero-violation
+read under /usr/bin/nice; that is not reproduced here and nothing more is claimed. The planted
+malloc runs first on every run, so a blinded sanitizer reads NOT PROVEN, never a pass.
 
 The report is written whole to build-admission/<module>/admission-report.{md,json}; stdout carries
 the per-row table.
 """
+import hashlib
 import json
 import os
 import re
@@ -64,6 +91,10 @@ sys.path.insert(0, os.path.join(ROOT, "tools"))
 from rtsan_check import CALLEE, sanitizer_cxx, sdk_path  # ADR-199: one compiler rule, imported
 
 HARNESS_SRC = os.path.join(ROOT, "tools", "admission")
+
+# Kiln's sources and the harness's, for naming a sanitizer report's frame (both Kiln modules)
+KILN_SOURCES = ("eq.cpp", "eq_design.cpp", "drive.cpp", "drive_dsp.cpp", "manifest.cpp", "patch.cpp", "eq.h", "drive.h",
+                "io_gain.h", "ramp.h", "nonfinite.h", "harness.cpp", "kiln_adapter.cpp", "plants.h")
 
 MODULES = {
     "scape": {
@@ -77,6 +108,37 @@ MODULES = {
         "sources": ("reverb.cpp", "design.cpp", "fx_module.cpp", "patch.cpp", "dsp_math.h", "reverb.h",
                     "design.h", "fx_module.h", "patch.h", "harness.cpp", "scape_adapter.cpp", "plants.h"),
     },
+    # Kiln's two modules (B605, ADR-351). One build serves both: the binary holds both adapters
+    # and --module picks one, so "build" names the shared directory under build-admission/ while
+    # each module's report still lands in its own.
+    "kiln-eq": {
+        "name": "Kiln EQ",
+        "env": "HORDE_KILN_DIR",
+        "rev_env": "HORDE_KILN_REV",
+        "default": "~/Documents/Claude/synthetic-worlds/Kiln",
+        "marker": os.path.join("core", "include", "kiln", "module.h"),
+        "cmake_var": "HORDE_KILN_DIR",
+        "build": "kiln",
+        "needs_foundations": True,
+        "sources": KILN_SOURCES,
+    },
+    "kiln-drive": {
+        "name": "Kiln drive",
+        "env": "HORDE_KILN_DIR",
+        "rev_env": "HORDE_KILN_REV",
+        "default": "~/Documents/Claude/synthetic-worlds/Kiln",
+        "marker": os.path.join("core", "include", "kiln", "module.h"),
+        "cmake_var": "HORDE_KILN_DIR",
+        "build": "kiln",
+        "needs_foundations": True,
+        "sources": KILN_SOURCES,
+    },
+}
+
+FOUNDATIONS = {
+    "env": "HORDE_FOUNDATIONS_DIR",
+    "default": "~/Documents/Claude/synthetic-worlds/FOUNDATIONS",
+    "marker": os.path.join("core", "include", "foundations", "fx_operator.h"),
 }
 
 # (row, what) in contract order; the slot rows are listed so the report shows them as waiting.
@@ -104,6 +166,18 @@ LINE = re.compile(r"^(FAIL|NOTE|DETAIL|ROW) (A\d+)(?: (\S+))? :: (.*)$")
 def resolve_tree(mod):
     env = os.environ.get(mod["env"])
     return os.path.abspath(os.path.expanduser(env if env else mod["default"]))
+
+
+def resolve_foundations():
+    """-> (include dir, header sha256) of the located FOUNDATIONS tree, or (None, reason)."""
+    env = os.environ.get(FOUNDATIONS["env"])
+    tree = os.path.abspath(os.path.expanduser(env if env else FOUNDATIONS["default"]))
+    header = os.path.join(tree, FOUNDATIONS["marker"])
+    if not os.path.isfile(header):
+        return None, f"no FOUNDATIONS tree at {tree} (set {FOUNDATIONS['env']})"
+    with open(header, "rb") as f:
+        digest = hashlib.sha256(f.read()).hexdigest()
+    return os.path.join(tree, "core", "include"), digest
 
 
 def revision(tree, mod):
@@ -232,7 +306,7 @@ def rtsan_violations(text, sources):
     return len(blocks), named
 
 
-def row_a10(build_root, tree, module, mod, exe):
+def row_a10(build_root, tree, module, mod, exe, extra=()):
     """-> row dict for A10, in parse()'s shape plus 'controls'."""
     r = {"fails": {}, "notes": [], "details": [], "status": None, "summary": "", "controls": []}
     rc, out, _ = harness(exe, module, tree, "--timing")
@@ -243,8 +317,8 @@ def row_a10(build_root, tree, module, mod, exe):
         r["summary"] = ("no RealtimeSanitizer compiler (set HORDE_SANITIZER_CXX, or `brew install llvm`); Apple clang has none"
                         if not cxx else "xcrun finds no SDK")
         return r
-    bdir = os.path.join(build_root, module + "-rtsan")
-    err = build(bdir, tree, mod, ("-DCMAKE_CXX_COMPILER=" + cxx, "-DCMAKE_OSX_SYSROOT=" + sdk, "-DADMISSION_RTSAN=ON"))
+    bdir = os.path.join(build_root, mod.get("build", module) + "-rtsan")
+    err = build(bdir, tree, mod, (*extra, "-DCMAKE_CXX_COMPILER=" + cxx, "-DCMAKE_OSX_SYSROOT=" + sdk, "-DADMISSION_RTSAN=ON"))
     if err:
         r["fails"]["build"] = "the sanitizer build: " + err
         r["status"] = "FAIL"
@@ -304,34 +378,39 @@ def verdict(row):
     return "PASS"
 
 
-def main():
-    args = sys.argv[1:]
-    module = "scape"
-    if "--module" in args:
-        module = args[args.index("--module") + 1]
-    if module not in MODULES:
-        print(f"admission_check: unknown module {module!r} (known: {', '.join(MODULES)})")
-        return 2
+def run_module(module):
+    """Run one module's admission test. -> (ran, red, why): ran False = SKIPPED (nothing measured;
+    why names the cause), red True = this module is red."""
     mod = MODULES[module]
     tree = resolve_tree(mod)
     if not os.path.isfile(os.path.join(tree, mod["marker"])):
         print(f"admission_check: WARNING — no {mod['name']} tree at {tree} (set {mod['env']})")
-        print("admission_check: SKIPPED — nothing was measured; this is NOT a pass")
-        print(f"KIT-GATE skipped: no {mod['name']} tree, nothing was measured")   # read by the kit's receipt (`gate`)
-        return 0
+        print(f"admission_check: SKIPPED {mod['name']} — nothing was measured; this is NOT a pass")
+        return False, False, f"{mod['name']}: no module tree"
+    extra, found = (), ""
+    if mod.get("needs_foundations"):
+        inc, what = resolve_foundations()
+        if inc is None:
+            print(f"admission_check: WARNING — {what}")
+            print(f"admission_check: SKIPPED {mod['name']} — nothing was measured; this is NOT a pass")
+            return False, False, f"{mod['name']}: no FOUNDATIONS tree"
+        extra = (f"-DHORDE_FOUNDATIONS_INCLUDE={inc}",)
+        found = f"foundations/fx_operator.h sha256 {what[:12]}"
     rev = revision(tree, mod)
     build_root = os.path.join(ROOT, "build-admission")
-    bdir = os.path.join(build_root, module)
-    err = build(bdir, tree, mod)
+    bdir = os.path.join(build_root, mod.get("build", module))
+    rdir = os.path.join(build_root, module)   # the report: one per module, even on a shared build
+    os.makedirs(rdir, exist_ok=True)
+    err = build(bdir, tree, mod, extra)
     if err:
-        print(f"admission_check: RED — {err}")
-        return 1
+        print(f"admission_check: RED — {mod['name']}: {err}")
+        return True, True, ""
     exe = os.path.join(bdir, "admission_harness")
 
     rc, out, errout = harness(exe, module, tree)
     if rc != 0:
-        print(f"admission_check: RED — the harness exited {rc} on the clean module:\n{errout.strip()[-800:]}")
-        return 1
+        print(f"admission_check: RED — {mod['name']}: the harness exited {rc} on the clean module:\n{errout.strip()[-800:]}")
+        return True, True, ""
     rows = parse(out)
     for row in rows.values():
         row["controls"] = []
@@ -362,7 +441,7 @@ def main():
     if mem:
         a1["notes"].append(mem)
 
-    rows["A10"] = row_a10(build_root, tree, module, mod, exe)
+    rows["A10"] = row_a10(build_root, tree, module, mod, exe, extra)
 
     # ---- verdicts, pins, the report
     red = []
@@ -389,8 +468,8 @@ def main():
                        f"tools/admission_check.py ({why})")
 
     head = git_head()
-    write_report(bdir, mod, module, rev, head, table)
-    print(f"== admission_check: {mod['name']} at {rev} (horde {head})")
+    write_report(rdir, mod, module, rev, head, table, found)
+    print(f"== admission_check: {mod['name']} at {rev} (horde {head})" + (f"; {found}" if found else ""))
     for rid, what, v, ctl, summary, _ in table:
         print(f"   {rid:<4} {v:<11} {what:<26} controls: {ctl}")
     for rid, what in SLOT_ROWS:
@@ -407,13 +486,45 @@ def main():
             print(f"   {rid} note: {n}")
     print(f"   report: build-admission/{module}/admission-report.md")
     if red:
-        print("== admission_check: RED")
+        print(f"== admission_check: RED ({mod['name']})")
         for r in red:
             print("   " + r)
-        return 1
+        return True, True, ""
     held = [f"{r} {t}" for (m, r, t) in PINNED if m == module]
     print("== admission_check: GREEN (every module-only row judged or reported; every control fired"
-          + (f"; {len(held)} PINNED failure(s) still failing, shown above: {', '.join(held)})" if held else ")"))
+          + (f"; {len(held)} PINNED failure(s) still failing, shown above: {', '.join(held)})" if held else ")")
+          + f" [{mod['name']}]")
+    return True, False, ""
+
+
+def main():
+    args = sys.argv[1:]
+    if "--module" in args:
+        wanted = [args[args.index("--module") + 1]]
+        if wanted[0] not in MODULES:
+            print(f"admission_check: unknown module {wanted[0]!r} (known: {', '.join(MODULES)})")
+            return 2
+    else:
+        wanted = list(MODULES)
+    measured, skipped, red, why = [], [], [], []
+    for module in wanted:
+        r, bad, reason = run_module(module)
+        (measured if r else skipped).append(MODULES[module]["name"])
+        if reason:
+            why.append(reason)
+        if bad:
+            red.append(MODULES[module]["name"])
+    if not measured:
+        print(f"KIT-GATE skipped: nothing was measured ({'; '.join(why)})")   # read by the kit's receipt (`gate`)
+        return 0
+    if red:
+        print(f"== admission_check: RED overall: {', '.join(red)}" + (f"; NOT MEASURED {', '.join(skipped)}" if skipped else ""))
+        return 1
+    if skipped:
+        # The kit's receipt knows only `skipped` and `cases=`, so a partial run is reported as
+        # skipped with the names: the receipt must never read as a full pass (ADR-402 review).
+        print(f"== admission_check: PARTIAL, NOT a full pass: measured {', '.join(measured)}; NOT MEASURED {', '.join(skipped)}")
+        print(f"KIT-GATE skipped: PARTIAL, not measured: {', '.join(skipped)} (measured and green: {', '.join(measured)})")
     return 0
 
 
@@ -422,9 +533,9 @@ def git_head():
     return r.stdout.strip() or "?"
 
 
-def write_report(bdir, mod, module, rev, head, table):
+def write_report(bdir, mod, module, rev, head, table, found=""):
     md = [f"# Admission test: {mod['name']}", "",
-          f"- module revision: `{rev}`", f"- horde: `{head}`",
+          f"- module revision: `{rev}`", f"- horde: `{head}`", *([f"- {found}"] if found else []),
           "- specification: docs/proposals/rack-slot-contract.md §2.2 with §12; tools/admission_check.py", "",
           "| row | result | controls fired | notes |", "|---|---|---|---|"]
     js = {"module": mod["name"], "revision": rev, "horde": head, "rows": []}
