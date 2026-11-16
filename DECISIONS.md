@@ -13431,3 +13431,23 @@ The GUI session built it as GUI-55 A2 (#1455). Its reading, for the human to con
 **Also placed by the lead.** The audit's own table of carried findings has one entry with no row: item 15 (the weakening counter misses `|| echo WARNING`, `|| return 0` and a check that prints SKIPPED and exits 0; `test_table_check` does not glob `tools/patchspace/*_check.mjs` or `*_check.mm`). B690 takes it. Items 18 to 20 were never carried (duplicate 1.4 MB bundles and unreferenced scratch tools; `parity_check`'s missing not-silent floor; free-text approval references and `verify` absent from CODEOWNERS). B691 proposes them to the human, and they are not on the carried list.
 
 **FX device (ADR-254).** None: repository records, documentation, CI gates and the audit cadence.
+
+## ADR-402 — RULED by the human: A4's causality window ends 3 samples before latency for a module that declares an early residual; the full latency otherwise; FOUNDATIONS is located, and Kiln is asked to vendor it (B605; amends ADR-351 ruling 4; 2026-11-15)
+
+**Context.** ADR-351 ruling 4 took Kiln's own example wording (Kiln seq 6 §3) as the causality clause: nothing above −60 dB of the response's peak before latency − 1. Built as ruled (B605), it failed Kiln's drive, the module it was written to admit. The drive's IIR half-band rises before its group delay. At Kiln `bbdf290`, default patch, with declared latency 4 and the peak at offset 4, it reads −72.9 dB at offset 0, −39.8 dB at offset 1 and −18.4 dB at offset 2. Kiln's own §3 figures agree: |h| = 1.8e-4, 7.9e-3, 9.1e-2 and 4.1e-1 at offsets 0 to 3. Shriek's 2x half-band, run from Shriek `eb97ef8`, reads −70.4, −38.1 and −17.2 dB. B605's line that Shriek "meets the same clause, by Kiln's reading" was wrong, and Kiln's brief said the opposite. The A4 pass rule (measured delay equals declared) holds for both modules. The build also needs FOUNDATIONS' `fx_operator.h`. Scape vendors it and Kiln does not, and the ruling of 2026-08-15 keeps FOUNDATIONS headers out of horde's tracked tree.
+
+**Rulings** (the human, 2026-11-15, by poll):
+1. **"Keep −60 dB, shorter window".** For a module that declares an early residual, A4 judges offsets < latency − 3 at −60 dB re the response's peak. The 3 is `kCausalMarginSamples`, registered in the tolerance registry. A pre-echo plant still fires inside the window, on every module.
+2. **"Stricter: full latency".** A module with no early residual is judged on offsets < latency. That is one sample stricter than ADR-351's literal "latency − 1" and exactly as strict as the clause it replaces. Every report line names the window it judged.
+3. **"Locate it; ask Kiln to vendor".** The harness reads `fx_operator.h` read-only from `$HORDE_FOUNDATIONS_DIR`, or else the sibling folder, prints its hash, and reports Kiln SKIPPED loudly if it is absent. Kiln is asked to vendor the header as Scape does. Once Kiln has, the third located tree is dropped.
+
+**Rejected** (the poll's other options): "Looser threshold, same window" (−12 dB before latency − 1) and "Pin the drive's FAIL" for ruling 1; "Literal: latency − 1" for ruling 2; "Wait for Kiln to vendor" for ruling 3.
+
+**Consequences.**
+- B605 is built: `tools/admission/kiln_adapter.cpp`, both Kiln modules in `admission_check.py`, A4's leading-edge clause with its own must-read-zero calibration, and A6's reference path for a module that declares no exact dry setting (`dryExact()`, a declaration, never detected). The two formerly blind controls fire on the drive.
+- At Kiln `45c8b36` (a clean export), Scape, Kiln EQ and Kiln drive are GREEN, and every control fires, the pre-echo plant on all three. The drive's causality reads −72.9 dB in its window.
+- A run that skips a module says so in its last line and in the KIT-GATE receipt, which never reads as a full pass.
+- **Open (Shriek):** the 3-sample margin admits Shriek's half-band only where its declared latency is 4 or less. At 5, its −38.1 dB sample at offset 1 falls inside the window. Shriek's admission (B598, B619) measures it, and Shriek is told when its adapter comes.
+- The comment above `gate admission_check` in `./verify` still names only Scape. Editing `./verify` is a human gate, so a one-line comment refresh is asked of the human. The gate line is unchanged.
+- Kiln gets a notice (seq 9, in Kiln's tree) with the row table and the vendoring ask.
+- **FX device (ADR-254):** admission is shared by both shells, so the same window applies to the FX device's hosted modules.

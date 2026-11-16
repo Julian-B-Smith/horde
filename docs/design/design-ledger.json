@@ -8741,6 +8741,10 @@
   {
    "adr": "ADR-387",
    "reason": "An engine-direction ruling (wavetables replace blades; three oscillators). Its page changes reach this ledger as the GUI session's own GUI-n rulings, from B656's GUI-needs handover; nothing here is drawn yet."
+  },
+  {
+   "adr": "ADR-402",
+   "reason": "Admission's A4 causality window and where the harness finds FOUNDATIONS (B605): a test-harness ruling with nothing on the page or in the design master."
   }
  ],
  "engine_impact": {
