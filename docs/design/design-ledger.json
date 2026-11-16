@@ -8743,6 +8743,18 @@
    "reason": "An engine-direction ruling (wavetables replace blades; three oscillators). Its page changes reach this ledger as the GUI session's own GUI-n rulings, from B656's GUI-needs handover; nothing here is drawn yet."
   },
   {
+   "adr": "ADR-399",
+   "reason": "Echo's fixed-row and import rulings (echo-003, echo-004): contract, admission and mailbox work. The keyed Time control and Type's selector are drawn by the GUI session as its own GUI-n rulings; nothing is drawn here yet."
+  },
+  {
+   "adr": "ADR-400",
+   "reason": "Who designs Sluice's FX module (Sluice, with horde's GUI session reviewing), where its source lives, and who finishes its pixel title. The GUI session records the carve-out, the GB13 handover and the title in its own GUI-n rulings and rows; nothing in the master changes here."
+  },
+  {
+   "adr": "ADR-401",
+   "reason": "Per-corner state budgets: what they count, the figure per module, Shriek's snapshot list and the name and label caps (B603). This is contract, admission and mailbox work. The GUI session draws the refusal notes at creation, the snapshot-add refusal (GN-33) and the editors' caps as its own GUI-n rulings; nothing is drawn here yet."
+  },
+  {
    "adr": "ADR-402",
    "reason": "Admission's A4 causality window and where the harness finds FOUNDATIONS (B605): a test-harness ruling with nothing on the page or in the design master."
   }
