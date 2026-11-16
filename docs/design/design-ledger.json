@@ -8749,6 +8749,10 @@
   {
    "adr": "ADR-400",
    "reason": "Who designs Sluice's FX module (Sluice, with horde's GUI session reviewing), where its source lives, and who finishes its pixel title. The GUI session records the carve-out, the GB13 handover and the title in its own GUI-n rulings and rows; nothing in the master changes here."
+  },
+  {
+   "adr": "ADR-401",
+   "reason": "Per-corner state budgets: what they count, the figure per module, Shriek's snapshot list and the name and label caps (B603). This is contract, admission and mailbox work. The GUI session draws the refusal notes at creation, the snapshot-add refusal (GN-33) and the editors' caps as its own GUI-n rulings; nothing is drawn here yet."
   }
  ],
  "engine_impact": {

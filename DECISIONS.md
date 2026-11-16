@@ -13505,3 +13505,65 @@ The critic also refuted the draft's IF-11 argument for two lanes. IF-11 states "
   - It opens two rows: the sluice-gui-lab review route (B697), and the copy rule to be decided together with Sluice's code entry (B698).
   - GUI-23 A1/A2's "Sluice re-bakes" reads as amended by this ruling.
 - **FX device (ADR-254):** the FX device hosts Sluice through the same slot. It shows Sluice's design inside horde's chassis, with horde's DOM view, GUI-58's marks, GUI-21 (Dotted and Triplet hidden) and the same title, and it takes conditions from Sluice's manifest. How it builds Sluice's screens follows ruling 2's copy rule. Its own screens still come after 1.0 (ADR-254 ruling 1).
+
+## ADR-401 — RULED by the human: a module's budget counts what it writes; 4,096 bytes per corner and Sluice 12,288; Shriek's extra snapshots go in its blob under that budget; names 64 and labels 32 bytes (B603; 2026-11-15)
+
+**Context.** ADR-351 ruled "Re-derive all budgets", and that the limit bites where a patch is created: "whatever limit there is on saves should be enforced at the creation level so people can't make patches they can't save." ADR-359 ruled Sluice at 12,288 bytes per corner and left the patch ceiling open until a worst-case patch is saved in a host. Every hosted module has now replied to B603's ask. Each counted its own way:
+- **Sluice** (seq 75): its pad blob alone, labels included. Factory saves at most 3,585 B; its largest possible pad is held to 12,288 B (Sluice `netcore/include/sluice/pad.h:71`, `:380`).
+- **Shriek** (seq 42): its blob in base64 plus its cascade part, with no basis, wrapper or name. Factory at most 3,235 B; at most 4,071 B by any edit, gated at 4,096 B (`mawcore/tests/pad_blob_test.cpp:50`).
+- **Arp** (seq 17): the whole corner record, with integer values. 3,431 B without the blend, 3,499 B at its 16-layer cap. Factory presets not measured yet.
+- **Bulwark** (seq 35): the corner block plus the `slots` blob, Device keys excluded. Factory at most 1,191 B; at most 2,612 B + 4 × label length, and slot labels have no cap.
+- **Kiln** (seq 8): its state only. EQ at most 1,005 B (declared 1,359 B), Drive 278 B (declared 512 B). Its name and macros are in its patch text: 938 B and 208 B with no macros, and 15,590 B on the EQ with eight macros binding every key.
+- **Scape** (seq 7): its state only, 1,100 B at most. Its patch text reaches 5,721 B with 64-byte names and labels and every binding, and it parses today.
+- **Echo** (seq 4): 910 B at most, calculated, and no macros (Echo D-050).
+- **Mangle** (seq 6, 7): state 268 B. A preset is about 650 B with three macros and about 1.2 KiB with eight, one binding each, both estimates. More bindings raise it.
+- **Weir** (seq 8): no figures. Its module is not built.
+
+Two things cut across the replies. **The count was never ruled.** In seq 16 the lead told Arp: "RS-6.12's figure counts the whole corner record, and integers are stored as integers" (Arp `integrations/hypersaw/response-morph-blend.md:36`). The human approved filing seq 16 as recommended (ADR-357 ruling 1), but no ADR's rulings text states a count, and ADR-357 left the size to B603. **horde's corner-record writer does not exist** (`origin_id` appears only in docs). So the wrapper's size is arithmetic on compact JSON, not a measurement: about 170 B with a 64-character hash and no `slot_base` or `bindings`, about 200 to 212 B with them. The basis beside each continuous value has not been measured either. The lead put four questions to the human by poll.
+
+One correction: ADR-359's lead reading ("They wait for B603 with Mangle and Echo", DECISIONS.md:11309) was wrong about Mangle when it was written, since Mangle's seq 6 §4 was on horde main on 2026-11-02 (`fad1793d`). It went stale for Echo on 2026-11-05 (Echo `d06ce38`; filed `ff0fa66`, amended `c5afea9`). ADR-359 is not edited.
+
+**Rulings** (the human, 2026-11-15, by poll; each the option the lead recommended):
+1. **Count: "What the module writes".** A module's per-corner budget counts its state and blobs, with whatever macros, labels and name they carry, measured the module's way. horde's wrapper (`origin_id`, `module_version`, the JSON keys) and the basis beside each value are left out. The patch ceiling counts them instead. Sluice, Shriek and Bulwark already count this way. For Kiln, Scape and Mangle, the counted figure is their patch text, which carries the name and macros. Arp counted more, so it still fits. This reverses the count horde gave Arp in seq 16, so Arp is told. Kiln's state stays at its declared `stateBudget()`, which A19 checks. Kiln asked for two figures, both ruled (seq 8 §2). That ask is answered by this count, not as Kiln asked: there is one ruled figure, and it counts Kiln's patch text.
+2. **Figures: "4 KiB, Sluice 12 KiB".** 4,096 B per corner for every hosted module except Sluice, which stays at 12,288 B (ADR-359 ruling 1). Weir's figure is provisional until its manifest. Kiln's and Scape's longest patch texts (15,590 B; 5,721 B) are refused at creation once horde's creation check is built. Kiln, Scape, Echo, Mangle and Bulwark raise their 2,048 B constants.
+3. **Snapshots: "List in blob, budget-capped".** Shriek's extra snapshots (GUI-24, GN-33) live in a v2 blob. Adding a snapshot that would take the blob over Shriek's 4,096 B is refused at creation with a note (ADR-351 ruling 2). A refusal at save stays only as a guard. v2 is Shriek's to make, so horde asks for it.
+4. **Name caps: "Bytes: 64 and 32".** Names are capped at 64 B and labels at 32 B of UTF-8, written by horde's editor. That includes labels stored in a module's own format: Bulwark's `slots` blob, and Kiln's, Scape's and Mangle's patch text. Sluice's and Shriek's own label caps do not change.
+
+**Not ruled here: the ceiling.** It stays open under ADR-359 ruling 2 until the host save test, which B612 carries. Mangle and Echo have reported, so the test is the only thing it waits on. 64 KiB is a derived paste cap (`src/input_guards.h:80-90`), not a measured host limit.
+
+**The lead's readings, open to overrule.**
+- **Arp.** Its `names` map is Arp's state, so it counts in Arp's figure, and Arp measured it that way (seq 17). "Integers are stored as integers" is not touched by this ruling. It stays the lead's plan for horde's writer, which is not yet written. Arp is asked for one figure for its own part, with float values. Its "save anyway and say so" for blends of saved blends (Arp D-054) must become unreachable.
+- **Mangle.** Its 650 B and 1.2 KiB are for one binding per macro (Mangle seq 6 §4). More bindings raise it. The bound is horde's creation check, as for Scape. Mangle's `writePatch` (`core/src/patch.cpp:66`) does not check size, which is the gap Kiln closed in its Q-007.
+- **Scape.** It fits only by refusal at creation. Its cost per binding, and whether its patch text carries its state, are not stated (seq 7), so they are asked.
+- **Kiln.** About 37 EQ bindings and about 46 Drive bindings fit at 4,096 B, with eight macros, a 64-byte name and 32-byte labels. On the same assumptions about 9 EQ bindings fit at 2,048 B. This is the lead's arithmetic from Kiln's figures: (4,096 − 938 − 63 − 8 × 48) / 72 and (4,096 − 208 − 63 − 8 × 48) / 74.
+- **Bulwark.** It needs no rounding. The rounding was only for a 2 KiB budget, and that option was rejected. ATM's goldens don't move.
+- **Shriek.** v1's worst case is 4,071 B, which leaves 25 B at 16 bindings and four snapshots. If v2 adds more than that, four snapshots at 16 bindings no longer fit. The binding cap or Shriek's figure then comes back to the human. Shriek's per-snapshot figures (about 555 B, plus about 21 B per binding per snapshot; seq 44) are estimates.
+- **Weir.** Its subject moves from `weir-lab` to `weir-filters`, as Weir suggested (Weir seq 8).
+- **GN-33** is in the GUI session's file (`docs/design/gui3/ENGINE-NEEDS.md`; ADR-336). The lead tells the GUI session ruling 3 and does not edit the file.
+- **Mangle's seed question** (Mangle seq 7 §3, RS-6.10) is not answered here. It stays on B626, owed before Mangle's Phase 2.
+
+**Rejected** (the poll's other options): for the count, "Whole corner record", "Two figures, both ruled" and "Settings only"; for the figures, "4 KiB, Shriek 6 KiB", "Tiers: 2, 4, 12 KiB" and "Keep today's 2 KiB"; for the snapshots, "Only four in state" and "List in blob, 8 KiB"; for the caps, "Characters: 32 and 16" and "No fixed caps".
+
+**Consequences.**
+- **Notices**, one per module, filed 2026-11-15 as `notice-state-budgets-ruled.md`:
+  - beside each module's reply in horde's tree: Bulwark seq 36, Kiln seq 10, Mangle seq 9, Shriek seq 47, Scape seq 9, Weir seq 9 (on `weir-filters`);
+  - in the module's own tree: Arp seq 18, Echo seq 5, Sluice seq 89.
+  Kiln's B605 notice follows separately.
+- **Each module's changes are due by the module cutoff, 2026-12-11 (ADR-236).** Each refusal comes with a plant.
+  - Bulwark: `kMaxCornerStateBytes` goes to 4,096. It adds a check on the corner block plus slots together, and the 32-byte label cap in its reader and writer.
+  - Kiln: `kMaxStateBytes`, its patch cap, goes to 4,096. `writePatch` and `parsePatch` stay in agreement.
+  - Scape: `kMaxStateBytes` goes to 4,096, and its patch parser refuses a patch over 4,096 B.
+  - Echo: `state::kMaxBytes` goes to 4,096.
+  - Mangle: `kMaxStateBytes` goes to 4,096, and `writePatch` refuses what `parsePatch` refuses.
+  - Shriek: it decides on v2 and reports v2's overhead.
+  - Arp: "save anyway" becomes unreachable, shown on a plant at the 16-layer cap.
+  - Weir: its manifest declares a budget and a creation bound before admission.
+  - Sluice: nothing new to change. Q-080 item 3 (ruled, not built) is its creation check, and horde asks for word when it lands.
+- **horde's work:**
+  - B700: RS-6.12, A19, Q9 and the status lines of `docs/proposals/rack-slot-contract.md`.
+  - B701: `tools/admission/harness.cpp` reads each module's ruled figure in place of `kBudget = 2048` (`:1108`), and a new `tools/state_budget_check` goes into `./verify fast`. This takes B576's budget half.
+  - B702: the shell's creation check and the 64 B and 32 B caps in horde's editors, with plants. A pad that Sluice refuses at load shows as a note on the slot (Sluice D-205).
+  - B703: the notices and the modules' replies, including telling Arp that its count changed.
+- **Dated notes** go on B603 (the ruling part closes), B576, B577, B604, B605, B610, B612 and B626. If a parallel PR takes B700 to B703 first, the later PR renumbers.
+- **Once the ceiling is ruled**, `kMaxPastedStateBytes` (`src/input_guards.h:80-90`) is re-derived for horde 2. Under ruling 1, B612's host test counts the real bytes, wrapper and basis included, so it needs horde's corner-record writer. The lead's design for that test goes to the human before B612's acceptance changes.
+- **FX device (ADR-254).** Rulings 1, 2 and 4 apply as they stand, since the FX device hosts the same modules through the same slot: the same figures, and the same caps on its pages. Ruling 3 applies too, since Shriek is hosted there through the same slot. Arp's figure does not apply, because the FX device hosts no Arp. Its ceiling's worst case is smaller (no engine state, no Arp), and B612's host test covers it.
