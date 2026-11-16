@@ -5,9 +5,9 @@
 // module gets a thin adapter over its own shim (contract §1.1: Bulwark's abi.h, Shriek's
 // mawcore abi.h, Scape's fx_module.h). Every divergence between a shim and FOUNDATIONS'
 // FX-operator draft lives in that module's adapter, never in the rows, so when a shim is swapped
-// for the FOUNDATIONS header the change is a rename inside one adapter (ADR-295). Only Scape's
-// adapter exists today (scape_adapter.cpp); a Bulwark or Shriek adapter is one more file of the
-// same shape plus a line in the driver.
+// for the FOUNDATIONS header the change is a rename inside one adapter (ADR-295). Scape's adapter
+// (scape_adapter.cpp) and Kiln's, for its EQ and its drive (kiln_adapter.cpp, ADR-351), exist
+// today; a Bulwark or Shriek adapter is one more file of the same shape plus a line in the driver.
 //
 // WHY VIRTUAL. The must-fail controls (plants.h) are wrappers that forward to a real module and
 // inject one fault each. A virtual base makes every plant module-neutral: the same planted
@@ -130,6 +130,14 @@ class Module {
   // A setting at which the module passes its input dry (out = in x the I/O gains), used by rows
   // A4 and A6 to read gain and delay sample-exactly. Empty when the module has none.
   virtual Settings dryProbe() const = 0;
+  // Whether dryProbe() is EXACTLY dry: the output is the input times the two I/O gains, sample for
+  // sample (Scape at mix 0, the EQ with every band off). False for a module whose nearest-to-dry
+  // setting still runs its input through a delay (Kiln's drive: up-sampler, averaging and
+  // down-sampler, drive.h), where row A6 cannot read a gain off the output and judges it against
+  // the module's own reference renders instead (ADR-351).
+  // THE ADAPTER DECLARES THIS; THE HARNESS NEVER DETECTS IT. A detector would send a broken exact
+  // module (io-not-unity on Scape, say) down the reference path, where its fault reads clean.
+  virtual bool dryExact() const = 0;
   // A setting that engages the module's whole signal path (row A11's sweep, row A2's stress case).
   virtual Settings stressProbe() const = 0;
 };

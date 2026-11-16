@@ -16,6 +16,7 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -59,6 +60,7 @@ class Forward : public Module {
   void clearNonFiniteLatch() override { in_->clearNonFiniteLatch(); }
   bool plantNonFiniteState() override { return in_->plantNonFiniteState(); }
   Settings dryProbe() const override { return in_->dryProbe(); }
+  bool dryExact() const override { return in_->dryExact(); }
   Settings stressProbe() const override { return in_->stressProbe(); }
 
  protected:
@@ -169,6 +171,45 @@ class LatencyShort final : public Forward {
 
  private:
   Sample zL_ = 0, zR_ = 0;
+};
+
+// A4, the causality clause (ADR-351): an early leak 40 dB down. The main path is delayed kD more
+// samples and declared kD later, so its peak still sits exactly at the declared latency and the
+// impulse and sweep halves of the row stay clean; a copy at 1% (-40 dB) of the undelayed output
+// leaks in at the module's true latency, kD samples before the declared one. kD = 4 puts it
+// INSIDE the window of a module that declares an early residual (declared - 3, ADR-402), so the
+// plant fires on every module, drive and half-band included (kD = 3 would land on the window's
+// edge and read clean there). Only
+// the leading-edge threshold (-60 dB re the peak) can see it, which is the point: a clause that
+// asked for the first NONZERO sample would not tell this from a module with a quiet pre-ring.
+class PreEcho final : public Forward {
+ public:
+  using Forward::Forward;
+  static constexpr std::uint32_t kD = 4;
+  bool prepare(double sr, std::uint32_t mb) override { clear(); return in_->prepare(sr, mb); }
+  void reset() override { clear(); in_->reset(); }
+  foundations::OperatorProperties properties() const override {
+    auto p = in_->properties();
+    if (p.latency) p.latency->samples += kD;
+    if (p.tail && p.tail->samples != foundations::kInfiniteTail) p.tail->samples += kD;
+    return p;
+  }
+  void process(const Sample* a, const Sample* b, Sample* oL, Sample* oR, std::uint32_t n) override {
+    in_->process(a, b, oL, oR, n);
+    for (std::uint32_t i = 0; i < n; ++i) {
+      const Sample l = oL[i], r = oR[i];
+      oL[i] = zL_[pos_] + 0.01 * l;   // a fixed ring: nothing allocates in process
+      oR[i] = zR_[pos_] + 0.01 * r;
+      zL_[pos_] = l;
+      zR_[pos_] = r;
+      pos_ = (pos_ + 1) % kD;
+    }
+  }
+
+ private:
+  void clear() { zL_.fill(0); zR_.fill(0); pos_ = 0; }
+  std::array<Sample, kD> zL_{}, zR_{};
+  std::uint32_t pos_ = 0;
 };
 
 // A5: a denormal residue. A leaky integrator of the output, added back at 1e-300 of its level:
@@ -508,6 +549,7 @@ inline const std::vector<PlantDef>& plants() {
       {"reset-unsnapped", "A2", "a reset that leaves one smoother unsnapped", wrapWith<ResetUnsnapped>},
       {"ramp-per-block", "A3", "ramps advanced per block, not per sample", wrapWith<RampPerBlock>},
       {"latency-short", "A4", "latency declared one sample short", wrapWith<LatencyShort>},
+      {"pre-echo", "A4", "an early leak 40 dB down, before the declared latency", wrapWith<PreEcho>},
       {"denormal-residue", "A5", "a denormal residue in the tail", wrapWith<DenormalResidue>},
       {"tail-short", "A5", "a tail longer than declared", wrapWith<TailShort>},
       {"silence-leak", "A5", "a constant leaking into silence", wrapWith<SilenceLeak>},

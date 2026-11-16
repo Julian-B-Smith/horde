@@ -249,6 +249,7 @@ class ScapeModule final : public Module {
   // mix 0: out = (dry * 1 + wet * 0) * outGain, the dry already through the input gain
   // (reverb.cpp's output line), so the module passes its input times the two gains exactly.
   Settings dryProbe() const override { return {{"verb.mix", 0}}; }
+  bool dryExact() const override { return true; }
   // Every stage sounding: a wetter mix, both early reflections and tail, the spin and the
   // modulation on, a set mixing time, a leaning image. Clean era: the flip rows add Vintage.
   Settings stressProbe() const override {
