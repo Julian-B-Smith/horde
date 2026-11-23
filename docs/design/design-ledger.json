@@ -8757,6 +8757,10 @@
   {
    "adr": "ADR-402",
    "reason": "Admission's A4 causality window and where the harness finds FOUNDATIONS (B605): a test-harness ruling with nothing on the page or in the design master."
+  },
+  {
+   "adr": "ADR-403",
+   "reason": "The path modulator replaces B133's morph rail, after 1.0 (B704; SPEC-ENGINE E.10): an engine and modulation ruling with nothing built in 1.0. Its drawing UI, the puck scrub and its page are the GUI session's, ruled as its own GUI-n; nothing in the master or the shell changes here."
   }
  ],
  "engine_impact": {
