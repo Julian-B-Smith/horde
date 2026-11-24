@@ -67,6 +67,11 @@ SPEC-ENGINE C.10 (the spread laws and cut rules), WT-22 (the frame read), RC-9.1
   comparison sees a change and build 11's page is the tag's. **Its GUI frames** equal the rebuild's; but the control
   failed: the plant builds (wrapped as bundles so the dumper can load them) give the same frames too, so the frames pin
   the bridge's frame path for the dump's script, not the sound. The doc says so.
+- **The engine's suite** at `6cd98b5`, built from the same export (4 jobs, niced): `ctest` `89% tests passed, 1 tests
+  failed out of 9`; the one is the suite itself (5,395 s), whose only red item is `item 03 bank: DT-3's sample-rate
+  independence`, 3.b's Crushed burst at `harmonics spread 3.274 dB`, the known red the engine's REPORT records at its
+  acceptance with the same value (its other known red, 9.b1, is green here). bank_report, the inspect and sanitizer
+  tests pass; 15a and 15b (WebAssembly) are skipped, no Emscripten on this machine.
 - **The demos:** `preview-demo-render` from that build, twice: 120 files each, the two lists identical
   (`tools/blade-archive/demos.sha256`). **The GUI frames:** `preview-frames-dump` twice on `6cd98b5`, identical
   (`tools/blade-archive/gui3-frames.sha256`: display `56397bad…`, replay `24b7e5c9…`).
