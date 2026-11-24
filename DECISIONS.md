@@ -13671,3 +13671,17 @@ One correction: ADR-359's lead reading ("They wait for B603 with Mangle and Echo
 - **The wavetable repo** (local, ADR-385): its spec copies, the SPEC-ENGINE extract and their checksums in `specs/SOURCES.md` change; STAGES.md's P-1 to P-6, P-8 and P-9 are answered; the S1 brief fixes the seam (P-9). **Its WT-43 gate changes before S1 starts:** it refuses a second, different `@reference-build` line today (`tests/s1/goldens.h`, plant in `wt43_goldens.cpp`); under ruling 6 the LEDGER carries a hash version per reference build, and the refusal becomes one of an unversioned or out-of-order line. A STAGES row tracks it. Its WT-41 gate follows the per-harmonic reading it already judges.
 - **Design ledger:** a `not_design` entry.
 - **FX device (ADR-254):** none. The wavetable oscillator is a source; the FX device hosts no oscillator, and QS-1's control is an oscillator test.
+
+**A1 (the human, 2026-11-24, by poll, on an independent review of the wavetable repo's WT-43 gate).** The review (Opus, a critic separate from the gate's author) found the gate could not tell what a "toolchain change" is, and that a re-freeze could absorb a small change to the generator code if both landed together. Two questions, two answers:
+1. **What counts as a toolchain change:** "Any fingerprint change, widened". The fingerprint gains the macOS SDK version, the deployment target and the running OS (read when the gate runs, since an OS update can move the maths library's bits under an unchanged build); any change to it may re-freeze. Flag and build-type changes count.
+2. **A re-freeze beside generator or blend-law edits:** "Forbid it". The change that adds a hash version changes nothing outside `goldens/`.
+
+**The lead's readings, open to overrule:**
+- Ruling 2 is judged per commit, and also requires that nothing under the build's `core/` changed between the last close and the re-freeze. Without that, a generator edit one commit before a re-freeze would be absorbed by it. A re-freeze therefore lands first, on code the old reference build judged at the close, and code changes follow it.
+- An older reference build reads "not judged", as ruling 6 words it ("another build"), and `./verify close` requires the latest. The gate's first version judged an older reference build against its own hashes; that was a stretch, withdrawn.
+- The coefficient tier is anchored on each golden's first freeze, so re-freezes cannot walk the output away 10⁻⁶ at a time; a re-freeze beyond it is refused (a new generator or law version, as ruling 6's reading already says).
+
+**The review's other findings, fixed without a ruling,** each with a plant: a CRLF or trailing-space fingerprint named no build and turned the hash tier off silently (now refused); a golden line inserted mid-LEDGER backdated a golden onto an older hash version (the base LEDGER must now be a byte prefix); stray files spelt `h01`/`v01`, junk or truncated coefficient records and a missing LEDGER were not refused; one plant matched the wrong refusal string.
+
+**Consequences.** **SPEC-WAVETABLE** WT-43 gains the two sentences. **The wavetable repo** (local, ADR-385): the gate at `f8b9aa2` (`tests/s1/goldens.h`, `wt43_goldens.cpp`, `wt43_unmoved.sh` and their proofs), its h1 fingerprint rewritten before any golden or close, its spec copy re-taken. **No clean-room change** (SPEC-ENGINE is untouched). **Design ledger:** ADR-405's `not_design` entry covers it. **FX device (ADR-254):** none; goldens are the wavetable source's.
+
