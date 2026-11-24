@@ -21,6 +21,12 @@
 > Amended 2026-11-23 on B705: ADR-404 (S1's CPU share is judged at the Linear strategy the builder declares, 8 or 2
 > reads per member-sample, the share unchanged at 35 %; §5.4, §5.6's S4 row, §7 C9).
 
+> Amended 2026-11-24 on B706: ADR-406 (the blade bake takes option 2 and runs once, offline, the lead's, in the build
+> repo's tools, at S6c, now the lead's stage as S0 is; nothing blade-era loads and no bake code ships; the baked bank
+> is raw material for the factory patch session; the wavetable test plug-in takes a new plug-in id; the blade engine
+> is archived as `blade-engine-final`; §1.2, §1.7, §1.9, §2.4, §3.1 to §3.3, §5.4, §5.6's S6c, S7 and S8 rows, §5.8,
+> §7 C3k, I21, I22, J6, J8, J9, §8).
+
 **Status.** DRAFT for the lead and the human. The seam was read from the clean-room engine at commit `e72a092`
 (spec round 64, 2026-11-07) in `~/Documents/Claude/cleanroom-engine/engine2/`. Line numbers below are at that
 commit. That engine still has rounds 62 to 64 queued, so S7 re-reads the seam at its own pinned commit.
@@ -65,7 +71,7 @@ member replaces the base wave and the blades (ADR-387):
 |---|---|---|
 | `member.phase` | kept | θᵢ and fᵢ as today (WT-20) |
 | `member.base_wave` | **replaced** | step 3 becomes the table read and its transformations |
-| `member.blade1`, `member.blade2` | **retired** | step 4 skipped; their rows retire (§2.4); the code stays for WT-19's oracle until the retirement round (§7 I22) |
+| `member.blade1`, `member.blade2` | **retired** | step 4 skipped; their rows retire (§2.4); the code stays for WT-19's oracle until the retirement round (§7 I22), and is archived as `blade-engine-final` before it leaves (ADR-406) |
 | `member.edges` | **only for a sync restart with a step** | no filter E on a table member (WT-24); a restart with a step adds its corrections to `pending` (step 8's mechanism with a plain residual, WT-24, WT-32) |
 | `member.dc` | kept, new source | WT-25's means replace the blades' estimate |
 | `member.loop` | kept, **amended** | the tap and xin must run for table members though no blade is on (WT-31; C.14, C.16, PA-8 amended, §8) |
@@ -179,6 +185,8 @@ replaced the base wave's closed forms (`wave`, `wave_slope`, `deriv`, `jumps_of`
 twenty call sites in `swarm/blades.cpp`, `swarm/direct.h`, `swarm/wide.h` and `blade/dc.cpp` with table reads of the
 value, the slope and the antiderivative, at about three times the level-set memory. ADR-387 ruled replace; beside is
 not a build path. The blade law survives only frozen inside the blade-bake generator (BLADE-BAKE.md BB-60).
+*Amended by ADR-406:* no blade-bake generator ships; the blade law survives in the archived engine (tag
+`blade-engine-final`) and in the tables baked once, offline, from the bank and demos (BLADE-BAKE.md).
 
 ### 1.8 What the voice must change
 
@@ -210,9 +218,10 @@ not a build path. The blade law survives only frozen inside the blade-bake gener
   then posts the `Tables` event. The resolver's weights arrive as a sample-timed event per oscillator (§4.2).
 - **State.** The engine's IF-4 document gains a top-level member `wt`: per oscillator the four corner recipe ids it
   last received, as it keeps the `ratios` text, and through S8 the test switch `member` (WT-19). Retiring the blade
-  rows and baking old patches is a breaking change, so IF-4's `version` rises to 2 with a migration from 1 (RC-9.4):
-  the migration runs the blade bake (BLADE-BAKE.md BB-50) and keeps every retired row's value byte for byte (§2.4).
-  The recipes live in the patch's table dictionary (§3).
+  rows is a breaking change, so IF-4's `version` rises to 2 with a migration from 1 (RC-9.4, as ratified): the
+  migration drops the blade settings (their retired rows kept, inert, §2.4), keeps the base wave and reports it.
+  It runs no bake (ADR-406): the bank and demos are baked once, offline (BLADE-BAKE.md), and no blade-era state is
+  required to load in the wavetable plug-in. The recipes live in the patch's table dictionary (§3).
 - **Observation (IF-10).** Per oscillator: weights, law, the published set's levels, crossfade position, rebuild
   count. Per member: frame position, level, pitch-crossfade weight, output before the fade. No product branch is
   added for them (BD-4).
@@ -347,15 +356,15 @@ class's mechanism (5.1) and differs in what its value means:
 | id | frozen | frozen, never reused or deleted (RC-9.1) |
 | in the manifest | yes | yes, its own count in 5.8 |
 | host parameter | no | **no** |
-| value in a saved state | kept unchanged, read as 0 (its later default) | **kept byte for byte, any value**, read by nothing but the blade bake (BLADE-BAKE.md BB-1) |
+| value in a saved state | kept unchanged, read as 0 (its later default) | **kept byte for byte, any value**, read by nothing (ADR-406: the bake reads the bank and demo files, not saved state) |
 | a `Param` event to it | refused and counted (PA-7) | **refused and counted** (PA-7) |
-| on a page, in Random, in the host's list | no | **no**; a load report names those an old patch set away from default and the bake did not carry (BB-30) |
+| on a page, in Random, in the host's list | no | **no** (ADR-406: the load report no longer names them; it keeps only §3.3's fallbacks, and what the bake did not carry is in its bake report, BB-30) |
 | the morph | not resolved | **not resolved**: no corner value is sent, since nothing plays it |
 | live (PA-8) | never | never |
 
 **Which rows.** On osc 1 and osc 2: both blades' rows (5.4: 30 and 32), and the six blade-only oscillator rows
 `baseWave`, `quantize`, `stacking`, `upperHears`, `collisionPitch` and `collisionBite`: **68 per oscillator, 136**.
-The `ratios` text (oscillator state, not a row) is retired the same way: kept in state, read only by the bake. Osc 3
+The `ratios` text (oscillator state, not a row) is retired the same way: kept in state, read by nothing (ADR-406). Osc 3
 has none of them.
 
 **The new rows** are live while their oscillator is on. `wt.frameSpread` needs Linear and `unison` > 1; `wt.sync`
@@ -386,7 +395,8 @@ capture:   {"v":1, "kind":"cap", "src":["<id A>","<id B>","<id C>","<id D>"], "x
 
 - Factory ids: `factory/sine-saw`, `factory/pulse`, `factory/vowel`, `factory/sync`, `factory/fm`, `factory/fold`,
   `factory/comb`, `factory/organ`; the random generator's is `random` (TABLECASTER's engines, ADR-386, §7 I18); the
-  blade bake's is `blade-bake` (BLADE-BAKE.md BB-40).
+  blade bake's is `blade-bake` (BLADE-BAKE.md BB-40). No `blade-bake` generator ships (ADR-406): a `blade-bake`
+  recipe keys its baked table's library file (WT-45) and plays from the library copy (§3.3).
 - `lawV` pins the blend law's version (WT-42, WT-43); every law version stays buildable.
 - A capture's sources are ids resolved in the patch's dictionary, so captures form a graph and a shared source is
   stored once. No wall-clock value is in a recipe or its id (DT-5).
@@ -395,26 +405,34 @@ capture:   {"v":1, "kind":"cap", "src":["<id A>","<id B>","<id C>","<id D>"], "x
 
 | place | holds | bound |
 |---|---|---|
-| **the host's state chunk** | a `tables` dictionary {id: recipe} with every table a corner of any oscillator references and every capture's sources, transitively; corners hold ids | **64 recipes, 512 bytes each (2.5 KiB for a `blade-bake` recipe, BB-41; ADR-390, P6), 32 KiB in all**; capture depth 8. **Enforced when a table is assigned or captured** (WT-44), never at save; a migrated old patch needs at most 8 bake recipes, 20 KiB. The whole chunk's ceiling is §7 I16. |
+| **the host's state chunk** | a `tables` dictionary {id: recipe} with every table a corner of any oscillator references and every capture's sources, transitively; corners hold ids | **64 recipes, 512 bytes each (2.5 KiB for a `blade-bake` recipe, BB-41; ADR-390, P6), 32 KiB in all**; capture depth 8. **Enforced when a table is assigned or captured** (WT-44), never at save; a baked preset needs at most 8 bake recipes, 20 KiB (ADR-406). The whole chunk's ceiling is §7 I16. |
 | **an exported preset file** | the dictionary plus the rendered spectra of every played table that is not a factory generator, float32 in base64 | about 171 KiB per table, at most 12 corner tables: ≤ 2.1 MiB per file |
-| **the user library** (device-wide, WT-45) | one file per table: recipe and spectra | — |
+| **the user library** (device-wide, WT-45) | one file per table: recipe and spectra; the baked bank's tables live here on the human's machine until the factory patch session (ADR-406) | — |
 
 The host chunk never carries table data (ADR-384 #2; the lesson that a host silently keeps an old chunk when a
 large one fails to save).
 
 **The bake bound** (ADR-390, P6; S0-RESULTS §4): the worst-case `blade-bake` recipe is 2,081 bytes on the real 68
 rows (2,337 with a 512-byte `ratios`), so 2.5 KiB holds it, and BB-F8's named-key plant (2,828 bytes) exceeds it,
-which 3 KiB did not. **Open for the next spec round, not resolved here:**
+which 3 KiB did not. ADR-406 leaves this standing: a `blade-bake` recipe still carries the corner's source blade
+rows in its `set` (BB-40), since they define the table's id; it is the baked preset that does not write them as
+rows (BB-42). So the 2.5 KiB bound and BB-F8 stand; option 2 adds U and the spread rows to `set`, which S0's measure
+did not have and BB-F8 measures (BB-41). **Open for the next spec round, not resolved here:**
 - **the `ratios` limit:** the spec says 256 bytes (IF-12, MO-13), the engine accepts 512 (`kRatiosMaxBytes`);
 - **the number form:** §3.1's canonical form is ECMAScript's shortest form, the engine's state writer prints
   printf's `%.*g` form; recipe ids hash the canonical text, so the two differ where they meet.
 
 ### 3.3 Loading
 
-1. The main thread rebuilds every recipe before the load returns (WT-18). A version-1 state is migrated first:
-   its blades are baked (BLADE-BAKE.md BB-50), its retired rows kept byte for byte (§2.4).
+1. The main thread rebuilds every recipe before the load returns (WT-18). A version-1 state is migrated first
+   (§1.9): its blade settings dropped, its retired rows kept byte for byte (§2.4), its base wave kept and reported.
+   Nothing is baked at load (ADR-406).
 2. An unknown generator or law version: the embedded spectra, else the library copy by id, else the corner's
-   default factory table. **Every fallback is reported by name** in the load report (PA-7's rule).
+   default factory table. **Every fallback is reported by name** in the load report (PA-7's rule). A `blade-bake`
+   id takes this order too, since no `blade-bake` generator ships: its baked table plays from the library copy,
+   and that fallback is not reported (ADR-406). A baked table cannot be rebuilt, so if its library file is deleted
+   the corner falls to its default factory table, named in the load report (WT-45 and WT-F30's one exception,
+   ADR-406).
 3. A capture whose sources cannot all be rebuilt: the same order, reported.
 
 ---
@@ -534,7 +552,7 @@ The clean-room build measured CPU only at the end and read 7 to 10 times its tar
 | S5a | cell 3 (one oscillator) | ≤ 100 % of 5 % |
 | S5b | cells 4 and 5 (K = 3, the matrix; segment and interleaved) | ≤ 100 % of 15 % |
 | S6 | cells 1 to 5: no audio-path change | within 2 % of S5b |
-| S6b, S6c | the generators and the bake run at load, off the audio thread: cells 1 to 5 unchanged; the bake's own time reported (BB-51) | within 2 % of S5b |
+| S6b | the generators run at load, off the audio thread: cells 1 to 5 unchanged (S6c, the bake, runs once, offline, the lead's, and costs nothing at load; ADR-406) | within 2 % of S5b |
 | S7, S8 | the cells in the clean-room engine at K = 3 (ADR-388 #4a); the swarm's own cost reported apart (PF-1, re-anchored to cells 2 and 5, holds the whole oscillator; PF-2 judged at two oscillators, reported at three, ruled again after S5b) | ≤ 100 % |
 
 - **S1's scaling** (ADR-404). *The human's ruling, 2026-11-23:* S1's CPU check scales by the reads per
@@ -582,9 +600,9 @@ is in BRIEF.md. **A stage closes only by §6.1.**
 | **S5b** | K = 3; the PM matrix, every modulator's taps and fades (WT-62), the two render modes (WT-64), the back-edge clamp (WT-65), the PM buffers | operator stacks: EP, bell, growl, feedback | WT-F14; WT-F4 with depths swept and a modulator switched off; WT-F12 with every entry fuzzed; WT-F3 for the matrix; the back-edge stability map (WT-65) | ≤ 100 % of 15 % |
 | **S6** | recipes, the dictionary and its bounds, capture, the library, the slot handoff (§1.6), state, the random slot | captures against live blends | WT-F11, WT-F5's load and mid-render cases, WT-F13 (TSan plant), WT-F22, WT-F30; recipe round trip byte-identical; bounds refused at assignment; fallbacks reported | within 2 % |
 | **S6b** | the C++ generators (INTEGRATION §11 step 8): the eight factory tables, "Basic shapes", TABLECASTER's ten engines (§7 I18), each frozen by goldens | factory and rolled tables | WT-F15, WT-F29, WT-41, WT-43, WT-47 for every generator | within 2 % |
-| **S6c** | the blade bake (BLADE-BAKE.md): the focused port and its oracle, the render, the frame axis, the mappings, the report | old patches baked into tables (migration A/B) | BB-F1, F2, F3 (a), F5 to F8, F10, F12 | within 2 % |
-| **S7** | the seam in `seam/` (§5.8) **at K = 3** (ADR-388 #4a): the table member in `Swarm::render`, the table sets in `HordeEngine`, osc 3 (its block, `mix.osc3`, the five-source arrays), the voice's render order, both render modes and PM buffers, the loop amendment, the retired class | the table member in the real swarm, three oscillators | WT-P4 (every `member` at `base`: all 83 bank presets bit-identical to the pinned commit); the clean-room suite green, by-index tests reseeded by key (WT-F36); WT-F1, WT-F4, WT-F5, WT-F14 (a), WT-F35 in the engine | cells in the engine |
-| **S8** | the spectral-blend class in the resolver, `set_corner_tables`, five sources in the shared switch pick, the modulation destinations, the engine's `wt` state and IF-4 version 2, the GUI observations (GN-57 to GN-60), the test plug-in | morphing tables, old patches loading, the human playing it | the morph rows the class touches (WT-F31); MS-29 refusals; RC-9 round trips; IF-4 version 2's migration with BB-F3 (b), BB-F4, BB-F9, BB-F11; rtsan and TSan on the plug-in render | cells, timed |
+| **S6c** (lead; ADR-406) | the blade bake (BLADE-BAKE.md), run once, offline, by the lead on the frozen clean-room engine, in the build repo's tools beside `s0-1` to `s0-3`; no port, nothing in the build: the tap (BB-12), the render, the frame axis, the mappings, the report | the bank and demos baked into tables (a bake A/B, the exemption below) | the bake's own gates, on its outputs: BB-F13 first, then BB-F1, F2, F3 (a), F5, F6, F7, F8 (BB-F9 and BB-F12 deleted, ADR-406) | — (offline; nothing at load) |
+| **S7** | the seam in `seam/` (§5.8) **at K = 3** (ADR-388 #4a): the table member in `Swarm::render`, the table sets in `HordeEngine`, osc 3 (its block, `mix.osc3`, the five-source arrays), the voice's render order, both render modes and PM buffers, the loop amendment, the retired class | the table member in the real swarm, three oscillators | WT-P4 (every `member` at `base`: all 83 bank presets bit-identical to the pinned commit); the clean-room suite green, by-index tests reseeded by key (WT-F36); WT-F1, WT-F4, WT-F5, WT-F14 (a), WT-F35 in the engine; BB-F11 by ear, reported: the real swarm plays the baked tables at the preset's U (ADR-406) | cells in the engine |
+| **S8** | the spectral-blend class in the resolver, `set_corner_tables`, five sources in the shared switch pick, the modulation destinations, the engine's `wt` state and IF-4 version 2 (its migration from 1 as §1.9 says, no bake), the GUI observations (GN-57 to GN-60), the test plug-in under a new plug-in id (ADR-406; the blade preview keeps `com.mindlathe.horde-engine-preview`, so the archived build installs beside it) | morphing tables, the baked bank and demos loading (written as version-2 states by the lead's bake, ADR-406), the human playing it | the morph rows the class touches (WT-F31); MS-29 refusals; RC-9 round trips; IF-4 version 2's migration (§1.9, no bake); BB-F3 (b), BB-F4 (re-aimed per frame) and BB-F10 on the baked presets, now states with their routes (ADR-406; BB-F9 deleted, BB-F11 at S7); rtsan and TSan on the plug-in render | cells, timed |
 
 **The listening batches** (≤ 6 clips each):
 
@@ -633,7 +651,7 @@ is in BRIEF.md. **A stage closes only by §6.1.**
 | | `s6c-3-rotation` | a rotating-blade preset, old then baked with the frame LFO | Is 16 positions per turn acceptable? |
 | | `s6c-4-jitter` | Trance and Operator jitter, old then baked with the internal modulator | Same jitter? |
 | | `s6c-5-sync-formant` | a whole-cycle Sync blade and a fixed-Hz formant, old then baked as sync | Same? |
-| | `s6c-6-not-carried` | a cross-mod and a noise-blade preset, old then baked, with the load report on the page | Is the loss acceptable, and is the report clear? |
+| | `s6c-6-not-carried` | a cross-mod and a noise-blade preset, old then baked, with the bake report on the page (ADR-406) | Is the loss acceptable, and is the report clear? |
 | S7 | `s7-1-coupling` | coupling −1 → +1 on a table swarm | Does the swarm's physics still read? |
 | | `s7-2-drift-inertia` | drift and inertia on a table pad | Same character? |
 | | `s7-3-gravity` | gravity on a held table chord | Still settles to just intervals? |
@@ -644,7 +662,7 @@ is in BRIEF.md. **A stage closes only by §6.1.**
 | | `s8-4-human-take` | the human playing the test plug-in | The human's notes |
 
 Every clip is one oscillator's member, never two engines (GUI-1). **The one exemption is a migration A/B** (`s0-1`
-and S6c's clips): the old engine and the baked patch played one after the other so the human can judge what an old
+and S6c's clips; since ADR-406 a bake A/B, the bank's presets before and after the one offline bake): the old engine and the baked patch played one after the other so the human can judge what an old
 patch keeps. It compares a patch before and after its migration, not two engines a patch could choose between, and
 is never offered on a page.
 
@@ -671,8 +689,8 @@ A finished stage reopens only by the human's ruling, and then as a row in the ne
   only. **`seam/`** is a git clone of the same commit, on a branch, where S7 and S8 wire the table member in.
 - **S8 delivers three things:** (1) a SPEC-ENGINE round, drafted by the lead from §8 and reviewed by a critic, so
   the engine's spec states what its code does; (2) a patch series against the pinned commit (the table modules, the
-  seam at three oscillators, osc 3's block and the five-source arrays, the retired class, the blade bake and IF-4's
-  version-2 migration), from `seam/`; (3) a change request for the harness header
+  seam at three oscillators, osc 3's block and the five-source arrays, the retired class and IF-4's version 2 with
+  its migration from 1, which bakes nothing: the clean-room engine never gets the bake, ADR-406), from `seam/`; (3) a change request for the harness header
   `engine2/tests/harness/horde_engine.h` (`set_table`, the `Tables` event, `set_corner_tables`, `kSourceOsc3 = 4`
   and `kSources = 5`, `OscView osc[3]`, the observation and counter fields, the `retired` class), which belongs to
   the clean-room test side; the lead files it there, with the round, in the same turn.
@@ -746,6 +764,10 @@ answered it.
   Not ruled by it: C2a, D2a, and C1, C9 and I6 as their rows say.
 - **ADR-404 (2026-11-23):** S1's CPU share is judged at the reads per member-sample of the Linear strategy the builder
   declares (8 under (a), 2 under (b)); the share stays 35 % (§5.4, C9; S0's P-7).
+- **ADR-406 (2026-11-24):** the blade bake takes option 2 (one cycle per member at the preset's own unison); it
+  runs once, offline, and nothing blade-era loads; the baked bank is raw material for the factory patch session;
+  the wavetable test plug-in takes a new plug-in id; the blade engine is archived as `blade-engine-final`. Amends
+  ADR-388 #1 and #3 and ADR-390's J8, J9 and I22.
 
 **The decisions, in one table.** Each row: its id (never renumbered), the question, the drafter's recommendation
 (or the ADR that answered it), and the stage before which it is needed. Duplicates are merged under one id: F3 is
@@ -769,7 +791,7 @@ I23, H4 is I10, H8 is I8. The PROPOSED numbers are listed by gate (C3a to C3k), 
 | C3h | The table gate's band rule: energy under 20 kHz at C3 within 12 dB of full (WT-47) | **Answered** (ADR-390): Approve. | S1 |
 | C3i | State bounds: capture depth 8, 64 recipes, 512 bytes each, 3 KiB for a bake recipe, 32 KiB in all (WT-44, BB-41) | **Answered** (ADR-390, P6): approved with **2.5 KiB** for a bake recipe, not 3 KiB (S0 item 4: the worst case 2,081 bytes; BB-F8's plant fires only under 2.5); the `ratios` limit and the number form are open for the next round (§3.2). Approve; S0 item 4 checks the bake's worst case. | S6 |
 | C3j | WT-F3's plant: sync's level chosen for fᵢ worsens the alias report by at least 20 dB at r = 4, C5 | **Answered** (ADR-390): Approve. | S5a |
-| C3k | The bake's tolerances: BB-F2 10⁻⁵, BB-F3 10⁻⁵ and DT-3's 0.5 dB, BB-F10 1 dB per harmonic, BB-F12 10⁻⁶ | **Answered** (ADR-390): Approve. | S6c, S8 |
+| C3k | The bake's tolerances: BB-F2 10⁻⁵, BB-F3 10⁻⁵ and DT-3's 0.5 dB, BB-F10 1 dB per harmonic, BB-F12 10⁻⁶ | **Answered** (ADR-390): Approve. Amended by ADR-406: BB-F12 deleted (no port); BB-F4 re-aimed, not narrowed: for every static corner, each frame played alone (one member, U = 1, at that frame's position, frame spread 0, the morph off) against the frozen engine's member at that frame's position (BB-F13's tap), DT-3's 0.5 dB, judged; U = 1 corners as before. **Added, PROPOSED, not yet answered:** BB-F13 (the tap isolates one member, BB-12): every member of every bank and demo corner at U above 1 within 10⁻⁶ of peak per harmonic of the engine's own render of that member; plant, member i's cycle taken from member i + 1; control, a U = 1 corner. The bake's own gates close at S6c, BB-F11 at S7, BB-F3 (b), F4 and F10 at S8 (§5.6). | S6c, S8 |
 | C4 | The memory cap: 24 MiB per oscillator, 72 MiB for three (WT-8) | **Answered** (ADR-390): Approve: it allows strategy (a) at one level per octave (59.7 MiB) and strategy (b) at half-octave (44.3 MiB). | S4 |
 | C5 | The rebuild interval: 4 control intervals (WT-14) | **Answered** (ADR-390): Approve. | S2 |
 | C6 | Spectral log's frame interpolation (WT-3) | **Answered** (ADR-390): The log domain, the test written to match. | S2 |
@@ -810,8 +832,8 @@ I23, H4 is I10, H8 is I8. The PROPOSED numbers are listed by gate (C3a to C3k), 
 | I18 | TABLECASTER as recipe generators | **Answered** (ADR-390): ADR-386's five points; engines with goldens; a refused roll re-drawn up to 8 times, then refused and named. | S6b |
 | I19 | Random's wavetable roles | **Answered** (ADR-390): The chaos ladder as INTEGRATION §5 proposes; "sync off at low chaos" now reads "ratio 1". | the round |
 | I20 | The oscillator preset tier | **Answered** (ADR-390): One oscillator's rows and one table, slot-agnostic. | S6 |
-| I21 | The banks | **Answered** (ADR-390): A "Demo (wavetable)" section at S8; the blade demos kept until the retirement round; the factory bank re-voiced; the bank and demos also load baked. | S8 |
-| I22 | When the blade code leaves the engine | **Answered** (ADR-390): One retirement round after the factory patch session; the bake's port stays (BB-60). | after S8 |
+| I21 | The banks | **Answered** (ADR-390): A "Demo (wavetable)" section at S8; the blade demos kept until the retirement round; the factory bank re-voiced; the bank and demos also load baked. Amended by ADR-406: the bank and demos are baked once, offline, as raw material for the factory patch session; their tables live as library files (WT-45) on the human's machine; only what that session keeps ships in 1.0, in a storage form ruled then. | S8 |
+| I22 | When the blade code leaves the engine | **Answered** (ADR-390): One retirement round after the factory patch session; the bake's port stays (BB-60). Amended by ADR-406: there is no port; the blade code stays through S8 as WT-19's oracle and leaves at that round, as ruled; the blade engine is archived as `blade-engine-final` (tags and a release) before then. | after S8 |
 | I23 (= F3) | How the patch series lands (§5.8) | **Answered** (ADR-390): Merged, the clean-room builder reviewing it, with the round. | S8 |
 | I24 | Who regenerates the random roles lab | **Answered** (ADR-390): The lead updates the generator; the GUI session the page. | the round |
 | J1 | The bake's frame axis (BB-20) | **Answered** (ADR-390): Approve: static corners single-frame; one moving parameter swept across the frames, its route or LFO moved to `wt.frame` at depth 1. | S6c |
@@ -819,10 +841,10 @@ I23, H4 is I10, H8 is I8. The PROPOSED numbers are listed by gate (C3a to C3k), 
 | J3 | Short tapers (WT-37) | **Answered** (ADR-390): A minimum taper half-width of 2 internal samples; ED-7's correction of the leftover step as the alternative; measured by WT-F40. | S5a |
 | J4 | The bake needs the internal modulator for jitter presets (BB-32) | **Answered** (ADR-390): Rule I8 before S6c, so `genV` 1 carries jitter. | S6c |
 | J5 | The bake's reference pitch and rate (BB-13) | **Answered** (ADR-390): C4 and 44.1 kHz for every pitch- or rate-dependent law. | S6c |
-| J6 | The stages: S6b the C++ generators, S6c the bake | **Answered** (ADR-390): Approve. | S6 |
+| J6 | The stages: S6b the C++ generators, S6c the bake | **Answered** (ADR-390): Approve. Amended by ADR-406: the bake left the build; S6c stays, now the lead's stage (as S0 is), which runs the bake once, offline, on the frozen clean-room engine in the build repo's tools (§5.6). | S6 |
 | J7 | `wt.syncSoft` at control rate | **Answered** (ADR-390): Approve. | S5a |
-| J8 | What the bake ships (BB-12, BB-60) | **Answered** (ADR-390): A focused C++ port of the single-member blade path, in its own namespace, sized for one voice; the frozen clean-room engine stays in the build repo as its oracle (BB-F12). Not the whole engine in the plug-in (never ruled; a dependency gate; publishes the clean-room source in a public tree; symbol clashes; 43 MB per bake). | S6c |
-| J9 | **Swarm presets:** does "the nearest wavetable sound" (ADR-388 #1) mean the single-member cycle, or must the bake carry per-member texture (blade spreads, cut rules, `frame` = swarm)? | **Answered** (ADR-390): Carry what is cheap: when a corner's frame axis is unused, bake its frames at spread positions −1 to 1 and map the spread to `wt.frameSpread` (BB-20 (a)); report the rest; BB-F11 compares U = 9 renders (reported); `s0-1` lets the human hear the loss before anything is built. | S0 (by ear), S6c |
+| J8 | What the bake ships (BB-12, BB-60) | **Answered** (ADR-390): A focused C++ port of the single-member blade path, in its own namespace, sized for one voice; the frozen clean-room engine stays in the build repo as its oracle (BB-F12). Not the whole engine in the plug-in (never ruled; a dependency gate; publishes the clean-room source in a public tree; symbol clashes; 43 MB per bake). Amended by ADR-406: nothing ships, no port; the bake runs once, offline, on the frozen clean-room engine, in the build repo's tools, at S6c, the lead's stage; BB-F12 deleted, BB-F13 (the tap, PROPOSED, C3k) added. | S6c |
+| J9 | **Swarm presets:** does "the nearest wavetable sound" (ADR-388 #1) mean the single-member cycle, or must the bake carry per-member texture (blade spreads, cut rules, `frame` = swarm)? | **Answered** (ADR-390): Carry what is cheap: when a corner's frame axis is unused, bake its frames at spread positions −1 to 1 and map the spread to `wt.frameSpread` (BB-20 (a)); report the rest; BB-F11 compares U = 9 renders (reported); `s0-1` lets the human hear the loss before anything is built. Amended by ADR-406 (option 2, heard on `s0-3`): for each oscillator and corner with U above 1, one cycle per member as the old engine played it at the preset's own U, at rest, its spread positions and cut rule (C.10) included. The frames are indexed by member position p: frame k0 + j holds the cycle at p = j/(U − 1) − ½ (j = 0 … U − 1), k0 = ⌊(16 − U)/2⌋, the frames outside repeating the end frames; `wt.frameSpread` = (U − 1)/15 and `wt.frame` = (k0 + (U − 1)/2)/15, so every member reads its own frame exactly under the gradient and alternate laws, approximately under random (reported). The spread law is kept, except that a corner whose blade frame follows the swarm gets `spreadLaw` swarm. The texture holds under Linear, the default; under Spectral log frame spread is inert (WT-22) (BB-20 (a) as amended). A changed unison reads the baked frames at the new count; no re-bake. | S0 (by ear), S6c |
 | J10 | `wt.syncSoft`'s offset | **Answered** (ADR-390): 0x042, with 0x036 (the withdrawn `wt.window`) left empty, so no draft or lab file that named 0x036 can be misread; 0x036 would also be legal, since nothing is ratified. | the round |
 | J11 | Osc 3's defaults | **Answered** (ADR-390): Osc 1's, except `seed` 1236 and `on` off. | the round |
 | J12 | The migration A/B clips as an exemption from "never two engines" (§5.6) | **Answered** (ADR-390): Approve: they compare one patch before and after its migration. | S0 |
@@ -841,7 +863,7 @@ manifest, the morph and modulation contracts, PF-1 and PF-2). This contract adds
 | PA-4, PA-5, PA-7, PA-8 | §2.3 |
 | ED-1 | a table member's sync restart takes the plain residual, never filter E (WT-24; §7 J2) |
 | C.14, C.16 | the loop on table members (WT-31); the PM matrix (WT-61 to WT-66); the means of WT-25 |
-| IF-4 | `version` 2, the `wt` member, the migration that bakes blades (BLADE-BAKE.md) |
+| IF-4 | `version` 2, the `wt` member, and the migration from 1 (RC-9.4 as ratified): blade settings dropped, the base wave kept and reported, nothing baked (ADR-406) |
 | IF-9, IF-10, RC-8 | the counters and observations of §1.9, GN-57 to GN-60 included |
 | IF-12, MO-13, MO-26, MO-27, Appendix D | `set_corner_tables`, the `Tables` output, the spectral-blend class, five sources (§4.2) |
 | RT-1, PF-7 | the table sets in prepare's maxima; the memory statement (§1.5) |
