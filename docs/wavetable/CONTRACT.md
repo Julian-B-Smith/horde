@@ -562,7 +562,9 @@ The clean-room build measured CPU only at the end and read 7 to 10 times its tar
   page with a notes field per clip and the questions below.
 - The human's notes become **rows in STAGES.md before the next stage starts**: built into the next stage, ruled
   out with a reason the human accepts, or deferred to a named stage. A stage does not close with a note unanswered.
-- Clips are `sN-k-<what>.wav`, 44.1 kHz, 24-bit, peak-normalised to −1 dBFS with the gain on the page.
+- Clips are `sN-k-<what>.wav`, 44.1 kHz, 24-bit, peak-normalised to −1 dBFS with the gain on the page. S0's `s0-1`
+  counts as one clip in eight files: four A/B pairs, each file normalised on its own, each gain on the page (ADR-405,
+  P-8).
 
 ### 5.6 The stages
 

@@ -8765,6 +8765,10 @@
   {
    "adr": "ADR-404",
    "reason": "S1's CPU share in the wavetable build is judged at the Linear strategy the builder declares (B705; CONTRACT §5.4, C9): a build-measurement ruling with nothing on the page or in the design master."
+  },
+  {
+   "adr": "ADR-405",
+   "reason": "S0's test readings P-1 to P-6, P-8 and P-9 (B705): spec wording for gates, golden hashes and the S1 seam, with nothing on the page or in the design master."
   }
  ],
  "engine_impact": {
