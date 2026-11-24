@@ -18,6 +18,9 @@
 > Amended 2026-11-09 on B666: ADR-390 (WT-BUDGET 5 % per oscillator at crossfade scheme (iii); §7's
 > recommendations adopted; S0's proposals P1 to P7, `docs/wavetable/S0-RESULTS.md`) and the GUI session's GN-60.
 
+> Amended 2026-11-23 on B705: ADR-404 (S1's CPU share is judged at the Linear strategy the builder declares, 8 or 2
+> reads per member-sample, the share unchanged at 35 %; §5.4, §5.6's S4 row, §7 C9).
+
 **Status.** DRAFT for the lead and the human. The seam was read from the clean-room engine at commit `e72a092`
 (spec round 64, 2026-11-07) in `~/Documents/Claude/cleanroom-engine/engine2/`. Line numbers below are at that
 commit. That engine still has rounds 62 to 64 queued, so S7 re-reads the seam at its own pinned commit.
@@ -519,11 +522,11 @@ The clean-room build measured CPU only at the end and read 7 to 10 times its tar
   the 2 to 6 am window of the night after the stage's gates go green (ADR-380 A1). **A stage closes only after that
   run is within its share.** That night's run also **re-fixes the conversion factor** from instructions to time, for
   the next stage's counts.
-- **The shares** (cumulative, PROPOSED; the lead fixes them):
+- **The shares** (cumulative; S1's ruled by ADR-404, the rest PROPOSED; the lead fixes them):
 
 | stage | judged cells, as built so far | share of WT-BUDGET |
 |---|---|---|
-| S1 | the read alone, scaled to cell 2's member-samples (8 reads per member-sample under strategy (a)) | ≤ 35 % |
+| S1 | the read alone, scaled to cell 2's member-samples at the Linear strategy the builder declares (C9: 8 reads per member-sample under (a), 2 under (b)) | ≤ 35 % |
 | S2 | cell 1's rebuilds and crossfades, one member per voice | ≤ 55 % |
 | S3 | cells 1 and 2 with the pitch crossfade | ≤ 65 % |
 | S4 | cells 1 and 2 at U = 9, the morph moving: the first full measurement | ≤ 85 % |
@@ -534,6 +537,15 @@ The clean-room build measured CPU only at the end and read 7 to 10 times its tar
 | S6b, S6c | the generators and the bake run at load, off the audio thread: cells 1 to 5 unchanged; the bake's own time reported (BB-51) | within 2 % of S5b |
 | S7, S8 | the cells in the clean-room engine at K = 3 (ADR-388 #4a); the swarm's own cost reported apart (PF-1, re-anchored to cells 2 and 5, holds the whole oscillator; PF-2 judged at two oscillators, reported at three, ruled again after S5b) | ≤ 100 % |
 
+- **S1's scaling** (ADR-404). *The human's ruling, 2026-11-23:* S1's CPU check scales by the reads per
+  member-sample of the Linear strategy the builder declares in S1's brief and report (WT-21, WT-23: 8 under (a),
+  2 under (b)), and S1's share stays 35 %. *The lead's readings, open to overrule:* S1 builds one member on a static
+  table and reads no blend, so the declaration is the only read count it can be judged at. What a strategy costs
+  besides its reads is judged where it is measured: (b)'s pre-blend is built at S2 with the blend, but S2 judges
+  cell 1 (Spectral log, WT-P2), so it is first judged at S3 with cell 2 and again in S4's full measurement; (a)'s
+  corner level sets are WT-8's memory. The shares are cumulative, so nothing the declaration leaves out of S1
+  escapes S3 and S4. If S4 fixes a strategy that reads more per member-sample than S1 declared, S1's check is re-run
+  at S4's count and reported beside S4's figures; S1 does not reopen.
 - **When a timed run exceeds its share** (likely: B648 measured a cheaper design at 3.9 %, its follow-up counts
   this design at about 10 to 13 % uncalibrated, spec WT-P7): (1) the stage does not close; (2) the builder applies cheaper
   schemes that keep every render within −120 dBFS of the previous build (ADR-380 A1's tier 1): WT-15 (ii) or
@@ -563,7 +575,7 @@ is in BRIEF.md. **A stage closes only by §6.1.**
 | **S1** | the data model, the factory generators, levels, the read; one member, a static table | factory tables | WT-F1, WT-F5, WT-F8 (static), WT-F9, WT-F13 (rtsan); WT-41, WT-43, WT-47 | ≤ 35 % |
 | **S2** | the four-corner blend, both laws and WT-3's frame rule, rebuild and crossfade (scheme (iii), ADR-390; WT-F4's moving-phase probe judges it), WT-16's loudness | morph sweeps | WT-F4 (the moving-phase probe, differing corners, law switch, Quantum flip), WT-F6, WT-F7, WT-F10, WT-F5 at every block split | ≤ 55 % |
 | **S3** | levels across pitch, the pitch crossfade, WT-36's level choice; ρ a constant | glides at three spacings | WT-F1 at C1 to C8 at 44.1, 48, 96 kHz; WT-F2 (the design figure); WT-F4 over glides | ≤ 65 % |
-| **S4** | U members of the stand-in, per-voice frame under Linear (strategy (a); (b) measured), frame spread, Spectral log's newest-voice frame, 8 voices | unison and scanned plucks | WT-F4, WT-F5, WT-F7 at U = 9; WT-P4; memory against WT-8 | ≤ 85 % |
+| **S4** | U members of the stand-in, per-voice frame under Linear (the declared strategy; the other measured and one fixed: C9), frame spread, Spectral log's newest-voice frame, 8 voices | unison and scanned plucks | WT-F4, WT-F5, WT-F7 at U = 9; WT-P4; memory against WT-8 | ≤ 85 % |
 | **S5a** | the internal modulator (if the lab has ruled, else it moves to the first unstarted stage after the ruling), always-on sync with its softness taper and the plain restart correction (WT-24, WT-32, WT-33), asym and bend, the loop on table members, DC removal, High; one oscillator | sync leads, soft formants, jitter | WT-F3, WT-F8 with every transformation, WT-F12, WT-F4 with each amount swept, WT-F26, WT-F38 to WT-F41; sync's edges by QS-1's method at r = 2.5, **reported** (QS-3's rule), not judged against QS-1's floors (ADR-390, P3: S0 read 51 to 71 dB on bright tables under either correction, E included); the loop's stability map (WT-31) | ≤ 100 % of 5 % |
 | **S5b** | K = 3; the PM matrix, every modulator's taps and fades (WT-62), the two render modes (WT-64), the back-edge clamp (WT-65), the PM buffers | operator stacks: EP, bell, growl, feedback | WT-F14; WT-F4 with depths swept and a modulator switched off; WT-F12 with every entry fuzzed; WT-F3 for the matrix; the back-edge stability map (WT-65) | ≤ 100 % of 15 % |
 | **S6** | recipes, the dictionary and its bounds, capture, the library, the slot handoff (§1.6), state, the random slot | captures against live blends | WT-F11, WT-F5's load and mid-render cases, WT-F13 (TSan plant), WT-F22, WT-F30; recipe round trip byte-identical; bounds refused at assignment; fallbacks reported | within 2 % |
@@ -730,6 +742,8 @@ answered it.
   conditions, with the rebuild crossfade at scheme (iii) (C2, C7); this table's recommendations adopted row by row,
   except where S0's proposals P1 to P7 replace them (J2, C3i, H6; WT-F42, WT-25, WT-37, WT-6); J9 as recommended.
   Not ruled by it: C2a, D2a, and C1, C9 and I6 as their rows say.
+- **ADR-404 (2026-11-23):** S1's CPU share is judged at the reads per member-sample of the Linear strategy the builder
+  declares (8 under (a), 2 under (b)); the share stays 35 % (§5.4, C9; S0's P-7).
 
 **The decisions, in one table.** Each row: its id (never renumbered), the question, the drafter's recommendation
 (or the ADR that answered it), and the stage before which it is needed. Duplicates are merged under one id: F3 is
@@ -759,7 +773,7 @@ I23, H4 is I10, H8 is I8. The PROPOSED numbers are listed by gate (C3a to C3k), 
 | C6 | Spectral log's frame interpolation (WT-3) | **Answered** (ADR-390): The log domain, the test written to match. | S2 |
 | C7 | The rebuild crossfade's scheme (WT-15) | **Answered** (ADR-390): **scheme (iii)**, one interpolated set per interval, still subject to WT-F4's moving-phase probe. The fused read; the once-per-interval set if it passes WT-F4's moving-phase probe. | S2 |
 | C8 | The level size cap (WT-6) | **Answered** (ADR-390): 8,192 samples with the 6-point read; 8-point at 4,096 if the timed runs show cache misses. | S1 |
-| C9 | Linear's strategy (WT-23) | (a), read-time, at one level per octave; measure (b) at S4. | S4 |
+| C9 | Linear's strategy (WT-23) | **Amended** (ADR-404): the builder declares a strategy in S1's brief and report, and S1's CPU share is judged at its reads (§5.4; the human's ruling). The lead's reading, open to overrule: S2 builds the blend under the declared one; S4 measures the other against WT-BUDGET and WT-8 and fixes one. The earlier recommendation, (a) read-time at one level per octave, is the lead's reading for the builder to weigh, not a ruling. | S1 (declared), S4 (fixed) |
 | C10 | Loudness (WT-16): K-weighted at C3, level-matched to the base saw, peak limit 2.6, gain cap +24 dB | **Answered** (ADR-390): Approve. | S2 |
 | D1 | The warps: asym and bend; sync softness (the law ruled, ADR-389); mirror out | **Answered** (ADR-390): Approve; hear S5a. | S5a |
 | D2 | Reuse `crossMod`, `feedback`, `loopDrive` for table members (C.14, C.16, PA-8 amended) | **Answered** (ADR-390): reuse approved; the default `loopDrive` on tables is D2a. Put to the human only after S0 item 3's stability map; then approve. | S5a |

@@ -13621,3 +13621,25 @@ One correction: ADR-359's lead reading ("They wait for B603 with Mangle and Echo
 - **The GUI session** owns the drawing UI, the puck scrub, the path's page and the mapping gesture (ADR-336). GN-31's rail half and GB17's rail answers still cite B133; they should point at B704, and the GUI session updates them. B704's GUI hand-over note is the lead's notice to the GUI session (`docs/design/CLAUDE.md`, Scope). The lead does not edit GN-31, GB17 or `docs/design/morph-rail-lab.html`, which GUI-56 kept as the rail's bench.
 - **Design ledger:** a `not_design` entry for ADR-403. The GUI session's own GUI-n rulings record the drawing and the page.
 - **FX device (ADR-254).** It hosts the same matrix and modulators (MS-38), so the path modulator reaches it after 1.0. Global is its default, and a per-note path follows only sidechain notes. A route from a path reaches only the rack's declared mod values, as every route there does (MS-38). Moving the FX device's morph position from a path would widen MS-38, which lets no source do so in 1.0; GUI-56 gives the device XY pads, not routes to them. That is the human's to rule (X100, PM-15).
+
+## ADR-404 — RULED by the human: S1's CPU share is judged at the Linear strategy the builder declares; the share stays 35 % (B705; CONTRACT §5.4, §7 C9; S0's P-7; 2026-11-23)
+
+**Context.** CONTRACT §5.4 judged S1, the read alone, "scaled to cell 2's member-samples (8 reads per member-sample under strategy (a))" at ≤ 35 % of WT-BUDGET. S0 measured that share against the read WT-6 specifies (STAGES.md P-7, the wavetable repo at `0921aeb`): 35 % of 5 % of a core is 1.75 %, which at the provisional conversion factor (B648's 20.5 × 10⁹ instructions per core-second) allows about 13 instructions per read at 8 reads, 8 voices, 9 members and 48 kHz. The 6-point Lagrange read, scalar, through the stand-in, counts 68: 183 % of WT-BUDGET at S1's scaling, 9.2 % of a core for the reads alone. Yet WT-23 leaves Linear's strategy to the builder, by measurement, and strategy (b), the pre-blend, makes 2 reads per member-sample, not 8. §7 C9 recommended (a) and put the measurement of (b) at S4, so S1 was being judged at a read count S4 might not keep. The lead proposed to the human: scale S1 by the strategy the builder picks, the share unchanged.
+
+**Ruling** (the human, 2026-11-23: "P-7 approved, go with your proposal"):
+1. **S1's CPU check scales by the reads per member-sample of the Linear strategy the builder declares**: 8 under (a), 2 under (b) (WT-21, WT-23). The builder declares it in S1's brief and report; the wavetable repo's member seam carries it to the check.
+2. **S1's share stays ≤ 35 % of WT-BUDGET.** WT-BUDGET is unchanged (ADR-390).
+
+**The lead's readings, open to overrule.**
+- **A strategy's other costs are judged where they are built.** (b)'s pre-blend, 16 blended frames per rebuild, is built at S2 with the blend, but S2's judged cell is cell 1 (Spectral log, WT-P2), so it is first judged at S3 with cell 2 (Linear), under S3's ≤ 65 %, and at S4 in the first full measurement; (a)'s corner level sets are WT-8's memory. The shares are cumulative, so nothing the declaration leaves out of S1 escapes S3 and S4.
+- **C9 amended.** S2 builds the blend under the declared strategy; S4 measures the other against WT-BUDGET and WT-8 and fixes one, as C9 already timed it. If S4 fixes a strategy that reads more per member-sample than S1 declared, S1's check is re-run at S4's count and reported beside S4's figures. S1 does not reopen: S4's own share counts every read.
+- **The ruling does not rescue a scalar 6-point read.** At 2 reads the share allows about 52 instructions per read at the provisional factor (a quarter of the reads, four times the allowance), against the 68 counted, about 46 % of WT-BUDGET. §5.4's tier-1 levers remain the builder's route (SIMD across members, the read's loop order, WT-15's schemes); a trade that changes the sound goes to the human with an A/B. The night run of 2026-11-24 re-fixes the factor these figures depend on.
+
+**Rejected** (the other routes P-7 named): raising S1's share, which takes room from S2 to S4 for a read whose final count is not yet known; moving WT-BUDGET, which only the human does, with timed evidence (§5.4); keeping strategy (a)'s 8 reads, which judges S1 at a count S4 may not keep.
+
+**Consequences.**
+- **CONTRACT** §5.4's S1 row and a new "S1's scaling" paragraph, §5.6's S4 row, §7's ruled list and C9; INTEGRATION.md's line on the lab's pre-blend cites the amended C9. SPEC-WAVETABLE is unchanged: WT-23 already lets the builder pick.
+- **The wavetable repo** (local, ADR-385): its CONTRACT copy and recorded hash change; the S1 CPU check takes the declared strategy from the member seam; STAGES.md's P-7 is answered and its S1 row cites this ADR.
+- **The clean room** is not affected: neither repo holds the wavetable contract.
+- **Design ledger:** a `not_design` entry.
+- **FX device (ADR-254):** none. The wavetable oscillator is a source; the FX device hosts no oscillator.
