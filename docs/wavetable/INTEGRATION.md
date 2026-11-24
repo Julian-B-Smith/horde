@@ -85,7 +85,7 @@ human wants; a lab choice made for browser CPU is not.
 | Mod ratio ×1/16..×32, Hz 0.1..20 000 | WT-70 proposed ×0.25..24 (the blades' range), 1..20 000 Hz | **The lab's ranges**: its presets were voiced on them, and 0.1 Hz reaches vibrato rates | decision 8 |
 | Per member: Decorrelated or Shared (a two-way switch) | `wt.modDecorrelate`, continuous 0..1 | **Continuous**, so it morphs (ADR-337 A1); A/B against the lab's switch at S5a | decision 8 |
 | Self: PM from the member's own last two outputs, index clamped at 1.6 rad | the diagonal is C.14's `feedback` (WT-61, CONTRACT §7 H4) | **The spec's** (one loop concept); `s5b-4-feedback` lets the human compare | decision 10 |
-| Linear pre-blends 16 frames by weighted sums of the corners' level sets (strategy (b)) | CONTRACT §7 C9 recommends strategy (a), read-time | **Measured at S4**, as planned: inaudible, so the lab's choice is not evidence | none (C9) |
+| Linear pre-blends 16 frames by weighted sums of the corners' level sets (strategy (b)) | CONTRACT §7 C9: the builder declares a strategy at S1, and S4 measures both and fixes one (ADR-404) | **Measured at S4**, as planned: inaudible, so the lab's choice is not evidence | none (C9) |
 | 4-point cubic read by default (line 1478), for browser CPU | 6-point Lagrange (WT-6) | **The spec's**: WT-F1 judges | none |
 | 2× FM oversampling switch (line 1479) | `quality` High (WT-37); no opt-out for table members (CONTRACT §7 E3) | **The spec's**: it is the same 2× | none |
 | Sync restart corrected by a polyBLEP; Structural flips step at a block edge | ED-1/ED-6 corrections; PA-5's 5 ms crossfade | **The spec's**: the lab's are browser shortcuts | none |
