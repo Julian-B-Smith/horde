@@ -12,6 +12,10 @@
 **Status.** DRAFT for the lead and the human. Nothing here is ruled by being written down. Claims about code cite a
 file and line at the commit named; "unverified" marks what was not checked.
 
+**Superseded in part, 2026-11-24 (ADR-406).** No old session loads: the bank presets and demos are baked once,
+offline (`docs/wavetable/BLADE-BAKE.md`, SPEC-WAVETABLE WT-48), and no bake code or load-time migration ships. Where
+this draft says old patches migrate or a load report names blade rows (§1, §2.3, §2.8, §6.4, §7.2, §8.3, §11, §12), ADR-406 rules.
+
 **What was read.** SPEC-ENGINE (sections 4, 5, 6.6 to 6.8, 7, 9, Appendices B, D, E) and SPEC-WAVETABLE on
 origin/main (c85c5e03); CONTRACT in full; DECISIONS ADR-247, ADR-254, ADR-374 (A1, A2), ADR-376 to ADR-387, GUI-30,
 GUI-38, GUI-55; the lab `docs/wavetable/lab/wavetable-lab.html` and its traces (B650, B651, B652); the B648 cost bench
@@ -344,6 +348,10 @@ the bridge's messages (section 8.3); the GUI session for the browser.
 | exported file | the dictionary plus the rendered spectra of every played table that is not a factory generator (CONTRACT §3.2): with 12 corner tables, at most about 2.1 MiB | none |
 
 ### 6.4 How old patches load
+
+**Superseded 2026-11-24 (ADR-406).** No old session loads, and no blade-era state is required to load. The bank
+presets and demos are baked once, offline, as raw material for the factory patch session (BLADE-BAKE.md); the
+human's Live sessions stay with the archived blade build under its own plug-in id. The text below is the draft's.
 
 **What exists.** No horde 2 patch has been released. What exists is: the factory bank (83, Appendix B's format),
 version-0 states, the 16 demo presets, and the human's Live sessions saved with test plug-in builds (chunk versions
