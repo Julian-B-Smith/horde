@@ -8772,7 +8772,7 @@
   },
   {
    "adr": "ADR-406",
-   "reason": "The blade bake runs once, offline, and the blade engine is archived (B706): build and spec rulings with nothing on the page or in the design master. Its one page consequence, ADR-388's load report narrowing to the fallback report, is the GUI session's to reword (the hand-over note on B706)."
+   "reason": "The blade bake runs once, offline, and the blade engine is archived (B706): build and spec rulings with nothing on the page or in the design master. Its one page consequence, ADR-388's load report narrowing to the fallback report, is the GUI session's to reword (the hand-over note on B706). A1 (2026-11-24): a Serum-like wavetable library beside the patch library, the baked tables one collection in it; its browser and how a corner preset picks a table are the GUI session's to design (the hand-over note on B709)."
   }
  ],
  "engine_impact": {

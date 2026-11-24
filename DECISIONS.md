@@ -13720,3 +13720,15 @@ One correction: ADR-359's lead reading ("They wait for B603 with Mangle and Echo
 - **The GUI session** (ADR-336): ADR-388's design-ledger reason ("hidden retired rows and a load report") and GB37's load-report question narrow to the fallback report; a hand-over note on B706, not an edit by the lead.
 - **Design ledger:** a `not_design` entry.
 - **FX device (ADR-254):** none. The bake and the archive are source and build matters, and the FX device hosts no oscillator. The new id is the instrument's test build only; the FX device's ids are untouched.
+
+**A1 (the human, 2026-11-24, after #1516 merged; B706, B709).** "I'm honestly not terribly concerned about whether every existing preset makes it into the new system. I like that we're capturing most of them, but we don't have to waste too much time on the ones that aren't perfect. I do intend to make a wavetable library in addition to the patch library, etc. as in Serum, so we can load the baked scalpel presets into there as well as into corner presets when they require envelopes or LFOs or automation. But since the wavetable system dramatically expands the space of achievable sounds, there will be plenty of experimentation once the engine is complete."
+1. **Most, not all.** The bake captures most of the bank and the demos; a preset it cannot carry well is not chased.
+2. **A wavetable library, as in Serum,** beside the patch library: the baked tables load there, and into corner presets where a preset needs envelopes, LFOs or automation.
+
+**The lead's readings, open to overrule:**
+- **What "not chased" means for the bake (B709).** Every corner runs through the transplant tap (BB-12's T1) with BB-F13's L1 and L2. A corner the tap cannot carry exactly (blade noise draws, cross-mod, a value no row can hold, swarm-frame motion) is baked approximately and named in the bake report, or skipped and named; the pan-separation reference and BB-F13's L3 are not built for the bake. BB-F13 stays PROPOSED, so nothing ruled is weakened.
+- **Smear and strike is released** as approximate (its swarm frame differs by up to 2.9 × 10⁻⁴ of peak while the leads move) and reported. The human's "not perfect" covers it.
+- **The full bake follows BB-13** (pitch-dependent laws at C4 and 44.1 kHz), as the tap's design already planned for the production run; bake-1's three tables were made at the render point and are superseded.
+- **The library is WT-45's user library,** extended rather than replaced. The baked set is one collection in it, its tables' ids their `blade-bake` recipes. Which tables ship in the factory library at 1.0 stays with the factory patch session (ruling 3 unchanged). How the library browses, and how a corner preset picks a table, is the GUI session's to design (ADR-336); B709 carries the hand-over note.
+
+**FX device (ADR-254):** none. The library is device-wide storage (WT-45's FX device note), and the FX device hosts no oscillator to read a table.
