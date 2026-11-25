@@ -47,7 +47,7 @@ fi
 cmake "${args[@]}"
 # At most 4 threads, niced: the clean-room sessions share this machine (see the CPU throttle rule).
 nice -n 10 cmake --build "$build_dir" -j4 --target horde-engine-preview_all preview-plant preview-plant-map preview-plant-morph preview-plant-nofilter \
-  preview-plant-noreverb preview-plant-reverb-deaf preview-plant-reverb-idle preview-smoke preview-gui-shot preview-bridge-test preview-frames-dump
+  preview-plant-noreverb preview-plant-reverb-deaf preview-plant-reverb-idle preview-plant-droptest preview-smoke preview-gui-shot preview-bridge-test preview-frames-dump
 
 # Every configure rewrites the AU bundle's Info.plist from CMake's template, and only a relink copies the wrapper's real
 # one back. So a second run with nothing to relink leaves an AU with no identity, and auval "didn't find the component".
@@ -64,9 +64,10 @@ plant_nofilter="$(find "$build_dir" -name 'preview-plant-nofilter.clap' -maxdept
 plant_noreverb="$(find "$build_dir" -name 'preview-plant-noreverb.clap' -maxdepth 3 | head -1)"
 plant_reverb_deaf="$(find "$build_dir" -name 'preview-plant-reverb-deaf.clap' -maxdepth 3 | head -1)"
 plant_reverb_idle="$(find "$build_dir" -name 'preview-plant-reverb-idle.clap' -maxdepth 3 | head -1)"
+plant_droptest="$(find "$build_dir" -name 'preview-plant-droptest.clap' -maxdepth 3 | head -1)"
 smoke="$(find "$build_dir" -name 'preview-smoke' -type f -maxdepth 3 | head -1)"
 "$(dirname "$smoke")/preview-bridge-test"
-"$smoke" "$clap" "$plant" "$plant_map" "$plant_morph" "$plant_nofilter" "$plant_noreverb" "$plant_reverb_deaf" "$plant_reverb_idle"
+"$smoke" "$clap" "$plant" "$plant_map" "$plant_morph" "$plant_nofilter" "$plant_noreverb" "$plant_reverb_deaf" "$plant_reverb_idle" "$plant_droptest"
 "$(dirname "$smoke")/preview-gui-shot" "$clap" "$out/window.png"
 
 # The recorded frames GUI 3's ReplayTransport plays (B628), where gui3_browser_check reads them. A fresh dump is held

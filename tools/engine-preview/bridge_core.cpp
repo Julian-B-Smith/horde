@@ -154,8 +154,54 @@ int KeyMap::find(std::string_view key) const {
   return found;
 }
 
+// ---- the test rows (B711) ---------------------------------------------------------------------------------------
+double test_host(const TestRow& row, double v) {
+  const double span = row.max - row.min;
+  v = std::clamp(v, 0.0, 1.0);
+  // The product in a statement of its own: written as min + v * span, clang (-ffp-contract=on) may fuse it into one fma,
+  // and then the host value would differ by an ulp from the same rule computed anywhere the compiler chose otherwise.
+  const double scaled = row.stepped ? std::round(v * span) : v * span;
+  // Clamped after: min + 1 x span can round a ulp past max, and the plug-in's own clamp would then store another value
+  // than this one, so the frame could no longer hand the page's v back exactly.
+  return std::clamp(row.min + scaled, row.min, row.max);
+}
+double test_v(const TestRow& row, double host) { return row.max > row.min ? (host - row.min) / (row.max - row.min) : 0.0; }
+
+std::string test_rows_json(const std::vector<TestRow>& rows) {
+  std::string out = std::string("{\"value\":") + quoted(kTestValueRule) + ",\"rows\":[";
+  for (std::size_t i = 0; i < rows.size(); ++i) {
+    const TestRow& r = rows[i];
+    out += std::string(i ? "," : "") + "{\"key\":" + quoted(r.key) + ",\"id\":" + std::to_string(r.id) + ",\"name\":" + quoted(r.name) + ",\"min\":";
+    put_num(out, r.min);
+    out += ",\"max\":";
+    put_num(out, r.max);
+    out += ",\"default\":";
+    put_num(out, r.def);
+    out += std::string(",\"stepped\":") + (r.stepped ? "true" : "false");
+    if (r.stepped) {
+      out += ",\"labels\":";
+      put_strings(out, r.labels);
+    }
+    out += ",\"unit\":" + quoted(r.unit) + '}';
+  }
+  return out + "]}";
+}
+
+TestKeys::TestKeys(std::vector<TestRow> rows) : rows_(std::move(rows)) {}
+
+int TestKeys::find(std::string_view key) const {
+  // A linear search: 36 rows, on the main thread, once per key a page message names.
+  int found = -1;
+  for (std::size_t i = 0; i < rows_.size() && found < 0; ++i)
+    if (rows_[i].key == key) found = int(i);
+#ifdef HORDE_PREVIEW_PLANT_KEYMAP_SHIFT   // the same must-fail build as KeyMap's: every test key lands one row off too
+  if (found >= 0) return (found + 1) % int(rows_.size());
+#endif
+  return found;
+}
+
 // ---- messages ---------------------------------------------------------------------------------------------------
-Message parse_message(std::string_view json, const KeyMap& keys) {
+Message parse_message(std::string_view json, const KeyMap& keys, const TestKeys* tests) {
   Message m;
   choc::value::Value doc;
   try {
@@ -183,8 +229,14 @@ Message parse_message(std::string_view json, const KeyMap& keys) {
       const auto values = doc["values"];
       for (std::uint32_t i = 0; i < values.size(); ++i) {
         const auto member = values.getObjectMemberAt(i);
-        const int row = keys.find(member.name);
         double v = 0;
+        if (std::string_view(member.name).substr(0, kTestPrefix.size()) == kTestPrefix) {   // B711: a test row's, never the engine's
+          const int test = tests ? tests->find(member.name) : -1;
+          if (test >= 0 && number_of(member.value, v)) m.test_values.push_back({test, v});
+          else m.unknown.emplace_back(member.name);
+          continue;
+        }
+        const int row = keys.find(member.name);
         if (row < 0) m.unknown.emplace_back(member.name);
         else if (keys.row(row).reserved) m.reserved.emplace_back(member.name);
         else if (number_of(member.value, v)) m.values.push_back({row, v});
@@ -196,9 +248,15 @@ Message parse_message(std::string_view json, const KeyMap& keys) {
     if (doc.hasObjectMember("key") && doc["key"].isString()) m.gesture_key = std::string(doc["key"].getString());
     const std::string phase = doc.hasObjectMember("phase") && doc["phase"].isString() ? std::string(doc["phase"].getString()) : "";
     m.gesture_begin = phase == "begin";
+    const bool phased = phase == "begin" || phase == "end";
+    if (std::string_view(m.gesture_key).substr(0, kTestPrefix.size()) == kTestPrefix) {
+      const int test = tests ? tests->find(m.gesture_key) : -1;
+      if (test >= 0 && phased) m.gesture_test = test;   // an unknown one goes nowhere, as on an unknown engine key
+      return m;
+    }
     const int row = keys.find(m.gesture_key);
     // A gesture on a key the engine lacks (a rack or midi row, or a typo) reaches neither the engine nor the host.
-    if (row >= 0 && !keys.row(row).reserved && (phase == "begin" || phase == "end")) m.gesture_row = row;
+    if (row >= 0 && !keys.row(row).reserved && phased) m.gesture_row = row;
   } else if (m.type == "want") {
     m.kind = Kind::Want;
     if (doc.hasObjectMember("osc") && doc["osc"].isArray()) {
@@ -709,7 +767,9 @@ std::string snapshot_json(const Pieces& p) {
   if (p.plugin_build) out += ",\"plugin\":{\"build\":" + quoted(*p.plugin_build) + '}';
   if (p.state) out += ",\"state\":" + quoted(*p.state);
   if (p.build || p.engine_hash) {
-    out += ",\"hello\":{\"build\":" + quoted(p.build ? *p.build : "") + ",\"manifest_hash\":" + quoted(p.engine_hash ? *p.engine_hash : "") + '}';
+    out += ",\"hello\":{\"build\":" + quoted(p.build ? *p.build : "") + ",\"manifest_hash\":" + quoted(p.engine_hash ? *p.engine_hash : "");
+    if (p.test_rows) out += ",\"preview\":" + test_rows_json(*p.test_rows);
+    out += '}';
   }
   if (p.mismatch) {
     if (p.mismatch->any) {

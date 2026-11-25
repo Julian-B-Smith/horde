@@ -5,6 +5,7 @@
 // no plug-in, no window. Each check has a control that must read the other way, so a check that can't fail can't pass.
 //   bridge_test
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -18,6 +19,8 @@
 #include "horde_engine.h"
 #include "post_filter.h"
 #include "post_reverb.h"
+#include "test_rows.h"
+#include "choc/text/choc_JSON.h"
 
 namespace {
 
@@ -596,6 +599,106 @@ int main() {
     std::size_t all_blocks = 0;
     run(long_v, 512, nullptr, &all_blocks);
     check(all_blocks * 512 >= kN, "control: with decay 8 s (a declared tail of 89 s) every block of the 4 s run is processed");
+  }
+
+  // ---- the test rows (B711): the filter's and the reverb's host parameters, by key, through the bridge ----------
+  {
+    namespace flt = preview::filter;
+    namespace rv = preview::reverb;
+    const std::vector<TestRow> tests = test_rows();
+    const TestKeys tk(tests);
+    // What each key must name, derived apart from test_rows(): its own table's id, and the key from the host's name
+    // ("Filter cutoff" -> preview.filter.cutoff, "Scape decay" -> preview.scape.decay).
+    std::vector<std::pair<std::string, std::uint32_t>> expect;
+    const auto key_from_name = [](const std::string& name) {
+      const std::size_t space = name.find(' ');
+      std::string group = name.substr(0, space);
+      for (char& c : group) c = char(std::tolower(static_cast<unsigned char>(c)));
+      return "preview." + group + "." + name.substr(space + 1);
+    };
+    for (int f = 0; f < flt::kParams; ++f) expect.emplace_back(key_from_name(flt::param_name(f)), flt::id_of(f));
+    for (int k = -1; k < rv::kScapeParams; ++k) {
+      char name[64];
+      rv::param_name(k, name, sizeof name);
+      expect.emplace_back(key_from_name(name), k < 0 ? rv::kOnId : rv::id_of(k));
+    }
+    bool same = int(tests.size()) == flt::kParams + rv::kHostParams && tests.size() == expect.size();
+    for (std::size_t i = 0; same && i < tests.size(); ++i) same = tests[i].key == expect[i].first && tests[i].id == expect[i].second;
+    check(same, "one test row per host parameter of the filter (6) and the reverb (30), each keyed by its host name, at its own id (" +
+                    std::to_string(tests.size()) + ")");
+    bool shaped = true;
+    for (const TestRow& r : tests)
+      shaped = shaped && (r.stepped ? int(r.labels.size()) == int(r.max - r.min) + 1 : r.labels.empty()) && r.min <= r.def && r.def <= r.max;
+    const TestRow& era = tests[std::size_t(tk.find("preview.scape.era"))];
+    const TestRow& decay = tests[std::size_t(tk.find("preview.scape.decay"))];
+    const TestRow& mode = tests[std::size_t(tk.find("preview.filter.mode"))];
+    check(shaped && era.labels == std::vector<std::string>{"clean", "vintage"} && mode.labels.size() == 5 && mode.labels[3] == "Notch" && decay.unit == "s" &&
+              decay.min == 0.2 && decay.max == 12 && decay.def == 2.2 && !decay.stepped,
+          "each row carries its range and default in its own units, and a stepped one a label per option (era clean or vintage; decay 0.2 to 12 s, 2.2)");
+
+    // v and the host value: the engine rows' convention, min + v x (max - min), a stepped row rounded to an option. The
+    // product apart, so no fma contraction moves it an ulp from test_host's (which keeps it apart for the same reason).
+    const double scaled = 0.375 * (12.0 - 0.2);
+    check(test_host(decay, 0.375) == 0.2 + scaled && test_host(decay, 1) == 12 && test_host(decay, 2) == 12 && test_host(decay, -1) == 0.2 &&
+              test_host(mode, 0.5) == 2 && test_host(era, 0.6) == 1 && test_v(mode, 2) == 0.5 && test_v(decay, 12) == 1,
+          "v reaches the host as min + v x (max - min), clamped, a stepped row on its nearest option, and back");
+
+    // Parsing: a test key is sent, an unknown `preview.` key is reported as an unknown engine key is, and neither is ever
+    // an engine row. The control is the build without the test rows' path, every such key unknown and nothing sent.
+    const std::string body = "{\"type\":\"set\",\"seq\":40,\"values\":{\"preview.filter.cutoff\":0.25,\"preview.scape.decay\":0.5,\"preview.scape.nope\":0.5,\"out.level\":0.25}}";
+    const Message set = parse_message(body, keys, &tk);
+    const bool sent = set.test_values.size() == 2 && tk.row(set.test_values[0].row).id == flt::id_of(flt::kCutoff) && set.test_values[0].v == 0.25 &&
+                      tk.row(set.test_values[1].row).id == rv::id_of(int(scape::Param::decay)) && set.test_values[1].v == 0.5;
+    check(sent && set.values.size() == 1 && set.unknown == std::vector<std::string>{"preview.scape.nope"},
+          "a `set` sends each test key to its own row at the page's v, beside the engine rows, and reports an unknown `preview.` key");
+    const Message dropped = parse_message(body, keys);
+    check(dropped.test_values.empty() && dropped.unknown.size() == 3 && dropped.values.size() == 1,
+          "control: with no test rows, every `preview.` key is reported unknown and nothing reaches them");
+    const Message begin = parse_message("{\"type\":\"gesture\",\"seq\":41,\"key\":\"preview.scape.decay\",\"phase\":\"begin\"}", keys, &tk);
+    const Message stray = parse_message("{\"type\":\"gesture\",\"seq\":42,\"key\":\"preview.scape.nope\",\"phase\":\"begin\"}", keys, &tk);
+    const Message phaseless = parse_message("{\"type\":\"gesture\",\"seq\":43,\"key\":\"preview.scape.decay\",\"phase\":\"middle\"}", keys, &tk);
+    check(begin.gesture_test >= 0 && tk.row(begin.gesture_test).key == "preview.scape.decay" && begin.gesture_begin && begin.gesture_row < 0,
+          "a gesture on a test key opens that row's gesture, never an engine row's");
+    check(stray.gesture_test < 0 && phaseless.gesture_test < 0, "control: a gesture on an unknown test key, or with no phase, reaches nothing");
+
+    // The mapping audit: each expected key, sent alone, reaches its own id. The control is the key map one row off.
+    const auto audit = [&](const TestKeys& map) {
+      int wrong = 0;
+      for (const auto& [key, id] : expect) {
+        const Message m = parse_message("{\"type\":\"set\",\"seq\":44,\"values\":{\"" + key + "\":0.5}}", keys, &map);
+        wrong += m.test_values.size() == 1 && map.row(m.test_values[0].row).id == id ? 0 : 1;
+      }
+      return wrong;
+    };
+    std::vector<TestRow> rotated = tests;
+    for (std::size_t i = 0; i < rotated.size(); ++i) rotated[i].key = tests[(i + 1) % tests.size()].key;
+    const int shifted_wrong = audit(TestKeys(rotated));
+    check(audit(tk) == 0, "every test key, sent through the bridge, reaches its own host id");
+    check(shifted_wrong == int(expect.size()), "control: with the key map one row off, every key misses (" + std::to_string(shifted_wrong) + ")");
+
+    // The hello reply carries the descriptors, as JSON the page reads; without them it is the reply it was.
+    const std::string build = "engine x, build 1", hash = "abc";
+    Pieces with;
+    with.build = &build;
+    with.engine_hash = &hash;
+    with.test_rows = &tests;
+    const std::string reply = snapshot_json(with);
+    Pieces without = with;
+    without.test_rows = nullptr;
+    bool parsed = false;
+    std::size_t listed = 0;
+    try {
+      const choc::value::Value doc = choc::json::parse(reply);
+      const auto preview = doc["hello"]["preview"];
+      parsed = preview["value"].getString() == std::string_view(kTestValueRule);
+      listed = preview["rows"].size();
+    } catch (const std::exception&) {}
+    check(parsed && listed == tests.size(), "the hello reply's `preview` is JSON: the value rule and one descriptor per test row");
+    check(has(reply, "{\"key\":\"preview.filter.on\",\"id\":10485776,\"name\":\"Filter on\",\"min\":0,\"max\":1,\"default\":0,\"stepped\":true,\"labels\":[\"off\",\"on\"],\"unit\":\"\"}") &&
+              has(reply, "{\"key\":\"preview.scape.decay\",\"id\":10485793,\"name\":\"Scape decay\",\"min\":0.2,\"max\":12,\"default\":2.2,\"stepped\":false,\"unit\":\"s\"}"),
+          "a descriptor holds the key, the host id, name, min, max, default, stepped, labels where stepped, and the unit");
+    check(!has(snapshot_json(without), "preview") && has(snapshot_json(without), "\"hello\":{\"build\":\"engine x, build 1\",\"manifest_hash\":\"abc\"}"),
+          "control: a reply without the test rows is the one it always was");
   }
 
   // ---- the engine's own manifest --------------------------------------------------------------------------------

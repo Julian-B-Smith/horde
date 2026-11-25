@@ -48,6 +48,41 @@ class KeyMap {
   std::vector<int> by_key_;   // indices into rows_, sorted by key, for a binary search
 };
 
+// ---- the test rows (B711) ---------------------------------------------------------------------------------------
+// The test-only filter's six and reverb's thirty (B660, B710) are host parameters, but no page control touched them, so
+// Live's panel (empty above 64 parameters until a touch in the plug-in's window) could never learn them. The page names
+// them by key as it names an engine row: `preview.filter.<name>`, `preview.scape.on` and `preview.scape.<Scape's own
+// key>`. They aren't the engine's, so they stay out of the KeyMap, the manifest and its hash; the hello reply describes
+// each (test_rows_json), so a page draws only what this build has.
+// Values cross the bridge as v, the engine rows' convention: v in [0, 1] is the host value's place on its range, host =
+// min + v x (max - min), and a stepped row's option is min + round(v x (max - min)), as a stepped engine row's is.
+struct TestRow {
+  std::string key;
+  std::uint32_t id = 0;
+  std::string name;                    // the host parameter's own name
+  double min = 0, max = 1, def = 0;    // in the host parameter's units, as it declares them
+  bool stepped = false;
+  std::vector<std::string> labels;     // stepped: one per option, min to max, as the host's text reads it
+  std::string unit;                    // the unit its value is in ("" for none, or where labels name the options)
+};
+constexpr std::string_view kTestPrefix = "preview.";
+constexpr const char* kTestValueRule = "v = (host - min) / (max - min)";   // the descriptor states the convention
+double test_host(const TestRow& row, double v);   // v to the host value, clamped to the range, stepped rows rounded
+double test_v(const TestRow& row, double host);   // the host value to v
+std::string test_rows_json(const std::vector<TestRow>& rows);   // {"value": kTestValueRule, "rows": [...]}
+
+class TestKeys {
+ public:
+  explicit TestKeys(std::vector<TestRow> rows);
+  int find(std::string_view key) const;   // the row's index, or -1
+  const TestRow& row(int index) const { return rows_[std::size_t(index)]; }
+  int size() const { return int(rows_.size()); }
+  const std::vector<TestRow>& rows() const { return rows_; }
+
+ private:
+  std::vector<TestRow> rows_;
+};
+
 // ---- messages from the page -------------------------------------------------------------------------------------
 struct Want {
   bool osc[2] = {true, true};   // which oscillators' parts the page draws (want.osc names them 1 and 2)
@@ -85,10 +120,12 @@ struct Message {
   std::string error;                   // Invalid only
   struct Value { int row; double v; };  // row: a KeyMap index
   std::vector<Value> values;           // Set
+  std::vector<Value> test_values;      // Set, B711: row is a TestKeys index, v as the page sent it
   std::vector<std::string> unknown;    // keys the manifest lacks: reported, never sent
   std::vector<std::string> reserved;   // reserved rows' keys: reported, never sent
   bool unknown_type = false;           // Held because nobody knows the type
   int gesture_row = -1;                // Gesture on an engine row, else -1 (then it reaches neither engine nor host)
+  int gesture_test = -1;               // Gesture on a test row (B711): its TestKeys index, else -1
   bool gesture_begin = false;
   std::string gesture_key;
   Want want;                           // Want
@@ -110,8 +147,9 @@ struct Message {
   double offsets[3] = {};
 };
 
-// Parses one message. Never throws; an unreadable one comes back Invalid with `error` set.
-Message parse_message(std::string_view json, const KeyMap& keys);
+// Parses one message. Never throws; an unreadable one comes back Invalid with `error` set. A `preview.` key is looked up
+// in `tests` alone (none given: every such key is unknown), and one it lacks is reported as an unknown engine key is.
+Message parse_message(std::string_view json, const KeyMap& keys, const TestKeys* tests = nullptr);
 
 // ---- the mismatch banner ----------------------------------------------------------------------------------------
 struct Mismatch {
@@ -244,6 +282,7 @@ struct Pieces {
   const std::string* state = nullptr;
   const std::string* build = nullptr;                      // the hello reply's build label
   const std::string* engine_hash = nullptr;                // the hello reply's manifest hash
+  const std::vector<TestRow>* test_rows = nullptr;         // the hello reply's `preview` (B711)
   const Mismatch* mismatch = nullptr;
   const std::vector<std::string>* refused_unknown = nullptr;
   const std::vector<std::string>* refused_reserved = nullptr;

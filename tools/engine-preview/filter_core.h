@@ -51,6 +51,11 @@ inline const char* param_name(int p) {
   static const char* const names[kParams] = {"Filter on", "Filter mode", "Filter cutoff", "Filter resonance", "Filter ring", "Filter mix"};
   return names[p];
 }
+// The page's key for each (B711): `preview.filter.<this>`, the host name's word after "Filter " (smoke holds them to it).
+inline const char* key_name(int p) {
+  static const char* const names[kParams] = {"on", "mode", "cutoff", "resonance", "ring", "mix"};
+  return names[p];
+}
 
 // The saved chunk's one line, "filter <on> <mode> <cutoff x> <res> <ring> <mix>", written only when something differs
 // from the defaults, so an untouched patch saves what it always did.
