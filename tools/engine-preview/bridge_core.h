@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "filter_core.h"
+#include "reverb_core.h"
 #include "horde_engine.h"
 #include "morph_core.h"
 
@@ -130,18 +131,22 @@ Mismatch check_hello(const Message& hello, const std::string& engine_hash, const
 // byte for byte as before, so an untouched patch saves exactly what it did. Versions 1 and 2 load with the morph at its
 // defaults, version 3 with no waypoints or locks. Version 5 (B660) adds the test-only post-engine filter's line
 // (filter_core.h); the chunk says version 5 only when the filter differs from its defaults (off), so every other chunk
-// is byte for byte what it was, and a chunk with no filter line loads with the filter off.
+// is byte for byte what it was, and a chunk with no filter line loads with the filter off. Version 6 (B710) adds the
+// test-only reverb's lines (reverb_core.h) on the same rule: only when Scape is on or a Scape value differs from Scape's
+// default, and a chunk with none loads with the reverb off at Scape's defaults.
 struct SavedState {
   int preset = 0;
   std::vector<std::pair<std::uint32_t, double>> values;   // id, v
   morph::State morph;
   filter::State filter;
+  reverb::State reverb;
 };
 extern const char* const kStateMagic1;
 extern const char* const kStateMagic2;
 extern const char* const kStateMagic3;
 extern const char* const kStateMagic4;
 extern const char* const kStateMagic5;
+extern const char* const kStateMagic6;
 std::string write_state(const SavedState& s);
 bool read_state(std::string_view text, SavedState& out);   // false: not ours, and nothing is applied
 // The rows of `current` that differ from `loaded` (both indexed like `ids`), as (id, v).

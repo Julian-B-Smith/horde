@@ -3,6 +3,8 @@
 // Its window is GUI 3's page in a web view (preview_webview.mm, B628), or the small AppKit one (preview_gui.mm) when
 // built with HORDE_PREVIEW_WEBVIEW=OFF. No effects or modulation matrix: the engine has none of them yet, and its only
 // filter is the test-only one (B660): Weir's SVF 12 after the engine's output, six host parameters (filter_core.h), off by default.
+// After the filter, the test-only reverb (B710, ADR-408): Scape's whole module, "Scape on" and Scape's own 29 parameters
+// as host parameters (reverb_core.h, post_reverb.h), off by default. Neither is the rack (RC-5, B398).
 // Pitch bend and the bank's glide are played here, a stand-in for the pitch system (RC-3) until B504 (B632). The morph
 // is the clean room's own resolver (IF-12), hosted here (B636; see "the morph system" below).
 //
@@ -54,6 +56,9 @@
 #include "horde_engine.h"
 #include "morph_core.h"
 #include "post_filter.h"
+#ifndef HORDE_PREVIEW_PLANT_NO_REVERB   // the plant without it is the build as it was: no Scape compiled or linked at all
+#include "post_reverb.h"
+#endif
 #include "preview_gui.h"
 
 namespace {
@@ -86,6 +91,14 @@ constexpr clap_id kMorphXId = 0xA00001, kMorphYId = 0xA00002;
 constexpr int kFilterHostParams = 0;
 #else
 constexpr int kFilterHostParams = preview::filter::kParams;
+#endif
+// B710's test-only reverb: "Scape on" and Scape's 29 after the filter's six (ids from 0xA00016, reverb_core.h). Its
+// bit-identity plant compiles all of it out, on the same rule as the filter's: that build and this one must render every
+// preset to the same bits with Scape off.
+#ifdef HORDE_PREVIEW_PLANT_NO_REVERB
+constexpr int kReverbHostParams = 0;
+#else
+constexpr int kReverbHostParams = preview::reverb::kHostParams;
 #endif
 constexpr int kMaxPoints = 65;   // one key's waypoints as the page sends them: past MO-21's 8 the resolver refuses the list
 // The morph (B636). Events one span may carry: spans are cut at every control interval while the morph moves, so one
@@ -361,6 +374,13 @@ struct Plugin {
   std::atomic<double> filter_v[preview::filter::kParams];
   preview::filter::PostFilter post_filter;   // audio thread; prepared at activation
   bool filter_was_on = false;                // audio thread
+  // The test-only reverb (B710): "Scape on" then Scape's values in its own units, on the filter's rule (atomics the audio
+  // thread's events and the main thread's state load write, read once a block).
+#ifndef HORDE_PREVIEW_PLANT_NO_REVERB
+  std::atomic<double> reverb_v[preview::reverb::kHostParams];
+  preview::reverb::PostReverb post_reverb;   // audio thread; prepared at activation
+  bool reverb_was_on = false;                // audio thread
+#endif
   int max_block = kEngineMaxBlock;
   bool active = false;      // main thread
   int built_preset = -1;    // main thread
@@ -759,6 +779,14 @@ bool set_param(Plugin& s, clap_id id, double value, std::uint32_t sample = 0) {
     return true;
   }
 #endif
+#ifndef HORDE_PREVIEW_PLANT_NO_REVERB
+  if (preview::reverb::is_reverb_id(id)) {
+    if (!std::isfinite(value)) return false;
+    const int k = preview::reverb::param_of(id);
+    s.reverb_v[k + 1].store(preview::reverb::clamped(k, value), std::memory_order_relaxed);
+    return true;
+  }
+#endif
   if (id == kMorphXId || id == kMorphYId) {   // the pad's position: the resolver's, never the engine's (IF-11, IF-12)
     if (!std::isfinite(value)) return false;
     const double v = std::clamp(value, 0.0, 1.0);
@@ -790,6 +818,9 @@ bool host_parameter(clap_id id) {
   if (id == kPresetId || id == kMorphXId || id == kMorphYId) return true;
 #ifndef HORDE_PREVIEW_PLANT_NO_FILTER
   if (preview::filter::is_filter_id(id)) return true;
+#endif
+#ifndef HORDE_PREVIEW_PLANT_NO_REVERB
+  if (preview::reverb::is_reverb_id(id)) return true;
 #endif
   const int m = manifest_index(id);
   return m >= 0 && rows().host_of[std::size_t(m)] >= 0;
@@ -1579,6 +1610,43 @@ void apply_post_filter(Plugin& s, float* left, float* right, std::uint32_t frame
 #endif
 }
 
+// B710: Scape on the output after the filter, in place. Off, it does nothing at all (not even a read of the buffers), so the
+// output is bit for bit what came before it. Turning it on starts from a cleared Scape with every value landed. True when
+// it wrote the buffers: zeros in still ring out Scape's tail, through the idle engine's skip too, until its declared tail
+// has passed (post_reverb.h).
+bool apply_post_reverb(Plugin& s, float* left, float* right, std::uint32_t frames) {
+#ifndef HORDE_PREVIEW_PLANT_NO_REVERB
+  if (s.reverb_v[0].load(std::memory_order_relaxed) < 0.5) {
+    s.reverb_was_on = false;
+    return false;
+  }
+  if (!s.reverb_was_on) s.post_reverb.reset();
+  s.reverb_was_on = true;
+  double v[preview::reverb::kScapeParams];
+  for (int k = 0; k < preview::reverb::kScapeParams; ++k) v[k] = s.reverb_v[k + 1].load(std::memory_order_relaxed);
+  return s.post_reverb.process(v, left, right, frames);
+#else
+  (void)s; (void)left; (void)right; (void)frames;
+  return false;
+#endif
+}
+
+// Output guard (Blind-Spot Armor: latch and report, never clamp silently): a bad sample must not reach the host, and the
+// session log shows the count. Also the output meter's peak.
+void guard_output(Plugin& s, float* left, float* right, std::uint32_t frames) {
+  std::uint64_t bad = 0;
+  if (s.out_peak_reset.exchange(false, std::memory_order_relaxed)) s.out_peak_accum = 0;
+  float peak = s.out_peak_accum;
+  for (std::uint32_t i = 0; i < frames; ++i) {
+    if (!std::isfinite(left[i])) { left[i] = 0; ++bad; }
+    if (!std::isfinite(right[i])) { right[i] = 0; ++bad; }
+    peak = std::max({peak, std::fabs(left[i]), std::fabs(right[i])});
+  }
+  if (bad) s.nonfinite.fetch_add(bad, std::memory_order_relaxed);
+  s.out_peak_accum = peak;
+  s.out_peak.store(peak, std::memory_order_relaxed);
+}
+
 clap_process_status plugin_process(const clap_plugin_t* p, const clap_process_t* proc) {
   Plugin& s = *self(p);
   bool want_callback = false;
@@ -1613,11 +1681,18 @@ clap_process_status plugin_process(const clap_plugin_t* p, const clap_process_t*
     std::fill_n(right, frames, 0.0f);
     skip_morph(s, *s.live, frames);
     s.live->engine->skip(frames);
-    horde2::underFlushToZero([&] { apply_post_filter(s, left, right, frames, true); });   // zeros in: a resonant filter still rings out
+    bool rang = false;   // zeros in: a resonant filter and a reverb's tail still ring out (B660, B710)
+    horde2::underFlushToZero([&] {
+      apply_post_filter(s, left, right, frames, true);
+#ifndef HORDE_PREVIEW_PLANT_REVERB_IDLE_CUT   // smoke.cpp's must-fail build: the idle engine's skip cuts the reverb's tail
+      rang = apply_post_reverb(s, left, right, frames);
+#endif
+    });
+    if (rang) guard_output(s, left, right, frames);   // a tail is sound: guarded and metered as any block is
     if (s.live->resolver && s.want_morph.load(std::memory_order_relaxed)) publish_heard_sets(s, *s.live);
     tap(s, left, right, frames);
     s.engine_silent.store(true, std::memory_order_relaxed);
-    if (s.out_peak_reset.exchange(false, std::memory_order_relaxed)) {   // silence reads as silence, not the last loud frame
+    if (!rang && s.out_peak_reset.exchange(false, std::memory_order_relaxed)) {   // silence reads as silence, not the last loud frame
       s.out_peak_accum = 0;
       s.out_peak.store(0, std::memory_order_relaxed);
     }
@@ -1634,22 +1709,14 @@ clap_process_status plugin_process(const clap_plugin_t* p, const clap_process_t*
   const bool was_silent = s.live->engine->silent();
   s.block_moving = false;
   const auto t0 = std::chrono::steady_clock::now();
-  horde2::underFlushToZero([&] { render(s, proc, left, right, frames); apply_post_filter(s, left, right, frames); });
+  horde2::underFlushToZero([&] {
+    render(s, proc, left, right, frames);
+    apply_post_filter(s, left, right, frames);
+    apply_post_reverb(s, left, right, frames);
+  });
   const auto t1 = std::chrono::steady_clock::now();
 
-  // Output guard (Blind-Spot Armor: latch and report, never clamp silently): a bad sample must not reach the host,
-  // and the session log shows the count.
-  std::uint64_t bad = 0;
-  if (s.out_peak_reset.exchange(false, std::memory_order_relaxed)) s.out_peak_accum = 0;
-  float peak = s.out_peak_accum;
-  for (std::uint32_t i = 0; i < frames; ++i) {
-    if (!std::isfinite(left[i])) { left[i] = 0; ++bad; }
-    if (!std::isfinite(right[i])) { right[i] = 0; ++bad; }
-    peak = std::max({peak, std::fabs(left[i]), std::fabs(right[i])});
-  }
-  if (bad) s.nonfinite.fetch_add(bad, std::memory_order_relaxed);
-  s.out_peak_accum = peak;
-  s.out_peak.store(peak, std::memory_order_relaxed);
+  guard_output(s, left, right, frames);
   tap(s, left, right, frames);
   // After the timed span: the page's notes and its silence flag cost a few loads, and aren't the engine's cost.
   follow_voices(s, *s.live->engine);
@@ -1717,6 +1784,10 @@ bool plugin_activate(const clap_plugin_t* p, double sample_rate, std::uint32_t, 
   s.max_block = max_frames ? int(std::min<std::uint32_t>(max_frames, kEngineMaxBlock)) : kEngineMaxBlock;
   s.post_filter.prepare(sample_rate);   // allocates, so here and not on the audio thread
   s.filter_was_on = false;
+#ifndef HORDE_PREVIEW_PLANT_NO_REVERB
+  s.post_reverb.prepare(sample_rate);   // the same: Scape's buffers for this rate (12 to 27 MiB), whether on or off
+  s.reverb_was_on = false;
+#endif
   s.events.reserve(kMaxEvents + 1);
   s.morph_events.reserve(kMorphEvents);
   s.merged.reserve(kMaxEvents + 1 + kMorphEvents);
@@ -1765,6 +1836,9 @@ bool plugin_init(const clap_plugin_t* p) {
   for (std::size_t m = 0; m < t.all.size(); ++m) s.heard[m].store(t.default_v[m], std::memory_order_relaxed);
   for (int i = 0; i < kSettings; ++i) s.morph_v[i].store(preview::morph::default_v(i), std::memory_order_relaxed);
   for (int f = 0; f < preview::filter::kParams; ++f) s.filter_v[f].store(preview::filter::default_value(f), std::memory_order_relaxed);
+#ifndef HORDE_PREVIEW_PLANT_NO_REVERB
+  for (int k = -1; k < preview::reverb::kScapeParams; ++k) s.reverb_v[k + 1].store(preview::reverb::default_value(k), std::memory_order_relaxed);
+#endif
   s.modes.assign(t.all.size() + 2, preview::morph::KeyChoice{});
   s.waypoints.assign(t.all.size() + 2, {});
   s.lock_offsets.assign(t.all.size() + 2, {});
@@ -1789,6 +1863,9 @@ void plugin_stop_processing(const clap_plugin_t*) {}
 void plugin_reset(const clap_plugin_t* p) {
   Plugin& s = *self(p);
   s.post_filter.reset();
+#ifndef HORDE_PREVIEW_PLANT_NO_REVERB
+  s.post_reverb.reset();
+#endif
   if (!s.live) return;
   s.live->engine->reset();
   forget_voices(s);
@@ -1799,13 +1876,25 @@ void plugin_reset(const clap_plugin_t* p) {
 
 // ---- params ----------------------------------------------------------------------------------------------------
 // Preset, every engine row, then the morph's two (B639): last, so no earlier index moves.
-// B660's test-only filter's six follow the morph's two.
-std::uint32_t params_count(const clap_plugin_t*) { return std::uint32_t(1 + rows().count + 2 + kFilterHostParams); }
+// B660's test-only filter's six follow the morph's two, and B710's reverb's thirty follow them.
+std::uint32_t params_count(const clap_plugin_t*) { return std::uint32_t(1 + rows().count + 2 + kFilterHostParams + kReverbHostParams); }
 
 bool params_get_info(const clap_plugin_t*, std::uint32_t index, clap_param_info_t* info) {
   if (index >= params_count(nullptr)) return false;
   std::memset(info, 0, sizeof *info);
   info->flags = CLAP_PARAM_IS_AUTOMATABLE;
+#ifndef HORDE_PREVIEW_PLANT_NO_REVERB
+  if (index >= std::uint32_t(1 + rows().count + 2 + kFilterHostParams)) {
+    const int k = int(index) - (1 + rows().count + 2 + kFilterHostParams) - 1;   // -1 is Scape on
+    info->id = k < 0 ? preview::reverb::kOnId : preview::reverb::id_of(k);
+    if (preview::reverb::stepped(k)) info->flags |= CLAP_PARAM_IS_STEPPED | (k >= 0 ? CLAP_PARAM_IS_ENUM : 0u);
+    preview::reverb::param_name(k, info->name, sizeof info->name);
+    info->min_value = preview::reverb::min_value(k);
+    info->max_value = preview::reverb::max_value(k);
+    info->default_value = preview::reverb::default_value(k);
+    return true;
+  }
+#endif
   if (index >= std::uint32_t(1 + rows().count + 2)) {
     const int f = int(index) - (1 + rows().count + 2);
     info->id = preview::filter::id_of(f);
@@ -1853,6 +1942,9 @@ bool params_get_value(const clap_plugin_t* p, clap_id id, double* out) {
 #ifndef HORDE_PREVIEW_PLANT_NO_FILTER
   if (preview::filter::is_filter_id(id)) { *out = s.filter_v[preview::filter::param_of(id)].load(std::memory_order_relaxed); return true; }
 #endif
+#ifndef HORDE_PREVIEW_PLANT_NO_REVERB
+  if (preview::reverb::is_reverb_id(id)) { *out = s.reverb_v[preview::reverb::param_of(id) + 1].load(std::memory_order_relaxed); return true; }
+#endif
   const int m = manifest_index(id);
   if (m < 0 || rows().host_of[std::size_t(m)] < 0) return false;
   *out = v_to_host(*rows().all[std::size_t(m)], s.shadow[m].load(std::memory_order_relaxed));
@@ -1876,6 +1968,12 @@ bool params_value_to_text(const clap_plugin_t*, clap_id id, double value, char* 
       case preview::filter::kCutoff: std::snprintf(out, size, "%.0f Hz", preview::filter::cutoff_hz(value)); break;
       default: std::snprintf(out, size, "%.3g", value); break;
     }
+    return true;
+  }
+#endif
+#ifndef HORDE_PREVIEW_PLANT_NO_REVERB
+  if (preview::reverb::is_reverb_id(id)) {
+    preview::reverb::value_text(preview::reverb::param_of(id), value, out, size);
     return true;
   }
 #endif
@@ -2022,6 +2120,13 @@ bool state_save(const clap_plugin_t* p, const clap_ostream_t* stream) {
 #ifndef HORDE_PREVIEW_PLANT_NO_FILTER
   for (int f = 0; f < preview::filter::kParams; ++f) saved.filter.v[f] = s.filter_v[f].load(std::memory_order_relaxed);
 #endif
+#ifndef HORDE_PREVIEW_PLANT_NO_REVERB
+  saved.reverb.on = s.reverb_v[0].load(std::memory_order_relaxed) >= 0.5;
+  for (int k = 0; k < preview::reverb::kScapeParams; ++k) {
+    const double v = s.reverb_v[k + 1].load(std::memory_order_relaxed);
+    if (v != preview::reverb::default_value(k)) saved.reverb.values.emplace_back(k, v);   // exact: the same value reloads
+  }
+#endif
   const std::string text = preview::bridge::write_state(saved);
   for (std::size_t done = 0; done < text.size();) {
     const std::int64_t wrote = stream->write(stream, text.data() + done, text.size() - done);
@@ -2108,6 +2213,12 @@ bool state_load(const clap_plugin_t* p, const clap_istream_t* stream) {
   load_morph(s, preset, loaded, saved.morph);
 #ifndef HORDE_PREVIEW_PLANT_NO_FILTER
   for (int f = 0; f < preview::filter::kParams; ++f) s.filter_v[f].store(saved.filter.v[f], std::memory_order_relaxed);   // no line: off
+#endif
+#ifndef HORDE_PREVIEW_PLANT_NO_REVERB
+  // No line: off, at Scape's defaults. A value is clamped to Scape's range, as a host event's is.
+  s.reverb_v[0].store(saved.reverb.on ? 1.0 : 0.0, std::memory_order_relaxed);
+  for (int k = 0; k < preview::reverb::kScapeParams; ++k) s.reverb_v[k + 1].store(preview::reverb::default_value(k), std::memory_order_relaxed);
+  for (const auto& [k, v] : saved.reverb.values) s.reverb_v[k + 1].store(preview::reverb::clamped(k, v), std::memory_order_relaxed);
 #endif
   s.apply_shadow = true;
   s.force_build = true;

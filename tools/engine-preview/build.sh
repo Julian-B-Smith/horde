@@ -12,6 +12,9 @@
 #   HORDE_PREVIEW_WEBVIEW=OFF   the AppKit window instead of the page
 #   HORDE_WEIR_DIR       a Weir checkout (read only) for the test-only filter (B660; default: ~/Documents/Claude/synthetic-worlds/Weir).
 #                        Its HEAD must be the commit in tools/engine-preview/weir.pin, or the configure stops.
+#   HORDE_SCAPE_DIR      a Scape checkout (read only) for the test-only reverb (B710; default: ~/Documents/Claude/synthetic-worlds/Scape).
+#                        Its HEAD must be the commit in tools/engine-preview/scape.pin and its core/ clean, or the configure
+#                        stops. Run tools/admission_check.py on that commit first (ADR-408): the module played is the one admitted.
 set -euo pipefail
 commit="${1:?usage: build.sh <engine commit> [--install]}"
 install="${2:-}"
@@ -36,13 +39,15 @@ args=(-S "$here" -B "$build_dir" -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release 
 [ -n "${HORDE_LIBS_DIR:-}" ] && args+=("-DHORDE_LIBS_DIR=$HORDE_LIBS_DIR")
 [ -n "${HORDE_PREVIEW_PAGE:-}" ] && args+=("-DHORDE_PREVIEW_PAGE=$HORDE_PREVIEW_PAGE")
 [ -n "${HORDE_WEIR_DIR:-}" ] && args+=("-DHORDE_WEIR_DIR=$HORDE_WEIR_DIR")
+[ -n "${HORDE_SCAPE_DIR:-}" ] && args+=("-DHORDE_SCAPE_DIR=$HORDE_SCAPE_DIR")
 [ -n "${HORDE_PREVIEW_WEBVIEW:-}" ] && args+=("-DHORDE_PREVIEW_WEBVIEW=$HORDE_PREVIEW_WEBVIEW")
 if [ -n "${HORDE_SDK_CACHE:-}" ]; then
   args+=("-DFETCHCONTENT_SOURCE_DIR_HORDE_VST3SDK=$HORDE_SDK_CACHE/horde_vst3sdk-src" "-DFETCHCONTENT_SOURCE_DIR_HORDE_AUDIOUNITSDK=$HORDE_SDK_CACHE/horde_audiounitsdk-src")
 fi
 cmake "${args[@]}"
 # At most 4 threads, niced: the clean-room sessions share this machine (see the CPU throttle rule).
-nice -n 10 cmake --build "$build_dir" -j4 --target horde-engine-preview_all preview-plant preview-plant-map preview-plant-morph preview-plant-nofilter preview-smoke preview-gui-shot preview-bridge-test preview-frames-dump
+nice -n 10 cmake --build "$build_dir" -j4 --target horde-engine-preview_all preview-plant preview-plant-map preview-plant-morph preview-plant-nofilter \
+  preview-plant-noreverb preview-plant-reverb-deaf preview-plant-reverb-idle preview-smoke preview-gui-shot preview-bridge-test preview-frames-dump
 
 # Every configure rewrites the AU bundle's Info.plist from CMake's template, and only a relink copies the wrapper's real
 # one back. So a second run with nothing to relink leaves an AU with no identity, and auval "didn't find the component".
@@ -56,9 +61,12 @@ plant="$(find "$build_dir" -name 'preview-plant.clap' -maxdepth 3 | head -1)"
 plant_map="$(find "$build_dir" -name 'preview-plant-map.clap' -maxdepth 3 | head -1)"
 plant_morph="$(find "$build_dir" -name 'preview-plant-morph.clap' -maxdepth 3 | head -1)"
 plant_nofilter="$(find "$build_dir" -name 'preview-plant-nofilter.clap' -maxdepth 3 | head -1)"
+plant_noreverb="$(find "$build_dir" -name 'preview-plant-noreverb.clap' -maxdepth 3 | head -1)"
+plant_reverb_deaf="$(find "$build_dir" -name 'preview-plant-reverb-deaf.clap' -maxdepth 3 | head -1)"
+plant_reverb_idle="$(find "$build_dir" -name 'preview-plant-reverb-idle.clap' -maxdepth 3 | head -1)"
 smoke="$(find "$build_dir" -name 'preview-smoke' -type f -maxdepth 3 | head -1)"
 "$(dirname "$smoke")/preview-bridge-test"
-"$smoke" "$clap" "$plant" "$plant_map" "$plant_morph" "$plant_nofilter"
+"$smoke" "$clap" "$plant" "$plant_map" "$plant_morph" "$plant_nofilter" "$plant_noreverb" "$plant_reverb_deaf" "$plant_reverb_idle"
 "$(dirname "$smoke")/preview-gui-shot" "$clap" "$out/window.png"
 
 # The recorded frames GUI 3's ReplayTransport plays (B628), where gui3_browser_check reads them. A fresh dump is held

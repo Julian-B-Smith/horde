@@ -31,6 +31,7 @@
 #include "flush_to_zero.h"
 #include "horde_engine.h"
 #include "morph_core.h"
+#include "reverb_core.h"
 
 namespace {
 
@@ -456,8 +457,9 @@ std::vector<std::string> audit_host(const clap_plugin_t* plugin, const clap_plug
   passed = 0;
   bridge->frame(plugin);
   // The engine rows only: Preset is first, and morph.x and morph.y (B639) reach the resolver, never the engine, so their
-  // own check holds them (host_xy). The test-only filter's six (B660) come after them and have a check of their own.
-  const std::uint32_t n = params->count(plugin) - 2 - preview::filter::kParams;
+  // own check holds them (host_xy). The test-only filter's six (B660) and reverb's thirty (B710) come after them and have
+  // checks of their own.
+  const std::uint32_t n = params->count(plugin) - 2 - preview::filter::kParams - preview::reverb::kHostParams;
   for (std::uint32_t i = 1; i < n; ++i) {
     clap_param_info_t info{}, target{};
     params->get_info(plugin, i, &info);
@@ -1084,12 +1086,14 @@ void filter_checks(const char* clap, const char* nofilter) {
   check(ref.open(nofilter), "filter: the build without the filter loads");
   if (!p.plugin || !ref.plugin) return;
 
-  // The parameters: six, after the morph's pair, at 0xA00010 on, off by default; the plant has none.
+  // The parameters: six, after the morph's pair (and before B710's reverb's thirty), at 0xA00010 on, off by default; the
+  // plant has none.
   const std::uint32_t n = p.params->count(p.plugin);
+  const std::uint32_t first = n - preview::reverb::kHostParams - flt::kParams;
   bool listed = n > std::uint32_t(flt::kParams) && ref.params->count(ref.plugin) == n - flt::kParams;
   for (int f = 0; f < flt::kParams && listed; ++f) {
     clap_param_info_t info{};
-    listed = p.params->get_info(p.plugin, n - flt::kParams + std::uint32_t(f), &info) && info.id == 0xA00010 + std::uint32_t(f) &&
+    listed = p.params->get_info(p.plugin, first + std::uint32_t(f), &info) && info.id == 0xA00010 + std::uint32_t(f) &&
              !std::strcmp(info.name, flt::param_name(f)) && info.default_value == flt::default_value(f) && info.min_value == 0 &&
              info.max_value == flt::max_value(f) && (info.flags & CLAP_PARAM_IS_STEPPED) == (flt::stepped(f) ? CLAP_PARAM_IS_STEPPED : 0u);
   }
@@ -1193,8 +1197,198 @@ void filter_checks(const char* clap, const char* nofilter) {
   }
 }
 
+// ---- B710's test-only reverb (ADR-408) ------------------------------------------------------------------------------
+// Scape after the engine (after the filter), "Scape on" and Scape's 29 parameters, off by default. `ref` is the plant
+// built without any of it (no Scape compiled or linked: the build as it was), so "off is bit-identical" is held to the
+// real thing; `deaf` is Scape on with the host's values never reaching it, the control of every check that they do; `idle`
+// cuts the reverb in the idle engine's skip (OU-4), the control of the tail check. Each plant carries its one fault alone.
+namespace rv = preview::reverb;
+
+// Sets reverb parameters by their host names ("Scape on", "Scape decay"), as a host's automation would, in one block.
+bool set_reverb(Loaded& p, const std::vector<std::pair<const char*, double>>& values) {
+  float l[64], r[64];
+  Events e;
+  bool found = true;
+  for (const auto& [name, v] : values) {
+    const clap_id id = host_id(p, name);
+    found = found && id != CLAP_INVALID_ID;
+    if (id != CLAP_INVALID_ID) e.param(id, v);
+  }
+  process(p.plugin, e, l, r, 64);
+  return found;
+}
+// One note, released at 0.3 s, then silence to 4 s, in blocks of 512: the engine falls silent and its idle skip runs,
+// so whatever sounds late in this render is the reverb's tail. Interleaved, as `play`'s.
+constexpr std::uint32_t kTailFrames = 44100 * 4, kTailOff = 44100 * 3 / 10;
+// Each render starts from a cleared Scape (Scape on, if it is, is turned off and on again, which clears it): a decay of
+// seconds would otherwise still be ringing from the render before, and every comparison would read that. Before `fresh`,
+// so the new engine's clock starts at the same block in every build (the build without Scape has no such blocks), and
+// fresh's own silent blocks leave a cleared Scape cleared: zeros in, nothing to ring.
+std::vector<float> play_tail(Loaded& p, int preset) {
+  double on = 0;
+  const clap_id on_id = host_id(p, "Scape on");
+  if (on_id != CLAP_INVALID_ID && p.params->get_value(p.plugin, on_id, &on) && on >= 0.5) {
+    set_reverb(p, {{"Scape on", 0}});
+    set_reverb(p, {{"Scape on", 1}});
+  }
+  fresh(p, preset);
+  std::vector<float> l(kTailFrames), r(kTailFrames);
+  for (std::uint32_t pos = 0; pos < kTailFrames; pos += 512) {
+    const std::uint32_t n = std::min<std::uint32_t>(512, kTailFrames - pos);
+    Events e;
+    if (pos == 0) e.note(true, 0, 1, 60, kVelocity);
+    if (kTailOff >= pos && kTailOff < pos + n) e.note(false, kTailOff - pos, 1, 60, 0);
+    process(p.plugin, e, l.data() + pos, r.data() + pos, n);
+    if (callback_requested) { callback_requested = false; p.plugin->on_main_thread(p.plugin); }
+  }
+  std::vector<float> interleaved(2 * kTailFrames);
+  for (std::uint32_t i = 0; i < kTailFrames; ++i) { interleaved[2 * i] = l[i]; interleaved[2 * i + 1] = r[i]; }
+  return interleaved;
+}
+double energy_between(const std::vector<float>& x, double from_s, double to_s) {
+  double e = 0;
+  for (std::size_t i = 2 * std::size_t(from_s * 44100); i < 2 * std::size_t(to_s * 44100) && i < x.size(); ++i) e += double(x[i]) * double(x[i]);
+  return e;
+}
+
+void reverb_checks(const char* clap, const char* noreverb, const char* deaf_path, const char* idle_path) {
+  Loaded p, ref, deaf, idle;
+  check(p.open(clap), "reverb: the plug-in loads");
+  if (!noreverb || !deaf_path || !idle_path) { check(false, "the reverb's three plants were not given, so its controls did not run"); return; }
+  check(ref.open(noreverb) && deaf.open(deaf_path) && idle.open(idle_path), "reverb: the build without Scape and the two must-fail builds load");
+  if (!p.plugin || !ref.plugin || !deaf.plugin || !idle.plugin) return;
+
+  // The parameters: thirty, last, at 0xA00016 on, Scape on first and off; the build without has none of them.
+  const std::uint32_t n = p.params->count(p.plugin);
+  bool listed = n > std::uint32_t(rv::kHostParams) && ref.params->count(ref.plugin) == n - rv::kHostParams;
+  for (int j = 0; j < rv::kHostParams && listed; ++j) {
+    clap_param_info_t info{};
+    listed = p.params->get_info(p.plugin, n - rv::kHostParams + std::uint32_t(j), &info) && info.id == rv::kOnId + std::uint32_t(j) &&
+             !std::strncmp(info.name, "Scape ", 6) && (j > 0 || (!std::strcmp(info.name, "Scape on") && info.default_value == 0 && info.max_value == 1));
+  }
+  check(listed, "the reverb's thirty parameters follow the filter's, at 0xA00016 (Scape on, off) to 0xA00033; the build without has none");
+  check(host_id(ref, "Scape on") == CLAP_INVALID_ID, "control: the build without Scape has no Scape on");
+  double now = -1;
+  check(p.params->get_value(p.plugin, rv::kOnId, &now) && now == 0, "control: Scape on reads 0 (off) on a fresh instance");
+  {
+    clap_param_info_t decay{};
+    bool found = false;
+    for (std::uint32_t i = n - rv::kHostParams; i < n && !found; ++i) found = p.params->get_info(p.plugin, i, &decay) && !std::strcmp(decay.name, "Scape decay");
+    char text[64] = "", era[64] = "";
+    p.params->value_to_text(p.plugin, decay.id, 6, text, sizeof text);
+    p.params->value_to_text(p.plugin, host_id(p, "Scape era"), 1, era, sizeof era);
+    std::printf("     Scape decay: %g to %g s, default %g; 6 reads \"%s\"; era 1 reads \"%s\"\n", decay.min_value, decay.max_value, decay.default_value, text, era);
+    check(found && decay.min_value == 0.2 && decay.max_value == 12 && decay.default_value == 2.2 && !std::strcmp(text, "6 s") && !std::strcmp(era, "vintage"),
+          "Scape's own ranges, defaults and units reach the host (decay 0.2 to 12 s, default 2.2; era by name)");
+  }
+
+  // Off is the build as it was, bit for bit, on every preset the plug-in offers: the factory bank and the demo bank.
+  const auto t0 = std::chrono::steady_clock::now();
+  int identical = 0, loud = 0, first_bad = -1;
+  for (int i = 0; i < kBankSize; ++i) {
+    const std::vector<float> a = play(p, i, {128}), b = play(ref, i, {128});
+    const bool same = a == b;
+    identical += same;
+    loud += peak(a) > 0;
+    if (!same && first_bad < 0) first_bad = i;
+  }
+  const double took = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+  std::printf("     Scape off, %d presets played twice in %.0f s\n", kBankSize, took);
+  check(identical == kBankSize, "Scape off: every preset (" + std::to_string(kBankSize) + ", factory and demo) is bit-identical to the build without Scape" +
+                                    (first_bad >= 0 ? " (first difference: " + std::string(kBank[first_bad].name) + ")" : ""));
+  check(loud >= kBankSize / 2, "control: most of them make sound, so identical is not the silence of two dead builds (" + std::to_string(loud) + ")");
+
+  // A preset whose note ends well inside the render (as the build without Scape plays it): exact zero from 1.5 s on, so
+  // the engine is idle there, and anything later is the reverb.
+  int quick = -1;
+  for (const char* name : {"Blade pluck", "Crunch horde", "Trance jitter", "Wobble jaw", "Glass horde pad"}) {
+    const int i = find_preset(name);
+    if (i < 0) continue;
+    const std::vector<float> a = play_tail(ref, i);
+    if (peak(a) > 0 && energy_between(a, 1.5, 4) == 0) { quick = i; break; }
+  }
+  check(quick >= 0, "a smoke preset that falls silent within 1.2 s of its note-off, to hear a tail after");
+  if (quick < 0) return;
+  const std::vector<float> dry = play_tail(ref, quick);
+  const double note = energy_between(dry, 0, 1.5);
+
+  // The tail rings after note-off, through the idle engine's skip; the build that cuts it there reads silence.
+  const std::vector<std::pair<const char*, double>> hall = {{"Scape on", 1}, {"Scape mix", 0.5}, {"Scape decay", 6}};
+  check(set_reverb(p, hall) && set_reverb(idle, hall) && set_reverb(deaf, hall), "reverb: Scape on, mix 0.5, decay 6 s");
+  const std::vector<float> wet = play_tail(p, quick), cut = play_tail(idle, quick);
+  const double tail = energy_between(wet, 1.5, 4), cut_tail = energy_between(cut, 1.5, 4);
+  std::printf("     %s, note-off at 0.3 s: energy 1.5 to 4 s with Scape %.4g, the note itself (dry, 0 to 1.5 s) %.4g; the idle-cut build %.4g\n",
+              kBank[quick].name, tail, note, cut_tail);
+  check(tail > 1e-3 * note && peak(wet) > 0, std::string("Scape on: ") + kBank[quick].name + "'s tail rings on for seconds after the engine has fallen silent");
+  check(cut_tail == 0, "control: the build whose idle skip cuts the reverb is silent there, so the tail above is the idle loop's");
+  bool finite = true;
+  for (float v : wet) finite = finite && std::isfinite(v) && std::fpclassify(v) != FP_SUBNORMAL;
+  check(finite, "Scape on: the output is finite and never subnormal, tail included");
+
+  // The values reach Scape: mix 0 is the dry render bit for bit, and a long decay rings far longer than a short one.
+  // The deaf build, playing Scape's own defaults whatever the host says, must miss both.
+  set_reverb(p, {{"Scape mix", 0}});
+  set_reverb(deaf, {{"Scape mix", 0}});
+  check(play_tail(p, quick) == dry, "Scape on with mix 0: bit-identical to the build without Scape (the host's mix reaches Scape)");
+  check(play_tail(deaf, quick) != dry, "control: the deaf build, at Scape's default mix 0.35, is not");
+  const auto decay_ratio = [&](Loaded& l) {
+    set_reverb(l, {{"Scape mix", 0.5}, {"Scape decay", 10}});
+    const double long_tail = energy_between(play_tail(l, quick), 2.5, 4);
+    set_reverb(l, {{"Scape decay", 0.3}});
+    const double short_tail = energy_between(play_tail(l, quick), 2.5, 4);
+    return long_tail / (short_tail + 1e-300);
+  };
+  const double ratio = decay_ratio(p), deaf_ratio = decay_ratio(deaf);
+  std::printf("     tail energy 2.5 to 4 s, decay 10 s over decay 0.3 s: x%.3g; the deaf build x%.3g\n", ratio, deaf_ratio);
+  check(ratio > 100, "Scape decay reaches Scape: 10 s rings far longer than 0.3 s");
+  check(!(deaf_ratio > 100), "control: the deaf build reads both decays alike");
+  double read = -1;
+  check(p.params->get_value(p.plugin, host_id(p, "Scape decay"), &read) && read == 0.3, "Scape decay reads back what the host set");
+
+  // The state: what was set saves, loads into a new instance and plays the same; an untouched reverb saves nothing.
+  check(set_reverb(p, hall), "reverb: back to the hall");
+  std::string chunk;
+  check(save_to(p, chunk) && chunk.rfind("horde-engine-preview 6", 0) == 0 && chunk.find("\nscape on 1\n") != std::string::npos &&
+            chunk.find("\nscape 10 6\n") != std::string::npos && chunk.find("\nscape 0 0.5\n") != std::string::npos,
+        "state: the reverb's switch and its changed values are in the saved chunk, by Scape's ids (decay 10, mix 0)");
+  Loaded q;
+  check(q.open(clap), "reverb: a second instance loads");
+  std::string plain;
+  check(save_to(q, plain) && plain.find("scape") == std::string::npos && plain.rfind("horde-engine-preview 2", 0) == 0,
+        "control: an untouched instance saves no scape line and the chunk it always did");
+  if (q.plugin && load_from(q, chunk)) {
+    double on_q = -1, decay_q = -1, mix_q = -1;
+    check(q.params->get_value(q.plugin, rv::kOnId, &on_q) && on_q == 1 && q.params->get_value(q.plugin, host_id(q, "Scape decay"), &decay_q) && decay_q == 6 &&
+              q.params->get_value(q.plugin, host_id(q, "Scape mix"), &mix_q) && mix_q == 0.5,
+          "state: a new instance loads the reverb on, decay 6 s, mix 0.5");
+    // Off and on again: the cleared Scape a new instance starts with.
+    set_reverb(p, {{"Scape on", 0}});
+    set_reverb(p, {{"Scape on", 1}});
+    check(play_tail(p, quick) == play_tail(q, quick), "state: and it plays what the saved instance plays, bit for bit, tail included");
+    check(load_from(q, plain) && q.params->get_value(q.plugin, rv::kOnId, &on_q) && on_q == 0 && q.params->get_value(q.plugin, host_id(q, "Scape decay"), &decay_q) &&
+              decay_q == 2.2,
+          "state: an older chunk, with no scape line, loads with the reverb off at Scape's defaults");
+  } else {
+    check(false, "the saved chunk did not load");
+  }
+
+  // Off again after on: nothing stale reaches the output.
+  set_reverb(p, {{"Scape on", 0}});
+  check(play_tail(p, quick) == dry, "Scape turned off again: bit-identical to the build without Scape once more");
+
+  for (Loaded* l : {&p, &ref, &deaf, &idle, &q}) {
+    if (!l->plugin) continue;
+    l->plugin->stop_processing(l->plugin);
+    l->plugin->deactivate(l->plugin);
+    l->plugin->destroy(l->plugin);
+  }
+}
+
 int main(int argc, char** argv) {
-  if (argc < 2) { std::printf("usage: smoke <clap> [<plant> <plant-map> <plant-morph> <plant-nofilter>]\n"); return 2; }
+  if (argc < 2) {
+    std::printf("usage: smoke <clap> [<plant> <plant-map> <plant-morph> <plant-nofilter> <plant-noreverb> <plant-reverb-deaf> <plant-reverb-idle>]\n");
+    return 2;
+  }
   // The session log goes under $HOME, so point it at a scratch folder: a test mustn't write to the human's Logs.
   char home[] = "/tmp/engine-preview-smoke-XXXXXX";
   if (!mkdtemp(home)) return 2;
@@ -1212,8 +1406,10 @@ int main(int argc, char** argv) {
   for (std::size_t i = 0; i < horde::manifest_size(); ++i) engine_rows += horde::manifest_param(i).reserved ? 0 : 1;
   // B632 (ADR-370): every engine row is a host parameter, past Live's 64, whose panel then fills from the window.
   // B639 (IF-11): and the morph's position, morph.x and morph.y, last.
-  // B660: and the test-only filter's six after them.
-  check(int(n_params) == 1 + engine_rows + 2 + preview::filter::kParams, "every non-reserved engine row is a host parameter, plus Preset, morph.x and morph.y, and the test-only filter's six (" + std::to_string(1 + engine_rows + 2 + preview::filter::kParams) + ")");
+  // B660: and the test-only filter's six after them; B710: and the test-only reverb's thirty after those.
+  const int all = 1 + engine_rows + 2 + preview::filter::kParams + preview::reverb::kHostParams;
+  check(int(n_params) == all, "every non-reserved engine row is a host parameter, plus Preset, morph.x and morph.y, the test-only filter's six and the test-only reverb's thirty (" +
+                                  std::to_string(all) + ")");
   {
     clap_param_info_t xi{}, yi{};
     check(p.params->get_info(p.plugin, std::uint32_t(1 + engine_rows), &xi) && p.params->get_info(p.plugin, std::uint32_t(2 + engine_rows), &yi) &&
@@ -1956,6 +2152,7 @@ int main(int argc, char** argv) {
   }
 
   filter_checks(argv[1], argc > 5 ? argv[5] : nullptr);
+  reverb_checks(argv[1], argc > 6 ? argv[6] : nullptr, argc > 7 ? argv[7] : nullptr, argc > 8 ? argv[8] : nullptr);
 
   std::printf("%s (%d failed)\n", failures ? "engine-preview smoke: RED" : "engine-preview smoke: GREEN", failures);
   return failures ? 1 : 0;
