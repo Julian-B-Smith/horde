@@ -13748,3 +13748,19 @@ One correction: ADR-359's lead reading ("They wait for B603 with Mangle and Echo
 
 **FX device (ADR-254):** none; a build tool's check.
 
+## ADR-408 — RULED by the human: FX starts now: Scape plays after the engine in the test plug-in, test-only, built in its own session (B710; 2026-11-24)
+
+**Context.** Asked how soon the new engine can be integrated "so we can start adding FX modules and other details to the test plugin", the lead measured the tracks (the critical path, 2026-11-24): the wavetable member reaches the test plug-in at its S8, about 5 to 8 weeks out, but RC-5 hands every engine's output to the effects as one stereo pair, so a module can play after the current engine now, as B660 did for Weir's filter (ADR-311). Scape's admission adapter already exists and its admission rows are green (`tools/admission/scape_adapter.cpp`; Scape's response of 2026-10-29). The lead asked whether the test plug-in may depend on a sibling module, in its own session so the wavetable work keeps the lead.
+
+**Ruling** (the human, 2026-11-24): "start FX now with Scape in its own session".
+1. **The test plug-in may host Scape** after the engine's output, test-only, as B660 hosts Weir's filter.
+2. **The work runs in its own session,** which the human opens from the lead's brief.
+
+**The lead's readings, open to overrule:**
+- **Scape is pinned** the way Weir is (`tools/engine-preview/weir.pin`): a `scape.pin` naming one Scape commit, the configure refusing any other, Scape's own `core/` build as the admission harness builds it, nothing written to Scape's tree. Scape's notice of 2026-11 (seq 8: Vintage's sound changed, D-076) asks for the module rows to be re-run; the session re-runs admission at the pinned commit first.
+- **Off by default, so nothing changes:** with Scape off, every bank and demo preset renders bit-identical to a build without it (B660's control); its host parameters take the next free test-only block after Weir's 0xA00010 to 0xA00015, and the idle loop keeps running through the reverb's tail.
+- **Not the rack.** RC-5's slots, `fx/N` morphing, macros and the limiter wait on the rack's own rows (B398, the FX rebuild); this stage is the first audible module, and how much of it carries to S8's plug-in depends on whether S8 reuses `tools/engine-preview`.
+- **GUI 3's page** shows test-only rows as host parameters only; a Scape panel on the page is the GUI session's to design if wanted (a hand-over on B710).
+
+**FX device (ADR-254):** the FX device will host Scape through the rack after 1.0; this test-only stage is the instrument's test build and fixes nothing the FX device inherits.
+

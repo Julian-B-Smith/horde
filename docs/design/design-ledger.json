@@ -8777,6 +8777,10 @@
   {
    "adr": "ADR-407",
    "reason": "The wavetable build's instruction counter judged on the best of three counts, and S0 closed (B705): a build tool's check with nothing on the page or in the design master."
+  },
+  {
+   "adr": "ADR-408",
+   "reason": "Scape plays after the engine in the test plug-in, test-only (B710): a build and audio-path ruling with nothing in the design master; its rows appear as host parameters only, and a Scape panel on the page is the GUI session's to design if wanted (the hand-over on B710)."
   }
  ],
  "engine_impact": {
