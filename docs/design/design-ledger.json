@@ -7640,7 +7640,7 @@
    "adr": "GUI-74",
    "clause": "on the test plug-in's bridge (B711), the FX page draws a test strip (Scape on, Space, Decay, Tone, Mix, Era; the filter's six), a Test filter card before Scape's, and Scape's card bound to the preview.* keys; preview-only (not morphed, mapped, undone or snapshotted); a drag is one host gesture",
    "port_tab": null,
-   "note": "Built from hello.preview's descriptors with the bundle's Cluster, SecondKnob and Companion on a Session of its own; nothing drawn locally. Held by gui3_browser_check's preview row. Engine: none (the lead's bridge). FX device: none.",
+   "note": "Built from hello.preview's descriptors with the bundle's Cluster, SecondKnob and Companion on the shell's one session (MAP and Option-drag stopped on them; the matrix refuses a route to a non-row); nothing drawn locally. Held by gui3_browser_check's preview row. Engine: none (the lead's bridge). FX device: none.",
    "component": "Cluster",
    "bundle": "Cluster",
    "shell": "docs/design/gui3.html: previewPanel",

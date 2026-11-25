@@ -1682,10 +1682,12 @@ function fxRack(pg) {
      * Scape's card made live: the same cluster, groups and abbreviations as its rack card (layout.json), bound to `preview.scape.*`,
        with Scape on as the header's switch. A rack control with no preview key stays dimmed.
    PREVIEW-ONLY (GUI-74's state line): the values live in the device's preview store, never a row, so nothing here is morphed, mapped,
-   undone, kept in history or in a snapshot. The controls run on a session of their own (PS) with no sources, so MAP and a modulator's
-   drop can't reach them, and the shell's undo never sees them. The host saves them as host parameters, and the plug-in's state chunk
-   carries them. A drag is one host gesture (begin, the values, end); any other edit is a lone set, which the bridge wraps. */
-const PS = new H.Session({ x: .5, y: .5, sources: [] });
+   undone, kept in history or in a snapshot. The controls are the session's own faces (one session, one MAP state: gui3_seam_check's
+   mappage), so a MAP click or an Option-drag on one is stopped and said; were one to slip through, the device's matrix refuses a route
+   to a key that isn't a row and the map bridge drops it (attachMap). Writes go to the store, never through write() or dev.set, so the
+   shell's undo never sees them, and a press puts the session's selection back, so the morph's selected row is untouched. The host saves
+   them as host parameters, and the plug-in's state chunk carries them. A drag is one host gesture (begin, the values, end); any other
+   edit is a lone set, which the bridge wraps. */
 const previewPanel = (() => {
   let built = false;
   const SCAPE_HEAD = [['size', 'Space'], ['decay', 'Decay'], ['damp', 'Tone'], ['mix', 'Mix']];   // Scape's manifest fixedControls, in its order and words
@@ -1695,7 +1697,12 @@ const previewPanel = (() => {
   const idxOf = d => Math.round(vOf(d) * (d.labels.length - 1));
   const fmt = (d, v) => d.stepped ? d.labels[Math.round(v * (d.labels.length - 1))] : ENG.display({ law: 'lin', lo: d.min, hi: d.max, unit: d.unit === 'dB' ? '' : d.unit }, v) + (d.unit === 'dB' ? ' dB' : '');
   const gestureOn = (host, d) => {   // a drag is one host gesture; the bundle's knob captures the pointer, so these fire on the host in capture
-    host.addEventListener('pointerdown', e => { if (!e.button) dev.previewGesture(d.key, 'begin'); }, true);
+    let sel = null;
+    host.addEventListener('pointerdown', e => {
+      if (S.map.on || e.altKey) { e.stopImmediatePropagation(); e.preventDefault(); S.say(d.name + ' is the test plug-in’s, not the patch’s: it can’t be mapped'); return; }
+      sel = S.selected; if (!e.button) dev.previewGesture(d.key, 'begin');
+    }, true);
+    host.addEventListener('pointerdown', () => { S.selected = sel; }, false);   // after the knob took it: a preview key is never the selected row
     ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(t => host.addEventListener(t, () => dev.previewGesture(d.key, 'end'), true));
   };
   const knob = (d, o) => {
@@ -1719,7 +1726,7 @@ const previewPanel = (() => {
     // Scape's rack card is found by its layout group (its screen), never by a key written here: the controls come from shell-data
     const g = PG.fx.groups.find(x => x.screen === 'Scape'), ctls = g ? g.controls : [], ctlOf = k => ctls.find(c => c.key === k), fxEl = pageEls.fx;
     const rackScape = [...fxEl.querySelectorAll('[data-key]')].find(e => ctlOf(e.dataset.key)), oldCard = rackScape && rackScape.closest('section');
-    const cluster = (o, onKey) => { const sec = h('section', { class: 'wide preview-sec', 'aria-label': o.path }); const r = H.Cluster(sec, PS, Object.assign({ rule: 'solid' }, onKey ? { on: idxOf(onKey) === 1, onToggle: on => dev.previewSet(onKey.key, on ? 1 : 0) } : {}, o)); /* a section with no `.on` key draws no switch */ sec._hdr = r.header; headed(sec, onKey); return sec; };
+    const cluster = (o, onKey) => { const sec = h('section', { class: 'wide preview-sec', 'aria-label': o.path }); const r = H.Cluster(sec, S, Object.assign({ rule: 'solid' }, onKey ? { on: idxOf(onKey) === 1, onToggle: on => dev.previewSet(onKey.key, on ? 1 : 0) } : {}, o)); /* a section with no `.on` key draws no switch */ sec._hdr = r.header; headed(sec, onKey); return sec; };
     const items = (list, sz) => list.filter(([k]) => k).map(([d, o]) => d.stepped ? companion(d, o) : knob(d, Object.assign({ size: sz }, o)));
     const fItems = FILTER.map(k => [F(k), { abbr: { mode: 'MODE', cutoff: 'CUT', resonance: 'RES', ring: 'RING', mix: 'MIX' }[k], name: { mode: 'Mode', cutoff: 'Cutoff', resonance: 'Resonance', ring: 'Ring', mix: 'Mix' }[k] }]).filter(([d]) => d);
     // the strip: words, the sized utility knobs (as Main's macros), at the top of the page
@@ -1742,7 +1749,7 @@ const previewPanel = (() => {
     if (oldCard) { oldCard.before(fCard); oldCard.replaceWith(sCard); }
     built = true;
   }
-  return { update() { if (!built && dev.preview().length && pageEls.fx) build(); for (const v of PS.views) v.render(); }, built: () => built };
+  return { update() { if (!built && dev.preview().length && pageEls.fx) build(); }, built: () => built };
 })();
 
 /* The port ledger (ADR-333, B593): everything not yet moved over, where it lives and why, read from port-tab.json

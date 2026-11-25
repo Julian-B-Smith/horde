@@ -12777,7 +12777,7 @@ Its control plants the 30 px line back on Main and must read red. On main's shel
 
 **State (GUI-27).** Preview-only.
 - The values live in the device's preview store, not in a row, so they are never morphed, mapped, undone, kept in history or in a snapshot.
-- The controls run on a bundle Session of their own with no sources, so MAP and a modulator's drop can't reach them.
+- The controls are the shell's one session's faces (one MAP state, `gui3_seam_check` mappage). A MAP click or an Option-drag on one is stopped and said. Were one to slip through, the device's matrix refuses a route to a key that isn't a row, and the map bridge drops it. A press puts the session's selection back, so the morph's selected row is untouched.
 - The host saves them as host parameters, and the plug-in's state chunk carries them (the lead: version 6, the filter and Scape lines), so a saved Set restores them.
 
 **The check.** `gui3_browser_check` (in `./verify fast`) gains a row on a stand-in bridge that publishes the descriptors and echoes each set. It requires that:
