@@ -7634,6 +7634,21 @@
    "superseded_by": null,
    "state": "ruled",
    "master_version": null
+  },
+  {
+   "id": "adr409-fx-module-glasses",
+   "adr": "ADR-409",
+   "clause": "a glass for every FX module, the most complex on the freest: Sluice Game Boy Color, Shriek 80s workstation, Kiln EQ vector monitor, Echo sonar scope, Scape CAD blueprint, Bulwark nixie, Mangle CRT terminal, Kiln Drive and the Weir filter the house screen; the Master limiter has no glass; each module designs its own glass under ADR-400's model and the GUI session reviews it against a rules list per glass",
+   "lab": "docs/design/fx-screens-workshop.html",
+   "via": null,
+   "superseded_by": null,
+   "master_version": null,
+   "bundle": null,
+   "shell": null,
+   "port_tab": null,
+   "component": null,
+   "state": "ruled",
+   "note": "The master's screens section takes the map, and each glass's rules list is written there; both are the GUI session's (ADR-336). The glasses' marks are GUI-58's. Engine: none. FX device: the same glasses."
   }
  ],
  "not_design": [
