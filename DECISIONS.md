@@ -13732,3 +13732,19 @@ One correction: ADR-359's lead reading ("They wait for B603 with Mangle and Echo
 - **The library is WT-45's user library,** extended rather than replaced. The baked set is one collection in it, its tables' ids their `blade-bake` recipes. Which tables ship in the factory library at 1.0 stays with the factory patch session (ruling 3 unchanged). How the library browses, and how a corner preset picks a table, is the GUI session's to design (ADR-336); B709 carries the hand-over note.
 
 **FX device (ADR-254):** none. The library is device-wide storage (WT-45's FX device note), and the FX device hosts no oscillator to read a table.
+
+## ADR-407 — RULED by the human: the instruction counter's known count is judged on the best of three counts; S0 of the wavetable build is closed (B705; 2026-11-24)
+
+**Context.** The wavetable build's instruction counter proves it counts instructions with a known-count check: an arm64 loop of 10⁸ two-instruction iterations must read 2 × 10⁸ within ±0.1 %. On 2026-11-24, at a one-minute load of 9 (other sessions running), one count in about eight read 0.29 % over (B705). The lead proposed judging the closest of three counts, the band unchanged, and asked the human before S0 could close (the S0 closure gate: CONTRACT §6.1's five conditions).
+
+**Ruling** (the human, 2026-11-24): "best of three, go ahead and close S0".
+1. **The known count is judged on the closest of three counts,** within the unchanged ±0.1 % band (the wavetable repo's `tests/tools/test_instr_counter.cpp` at `9927edc`). A counter of the wrong measure still fails all three: the planted cycle counter reads −49 %.
+2. **S0 is closed** at `9927edc`: `./verify close S0` on a clean export, 49 registered, 26 passed, 23 skipped (later stages' hooks), 0 failed; P-1 to P-9 answered (ADR-404, ADR-405); the night run done (4.918 % of a core, within WT-BUDGET; the conversion factor fixed at 20.28 × 10⁹); the listening heard and its five notes answered as STAGES rows; the record in the wavetable repo's STAGES.md at `6f005fe`.
+
+**The lead's readings, open to overrule:**
+- **s0-1 counts as heard.** It sat on one page with s0-2 and s0-3, which play the same presets, and the human's notes came on those; the five notes are answered by ADR-406 and B709.
+- **Sustained load is not covered.** At the close, run alone at a load of 7 to 8 with other heavy jobs, all three counts read 0.28 to 1.5 % over, so best of three failed there; it passed inside the close's own run. Best of three absorbs a burst, as ruled, not a machine kept busy. The lead therefore runs stage closes at low load, as the timed runs already are; no band moves, and if a close fails on this check alone the lead re-runs it at low load and says so.
+- **The spec copies** in the wavetable repo were re-taken from horde `a965fd47` (ADR-406's amendments) in the same closing commit.
+
+**FX device (ADR-254):** none; a build tool's check.
+

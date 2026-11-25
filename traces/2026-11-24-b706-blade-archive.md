@@ -70,7 +70,10 @@ SPEC-ENGINE C.10 (the spread laws and cut rules), WT-22 (the frame read), RC-9.1
 - **The engine's suite** at `6cd98b5`, built from the same export (4 jobs, niced): `ctest` `89% tests passed, 1 tests
   failed out of 9`; the one is the suite itself (5,395 s), whose only red item is `item 03 bank: DT-3's sample-rate
   independence`, 3.b's Crushed burst at `harmonics spread 3.274 dB`, the known red the engine's REPORT records at its
-  acceptance with the same value (its other known red, 9.b1, is green here). bank_report, the inspect and sanitizer
+  acceptance with the same value. **Corrected 2026-11-24 (B705's records PR):** that reading was taken from the summary
+  log while the suite was still writing it. The finished run is `suite: 383 items, 2 failed`: 3.b as above and 9.b1,
+  `7 of 33 judged held renders fire` at 44.1 kHz and `4 of 22` at 48 kHz, the engine's recorded counts; both known reds
+  reproduce. bank_report, the inspect and sanitizer
   tests pass; 15a and 15b (WebAssembly) are skipped, no Emscripten on this machine.
 - **The demos:** `preview-demo-render` from that build, twice: 120 files each, the two lists identical
   (`tools/blade-archive/demos.sha256`). **The GUI frames:** `preview-frames-dump` twice on `6cd98b5`, identical
@@ -94,3 +97,15 @@ session's to reword (B706's hand-over note).
 QfmCfooaUrM9rfh1sSP8eG). **Evidence.** SN-9 (the Resonator: one period, positive feedback, every harmonic); LF-1 to
 LF-14 (no delay or fade row); the kit's siku A/B on a held A5: breath about 20 dB stronger at odd than even harmonic
 slots with the odd comb, about 2 dB with the current one (an offline render, not horde's engine).
+
+## The proof on clean checkouts of the tags (2026-11-24)
+
+After the human pushed the horde tag, the lead ran the archive doc's own steps on `git archive` exports of
+`blade-engine-final` (horde `39bc2e23`, engine `6cd98b5`): the three libraries at the tag's pins (clap `195b42a0`,
+clap-wrapper `35f524b7`, choc `a08bfd84`), Weir cloned from `git-bundles/weir-078f1436.bundle`, GUI 3's page inlined,
+`build.sh` without `--install`: `bridge_test: GREEN (0 failed)`, `engine-preview smoke: GREEN (0 failed)`,
+`engine-preview gui: GREEN (0 failed)`; `demos: all 120 reproduce the tag's list`; `frames: reproduce the tag's list`;
+`archive renders: every file reproduces …/tools/blade-archive/bank.sha256`. ADR-406 ruling 5's proof is done. The
+release `blade-engine-final` is drafted with five assets (the bundles, the bank and demo renders, the GUI frames,
+SHA256SUMS), published by the human.
+

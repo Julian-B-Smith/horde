@@ -153,7 +153,7 @@ cmake --build <out>/build/build-6cd98b5 -j4 --target preview-demo-render
 The committed fixtures (`tools/labharness/fixtures/gui3-*.json`) were recorded on engine `1ad270a`; this pair is
 `6cd98b5`'s, the same from build 11's CLAP and from the rebuild (§3).
 
-**On another toolchain** the hashes may differ in the last bits. Then the check is the suite's result as recorded (§5's proof: one known red, 3.b) and every render
+**On another toolchain** the hashes may differ in the last bits. Then the check is the suite's result as recorded (§5's proof: the two known reds, 3.b and 9.b1, at their recorded values) and every render
 within −120 dBFS of the recorded one, the engine's tier 1 (ADR-380 A1):
 `render.sh <new folder> --compare <the archive's renders/bank> --limit -120` (or `python3 -I
 tools/blade-archive/compare.py <recorded> <fresh> --limit -120`). The demos are 16-bit, where one rounding step is −90.3
@@ -163,8 +163,7 @@ tolerance in this repo is registered by the human.
 **The proof that ran** (2026-11-24, the trace): the bank renders from two fresh exports, identical; the preview built
 from a `git archive` of this PR's branch (its preview, GUI 3, `h2` and `libs` byte-identical to main's) with GUI 3's
 page: bridge, smoke and GUI green; the demos and the frames twice each, identical; the smoke test green on build 11's
-own CLAP; the engine's suite at `6cd98b5`: one item red, 3.b's Crushed burst (harmonics spread 3.274 dB), the known red the engine's own report records at its acceptance, at the same value; ctest's other eight tests pass, the two WebAssembly ones skipped (no Emscripten here). **Still owed:** the same run on clean checkouts of
-the tags once they are cut (ADR-406 ruling 5), appended to the trace.
+own CLAP; the engine's suite at `6cd98b5`: 383 items, 2 red, both the known reds the engine's own report records, at the same values (3.b: Crushed burst, harmonics spread 3.274 dB; 9.b1: 7 of 33 held renders fire at 44.1 kHz, 4 of 22 at 48 kHz); ctest's other tests pass, the two WebAssembly ones skipped (no Emscripten here). **On clean checkouts of the tags** (2026-11-24, after the tags were pushed): the libraries at the tag's pins, Weir cloned from its bundle, the preview rebuilt with GUI 3's page (bridge, smoke and GUI green), the 120 demo renders, the GUI frames and the 332 bank renders all reproduce the lists the tag carries.
 
 ## 6. What must not be deleted before this archive is cut
 
