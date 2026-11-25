@@ -60,6 +60,7 @@
 #include "post_reverb.h"
 #endif
 #include "preview_gui.h"
+#include "test_rows.h"
 
 namespace {
 
@@ -156,6 +157,13 @@ int manifest_index(clap_id id) {
   const auto& all = rows().all;
   auto it = std::lower_bound(all.begin(), all.end(), id, [](const horde::ParamInfo* p, clap_id i) { return p->id < i; });
   return it != all.end() && (*it)->id == id ? int(it - all.begin()) : -1;
+}
+
+// The test rows the page may name (B711), each a host parameter of this build: built once on the main thread, read-only
+// after. Never on the audio thread, which knows them only by id.
+const preview::bridge::TestKeys& testkeys() {
+  static const preview::bridge::TestKeys keys(preview::bridge::test_rows());
+  return keys;
 }
 
 int default_preset() {
@@ -320,6 +328,11 @@ struct Session {
   std::vector<std::string> unknown, reserved, types;
   bool refused_due = false;
   std::vector<bool> gesture_open;   // per manifest row
+  // The test rows (B711), per TestKeys row: v last sent in `params` (NaN: never), a page gesture open, and the page's own
+  // last v with the host value it became, so a frame hands that v back exactly while the host still holds that value
+  // (device.js compares with ===, and host -> v needn't round-trip a v -> host bit for bit).
+  std::vector<double> test_sent, test_page_v, test_page_host;
+  std::vector<bool> test_gesture_open;
   std::deque<std::vector<Edit>> waiting;   // whole messages the queue had no room for yet, in order
   // The morph's `morph` member (B636): what was last sent, so a frame carries only changes (NaN: never sent).
   double sent_settings[kSettings] = {};
@@ -1847,6 +1860,11 @@ bool plugin_init(const clap_plugin_t* p) {
   s.session.sent_heard.assign(t.all.size(), NAN);
   s.session.sent.assign(t.all.size(), NAN);
   s.session.gesture_open.assign(t.all.size(), false);
+  const std::size_t tests = std::size_t(testkeys().size());
+  s.session.test_sent.assign(tests, NAN);
+  s.session.test_page_v.assign(tests, NAN);
+  s.session.test_page_host.assign(tests, NAN);
+  s.session.test_gesture_open.assign(tests, false);
   s.wanted_preset.store(default_preset(), std::memory_order_relaxed);
   for (int k = 0; k < 2; ++k)
     if (const horde::ParamInfo* row = horde::find_param(k == 0 ? "osc1.unison" : "osc2.unison")) s.unison_row[k] = manifest_index(row->id);
@@ -2272,6 +2290,7 @@ void note_refused(std::vector<std::string>& list, const std::string& what, bool&
 void resend_all(Plugin& s) {
   Session& ss = s.session;
   std::fill(ss.sent.begin(), ss.sent.end(), NAN);
+  std::fill(ss.test_sent.begin(), ss.test_sent.end(), NAN);
   ss.sent_preset = -1;
   ss.sent_plugin = false;
   std::fill(ss.sent_corner.begin(), ss.sent_corner.end(), NAN);
@@ -2291,6 +2310,7 @@ void open_session(Plugin& s) {
   ss.load = Load{};
   ss.saw_hello = ss.hello_due = false;
   std::fill(ss.gesture_open.begin(), ss.gesture_open.end(), false);
+  std::fill(ss.test_gesture_open.begin(), ss.test_gesture_open.end(), false);
   resend_all(s);
 }
 
@@ -2314,7 +2334,7 @@ bool load_completes(Plugin& s, std::int64_t acked) {
 void bridge_receive(Plugin& s, std::string_view json) {
   using namespace preview::bridge;
   Session& ss = s.session;
-  const Message m = parse_message(json, keymap());
+  const Message m = parse_message(json, keymap(), &testkeys());
   if (m.kind == Kind::Invalid) {
     note_refused(ss.types, "(unreadable: " + m.error + ")", ss.refused_due);
     return;   // no seq to acknowledge
@@ -2336,6 +2356,22 @@ void bridge_receive(Plugin& s, std::string_view json) {
         e.bracket = !ss.gesture_open[std::size_t(at)];
         batch.push_back(e);
       }
+      // B711: a test row takes the engine rows' path from here on, by its host id: set_param stores it in its atomic and
+      // the host hears begin, value, end (or the value alone inside a page gesture), so Live's Configure mode learns it.
+#ifndef HORDE_PREVIEW_PLANT_DROP_TEST_SETS   // smoke.cpp's must-fail build: the page's sets of test rows go nowhere
+      for (const auto& value : m.test_values) {
+        const preview::bridge::TestRow& row = testkeys().row(value.row);
+        const std::size_t i = std::size_t(value.row);
+        Edit e;
+        e.id = row.id;
+        e.value = test_host(row, value.v);
+        e.bracket = !ss.test_gesture_open[i];
+        batch.push_back(e);
+        // A stepped row's v is its option's, as a stepped engine row's comes back snapped.
+        ss.test_page_v[i] = row.stepped ? test_v(row, e.value) : std::clamp(value.v, 0.0, 1.0);
+        ss.test_page_host[i] = e.value;
+      }
+#endif
       break;
     case Kind::Gesture:
       if (m.gesture_row >= 0) {
@@ -2348,6 +2384,15 @@ void bridge_receive(Plugin& s, std::string_view json) {
           e.id = row.id;
           batch.push_back(e);
         }
+        if (!ss.events.empty()) ss.events += ',';
+        ss.events += "{\"type\":\"gesture\",\"key\":" + quoted(m.gesture_key) + ",\"phase\":\"" + (m.gesture_begin ? "begin" : "end") + "\"}";
+      }
+      if (m.gesture_test >= 0) {   // B711: a test row's gesture, the engine rows' way
+        ss.test_gesture_open[std::size_t(m.gesture_test)] = m.gesture_begin;
+        Edit e;
+        e.kind = m.gesture_begin ? Edit::Begin : Edit::End;
+        e.id = testkeys().row(m.gesture_test).id;
+        batch.push_back(e);
         if (!ss.events.empty()) ss.events += ',';
         ss.events += "{\"type\":\"gesture\",\"key\":" + quoted(m.gesture_key) + ",\"phase\":\"" + (m.gesture_begin ? "begin" : "end") + "\"}";
       }
@@ -2670,6 +2715,19 @@ const std::string& bridge_frame(Plugin& s) {
     ss.sent[m] = v;
     changed.emplace_back(t.all[m]->key, v);
   }
+  // B711: the test rows, in v, from the host values the audio thread stored. Off the engine's shadow, so read through the
+  // host's own accessor: what the host and the page read can't differ.
+  const preview::bridge::TestKeys& tk = testkeys();
+  for (int i = 0; i < tk.size() && !holding; ++i) {
+    const preview::bridge::TestRow& row = tk.row(i);
+    double host = 0;
+    if (!params_get_value(&s.plugin, row.id, &host)) continue;
+    const std::size_t at = std::size_t(i);
+    const double v = host == ss.test_page_host[at] ? ss.test_page_v[at] : test_v(row, host);
+    if (v == ss.test_sent[at]) continue;
+    ss.test_sent[at] = v;
+    changed.emplace_back(row.key, v);
+  }
   if (!changed.empty()) p.params = &changed;
   const int preset = s.wanted_preset.load(std::memory_order_relaxed);
   if (preset != ss.sent_preset && !holding) {
@@ -2686,6 +2744,7 @@ const std::string& bridge_frame(Plugin& s) {
   if (ss.hello_due && completes) {
     p.build = &build;
     p.engine_hash = &t.hash;
+    p.test_rows = &tk.rows();
     p.mismatch = &ss.mismatch;
   }
   if (ss.refused_due) {

@@ -185,8 +185,9 @@ endforeach()
 #                        frozen after its first block, a state chunk that forgets the morph (B636), and the
 #                        resolver's morph levels dropped, so no source fades (B639), and overruns counted but never
 #                        recorded as lines in the session log (B642), and a demo's corners B to D never loaded (B645)
-#   preview-plant-map    the bridge's key map shifted one row, the output tap hearing silence, and a load filling corner
-#                        A only, so a factory preset after a demo keeps the demo's other corners (B645)
+#   preview-plant-map    the bridge's key map shifted one row (the engine's keys and, since B711, the test rows' too), the
+#                        output tap hearing silence, and a load filling corner A only, so a factory preset after a demo
+#                        keeps the demo's other corners (B645)
 #   preview-plant-morph  the pad's position dropped, from the host or the page (B636, B639), alone: every other plant here changes something
 #                        the morph's checks also read, which would let its control fail for the wrong reason
 #   preview-plant-nofilter  the test-only filter (B660) compiled out entirely, alone: it is "the build as it was before the
@@ -197,8 +198,10 @@ endforeach()
 #   preview-plant-reverb-deaf  Scape on, but the host's values never reach it (it plays its own defaults), alone: the
 #                        control of the checks that the parameters reach Scape
 #   preview-plant-reverb-idle  the idle engine's skip (OU-4) cuts the reverb, alone: the control of the tail check
+#   preview-plant-droptest  the page's sets of the test rows (B711) dropped, alone: their descriptors, gestures and host
+#                        parameters are all there, so the checks that a page set reaches the host fail for that reason only
 foreach(plant preview-plant preview-plant-map preview-plant-morph preview-plant-nofilter preview-plant-noreverb
-              preview-plant-reverb-deaf preview-plant-reverb-idle)
+              preview-plant-reverb-deaf preview-plant-reverb-idle preview-plant-droptest)
   add_library(${plant} MODULE preview_plugin.cpp bridge_core.cpp morph_core.cpp preview_gui.mm preview_entry.cpp)
   add_dependencies(${plant} bank_embedded)
   target_compile_definitions(${plant} PRIVATE "HORDE_PREVIEW_BUILD_LABEL=\"${HORDE_PREVIEW_BUILD_LABEL}\"")
@@ -219,10 +222,12 @@ target_compile_definitions(preview-plant-nofilter PRIVATE HORDE_PREVIEW_PLANT_NO
 target_compile_definitions(preview-plant-noreverb PRIVATE HORDE_PREVIEW_PLANT_NO_REVERB)
 target_compile_definitions(preview-plant-reverb-deaf PRIVATE HORDE_PREVIEW_PLANT_REVERB_DEAF)
 target_compile_definitions(preview-plant-reverb-idle PRIVATE HORDE_PREVIEW_PLANT_REVERB_IDLE_CUT)
+target_compile_definitions(preview-plant-droptest PRIVATE HORDE_PREVIEW_PLANT_DROP_TEST_SETS)
 
 add_executable(preview-smoke smoke.cpp morph_core.cpp)
 add_dependencies(preview-smoke bank_embedded)
-target_include_directories(preview-smoke PRIVATE ${CMAKE_BINARY_DIR}/generated ${CMAKE_CURRENT_SOURCE_DIR} ${HORDE_REPO_ROOT}/h2)
+# choc for its JSON reader alone (B711): the hello reply's test-row descriptors are read as JSON, not by string search.
+target_include_directories(preview-smoke PRIVATE ${CMAKE_BINARY_DIR}/generated ${CMAKE_CURRENT_SOURCE_DIR} ${HORDE_REPO_ROOT}/h2 ${PREVIEW_CHOC_DIR})
 target_link_libraries(preview-smoke PRIVATE clap horde_engine2_bank)
 
 # Opens the real window and moves its real controls: nothing else can read a window before the human opens it.

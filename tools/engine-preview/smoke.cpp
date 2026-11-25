@@ -4,7 +4,7 @@
 // own offline render (horde_offline_render, written by the builder), bit for bit. The offline render shares none of
 // the plug-in's code, so a pass says the shell plays the bank as the renders do: the levelled state, the routes and
 // the note order all arrive intact. DT-2 is why bit-exact is the right bar: output doesn't depend on block splits.
-//   smoke <horde-engine-preview.clap> [<plant.clap> [<plant-map.clap> [<plant-morph.clap>]]]
+//   smoke <horde-engine-preview.clap> [<plant.clap> [<plant-map.clap> [<plant-morph.clap> ... [<plant-droptest.clap>]]]]
 // Controls that must fail: a different preset's render must differ, and the plant build (no routes, and the retired
 // Voices limit of 4 put back) must miss on a routed preset and sound 4 voices of a 12-note chord. The second plant
 // shifts the bridge's key map by one row, and the full-row mapping audit must read it red. Without them, an
@@ -15,6 +15,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -23,6 +24,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <tuple>
 #include <vector>
 
 #include "bank.h"
@@ -32,6 +34,7 @@
 #include "horde_engine.h"
 #include "morph_core.h"
 #include "reverb_core.h"
+#include "choc/text/choc_JSON.h"
 
 namespace {
 
@@ -83,6 +86,19 @@ struct Events {
 std::uint32_t events_size(const clap_input_events_t* l) { return std::uint32_t(static_cast<Events*>(l->ctx)->order.size()); }
 const clap_event_header_t* events_get(const clap_input_events_t* l, std::uint32_t i) { return static_cast<Events*>(l->ctx)->order[i]; }
 bool out_push(const clap_output_events_t*, const clap_event_header_t*) { return true; }
+// What a host hears on its output events (B711): ('b', id) a gesture's begin, ('v', id, value) a value, ('e', id) its end.
+struct Heard {
+  std::vector<std::tuple<char, clap_id, double>> list;
+};
+bool heard_push(const clap_output_events_t* l, const clap_event_header_t* h) {
+  auto* heard = static_cast<Heard*>(l->ctx);
+  if (h->space_id != CLAP_CORE_EVENT_SPACE_ID) return true;
+  if (h->type == CLAP_EVENT_PARAM_GESTURE_BEGIN || h->type == CLAP_EVENT_PARAM_GESTURE_END)
+    heard->list.emplace_back(h->type == CLAP_EVENT_PARAM_GESTURE_BEGIN ? 'b' : 'e', reinterpret_cast<const clap_event_param_gesture_t*>(h)->param_id, 0.0);
+  else if (h->type == CLAP_EVENT_PARAM_VALUE)
+    heard->list.emplace_back('v', reinterpret_cast<const clap_event_param_value_t*>(h)->param_id, reinterpret_cast<const clap_event_param_value_t*>(h)->value);
+  return true;
+}
 
 struct Loaded {
   void* library = nullptr;
@@ -111,10 +127,10 @@ struct Loaded {
   }
 };
 
-void process(const clap_plugin_t* plugin, Events& events, float* l, float* r, std::uint32_t frames) {
+void process(const clap_plugin_t* plugin, Events& events, float* l, float* r, std::uint32_t frames, Heard* heard = nullptr) {
   events.seal();
   clap_input_events_t in{&events, events_size, events_get};
-  clap_output_events_t out{nullptr, out_push};
+  clap_output_events_t out{heard, heard ? heard_push : out_push};
   float* channels[2] = {l, r};
   clap_audio_buffer_t buffer{};
   buffer.data32 = channels;
@@ -1387,9 +1403,306 @@ void reverb_checks(const char* clap, const char* noreverb, const char* deaf_path
   }
 }
 
+// ---- B711's test rows: the filter's and Scape's host parameters, reached from the page -------------------------------
+// The hello reply describes each test row; the page sets and gestures them by key in v, and they reach the host as the
+// engine rows' do. Every check here reads the plug-in from outside: its descriptors are held to its own CLAP parameter
+// list, and a page touch to the events the host hears. Controls: `preview-plant-map` (the key map one row off, test rows
+// included) and `preview-plant-droptest` (the page's test-row sets dropped, alone) must fail the audit; the builds
+// without the filter or the reverb publish none of their rows and refuse their keys.
+struct Descriptor {
+  std::string key, name, unit;
+  clap_id id = CLAP_INVALID_ID;
+  double min = 0, max = 0, def = 0;
+  bool stepped = false;
+  std::vector<std::string> labels;
+};
+struct TestHello {
+  std::string frame, rule;
+  bool read = false;
+  std::vector<Descriptor> rows;
+};
+TestHello test_hello(Loaded& p, const preview_bridge_ext* bridge, long long& seq) {
+  TestHello h;
+  h.frame = send_until_acked(p.plugin, bridge, seq, "\"type\":\"hello\"");
+  try {
+    const choc::value::Value doc = choc::json::parse(h.frame);
+    const auto preview = doc["hello"]["preview"];
+    h.rule = std::string(preview["value"].getString());
+    const auto rows = preview["rows"];
+    for (std::uint32_t i = 0; i < rows.size(); ++i) {
+      const auto r = rows[i];
+      Descriptor d;
+      d.key = std::string(r["key"].getString());
+      d.name = std::string(r["name"].getString());
+      d.unit = std::string(r["unit"].getString());
+      d.id = clap_id(r["id"].get<double>());
+      d.min = r["min"].get<double>();
+      d.max = r["max"].get<double>();
+      d.def = r["default"].get<double>();
+      d.stepped = r["stepped"].getBool();
+      if (r.hasObjectMember("labels"))
+        for (std::uint32_t k = 0; k < r["labels"].size(); ++k) d.labels.emplace_back(r["labels"][k].getString());
+      h.rows.push_back(d);
+    }
+    h.read = true;
+  } catch (const std::exception&) {}
+  return h;
+}
+// "Filter cutoff" -> preview.filter.cutoff, "Scape decay" -> preview.scape.decay: the key the host's own name implies.
+std::string key_from_name(const std::string& name) {
+  const std::size_t space = name.find(' ');
+  std::string group = name.substr(0, space);
+  for (char& c : group) c = char(std::tolower(static_cast<unsigned char>(c)));
+  return "preview." + group + "." + name.substr(space + 1);
+}
+// Each descriptor against the plug-in's CLAP parameter of the same id, and every test-row host parameter described
+// once. Returns the first difference ("" for none).
+std::string descriptor_miss(Loaded& p, const std::vector<Descriptor>& rows) {
+  int hosted = 0;
+  const std::uint32_t n = p.params->count(p.plugin);
+  for (std::uint32_t i = 0; i < n; ++i) {
+    clap_param_info_t info{};
+    if (p.params->get_info(p.plugin, i, &info) && (preview::filter::is_filter_id(info.id) || preview::reverb::is_reverb_id(info.id))) ++hosted;
+  }
+  if (hosted != int(rows.size())) return "the host has " + std::to_string(hosted) + " test-row parameters, the reply describes " + std::to_string(rows.size());
+  for (const Descriptor& d : rows) {
+    clap_param_info_t info{};
+    bool found = false;
+    for (std::uint32_t i = 0; i < n && !found; ++i) found = p.params->get_info(p.plugin, i, &info) && info.id == d.id;
+    if (!found) return d.key + ": no host parameter has its id";
+    const bool stepped = (info.flags & CLAP_PARAM_IS_STEPPED) != 0;
+    if (d.name != info.name || d.key != key_from_name(info.name) || d.min != info.min_value || d.max != info.max_value || d.def != info.default_value ||
+        d.stepped != stepped)
+      return d.key + ": its name, key, range, default or stepping differs from the host's " + info.name;
+    if (!stepped && !d.labels.empty()) return d.key + ": labels on a continuous row";
+    if (stepped && int(d.labels.size()) != int(d.max - d.min) + 1) return d.key + ": not one label per option";
+    for (std::size_t k = 0; stepped && k < d.labels.size(); ++k) {
+      char text[64] = "";
+      p.params->value_to_text(p.plugin, d.id, d.min + double(k), text, sizeof text);
+      if (d.labels[k] != text) return d.key + ": label " + d.labels[k] + " where the host reads " + text;
+    }
+  }
+  return "";
+}
+// One message, run with blocks whose output events are recorded, until it is acknowledged; the acknowledging frame.
+std::string send_heard(const clap_plugin_t* plugin, const preview_bridge_ext* bridge, long long& seq, const std::string& body, Heard& heard) {
+  const long long mine = ++seq;
+  bridge->receive(plugin, ("{\"seq\":" + std::to_string(mine) + "," + body + "}").c_str());
+  for (int round = 0; round < 6; ++round) {
+    float l[256], r[256];
+    Events none;
+    process(plugin, none, l, r, 256, &heard);
+    const std::string frame = bridge->frame(plugin);
+    if (ack_of(frame) >= mine) return frame;
+  }
+  return "";
+}
+// The host value a page's v names: the convention the reply states, written again here from its rule.
+// The product in its own statement: in one expression clang may fuse it into an fma, an ulp off the plug-in's value.
+double host_of(const Descriptor& d, double v) {
+  const double scaled = d.stepped ? std::round(v * (d.max - d.min)) : v * (d.max - d.min);
+  return d.min + scaled;
+}
+std::string set_body(const std::string& key, double v) {
+  char body[200];
+  std::snprintf(body, sizeof body, "\"type\":\"set\",\"values\":{\"%s\":%.17g}", key.c_str(), v);
+  return body;
+}
+// The mapping audit: each test row set from the page to a v unlike its own, then a second, must reach the host as one
+// gesture (begin, value, end) at that v's host value, read back from the host, and come back in the next frame's params
+// as the page's v exactly. A stepped row goes to its last option and its first. Returns the keys that failed.
+std::vector<std::string> audit_tests(Loaded& p, const preview_bridge_ext* bridge, long long& seq, const std::vector<Descriptor>& rows) {
+  std::vector<std::string> failed;
+  bridge->frame(p.plugin);
+  for (const Descriptor& d : rows) {
+    double now = NAN;
+    p.params->get_value(p.plugin, d.id, &now);
+    std::vector<double> targets;
+    if (d.stepped) targets = now == d.max ? std::vector<double>{0.0, 1.0} : std::vector<double>{1.0, 0.0};
+    else targets = now == host_of(d, 0.375) ? std::vector<double>{0.625, 0.375} : std::vector<double>{0.375, 0.625};
+    bool ok = true;
+    for (double v : targets) {
+      Heard heard;
+      const std::string frame = send_heard(p.plugin, bridge, seq, set_body(d.key, v), heard);
+      const double host = host_of(d, v);
+      double back = NAN;
+      p.params->get_value(p.plugin, d.id, &back);
+      const std::vector<std::tuple<char, clap_id, double>> want = {{'b', d.id, 0.0}, {'v', d.id, host}, {'e', d.id, 0.0}};
+      ok = ok && back == host && param_in(frame, d.key.c_str()) == v && heard.list == want;
+    }
+    if (!ok) failed.push_back(d.key);
+  }
+  return failed;
+}
+const Descriptor* row_named(const std::vector<Descriptor>& rows, const std::string& key) {
+  for (const Descriptor& d : rows)
+    if (d.key == key) return &d;
+  return nullptr;
+}
+void close_instance(Loaded& l) {
+  if (!l.plugin) return;
+  l.plugin->stop_processing(l.plugin);
+  l.plugin->deactivate(l.plugin);
+  l.plugin->destroy(l.plugin);
+}
+
+void test_row_checks(const char* clap, const char* plant_map, const char* droptest, const char* nofilter, const char* noreverb) {
+  namespace flt = preview::filter;
+  namespace rv = preview::reverb;
+  const int all = flt::kParams + rv::kHostParams;
+  Loaded p;
+  check(p.open(clap), "test rows: the plug-in loads");
+  const auto* bridge = p.plugin ? static_cast<const preview_bridge_ext*>(p.plugin->get_extension(p.plugin, kPreviewBridgeExt)) : nullptr;
+  if (!bridge) return;
+  long long seq = 0;
+
+  // (1) The hello reply: one descriptor per test row, the value rule, each held to the host's own parameter.
+  const TestHello h = test_hello(p, bridge, seq);
+  std::printf("     the hello reply describes %zu test rows; value: \"%s\"\n", h.rows.size(), h.rule.c_str());
+  check(h.read && int(h.rows.size()) == all && h.rule == "v = (host - min) / (max - min)",
+        "the hello reply publishes one descriptor per test row (" + std::to_string(all) + ") and the rule its values follow");
+  const std::string miss = descriptor_miss(p, h.rows);
+  check(miss.empty(), "each descriptor is its host parameter's own id, name, range, default, stepping and option names, keyed by that name" +
+                          (miss.empty() ? std::string() : " (" + miss + ")"));
+  {
+    bool at_defaults = true;
+    for (const Descriptor& d : h.rows) at_defaults = at_defaults && param_in(h.frame, d.key.c_str()) == (d.def - d.min) / (d.max - d.min);
+    check(at_defaults, "the frame that answers hello carries every test row in params, at its default's v");
+    const Descriptor* era = row_named(h.rows, "preview.scape.era");
+    const Descriptor* decay = row_named(h.rows, "preview.scape.decay");
+    check(era && decay && era->labels == std::vector<std::string>{"clean", "vintage"} && decay->unit == "s" && decay->min == 0.2 && decay->max == 12,
+          "in the units the rows use: Scape decay 0.2 to 12 s, Scape era clean or vintage");
+  }
+
+  // (2) and (3): every test row set from the page reaches the host as one gesture and comes back in the frame.
+  const std::vector<std::string> failed = audit_tests(p, bridge, seq, h.rows);
+  std::string list;
+  for (const auto& k : failed) list += " " + k;
+  std::printf("     test-row audit: %d of %zu rows reach the host and come back exactly%s%s\n", int(h.rows.size() - failed.size()), h.rows.size(),
+              failed.empty() ? "" : "; failed:", list.c_str());
+  check(!h.rows.empty() && failed.empty(), "every test row set from the page reaches the host as begin, value, end at its v's host value, and the frame gives the v back");
+
+  // A page gesture holds one begin and one end around every value of the drag; without one each value is its own.
+  const Descriptor* decay = row_named(h.rows, "preview.scape.decay");
+  if (decay) {
+    bridge->frame(p.plugin);
+    Heard drag;
+    post(p.plugin, bridge, seq, "\"type\":\"gesture\",\"key\":\"preview.scape.decay\",\"phase\":\"begin\"");
+    post(p.plugin, bridge, seq, set_body(decay->key, 0.25));
+    post(p.plugin, bridge, seq, set_body(decay->key, 0.5));
+    const std::string frame = send_heard(p.plugin, bridge, seq, "\"type\":\"gesture\",\"key\":\"preview.scape.decay\",\"phase\":\"end\"", drag);
+    const std::vector<std::tuple<char, clap_id, double>> one = {
+        {'b', decay->id, 0.0}, {'v', decay->id, host_of(*decay, 0.25)}, {'v', decay->id, host_of(*decay, 0.5)}, {'e', decay->id, 0.0}};
+    check(drag.list == one && has(frame, "{\"type\":\"gesture\",\"key\":\"preview.scape.decay\",\"phase\":\"begin\"}") &&
+              has(frame, "{\"type\":\"gesture\",\"key\":\"preview.scape.decay\",\"phase\":\"end\"}"),
+          "a page drag on a test row reaches the host as one gesture around its values, and the page hears its gesture back");
+    Heard loose;
+    post(p.plugin, bridge, seq, set_body(decay->key, 0.25));
+    (void)send_heard(p.plugin, bridge, seq, set_body(decay->key, 0.5), loose);
+    check(loose.list.size() == 6 && std::get<0>(loose.list[0]) == 'b' && std::get<0>(loose.list[2]) == 'e' && std::get<0>(loose.list[3]) == 'b',
+          "control: without the page's gesture, each value is a gesture of its own");
+
+    // (3) Host automation reaches the page as a changed row, in v.
+    const std::string quiet = bridge->frame(p.plugin);
+    float l[256], r[256];
+    Events automation;
+    automation.param(decay->id, 6.0);
+    process(p.plugin, automation, l, r, 256);
+    const std::string moved = bridge->frame(p.plugin);
+    check(std::isnan(param_in(quiet, decay->key.c_str())) && param_in(moved, decay->key.c_str()) == (6.0 - decay->min) / (decay->max - decay->min),
+          "host automation of a test row reaches the page's frame as its v (and a frame with nothing changed carries none)");
+  } else {
+    check(false, "no preview.scape.decay to drag");
+  }
+
+  // (4) An unknown `preview.` key is refused and reported as an unknown engine key is; the known one beside it lands.
+  {
+    const Descriptor* ring = row_named(h.rows, "preview.filter.ring");
+    Heard heard;
+    const std::string frame =
+        send_heard(p.plugin, bridge, seq, "\"type\":\"set\",\"values\":{\"preview.scape.nope\":0.5,\"preview.filter.cutof\":0.5,\"preview.filter.ring\":0.75}", heard);
+    const std::size_t refused = frame.find("\"refused\":{\"unknown\":[");
+    const std::string unknown = refused == std::string::npos ? "" : frame.substr(refused, frame.find(']', refused) - refused);
+    check(ring && has(unknown, "\"preview.scape.nope\"") && has(unknown, "\"preview.filter.cutof\"") && heard.list.size() == 3 &&
+              std::get<1>(heard.list[1]) == ring->id && std::isnan(param_in(frame, "preview.scape.nope")),
+          "an unknown preview key is refused and listed in refused.unknown, reaching neither host nor frame; the known one beside it lands");
+  }
+
+  // (7) The state chunk is the one the host's own automation writes: a page set saves as the same host value would.
+  {
+    Loaded a, b;
+    check(a.open(clap) && b.open(clap), "test rows: two fresh instances load");
+    const auto* ba = a.plugin ? static_cast<const preview_bridge_ext*>(a.plugin->get_extension(a.plugin, kPreviewBridgeExt)) : nullptr;
+    if (ba && b.plugin && decay) {
+      long long sa = 0;
+      (void)send_until_acked(a.plugin, ba, sa, "\"type\":\"set\",\"values\":{\"preview.scape.decay\":0.5,\"preview.filter.on\":1}");
+      float l[256], r[256];
+      Events automation;
+      automation.param(decay->id, host_of(*decay, 0.5));
+      automation.param(flt::id_of(flt::kOn), 1);
+      process(b.plugin, automation, l, r, 256);
+      std::string from_page, from_host;
+      check(save_to(a, from_page) && save_to(b, from_host) && from_page == from_host && from_page.rfind("horde-engine-preview 6", 0) == 0 &&
+                has(from_page, "\nscape 10 ") && has(from_page, "\nfilter 1 "),
+            "a page's test-row sets save the chunk the host's automation of the same values saves (version 6, a scape and a filter line)");
+    }
+    close_instance(a);
+    close_instance(b);
+  }
+  close_instance(p);
+
+  // Controls. The key map one row off: every row's descriptor is right, but the audit must fail.
+  if (plant_map) {
+    Loaded q;
+    const auto* qb = q.open(plant_map) ? static_cast<const preview_bridge_ext*>(q.plugin->get_extension(q.plugin, kPreviewBridgeExt)) : nullptr;
+    long long qs = 0;
+    const TestHello qh = qb ? test_hello(q, qb, qs) : TestHello{};
+    const std::size_t wrong = qb ? audit_tests(q, qb, qs, qh.rows).size() : 0;
+    check(int(qh.rows.size()) == all && wrong > 0, "control: with the key map one row off, the test-row audit fails " + std::to_string(wrong) + " rows");
+    close_instance(q);
+  } else {
+    check(false, "the shifted-key-map plant was not given, so the test-row audit's control did not run");
+  }
+  // The page's test-row sets dropped: descriptors and host parameters all there, and no row reaches the host.
+  if (droptest) {
+    Loaded q;
+    const auto* qb = q.open(droptest) ? static_cast<const preview_bridge_ext*>(q.plugin->get_extension(q.plugin, kPreviewBridgeExt)) : nullptr;
+    long long qs = 0;
+    const TestHello qh = qb ? test_hello(q, qb, qs) : TestHello{};
+    const std::size_t wrong = qb ? audit_tests(q, qb, qs, qh.rows).size() : 0;
+    check(int(qh.rows.size()) == all && descriptor_miss(q, qh.rows).empty() && int(wrong) == all,
+          "control: with the page's test-row sets dropped, the descriptors still match and every row fails the audit (" + std::to_string(wrong) + ")");
+    close_instance(q);
+  } else {
+    check(false, "the dropped-test-sets plant was not given, so its control did not run");
+  }
+  // The builds without the filter, and without Scape, describe none of its rows and refuse their keys.
+  for (const auto& [path, group, left] : {std::tuple<const char*, const char*, int>{nofilter, "preview.filter.", rv::kHostParams},
+                                          std::tuple<const char*, const char*, int>{noreverb, "preview.scape.", flt::kParams}}) {
+    if (!path) {
+      check(false, std::string("the build without ") + group + "* was not given, so its control did not run");
+      continue;
+    }
+    Loaded q;
+    const auto* qb = q.open(path) ? static_cast<const preview_bridge_ext*>(q.plugin->get_extension(q.plugin, kPreviewBridgeExt)) : nullptr;
+    long long qs = 0;
+    const TestHello qh = qb ? test_hello(q, qb, qs) : TestHello{};
+    bool none = qh.read;
+    for (const Descriptor& d : qh.rows) none = none && d.key.rfind(group, 0) != 0;
+    const std::string key = std::string(group) + (std::string(group) == "preview.filter." ? "cutoff" : "decay");
+    const std::string frame = qb ? send_until_acked(q.plugin, qb, qs, set_body(key, 0.5)) : "";
+    const std::size_t refused = frame.find("\"refused\":{\"unknown\":[");
+    check(none && int(qh.rows.size()) == left && descriptor_miss(q, qh.rows).empty() && refused != std::string::npos &&
+              frame.find("\"" + key + "\"", refused) != std::string::npos,
+          std::string("the build without ") + (left == rv::kHostParams ? "the filter" : "Scape") + " describes only the rows it has (" + std::to_string(qh.rows.size()) +
+              ") and refuses " + key);
+    close_instance(q);
+  }
+}
+
 int main(int argc, char** argv) {
   if (argc < 2) {
-    std::printf("usage: smoke <clap> [<plant> <plant-map> <plant-morph> <plant-nofilter> <plant-noreverb> <plant-reverb-deaf> <plant-reverb-idle>]\n");
+    std::printf("usage: smoke <clap> [<plant> <plant-map> <plant-morph> <plant-nofilter> <plant-noreverb> <plant-reverb-deaf> <plant-reverb-idle> <plant-droptest>]\n");
     return 2;
   }
   // The session log goes under $HOME, so point it at a scratch folder: a test mustn't write to the human's Logs.
@@ -1411,6 +1724,8 @@ int main(int argc, char** argv) {
   // B639 (IF-11): and the morph's position, morph.x and morph.y, last.
   // B660: and the test-only filter's six after them; B710: and the test-only reverb's thirty after those.
   const int all = 1 + engine_rows + 2 + preview::filter::kParams + preview::reverb::kHostParams;
+  // B711: a frame that completes a load carries the test rows too (each host parameter of the filter and the reverb).
+  const int test_rows = preview::filter::kParams + preview::reverb::kHostParams;
   check(int(n_params) == all, "every non-reserved engine row is a host parameter, plus Preset, morph.x and morph.y, the test-only filter's six and the test-only reverb's thirty (" +
                                   std::to_string(all) + ")");
   {
@@ -1453,7 +1768,8 @@ int main(int argc, char** argv) {
     check(ack_of(early) < 1 && params_rows(early) == 0 && !has(early, "\"hello\""), "control: before the hello is applied, no frame answers it");
     one_block(p.plugin);
     std::string frame = bridge->frame(p.plugin);
-    check(ack_of(frame) == 1 && params_rows(frame) == engine_rows, "the frame that acknowledges hello carries every engine row (" + std::to_string(engine_rows) + ")");
+    check(ack_of(frame) == 1 && params_rows(frame) == engine_rows + test_rows,
+          "the frame that acknowledges hello carries every engine row (" + std::to_string(engine_rows) + ") and every test row (" + std::to_string(test_rows) + ")");
     check(has(frame, "\"hello\":{\"build\":\"engine ") && has(frame, "\"presets\":{\"names\":[") && has(frame, "\"params\":{") &&
               has(frame, "\"plugin\":{\"build\":\"engine ") && !has(frame, "\"voices\":4"),
           "after hello the snapshot carries the build label, the presets and every engine row, and no Voices");
@@ -1529,7 +1845,7 @@ int main(int argc, char** argv) {
           "control: the message applied but its engine not yet live, no frame acknowledges the load or carries rows");
     one_block(p.plugin);   // the swap
     const std::string loaded = bridge->frame(p.plugin);
-    check(ack_of(loaded) == 1000 && params_rows(loaded) == engine_rows && has(loaded, "\"index\":" + std::to_string(other) + "}"),
+    check(ack_of(loaded) == 1000 && params_rows(loaded) == engine_rows + test_rows && has(loaded, "\"index\":" + std::to_string(other) + "}"),
           "once the new engine plays, one frame acknowledges the preset with every row and its index");
     check(param_in(loaded, page_row->key) == bridge->engine_v(p.plugin, page_row->id), "and its rows are the new engine's own values");
     check(params_rows(bridge->frame(p.plugin)) == 0, "the next frame carries no rows: nothing changed");
@@ -1548,7 +1864,7 @@ int main(int argc, char** argv) {
       one_block(p.plugin);
       reload = bridge->frame(p.plugin);
     }
-    check(ack_of(reload) == 1002 && params_rows(reload) == engine_rows && param_in(reload, page_row->key) == preset_v &&
+    check(ack_of(reload) == 1002 && params_rows(reload) == engine_rows + test_rows && param_in(reload, page_row->key) == preset_v &&
               bridge->engine_v(p.plugin, page_row->id) == preset_v,
           "reloading the playing preset brings back its own values, in the engine and in the frame");
   }
@@ -2156,6 +2472,7 @@ int main(int argc, char** argv) {
 
   filter_checks(argv[1], argc > 5 ? argv[5] : nullptr);
   reverb_checks(argv[1], argc > 6 ? argv[6] : nullptr, argc > 7 ? argv[7] : nullptr, argc > 8 ? argv[8] : nullptr);
+  test_row_checks(argv[1], argc > 3 ? argv[3] : nullptr, argc > 9 ? argv[9] : nullptr, argc > 5 ? argv[5] : nullptr, argc > 6 ? argv[6] : nullptr);
 
   std::printf("%s (%d failed)\n", failures ? "engine-preview smoke: RED" : "engine-preview smoke: GREEN", failures);
   return failures ? 1 : 0;
