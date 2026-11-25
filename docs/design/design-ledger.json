@@ -7619,6 +7619,21 @@
    "id": "gui72-six-views-six-slots",
    "clause": "all six views stay in the viewer's switch for now; plain sideways moves nothing; the drag mapping has six slots (up and down and sideways, each plain, with Shift and with Option), each any continuous wt. row or Nothing with an invert; the button up-and-down slots default to Frame; the legend lists a button's slot only where it differs from the plain one",
    "note": "The button up-and-down slots default to Frame, confirmed by the human 2026-11-10 (GUI-72 A1). Command stays fine, not a slot; Option outranks Shift. In the Sonogram only the plain pair swaps. Still open: pips or name, per-machine storage. Engine: none. FX device: none."
+  },
+  {
+   "id": "gui73-inert-note-in-header",
+   "adr": "GUI-73",
+   "clause": "on the plug-in's bridge, the dimmed-controls note sits in the header's page row after the page's tabs, not on the page, so Main's pad and XY (228 px squares) fit the 980 x 720 window with no scroll; gui3_browser_check holds it with a planted control",
+   "port_tab": null,
+   "note": "Placement in the shell, from the bundle's hd-hint, as GUI-46's dimming is (the master holds no bridge state yet; when it takes GUI-46's control state, the note's place goes with it). Engine: none. FX device: the same, in its header.",
+   "component": null,
+   "bundle": null,
+   "shell": "docs/design/gui3.html: paintInert",
+   "lab": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null
   }
  ],
  "not_design": [
@@ -9001,7 +9016,8 @@
   ],
   "GUI-70": "none: how frames are laid out in a picture and which drag direction moves which row are the GUI's alone",
   "GUI-71": "none: both marks read GN-60 (GUI-69) and the frame row; keeping both asks nothing more",
-  "GUI-72": "none: which key and direction reach which wt. row is the GUI's alone (CONTRACT 2.1); the views draw what GN-58 to GN-60 already ask for"
+  "GUI-72": "none: which key and direction reach which wt. row is the GUI's alone (CONTRACT 2.1); the views draw what GN-58 to GN-60 already ask for",
+  "GUI-73": "none: the window stays 980 x 720 with no host resize, and no row or message changes; the note is text the shell places"
  },
  "audit_notes": [
   "[A] Counts: 33 design ADRs with 56 rows (ruled 31, of which 6 superseded and 7 legacy-only; wired 9; in-shell 7; vendored 4; in-master 4; unknown 1); 79 not_design. Every primary heading ADR-001..ADR-112 appears exactly once. Headings out of numeric order (ADR-052, ADR-053 before ADR-051; ADR-095, 094, 093, 092; ADR-091 A1-A4 after ADR-112 A3) were all covered. One non-ADR heading sits in range: 'NOTICE · Library standby (plugin-skeleton FOUNDATIONS)', line 661, not design and not listed.",

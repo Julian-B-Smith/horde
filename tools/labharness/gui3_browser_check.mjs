@@ -288,15 +288,44 @@ const NPROBE = `(async () => {
   return { plugin, chrome, top: win && Math.round(win.top), left: win && Math.round(win.left), w: win && Math.round(win.width), h: win && Math.round(win.height),
     first, hash: window.GUI3_DATA.manifest_hash, build, bar, shown, gone: !vis(b) };
 })()`;
-async function runNative(chrome, url, frames, noFrames) {
+/* GUI-73 (the human, build 13: "the main page having to scroll for the XYs"). In the plug-in the bridge dims what this engine can't act
+   on, and the line saying so stood on the page, so Main's stage lost 30 px and the XY ran 29 px past the window. Asserted, in plug-in
+   mode on the stand-in bridge: Main's page area doesn't scroll; the morph pad and the XY are square and wholly inside it; the note shows,
+   in the header beside the page's tabs, meeting no tab, the preset bar, the colours or the switches; and no note is left on a page.
+   THE CONTROL: the same load with the 30 px line planted back on Main must read red, or the measure can't see a cut XY. */
+const FIT = `(async () => {
+  const wait = ms => new Promise(r => setTimeout(r, ms)), R = e => e ? e.getBoundingClientRect() : null, $ = id => document.getElementById(id);
+  [...document.querySelectorAll('#pnav .pn-g')].find(b => b.textContent.trim() === 'Main')?.click(); await wait(500);
+  const pages = $('pages'), pr = R(pages), inside = r => !!r && r.width > 0 && r.top >= pr.top - .5 && r.bottom <= pr.bottom + .5;
+  const sq = e => { const r = R(e); return r && r.width > 0 ? { w: Math.round(r.width), h: Math.round(r.height), square: Math.abs(r.width - r.height) < 1, inside: inside(r) } : null; };
+  const note = $('inertNote'), nr = note && !note.hidden ? R(note) : null, nav = R($('pnav'));
+  const meet = (a, b) => a.left < b.right - .5 && b.left < a.right - .5 && a.top < b.bottom - .5 && b.top < a.bottom - .5;
+  const others = [...document.querySelectorAll('#pnav .pn-g, #pnav .pn-p, .logo, .switches')].concat([$('presetHost'), $('colourHost')]).filter(Boolean);
+  return { scroll: pages.scrollHeight - pages.clientHeight, pad: sq($('mainPad')), xy: sq($('mainXY')),
+    note: nr ? { text: note.textContent, inHeader: !!nav && nr.top >= nav.top - .5 && nr.bottom <= nav.bottom + .5, clash: others.filter(e => meet(R(e), nr)).map(e => (e.id || e.className || e.tagName).toString().slice(0, 24)) } : null,
+    onPages: pages.querySelectorAll('.inert-note').length };
+})()`;
+function fitVerdict(f, control, red) {
+  if (!f) { red.push('Main fit (GUI-73): the plug-in-mode load never got far enough to measure Main'); return; }
+  const bad = [];
+  if (f.scroll > 0) bad.push(`its page area scrolls by ${f.scroll} px`);
+  [['the morph pad', f.pad], ['the XY', f.xy]].forEach(([n, q]) => { if (!q) bad.push(n + ' is missing'); else if (!q.square || !q.inside) bad.push(`${n} is ${q.w} x ${q.h}${q.inside ? '' : ', not wholly inside the page'}`); });
+  if (!f.note) bad.push('the dimmed-controls note is missing from the header');
+  else { if (!f.note.inHeader) bad.push('the note is outside the header'); if (f.note.clash.length) bad.push('the note meets ' + f.note.clash.join(', ')); }
+  if (f.onPages) bad.push(f.onPages + ' note(s) still on a page');
+  if (bad.length) red.push('Main fit (GUI-73), in plug-in mode: ' + bad.join('; '));
+  if (!control || !control.fit || !(control.fit.scroll > 0 || (control.fit.xy && !control.fit.xy.inside))) red.push('CONTROL: with a 30 px line planted back on Main, the fit check still read ' + (control && control.fit ? 'no scroll and the XY inside' : 'nothing') + ', so it can\u2019t see a cut XY');
+}
+async function runNative(chrome, url, frames, noFrames, plantCss) {
   const dir = await mkdtemp(join(tmpdir(), 'gui3-native-')), b = await cdp(chrome, dir);
   try {
     // noFrames: a window that draws no frames (offscreen, or not yet attached: the lead's first window test). requestAnimationFrame never calls back.
-    await b.call('Page.addScriptToEvaluateOnNewDocument', { source: (noFrames ? 'window.requestAnimationFrame = () => 0;' : '') + NATIVE(frames) + 'window.__csp = []; document.addEventListener("securitypolicyviolation", e => window.__csp.push(e.violatedDirective + " " + (e.blockedURI || "inline")));' });
+    await b.call('Page.addScriptToEvaluateOnNewDocument', { source: (noFrames ? 'window.requestAnimationFrame = () => 0;' : '') + NATIVE(frames) + 'window.__csp = []; document.addEventListener("securitypolicyviolation", e => window.__csp.push(e.violatedDirective + " " + (e.blockedURI || "inline")));' +
+      (plantCss ? `document.addEventListener('DOMContentLoaded', () => { const s = document.createElement('style'); s.textContent = ${JSON.stringify(plantCss)}; document.head.append(s); });` : '') });
     await b.call('Page.navigate', { url });
     let ready = false; for (let i = 0; i < 60 && !ready; i++) { await sleep(500); try { ready = await b.evalIn(noFrames ? `!!(window.__sent || []).length && !!document.querySelector('#presetHost .pb-name')` : `/Ready/.test((document.getElementById('status') || {}).textContent || '') && !!(window.__sent || []).length`); } catch {} }
     const thrown = b.events.filter(e => e.method === 'Runtime.exceptionThrown').map(e => (e.params.exceptionDetails.exception || {}).description || e.params.exceptionDetails.text);
-    return { ready, thrown, n: ready ? await b.evalIn(NPROBE) : null, csp: await b.evalIn('window.__csp || []').catch(() => ['unreadable']) };
+    return { ready, thrown, n: ready ? await b.evalIn(NPROBE) : null, fit: ready && !noFrames ? await b.evalIn(FIT) : null, csp: await b.evalIn('window.__csp || []').catch(() => ['unreadable']) };
   } finally { b.ws.close(); b.proc.kill(); await sleep(200); await rm(dir, { recursive: true, force: true }); }
 }
 function nativeVerdict(r, red, frames, noFrames) {
@@ -372,6 +401,7 @@ try {
   const eb = base.replace('/design/gui3.html', EMBEDDED);
   replayVerdict(await runReplay(chrome, eb, frames, false), await runReplay(chrome, eb, frames, true), frames, red);
   const nat = await runNative(chrome, eb, frames); nativeVerdict(nat, red, frames);
+  const fitPlant = await runNative(chrome, eb, frames, false, '#page-main::before { content: ""; display: block; flex: 0 0 30px; height: 30px; }'); fitVerdict(nat.fit, fitPlant, red);
   nativeVerdict(await runNative(chrome, eb, frames, true), red, frames, true);
   const csp = 'window.__csp = []; document.addEventListener("securitypolicyviolation", e => window.__csp.push(e.violatedDirective + " " + (e.blockedURI || "inline")));';
   const sp = { press: await runSplash(chrome, base + '?fast#osc1', 'press'), timer: await runSplash(chrome, base + '?fast#osc1', 'timer'), reduce: await runSplash(chrome, base + '?fast#osc1', 'reduce'),
@@ -382,6 +412,6 @@ try {
       `a knob and the Morph pad dragged onto a paragraph make the page unselectable mid-drag and selectable again on release, where a drag across the paragraph sets nothing and selects ${r.sel.control.sel} characters (control; headless Chrome can't show the WebKit bug itself); ` +
       `the Mindlathe splash covers the window painted (under the plug-in's policy too), swallows the first click and fades, fades on its own at 2.5 s, goes at once under reduced motion, and goes at once when hello says it isn't the first opening (controls: a later click opens Mix, it's still up at 1.2 s, and first_open true keeps it); ` +
       `the plug-in's one-file page runs under its policy with no violation, its bridge side holds on ${recorded ? 'the recorded' : 'SYNTHETIC'} frames, and a frozen replay reads frozen (control); ` +
-      `in plug-in mode the ${nat.n.w} x ${nat.n.h} device fills the view's top-left with no lab chrome, says hello with its hash, shows and clears a mismatch, and paints its bank and build with no frames drawn`);
+      `in plug-in mode the ${nat.n.w} x ${nat.n.h} device fills the view's top-left with no lab chrome, says hello with its hash, shows and clears a mismatch, and paints its bank and build with no frames drawn; Main fits the window there with no scroll, its pad ${nat.fit.pad.w} px and XY ${nat.fit.xy.w} px square and inside, the dimmed-controls note in the header meeting nothing (control: a 30 px line planted back on Main reads red)`);
 } finally { srv.close(); }
 process.exit(red.length ? 1 : 0);
