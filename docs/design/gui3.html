@@ -1717,8 +1717,8 @@ const previewPanel = (() => {
   function build() {
     const rows = dev.preview(), by = Object.fromEntries(rows.map(d => [d.key, d])), F = k => by['preview.filter.' + k], C = k => by['preview.scape.' + k];
     // Scape's rack card is found by its layout group (its screen), never by a key written here: the controls come from shell-data
-    const g = PG.fx.groups.find(x => x.screen === 'Scape'), pre = g ? g.block + '.' : null, fxEl = pageEls.fx;
-    const rackScape = pre && [...fxEl.querySelectorAll('[data-key]')].find(e => e.dataset.key.startsWith(pre)), oldCard = rackScape && rackScape.closest('section');
+    const g = PG.fx.groups.find(x => x.screen === 'Scape'), ctls = g ? g.controls : [], ctlOf = k => ctls.find(c => c.key === k), fxEl = pageEls.fx;
+    const rackScape = [...fxEl.querySelectorAll('[data-key]')].find(e => ctlOf(e.dataset.key)), oldCard = rackScape && rackScape.closest('section');
     const cluster = (o, onKey) => { const sec = h('section', { class: 'wide preview-sec', 'aria-label': o.path }); const r = H.Cluster(sec, PS, Object.assign({ rule: 'solid' }, onKey ? { on: idxOf(onKey) === 1, onToggle: on => dev.previewSet(onKey.key, on ? 1 : 0) } : {}, o)); /* a section with no `.on` key draws no switch */ sec._hdr = r.header; headed(sec, onKey); return sec; };
     const items = (list, sz) => list.filter(([k]) => k).map(([d, o]) => d.stepped ? companion(d, o) : knob(d, Object.assign({ size: sz }, o)));
     const fItems = FILTER.map(k => [F(k), { abbr: { mode: 'MODE', cutoff: 'CUT', resonance: 'RES', ring: 'RING', mix: 'MIX' }[k], name: { mode: 'Mode', cutoff: 'Cutoff', resonance: 'Resonance', ring: 'Ring', mix: 'Mix' }[k] }]).filter(([d]) => d);
@@ -1732,9 +1732,9 @@ const previewPanel = (() => {
     const fCard = cluster({ name: 'Test filter', path: 'FX · Test filter', summary: 'PREVIEW', picture: h('div', { class: 'viz' }, h('span', { class: 'hd-hint', text: 'The test plug-in’s filter after the engine (B660): test only, not saved with the patch.' })),
       groups: [{ label: 'Filter', items: items(fItems.map(([d, o]) => [d, { abbr: o.abbr }])) }] }, F('on'));
     // Scape's card: its rack card's groups and abbreviations (layout.json), each control bound to its preview key; its screen kept
-    const abbr = (g && g.abbr) || {}, own = rk => rk.slice(pre.length), pvKey = rk => 'preview.scape.' + own(rk).replace(/^(verb|io)\./, '');   // verb.decay and io.inGain → preview.scape.decay, .inGain
-    const groups = oldCard ? [...oldCard.querySelectorAll('.cl-grp')].map(gr => ({ label: gr.getAttribute('aria-label') || 'Scape', items: [...gr.querySelectorAll('[data-key]')].filter(c => c.dataset.key.startsWith(pre)).map(c => {
-      const rk = c.dataset.key, d = by[pvKey(rk)], a = abbr[own(rk)] || (PROPS[rk + '@fx'] || {}).abbr || ((c.querySelector('.cl-lab') || {}).textContent || '').trim() || undefined;
+    const pvKey = rk => 'preview.scape.' + rk.split('.').pop();   // a rack key's last word is Scape's own name: …verb.decay and …io.inGain → preview.scape.decay, .inGain
+    const groups = oldCard ? [...oldCard.querySelectorAll('.cl-grp')].map(gr => ({ label: gr.getAttribute('aria-label') || 'Scape', items: [...gr.querySelectorAll('[data-key]')].filter(c => ctlOf(c.dataset.key)).map(c => {
+      const rk = c.dataset.key, d = by[pvKey(rk)], a = (ctlOf(rk) || {}).abbr || (PROPS[rk + '@fx'] || {}).abbr || ((c.querySelector('.cl-lab') || {}).textContent || '').trim() || undefined;
       if (!d) return c;   // no preview key: the rack's own control, still dimmed
       return d.stepped ? companion(d, { abbr: a }) : knob(d, { abbr: a });
     }) })) : [];
