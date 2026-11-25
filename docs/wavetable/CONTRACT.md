@@ -572,7 +572,9 @@ The clean-room build measured CPU only at the end and read 7 to 10 times its tar
   (4) **WT-BUDGET moves only by the human's ruling**, with the timed evidence.
 - **Instruction counts miss memory stalls** (B648), so a count that passes can still fail its night.
 - **Every CPU check has a plant and a control:** a build running the read loop twice reads about twice the read's
-  count; a render with no notes reads the idle floor.
+  count; a render with no notes reads the idle floor. **A timed plant is one-sided** (ADR-407 A1): the read twice
+  times at least 1.7 times the read once, with no upper bound, and an engine-free read proves it in the same run; time
+  does not add as instructions do (one read hides behind other work, two in a row cannot), so above 2 is the chip.
 
 ### 5.5 The listening discipline
 

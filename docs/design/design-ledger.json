@@ -8776,7 +8776,7 @@
   },
   {
    "adr": "ADR-407",
-   "reason": "The wavetable build's instruction counter judged on the best of three counts, and S0 closed (B705): a build tool's check with nothing on the page or in the design master."
+   "reason": "The wavetable build's instruction counter judged on the best of three counts, and S0 closed (B705): a build tool's check with nothing on the page or in the design master. A1 (2026-11-25): S1's timed plant one-sided, at least 1.7x, and S1's night within its share: a build tool's check, nothing on the page."
   },
   {
    "adr": "ADR-408",
