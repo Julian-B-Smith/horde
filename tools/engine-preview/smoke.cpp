@@ -1319,7 +1319,10 @@ void reverb_checks(const char* clap, const char* noreverb, const char* deaf_path
   const double tail = energy_between(wet, 1.5, 4), cut_tail = energy_between(cut, 1.5, 4);
   std::printf("     %s, note-off at 0.3 s: energy 1.5 to 4 s with Scape %.4g, the note itself (dry, 0 to 1.5 s) %.4g; the idle-cut build %.4g\n",
               kBank[quick].name, tail, note, cut_tail);
-  check(tail > 1e-3 * note && peak(wet) > 0, std::string("Scape on: ") + kBank[quick].name + "'s tail rings on for seconds after the engine has fallen silent");
+  // -40 dB of the note's energy (the human, 2026-11-24, by poll on B710: "Approve, smoke at -40 dB"): the tail measured
+  // about -28 dB, so -30 left 2 dB for a legitimate change to Scape or the preset; the idle-cut build reads exactly 0,
+  // so any positive bound still catches it.
+  check(tail > 1e-4 * note && peak(wet) > 0, std::string("Scape on: ") + kBank[quick].name + "'s tail rings on for seconds after the engine has fallen silent");
   check(cut_tail == 0, "control: the build whose idle skip cuts the reverb is silent there, so the tail above is the idle loop's");
   bool finite = true;
   for (float v : wet) finite = finite && std::isfinite(v) && std::fpclassify(v) != FP_SUBNORMAL;
