@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <string>
 #include <vector>
 
@@ -16,6 +17,7 @@
 #include "flush_to_zero.h"
 #include "horde_engine.h"
 #include "post_filter.h"
+#include "post_reverb.h"
 
 namespace {
 
@@ -484,6 +486,116 @@ int main() {
     const bool finite_flushed = corners(true, &flushed), finite_unflushed = corners(false, &unflushed);
     check(finite_flushed && finite_unflushed && flushed == 0, "no NaN or infinity out of any mode at the corners of the range, and no subnormal under flush-to-zero, tail included (60 runs)");
     check(unflushed > 0, "control: the same runs without flush-to-zero do reach subnormals (" + std::to_string(unflushed) + "), so the tail is long enough to test them");
+  }
+
+  // ---- the test-only post-engine reverb (B710, ADR-408): Scape at scape.pin -------------------------------------
+  {
+    namespace rv = preview::reverb;
+    // Ids: the block after the filter's, "Scape on" first, then Scape's own parameters by their stable ids.
+    check(rv::kOnId == 0xA00016 && rv::id_of(0) == 0xA00017 && rv::id_of(rv::kScapeParams - 1) == 0xA00033 && rv::kOnId > preview::filter::id_of(preview::filter::kParams - 1) &&
+              rv::id_of(rv::kScapeParams - 1) < 0xB00001 && rv::kHostParams == 1 + scape::kParamCount,
+          "the reverb's thirty ids are 0xA00016 (Scape on) to 0xA00033, after the filter's 0xA00015, one per Scape parameter");
+    check(!rv::is_reverb_id(0xA00015) && !rv::is_reverb_id(0xA00034) && rv::is_reverb_id(0xA00016) && rv::is_reverb_id(0xA00033),
+          "control: the block's edges are exactly the filter's last id and the next free one");
+    char text[64];
+    const int era = int(scape::Param::era), decay = int(scape::Param::decay), mix = int(scape::Param::mix);
+    rv::param_name(decay, text, sizeof text);
+    bool named = !std::strcmp(text, "Scape decay");
+    rv::param_name(-1, text, sizeof text);
+    named = named && !std::strcmp(text, "Scape on");
+    rv::value_text(era, 1, text, sizeof text);
+    named = named && !std::strcmp(text, "vintage");
+    rv::value_text(era, 0, text, sizeof text);
+    named = named && !std::strcmp(text, "clean");
+    rv::value_text(decay, 2.2, text, sizeof text);
+    named = named && !std::strcmp(text, "2.2 s");
+    check(named && rv::default_value(-1) == 0 && rv::default_value(decay) == scape::paramInfo(scape::Param::decay).def && rv::stepped(era) && !rv::stepped(decay),
+          "names, units and enum values are Scape's own (Scape decay, 2.2 s; era clean or vintage); Scape on defaults to off");
+
+    // The state: an untouched reverb writes nothing, so every chunk is the one it was (the must-read-zero control).
+    SavedState plain;
+    plain.preset = 3;
+    const std::string before = write_state(plain);
+    check(rv::State{}.is_default() && !has(before, "scape") && has(before, kStateMagic2), "control: a default reverb writes no line and no new version");
+    SavedState on = plain;
+    on.reverb.on = true;
+    on.reverb.values = {{decay, 7.25}, {era, 1}, {mix, 0.1234567890123}};
+    const std::string chunk = write_state(on);
+    SavedState back;
+    check(has(chunk, kStateMagic6) && has(chunk, "\nscape on 1\n") && read_state(chunk, back) && back.reverb == on.reverb && back.preset == 3,
+          "the reverb's switch and its changed values round trip through the state, exactly, in version 6");
+    SavedState both = on;
+    both.filter.v[preview::filter::kOn] = 1;
+    SavedState both_back;
+    check(read_state(write_state(both), both_back) && both_back.reverb == on.reverb && both_back.filter == both.filter, "with the filter on too, one version 6 chunk carries both");
+    SavedState values_only = plain;
+    values_only.reverb.values = {{decay, 3}};
+    check(has(write_state(values_only), kStateMagic6) && !has(write_state(values_only), "scape on"), "a changed value with the reverb off is kept, and it stays off");
+    SavedState old;
+    old.reverb = on.reverb;   // a stale state a load must not keep
+    check(read_state(before, old) && old.reverb.is_default(), "an older chunk (no scape line) loads with the reverb off at Scape's defaults");
+    SavedState hostile;
+    check(read_state(std::string(kStateMagic6) + "\nscape 29 1\nscape -1 2\nscape 9 nan\nscape 9 inf\n", hostile) && hostile.reverb.is_default(),
+          "control: a scape line with an id outside Scape's or a non-finite value is ignored");
+
+    // The DSP, on the plug-in's own class: 44.1 kHz, a quarter second of the noise above, then silence.
+    constexpr double kRate = 44100;
+    constexpr std::size_t kN = 44100 * 4, kBurst = 44100 / 4;
+    std::vector<float> burst(kN, 0.0f);
+    std::uint32_t lcg = 777;
+    for (std::size_t i = 0; i < kBurst; ++i) { lcg = lcg * 1664525u + 1013904223u; burst[i] = float(double(lcg >> 8) / double(1 << 24) - 0.5); }
+    std::vector<double> defaults(rv::kScapeParams);
+    for (int k = 0; k < rv::kScapeParams; ++k) defaults[std::size_t(k)] = rv::default_value(k);
+    const auto run = [&](const std::vector<double>& v, std::size_t block, std::vector<float>* right = nullptr, std::size_t* processed = nullptr) {
+      rv::PostReverb f;
+      f.prepare(kRate);
+      std::vector<float> l = burst, r = burst;
+      std::size_t wrote = 0;
+      horde2::underFlushToZero([&] {
+        for (std::size_t at = 0; at < kN; at += block) wrote += f.process(v.data(), l.data() + at, r.data() + at, std::min(block, kN - at)) ? 1 : 0;
+      });
+      if (right) *right = r;
+      if (processed) *processed = wrote;
+      return l;
+    };
+    const auto energy = [&](const std::vector<float>& x, double from_s, double to_s) {
+      double e = 0;
+      for (std::size_t i = std::size_t(from_s * kRate); i < std::size_t(to_s * kRate) && i < x.size(); ++i) e += double(x[i]) * double(x[i]);
+      return e;
+    };
+    std::vector<float> right;
+    const std::vector<float> wet = run(defaults, 512, &right);
+    bool finite = true;
+    for (std::size_t i = 0; i < kN; ++i) finite = finite && std::isfinite(wet[i]) && std::isfinite(right[i]);
+    const double tail = energy(wet, 0.5, 1.5);
+    std::printf("     Scape at its defaults: tail energy 0.25 s to 1.25 s after the burst %.4g (the burst itself %.4g)\n", tail, energy(burst, 0, 0.25));
+    // -50 dB: Scape at its defaults (mix 0.35, decay 2.2 s) measured -37 dB here at 8350fb8; any energy at all is the
+    // reverb's (the control below), the bound only keeps a near-silent leak from passing.
+    check(finite && tail > 1e-5 * energy(burst, 0, 0.25), "at Scape's defaults the burst rings on after its input stops (a tail), and every sample is finite");
+    check(energy(burst, 0.5, 1.5) == 0, "control: the input itself is silent there, so the energy is the reverb's");
+    std::vector<double> dry = defaults;
+    dry[std::size_t(mix)] = 0;
+    check(run(dry, 512) == burst, "control: mix 0 hands the input back bit for bit (Scape's exact dry, its A6)");
+    std::vector<double> long_v = defaults, short_v = defaults;
+    long_v[std::size_t(decay)] = 8;
+    short_v[std::size_t(decay)] = 0.2;
+    const double long_tail = energy(run(long_v, 512), 2, 3), short_tail = energy(run(short_v, 512), 2, 3);
+    std::printf("     tail energy 1.75 s to 2.75 s after the burst: decay 8 s %.4g, decay 0.2 s %.4g\n", long_tail, short_tail);
+    check(long_tail > 1000 * short_tail && long_tail > 0, "the values reach Scape: decay 8 s rings far longer than decay 0.2 s");
+    check(run(defaults, 64) == wet && run(defaults, 100) == wet && run(defaults, 4096) == wet, "the output doesn't depend on how the host cuts the blocks (64, 100, 512, 4096)");
+    check(wet != right, "a mono input comes out wide (Scape decorrelates its tail: changes_image, declared)");
+    // The tail's end: with decay 0.2 s Scape's declared tail is 0.02 + 1 + 11 x 0.2 = 3.22 s, so a 4 s run stops writing
+    // inside it, and every sample it skips was already exact zero where it last wrote.
+    std::size_t blocks = 0;
+    const std::vector<float> ended = run(short_v, 512, nullptr, &blocks);
+    const std::size_t last = blocks * 512;
+    bool zero_end = last < kN && last > std::size_t(3.22 * kRate);
+    for (std::size_t i = last > 512 ? last - 512 : 0; i < kN && zero_end; ++i) zero_end = ended[i] == 0.0f;
+    check(zero_end, "after its declared tail of zeros in, Scape is skipped, and its last block written was already exact zero (stopped after " +
+                        std::to_string(double(last) / kRate) + " s)");
+    std::size_t all_blocks = 0;
+    run(long_v, 512, nullptr, &all_blocks);
+    check(all_blocks * 512 >= kN, "control: with decay 8 s (a declared tail of 89 s) every block of the 4 s run is processed");
   }
 
   // ---- the engine's own manifest --------------------------------------------------------------------------------
