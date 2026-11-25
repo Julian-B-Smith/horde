@@ -27,7 +27,7 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { createServer } from 'node:http';
 import { readFile, mkdtemp, rm } from 'node:fs/promises';
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, extname, resolve, dirname } from 'node:path';
 import { tmpdir, homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -316,6 +316,92 @@ function fitVerdict(f, control, red) {
   if (bad.length) red.push('Main fit (GUI-73), in plug-in mode: ' + bad.join('; '));
   if (!control || !control.fit || !(control.fit.scroll > 0 || (control.fit.xy && !control.fit.xy.inside))) red.push('CONTROL: with a 30 px line planted back on Main, the fit check still read ' + (control && control.fit ? 'no scroll and the XY inside' : 'nothing') + ', so it can\u2019t see a cut XY');
 }
+/* GUI-74 (the human, 2026-11-25: B, "A plus a test strip", the filter in its own card before Scape). On the test plug-in's bridge
+   (B711) the plug-in's own filter and Scape arrive as `preview.*` keys with descriptors in hello.preview, and the FX page draws a
+   test strip, a Test filter card and Scape's card bound to them. Asserted, on a stand-in bridge that publishes the descriptors (Scape's
+   keys read from shell-data's rack rows, so every rack control has one) and echoes each set:
+     * the strip holds Scape on, Space, Decay, Tone, Mix, Era and the filter's six; the filter's card sits before Scape's; Scape's card
+       has no rack control left and nothing dimmed;
+     * a real mouse drag on Scape's Decay sends one gesture begin, sets on preview.scape.decay only, then one end;
+     * a frame's value (host automation) repaints the knob;
+     * PREVIEW-ONLY: after the drag, History's Undo is still off.
+   CONTROLS: the same load with no hello.preview draws no strip and no filter card and leaves Scape's rack card dimmed; and a drag on
+   a live engine knob (the first one showing on the Osc group's first page) turns Undo on, or the Undo reading proves nothing. */
+const PV_DESC = (() => {
+  const keys = [...new Set((readFileSync(join(ROOT, 'design/gui3/shell-data.js'), 'utf8').match(/"fx\.scape\.(verb|io)\.[a-zA-Z]+"/g) || []).map(k => k.slice(1, -1).replace(/^fx\.scape\.(verb|io)\./, '')))];
+  const rows = [['on', 'Filter on', ['off', 'on']], ['mode', 'Filter mode', ['LP', 'BP', 'HP', 'Notch', 'Peak']], ['cutoff', 'Filter cutoff'], ['resonance', 'Filter resonance'], ['ring', 'Filter ring'], ['mix', 'Filter mix']]
+    .map(([k, n, l]) => Object.assign({ key: 'preview.filter.' + k, name: n, min: 0, max: l ? l.length - 1 : 1, default: 0, stepped: !!l, unit: '' }, l ? { labels: l } : {}));
+  rows.push({ key: 'preview.scape.on', name: 'Scape on', min: 0, max: 1, default: 1, stepped: true, labels: ['off', 'on'], unit: '' });
+  keys.forEach(k => rows.push(k === 'era' || k === 'delayMotion' ? { key: 'preview.scape.' + k, name: 'Scape ' + k, min: 0, max: 1, default: 0, stepped: true, labels: k === 'era' ? ['clean', 'vintage'] : ['crossfade', 'glide'], unit: '' }
+    : { key: 'preview.scape.' + k, name: 'Scape ' + k, min: k === 'decay' ? 0.2 : 0, max: k === 'decay' ? 12 : 1, default: k === 'decay' ? 2.2 : 0.5, stepped: false, unit: k === 'decay' ? 's' : '' }));
+  return { value: 'v = (host - min) / (max - min)', rows };
+})();
+const NATIVE_PV = (frames, pv) => `window.__sent = []; window.hordeNativeSend = t => { const m = JSON.parse(t); window.__sent.push(m);
+  const PV = ${JSON.stringify(pv)};
+  if (m.type === 'hello') setTimeout(() => { const f = Object.assign({}, ${JSON.stringify(frames[0])}); if (PV) f.params = Object.assign({}, f.params || {}, Object.fromEntries(PV.rows.map(d => [d.key, (d.default - d.min) / (d.max - d.min)])));
+    window.hordeNativeSnapshot(Object.assign(f, { ack: m.seq, hello: Object.assign({ build: 'stand-in', manifest_hash: m.manifest_hash, first_open: false }, PV ? { preview: PV } : {}), mismatch: null, plugin: { build: 'stand-in' } })); }, 0);
+  if (m.type === 'set' && PV) { const pv = {}; for (const k in m.values) if (k.startsWith('preview.')) pv[k] = m.values[k]; if (Object.keys(pv).length) setTimeout(() => window.hordeNativeSnapshot({ ack: m.seq, params: pv }), 0); } };`;
+const PV_OPEN = `(async () => {
+  const wait = ms => new Promise(r => setTimeout(r, ms)), go = x => [...document.querySelectorAll('#pnav .pn-g')].find(b => b.textContent.trim() === x)?.click();
+  go('FX'); await wait(900);
+  const fx = document.getElementById('page-fx'), strip = fx.querySelector('.preview-strip'), sv = e => e ? [...e.querySelectorAll('[data-preview]')].map(x => x.dataset.preview) : [];
+  const fCard = fx.querySelector('section[aria-label="FX · Test filter"]'), sCard = [...fx.querySelectorAll('section')].find(x => x.getAttribute('aria-label') === 'FX · Scape' || (x.querySelector('[data-key^="fx.scape."]') && !x.closest('.preview-sec')));
+  const kn = sCard && sCard.querySelector('[data-preview="preview.scape.decay"]'); if (kn) kn.scrollIntoView({ block: 'center' }); await wait(200);
+  const r = kn && kn.getBoundingClientRect();
+  return { strip: sv(strip), filterCard: sv(fCard), before: !!(fCard && sCard && (fCard.compareDocumentPosition(sCard) & Node.DOCUMENT_POSITION_FOLLOWING)),
+    scapeBound: sv(sCard).length, scapeRack: sCard ? sCard.querySelectorAll('[data-key^="fx.scape."]').length : -1, scapeInert: sCard ? sCard.querySelectorAll('.inert').length : -1,
+    knob: r ? { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) } : null, mark: window.__sent.length };
+})()`;
+const PV_AFTER = mark => `(async () => {
+  const wait = ms => new Promise(r => setTimeout(r, ms)), sent = window.__sent.slice(${mark});
+  const seq = sent.filter(m => m.type === 'gesture' || m.type === 'set').map(m => m.type === 'gesture' ? m.phase + ':' + m.key : 'set:' + Object.keys(m.values).join(','));
+  const last = window.__sent[window.__sent.length - 1].seq; window.hordeNativeSnapshot({ ack: last, params: { 'preview.scape.decay': 0.25 } }); await wait(300);
+  const k = document.querySelector('#page-fx section[aria-label="FX · Scape"] [data-preview="preview.scape.decay"] [role="slider"]');
+  const undo = () => { const b = [...document.querySelectorAll('.hist-bar button')].find(x => x.textContent.trim() === 'Undo'); return b ? !b.disabled : null; };
+  [...document.querySelectorAll('#pnav .pn-g')].find(b => b.textContent.trim() === 'History')?.click(); await wait(400);
+  return { seq, shown: k ? k.getAttribute('aria-valuetext') : null, undo: undo() };
+})()`;
+async function runPreview(chrome, url, frames, pv, engineDrag) {
+  const dir = await mkdtemp(join(tmpdir(), 'gui3-preview-')), b = await cdp(chrome, dir);
+  try {
+    await b.call('Page.addScriptToEvaluateOnNewDocument', { source: NATIVE_PV(frames, pv) });
+    await b.call('Page.navigate', { url });
+    let ready = false; for (let i = 0; i < 60 && !ready; i++) { await sleep(500); try { ready = await b.evalIn(`!!(window.__sent || []).length && !!document.querySelector('#presetHost .pb-name')`); } catch {} }
+    if (!ready) return { ready };
+    await sleep(800);
+    let at;
+    if (engineDrag) {   // the control: a drag on an engine knob must turn Undo on
+      await b.evalIn(`[...document.querySelectorAll('#pnav .pn-g')].find(b => b.textContent.trim() === 'Osc')?.click()`); await sleep(600);
+      at = await b.evalIn(`(() => { const e = [...document.querySelectorAll('.page:not([hidden]) .ctl[data-w="knob"] [role="slider"]')].find(x => x.getClientRects().length && !x.closest('.inert, .idle')); if (!e) return null; e.scrollIntoView({ block: 'center' }); const r = e.getBoundingClientRect(); return { knob: { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }, key: e.closest('[data-key]').dataset.key, mark: window.__sent.length }; })()`);   // the first live engine knob on the Osc group's first page
+    } else at = await b.evalIn(PV_OPEN);
+    if (at && at.knob) {
+      const { x, y } = at.knob;
+      await b.call('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
+      await b.call('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', buttons: 1, clickCount: 1 });
+      for (let i = 1; i <= 10; i++) await b.call('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y: y - i * 4, button: 'left', buttons: 1 });
+      await b.call('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y: y - 40, button: 'left', buttons: 0, clickCount: 1 });
+      await sleep(300);
+    }
+    return { ready, at, after: at ? await b.evalIn(PV_AFTER(at.mark)) : null };
+  } finally { b.ws.close(); b.proc.kill(); await sleep(200); await rm(dir, { recursive: true, force: true }); }
+}
+function previewVerdict(r, none, eng, red) {
+  const pre = 'Scape panel (GUI-74), on the bridge: ', want = ['preview.scape.on', 'preview.scape.size', 'preview.scape.decay', 'preview.scape.damp', 'preview.scape.mix', 'preview.scape.era', ...['on', 'mode', 'cutoff', 'resonance', 'ring', 'mix'].map(k => 'preview.filter.' + k)];
+  if (!r.ready || !r.at) { red.push(pre + 'the page never got far enough to look'); return; }
+  const a = r.at, bad = [], scapeKeys = PV_DESC.rows.filter(d => d.key.startsWith('preview.scape.') && d.key !== 'preview.scape.on').length;
+  const miss = want.filter(k => !a.strip.includes(k)); if (miss.length) bad.push('the strip lacks ' + miss.join(', '));
+  if (a.filterCard.length < 5) bad.push(`the Test filter card holds ${a.filterCard.length} controls, not 5`);
+  if (!a.before) bad.push('the Test filter card is not before Scape’s');
+  if (a.scapeBound !== scapeKeys || a.scapeRack || a.scapeInert) bad.push(`Scape’s card binds ${a.scapeBound} of ${scapeKeys}, with ${a.scapeRack} rack control(s) left and ${a.scapeInert} dimmed`);
+  const q = r.after ? r.after.seq : [], sets = q.filter(x => x.startsWith('set:'));
+  if (!a.knob) bad.push('no Decay knob to drag');
+  else if (q[0] !== 'begin:preview.scape.decay' || q[q.length - 1] !== 'end:preview.scape.decay' || !sets.length || sets.some(x => x !== 'set:preview.scape.decay') || q.filter(x => x.startsWith('begin')).length !== 1) bad.push('a drag on Decay sent ' + JSON.stringify(q) + ', not one begin, its sets, one end');
+  if (!r.after || !/3\.15/.test(r.after.shown || '')) bad.push('a frame’s Decay of 0.25 (3.15 s) shows as ' + JSON.stringify(r.after && r.after.shown));
+  if (!r.after || r.after.undo !== false) bad.push('after the drag Undo reads ' + (r.after ? r.after.undo : 'nothing') + ', so a preview edit reached the patch’s history');
+  if (bad.length) red.push(pre + bad.join('; '));
+  if (!none.ready || !none.at || none.at.strip.length || none.at.filterCard.length || !none.at.scapeRack || !none.at.scapeInert) red.push('CONTROL: with no hello.preview the FX page still drew ' + JSON.stringify(none.at && { strip: none.at.strip.length, filter: none.at.filterCard.length, rack: none.at.scapeRack, inert: none.at.scapeInert }) + ', so the panel’s reading proves nothing');
+  if (!eng.ready || !eng.after || eng.after.undo !== true) red.push('CONTROL: a drag on the engine knob ' + (eng.at && eng.at.key) + ' left Undo ' + (eng.after ? eng.after.undo : 'unread') + ', so "Undo stays off" proves nothing');
+}
 async function runNative(chrome, url, frames, noFrames, plantCss) {
   const dir = await mkdtemp(join(tmpdir(), 'gui3-native-')), b = await cdp(chrome, dir);
   try {
@@ -402,6 +488,7 @@ try {
   replayVerdict(await runReplay(chrome, eb, frames, false), await runReplay(chrome, eb, frames, true), frames, red);
   const nat = await runNative(chrome, eb, frames); nativeVerdict(nat, red, frames);
   const fitPlant = await runNative(chrome, eb, frames, false, '#page-main::before { content: ""; display: block; flex: 0 0 30px; height: 30px; }'); fitVerdict(nat.fit, fitPlant, red);
+  previewVerdict(await runPreview(chrome, eb, frames, PV_DESC), await runPreview(chrome, eb, frames, null), await runPreview(chrome, eb, frames, PV_DESC, true), red);
   nativeVerdict(await runNative(chrome, eb, frames, true), red, frames, true);
   const csp = 'window.__csp = []; document.addEventListener("securitypolicyviolation", e => window.__csp.push(e.violatedDirective + " " + (e.blockedURI || "inline")));';
   const sp = { press: await runSplash(chrome, base + '?fast#osc1', 'press'), timer: await runSplash(chrome, base + '?fast#osc1', 'timer'), reduce: await runSplash(chrome, base + '?fast#osc1', 'reduce'),
@@ -412,6 +499,6 @@ try {
       `a knob and the Morph pad dragged onto a paragraph make the page unselectable mid-drag and selectable again on release, where a drag across the paragraph sets nothing and selects ${r.sel.control.sel} characters (control; headless Chrome can't show the WebKit bug itself); ` +
       `the Mindlathe splash covers the window painted (under the plug-in's policy too), swallows the first click and fades, fades on its own at 2.5 s, goes at once under reduced motion, and goes at once when hello says it isn't the first opening (controls: a later click opens Mix, it's still up at 1.2 s, and first_open true keeps it); ` +
       `the plug-in's one-file page runs under its policy with no violation, its bridge side holds on ${recorded ? 'the recorded' : 'SYNTHETIC'} frames, and a frozen replay reads frozen (control); ` +
-      `in plug-in mode the ${nat.n.w} x ${nat.n.h} device fills the view's top-left with no lab chrome, says hello with its hash, shows and clears a mismatch, and paints its bank and build with no frames drawn; Main fits the window there with no scroll, its pad ${nat.fit.pad.w} px and XY ${nat.fit.xy.w} px square and inside, the dimmed-controls note in the header meeting nothing (control: a 30 px line planted back on Main reads red)`);
+      `in plug-in mode the ${nat.n.w} x ${nat.n.h} device fills the view's top-left with no lab chrome, says hello with its hash, shows and clears a mismatch, and paints its bank and build with no frames drawn; Main fits the window there with no scroll, its pad ${nat.fit.pad.w} px and XY ${nat.fit.xy.w} px square and inside, the dimmed-controls note in the header meeting nothing (control: a 30 px line planted back on Main reads red); on the bridge's preview keys the FX page draws the test strip, the Test filter card before Scape's and Scape's card bound to them, a Decay drag is one gesture of preview sets, a frame repaints it and Undo stays off (controls: no hello.preview draws none of it, and an engine drag turns Undo on)`);
 } finally { srv.close(); }
 process.exit(red.length ? 1 : 0);

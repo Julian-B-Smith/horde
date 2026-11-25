@@ -1672,6 +1672,79 @@ function fxRack(pg) {
   return h('div', { class: 'cards' }, c);
 }
 
+/* GUI-74 (the human, 2026-11-25, by poll: B, "A plus a test strip", and the filter in its own card before Scape). On the test plug-in's
+   bridge (B711) the plug-in's own post-engine filter (B660) and Scape (B710) are host parameters the page can now reach, published as
+   `preview.*` keys with descriptors in hello.preview (dev.preview()). Three things are built from those descriptors, never from a list
+   kept here, and only once they have arrived:
+     * a TEST BENCH strip at the top of FX: Scape on, Space, Decay, Tone and Mix (Scape's own four fixed controls, its manifest's
+       fixedControls) and Era; the filter's on, mode, cutoff, resonance, ring and mix;
+     * a TEST FILTER card before Scape's (signal order: engine, filter, Scape);
+     * Scape's card made live: the same cluster, groups and abbreviations as its rack card (layout.json), bound to `preview.scape.*`,
+       with Scape on as the header's switch. A rack control with no preview key stays dimmed.
+   PREVIEW-ONLY (GUI-74's state line): the values live in the device's preview store, never a row, so nothing here is morphed, mapped,
+   undone, kept in history or in a snapshot. The controls run on a session of their own (PS) with no sources, so MAP and a modulator's
+   drop can't reach them, and the shell's undo never sees them. The host saves them as host parameters, and the plug-in's state chunk
+   carries them. A drag is one host gesture (begin, the values, end); any other edit is a lone set, which the bridge wraps. */
+const PS = new H.Session({ x: .5, y: .5, sources: [] });
+const previewPanel = (() => {
+  let built = false;
+  const SCAPE_HEAD = [['size', 'Space'], ['decay', 'Decay'], ['damp', 'Tone'], ['mix', 'Mix']];   // Scape's manifest fixedControls, in its order and words
+  const FILTER = ['mode', 'cutoff', 'resonance', 'ring', 'mix'];
+  const v0 = d => (d.default - d.min) / (d.max - d.min);
+  const vOf = d => { const v = dev.previewValue(d.key); return v === null ? v0(d) : v; };
+  const idxOf = d => Math.round(vOf(d) * (d.labels.length - 1));
+  const fmt = (d, v) => d.stepped ? d.labels[Math.round(v * (d.labels.length - 1))] : ENG.display({ law: 'lin', lo: d.min, hi: d.max, unit: d.unit === 'dB' ? '' : d.unit }, v) + (d.unit === 'dB' ? ' dB' : '');
+  const gestureOn = (host, d) => {   // a drag is one host gesture; the bundle's knob captures the pointer, so these fire on the host in capture
+    host.addEventListener('pointerdown', e => { if (!e.button) dev.previewGesture(d.key, 'begin'); }, true);
+    ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(t => host.addEventListener(t, () => dev.previewGesture(d.key, 'end'), true));
+  };
+  const knob = (d, o) => {
+    const p = { key: d.key, name: o.name || d.name, path: 'FX · Test · ' + d.name, kind: 'c', fmt: v => fmt(d, v), def: v0(d), vals: [0, 0, 0, 0], bipolar: false, big: false, vert: false, locked: true, size: o.size, abbr: o.abbr };
+    Object.defineProperty(p, 'g', { get: () => vOf(d), set: v => dev.previewSet(d.key, v), enumerable: true });
+    return (host, S) => { host.dataset.preview = d.key; host.classList.add('ctl'); gestureOn(host, d); H.SecondKnob(host, S, p, { path: p.path, size: p.size || 'tiny', abbr: p.abbr, label: o.label }); };   // the bundle's ctlFace + Knob; mountControl keeps the one direct H.Knob
+  };
+  const companion = (d, o) => (host, S) => {   // a stepped key: segments (or a toggle), the house TC1 companion, repainted from the store
+    host.dataset.preview = d.key; host.classList.add('ctl', 'hd-cl-cell');
+    if (o.abbr) host.append(h('span', { class: 'cl-lab', title: d.name, text: o.abbr }));
+    const fh = h('div'); host.append(fh);
+    const kind = o.kind || 'segments', n = d.labels.length;
+    const c = H.Companion(fh, { kind, name: d.name, path: 'FX · Test · ' + d.name, options: d.labels, short: o.short, value: kind === 'toggle' ? idxOf(d) === 1 : idxOf(d), keys: () => S.keys,
+      onInput: x => dev.previewSet(d.key, kind === 'toggle' ? (x ? 1 : 0) : x / (n - 1)) });
+    let last = null; views.push({ page: 'fx', update() { const i = idxOf(d); if (i !== last) { last = i; c.set(kind === 'toggle' ? i === 1 : i); } } });
+  };
+  // a section's on switch, from its `.on` key: the bundle dims the section while it is off
+  const headed = (sec, d) => { const hd = sec._hdr; if (!d || !hd) return; let last = null; views.push({ page: 'fx', update() { const on = idxOf(d) === 1; if (on !== last) { last = on; hd.on(on); } } }); };
+  function build() {
+    const rows = dev.preview(), by = Object.fromEntries(rows.map(d => [d.key, d])), F = k => by['preview.filter.' + k], C = k => by['preview.scape.' + k];
+    // Scape's rack card is found by its layout group (its screen), never by a key written here: the controls come from shell-data
+    const g = PG.fx.groups.find(x => x.screen === 'Scape'), pre = g ? g.block + '.' : null, fxEl = pageEls.fx;
+    const rackScape = pre && [...fxEl.querySelectorAll('[data-key]')].find(e => e.dataset.key.startsWith(pre)), oldCard = rackScape && rackScape.closest('section');
+    const cluster = (o, onKey) => { const sec = h('section', { class: 'wide preview-sec', 'aria-label': o.path }); const r = H.Cluster(sec, PS, Object.assign({ rule: 'solid' }, onKey ? { on: idxOf(onKey) === 1, onToggle: on => dev.previewSet(onKey.key, on ? 1 : 0) } : {}, o)); /* a section with no `.on` key draws no switch */ sec._hdr = r.header; headed(sec, onKey); return sec; };
+    const items = (list, sz) => list.filter(([k]) => k).map(([d, o]) => d.stepped ? companion(d, o) : knob(d, Object.assign({ size: sz }, o)));
+    const fItems = FILTER.map(k => [F(k), { abbr: { mode: 'MODE', cutoff: 'CUT', resonance: 'RES', ring: 'RING', mix: 'MIX' }[k], name: { mode: 'Mode', cutoff: 'Cutoff', resonance: 'Resonance', ring: 'Ring', mix: 'Mix' }[k] }]).filter(([d]) => d);
+    // the strip: words, the sized utility knobs (as Main's macros), at the top of the page
+    const strip = cluster({ name: 'Test bench', path: 'FX · Test bench', summary: 'PREVIEW', groups: [
+      { label: 'Scape', items: [C('on') ? companion(C('on'), { kind: 'toggle', abbr: 'SCAPE' }) : null].concat(items(SCAPE_HEAD.map(([k, w]) => [C(k), { name: w, label: w }]), 'utility'), items([[C('era'), { abbr: 'ERA' }]])).filter(Boolean) },
+      { label: 'Filter', items: [F('on') ? companion(F('on'), { kind: 'toggle', abbr: 'FILTER' }) : null].concat(items(fItems.map(([d, o]) => [d, d.stepped ? o : { name: o.name, label: o.name }]), 'utility')).filter(Boolean) }] });
+    strip.classList.add('preview-strip');
+    fxEl.querySelector('.cards').before(strip);
+    // the filter's card, in the rack's own form, before Scape's
+    const fCard = cluster({ name: 'Test filter', path: 'FX · Test filter', summary: 'PREVIEW', picture: h('div', { class: 'viz' }, h('span', { class: 'hd-hint', text: 'The test plug-in’s filter after the engine (B660): test only, not saved with the patch.' })),
+      groups: [{ label: 'Filter', items: items(fItems.map(([d, o]) => [d, { abbr: o.abbr }])) }] }, F('on'));
+    // Scape's card: its rack card's groups and abbreviations (layout.json), each control bound to its preview key; its screen kept
+    const abbr = (g && g.abbr) || {}, own = rk => rk.slice(pre.length), pvKey = rk => 'preview.scape.' + own(rk).replace(/^(verb|io)\./, '');   // verb.decay and io.inGain → preview.scape.decay, .inGain
+    const groups = oldCard ? [...oldCard.querySelectorAll('.cl-grp')].map(gr => ({ label: gr.getAttribute('aria-label') || 'Scape', items: [...gr.querySelectorAll('[data-key]')].filter(c => c.dataset.key.startsWith(pre)).map(c => {
+      const rk = c.dataset.key, d = by[pvKey(rk)], a = abbr[own(rk)] || (PROPS[rk + '@fx'] || {}).abbr || ((c.querySelector('.cl-lab') || {}).textContent || '').trim() || undefined;
+      if (!d) return c;   // no preview key: the rack's own control, still dimmed
+      return d.stepped ? companion(d, { abbr: a }) : knob(d, { abbr: a });
+    }) })) : [];
+    const sCard = cluster({ name: 'Scape', path: 'FX · Scape', summary: 'SLOT 2 · PREVIEW', picture: oldCard && oldCard.querySelector('.viz'), groups }, C('on'));
+    if (oldCard) { oldCard.before(fCard); oldCard.replaceWith(sCard); }
+    built = true;
+  }
+  return { update() { if (!built && dev.preview().length && pageEls.fx) build(); for (const v of PS.views) v.render(); }, built: () => built };
+})();
+
 /* The port ledger (ADR-333, B593): everything not yet moved over, where it lives and why, read from port-tab.json
    through the generated data. Grouped by area, with counts by reason and by status. */
 // GUI-10: GUI 2's History page, in the master's rail. The tree is the device's (ADR-160), and this only draws it.
@@ -2088,6 +2161,7 @@ if (BRIDGE) {
     if (row) inertNote.style.cssText = `left: ${end + 14}px; top: ${row.offsetTop}px; height: ${row.offsetHeight}px`;
   };
   paintInert();
+  views.push({ page: 'fx', update: previewPanel.update });   // GUI-74: built once the bridge publishes its preview keys (B711)
   // MAP makes no sound here: routes reach no engine (RC-4). The morph does once the bridge hosts it (B636, B639; GUI-59).
   if (!dev.sides().resolver) { $('morphOn').disabled = true; $('morphOn').closest('label').classList.add('inert'); $('morphOn').closest('label').title = INERT_SAYS + ': the morph'; }
   $('mapHost').classList.add('inert'); $('mapHost').title = INERT_SAYS + ': modulation';

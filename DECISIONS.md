@@ -12763,6 +12763,40 @@ Its control plants the 30 px line back on Main and must read red. On main's shel
 **Engine impact.** None: the window stays 980 × 720 and doesn't resize (the lead's `tools/engine-preview`), and no row or message changes.
 
 **FX device (ADR-254).** The same: its header carries the note on a page with dimmed controls.
+## GUI-74 — RULED by the human: on the test plug-in, the FX page gets a test strip, a Test filter card before Scape's, and Scape's card made live on the bridge's preview keys (GB40; B711; 2026-11-25)
+
+**The human, 2026-11-25** (through the lead): they couldn't test Scape in build 13. The plug-in has 356 host parameters, so Live's panel opens empty, and nothing on the page touched Scape. By the lead's poll they ruled "Wire it properly". The lead's B711 (PR #1525) publishes the plug-in's test filter (B660) and Scape (B710) to the page as `preview.*` keys, each described in `hello.preview`. **By this session's poll** the human chose B, "A plus a test strip" (over A, wire Scape's card only, and C, Scape's lab groups in words), and the filter in its own card before Scape's.
+
+**What it fixes.**
+- **The test strip,** at the top of FX: Scape on, Space, Decay, Tone and Mix (Scape's own fixed controls, its manifest's `fixedControls`), and Era; then the filter's on, mode, cutoff, resonance, ring and mix. Labels are words, on the sized utility knobs Main's macros use.
+- **The Test filter card,** in the rack's own cluster form, before Scape's card (the signal order: engine, filter, Scape). Its switch is the header's, and it is marked PREVIEW.
+- **Scape's card, live.** It keeps the same cluster, groups and abbreviations as its rack card (layout.json), and its screen placeholder. Each control is bound to its `preview.scape.*` key, Scape on is the header's switch, and the summary reads SLOT 2 · PREVIEW. A rack control with no preview key would stay dimmed; today there is none.
+- **Built from the bridge's descriptors only, once they arrive.** Without a bridge (the browser lab) nothing changes. v travels in 0..1, as an engine row's does; the descriptor's min, max, unit and labels are for display.
+- **A drag is one host gesture:** begin, the values, end. Any other edit (a double-click, the wheel, a segment) is a lone set, which the bridge wraps.
+- **The page's side of the bridge schema** (`engine-stub.js` `checkMessage`) lets a `set` name a `preview.*` key, as B711's bridge does; a `corner` never may.
+
+**State (GUI-27).** Preview-only.
+- The values live in the device's preview store, not in a row, so they are never morphed, mapped, undone, kept in history or in a snapshot.
+- The controls run on a bundle Session of their own with no sources, so MAP and a modulator's drop can't reach them.
+- The host saves them as host parameters, and the plug-in's state chunk carries them (the lead: version 6, the filter and Scape lines), so a saved Set restores them.
+
+**The check.** `gui3_browser_check` (in `./verify fast`) gains a row on a stand-in bridge that publishes the descriptors and echoes each set. It requires that:
+- the strip holds its twelve controls;
+- the filter's card sits before Scape's;
+- Scape's card has no rack control left and nothing dimmed;
+- a real mouse drag on Decay sends one begin, sets on that key only, and one end;
+- a frame's value repaints the knob;
+- History's Undo stays off after the drag.
+
+Its controls: a load with no `hello.preview` draws none of it, and a drag on a live engine knob turns Undo on. On main's shell the row reads red on every assertion.
+
+**Readings, for the human to correct.**
+- The strip's knobs are the utility size, as Main's macros.
+- The filter's knobs in the strip read Cutoff, Resonance, Ring and Mix. Its card uses the house four-letter labels: CUT, RES, RING, MIX.
+
+**Engine impact.** None: the preview keys are the test plug-in's bridge (B711, the lead's), not engine rows, and no ENGINE-NEEDS row is needed.
+
+**FX device (ADR-254).** None: the strip and the filter card are the test plug-in's alone. When the rack hosts Scape for real, Scape's card binds to its rack rows as before.
 
 ## ADR-365 — RULED by the human: the 8 Hz blocker for FM free in pitch FM; item 7.8's table remade; spec round 58 (B621, B623; 2026-11-04)
 

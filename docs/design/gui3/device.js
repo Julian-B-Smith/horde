@@ -99,6 +99,7 @@
       }
     }
     var seq = 0, sentSeq = Object.create(null), sentV = Object.create(null), fromEngine = Object.create(null);
+    var previewV = Object.create(null), previewSeq = Object.create(null), previewDrag = null;   // GUI-74: the test plug-in's preview keys (D.preview)
     var lastSnap = null, events = [];
     /* THE MORPH BEHIND A BRIDGE (GUI-59; B636, B639). When the transport hosts the morph (`morphHost`: the test plug-in, or a
        replay of it), the plug-in's resolver is the only source of every key it resolves (IF-12), and it refuses and counts a
@@ -281,6 +282,8 @@
     function everyRow(params) { return rows.every(function (r) { return (r.target || 'engine') !== 'engine' || r.reserved || r.key in params; }); }
     function onSnapshot(s) {
       lastSnap = s;
+      // GUI-74: the test plug-in's preview keys, before a load's early return (the frame answering hello carries them all)
+      if (s.params) for (var pk in s.params) if (pk.lastIndexOf('preview.', 0) === 0 && pk !== previewDrag && !(previewSeq[pk] !== undefined && s.ack < previewSeq[pk])) previewV[pk] = s.params[pk];
       if (loadAt !== null && s.ack >= loadAt && s.params && everyRow(s.params)) { loadAt = null; adopt(s.params, s.ack); return; }
       if (HOST && s.morph) adoptMorph(s.morph, s.ack);
       if (s.events && s.events.length) events = events.concat(s.events);
@@ -626,6 +629,14 @@
     D.loadPreset = function (i) { loadAt = ++seq; transport.send({ type: 'preset', seq: seq, index: i }); rev++; };
     D.plugin = function () { return lastSnap && lastSnap.plugin || null; };
     D.hello = function (hash) { loadAt = ++seq; transport.send({ type: 'hello', seq: seq, manifest_hash: hash }); };
+    /* GUI-74 (B711): the test plug-in's own filter and Scape, which the bridge publishes as `preview.*` keys, each described in
+       hello.preview.rows. They are NOT rows: never morphed, never in undo, history or snapshots; the host saves them as host
+       parameters (and the plug-in's state chunk carries them). v travels in 0..1 as an engine row's does (host = min + v·(max − min));
+       the descriptor's min, max, unit and labels are for display. One seq counter with everything else, so acks stay ordered. */
+    D.preview = function () { var hl = lastSnap && lastSnap.hello, p = hl && hl.preview; return p && Array.isArray(p.rows) ? p.rows : []; };
+    D.previewValue = function (k) { return k in previewV ? previewV[k] : null; };
+    D.previewSet = function (k, v) { v = v < 0 ? 0 : v > 1 ? 1 : v; previewV[k] = v; previewSeq[k] = ++seq; var vals = {}; vals[k] = v; transport.send({ type: 'set', seq: seq, values: vals }); };
+    D.previewGesture = function (k, phase) { if (phase === 'end' && previewDrag !== k) return; previewDrag = phase === 'begin' ? k : null; transport.send({ type: 'gesture', seq: ++seq, key: k, phase: phase }); };
     D.bridge = function () { return lastSnap ? { hello: lastSnap.hello || null, mismatch: lastSnap.mismatch || null, refused: lastSnap.refused || null } : { hello: null, mismatch: null, refused: null }; };
     /* GUI-33: is any voice sounding? The pictures rest while none is. A voice alive, or a peak at or over B365's -90 dBFS, so a release tail counts (GN-45). */
     D.sounding = function () { var f = D.feed(); return !!f && (f.act > 0 || f.peak >= 3.2e-5); };
