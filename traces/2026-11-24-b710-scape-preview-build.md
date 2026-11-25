@@ -84,3 +84,15 @@ Scape's default tail sits within 30 dB of the burst; it measured -37 dB (mix 0.3
 
 **Open:** installed and heard by the human (B710's last criterion; `build.sh --install` is theirs to run). A Scape
 panel on GUI 3's page is the GUI session's (ADR-336). The committed GUI frame fixtures are from `1ad270a`, unchanged.
+
+## The human's rulings, and the lead's finish (2026-11-24)
+
+The worker's push was refused on `tolerance_registry_check` alone (four new inline compares), and two of its choices
+reached past the test (the preview's minimum macOS 11.0 → 13.3, Scape's std::to_chars; 12 to 27 MiB at activation).
+The lead put both to the human by poll: **"Approve, smoke at −40 dB"** and **"OK for the test build"**. The lead set
+smoke's tail bound to −40 dB of the note's energy (`1e-4`, from `1e-3`), registered the four entries with
+`tools/tolerance_registry_check.py --approve` naming that ruling (158 registered, 0 changed), and rebuilt the preview
+on the same pins (Weir `078f1436`, Scape `8350fb8`, GUI 3's page, not installed): `bridge_test: GREEN (0 failed)`,
+`engine-preview smoke: GREEN (0 failed)` (Blade pluck's tail 0.1966 against the note's 122.8, the idle-cut build 0;
+the control fires), `engine-preview gui: GREEN (0 failed)`.
+
