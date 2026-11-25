@@ -1,0 +1,8 @@
+{"module": "fxfilter", "manifest": 1, "status": "ratified 2026-11-08 (Weir D-017); stateBudget added 2026-11-24 (D-020)", "stateBudget": 4096, "params": [
+  {"address": "fxfilter.type", "class": "flip", "rate": "latched", "min": 0, "max": 0, "default": 0, "unit": "", "steps": 1, "transition_s": 0.005, "switch": {"method": "crossfade", "length_s": 0.005, "law": "equal-gain"}, "values": ["SVF 12"]},
+  {"address": "fxfilter.mode", "class": "flip", "rate": "latched", "min": 0, "max": 4, "default": 0, "unit": "", "steps": 5, "transition_s": 0.005, "switch": {"method": "crossfade", "length_s": 0.005, "law": "equal-gain"}, "values": ["LP", "BP", "HP", "NOTCH", "PEAK"]},
+  {"address": "fxfilter.cutoff", "class": "morph", "rate": "continuous", "min": 20, "max": 20000, "default": 1000, "unit": "Hz", "steps": 0, "transition_s": 0.005},
+  {"address": "fxfilter.resonance", "class": "morph", "rate": "continuous", "min": 0, "max": 1, "default": 0, "unit": "", "steps": 0, "transition_s": 0.005},
+  {"address": "fxfilter.morph", "class": "morph", "rate": "continuous", "min": 0, "max": 1, "default": 0, "unit": "", "steps": 0, "transition_s": 0.005, "label_by_type": {"SVF 12": "Ring"}},
+  {"address": "fxfilter.mix", "class": "morph", "rate": "continuous", "min": 0, "max": 1, "default": 1, "unit": "", "steps": 0, "transition_s": 0.005}
+], "changes_image": false, "changes_level": true}
