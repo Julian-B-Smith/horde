@@ -13748,6 +13748,23 @@ One correction: ADR-359's lead reading ("They wait for B603 with Mangle and Echo
 
 **FX device (ADR-254):** none; a build tool's check.
 
+### ADR-407 A1 — RULED by the human: S1's timed plant is one-sided, at least 1.7x; S1's night is within its share (B705; 2026-11-25)
+
+**Context.** CONTRACT §6.1 item 3 closes a stage only on its own night's timed run, and only the calibration cell had a timed driver, so S1's cell could not be timed. The lead wrote one that night in the wavetable repo (`tests/s1/cpu_member_timed.cpp`, the guard shared with the calibration cell in `tools/timed_guard.h`), and two adversarial reviews tightened it before it judged anything. It now runs ten renders per repeat, interleaved, rotated and reversed, and pairs each difference within its repeat. The share is judged on the larger of the paired median and PF-3's unpaired best of 5. The plant times the read run twice against once, each less the same wrapper around a zero source, on the member and on an engine-free 6-point Lagrange read in the same run. The control renders with no notes. Only a Release -O3 build without sanitizers is timed. The lead's first reading of the plant was 2 ± 0.3. Its first run (02:29, in the window, every guard green) read the share at 25.2 % of WT-BUDGET and refused it: the plant read 2.67 on the member (2.47 to 2.97) and **2.98 on the engine-free read** (2.89 to 3.11). On this chip time does not add the way instructions do. One read per sample partly hides behind the stand-in's other work through out-of-order execution; two reads in a row cannot, so the second costs more than the first. The faults a plant exists to catch read near 1: a timer blind to the read, or a read hoisted out of the loop. The lead asked.
+
+**Ruling** (the human, 2026-11-25, by poll): "At least 1.7x, re-run now".
+1. **The timed plant is one-sided:** the read twice must time at least 1.7 times the read once, on the member and on the engine-free read, with no upper bound. The count's plant (2 ± 0.04 instructions) is unchanged.
+2. **The re-run** (02:31, in the window, every guard green) read **24.9 % of WT-BUDGET, within S1's 35 %** (1.247 % of a core; paired median 24.8 %, unpaired best 24.9 %), the plants at 2.43 (member) and 3.03 (engine-free), and the control at 0. The count read 25.2 % at S0's factor.
+
+**The lead's readings, open to overrule:**
+- **The conversion factor is re-fixed** from the same night's calibration-cell run (02:18, load 2.48 with a sibling session at work, every guard green): 19.40 × 10⁹ instructions per core-second (S0's night: 20.28; the cell read 5.140 % of a core, B648 4.802 %). It is about 4 % lower, and a lower factor reads every count's share higher, the side a floor should err on. It serves S2's counts (CONTRACT §5.4).
+- **The engine-free read is the plant's proof.** It runs in the same run, at the same clocks. If it misses the floor, the run's timing is untrustworthy and nothing is judged.
+- **CONTRACT §5.4** gains one sentence for timed plants; the wavetable repo's copy is re-taken from this PR's branch, as ADR-404's was.
+
+**Still owed for S1's close (§6.1):** the listening batch heard and every note answered; REPORT.md (how it is written is the human's call); `./verify close S1` on a clean export.
+
+**FX device (ADR-254):** none; a build tool's check.
+
 ## ADR-408 — RULED by the human: FX starts now: Scape plays after the engine in the test plug-in, test-only, built in its own session (B710; 2026-11-24)
 
 **Context.** Asked how soon the new engine can be integrated "so we can start adding FX modules and other details to the test plugin", the lead measured the tracks (the critical path, 2026-11-24): the wavetable member reaches the test plug-in at its S8, about 5 to 8 weeks out, but RC-5 hands every engine's output to the effects as one stereo pair, so a module can play after the current engine now, as B660 did for Weir's filter (ADR-311). Scape's admission adapter already exists and its admission rows are green (`tools/admission/scape_adapter.cpp`; Scape's response of 2026-10-29). The lead asked whether the test plug-in may depend on a sibling module, in its own session so the wavetable work keeps the lead.
