@@ -229,7 +229,11 @@
   .ctl[hidden] { display: none !important; }
   /* GUI-46: on the plug-in's bridge, a control this engine can't act on yet: dimmed with the master's disabled opacity, still there (the master's .idle hides) */
   .inert { opacity: var(--opacity-disabled); }
-  .inert-note { margin: 0 0 6px; }
+  /* GUI-73: the note sits in the header's page row, just after the page's tabs, not on the page: there it cost Main 30 px and cut
+     the XY 29 px past the window (the human, build 13). Absolute in #pnav, because the bundle's PageNav empties its row on every group change. */
+  #pnav { position: relative; }
+  .inert-note { position: absolute; display: flex; align-items: center; margin: 0; white-space: nowrap; }
+  .inert-note[hidden] { display: none; }
   .ledger { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--space-stack); align-items: start; }
   .ledger-area { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
   .ledger-row { display: flex; flex-direction: column; gap: 2px; padding: 5px 0; border-top: 1px dashed var(--div); }
@@ -415,6 +419,7 @@ const ROW = Object.create(null); DATA.params.forEach(r => { ROW[r.key] = r; });
 const CLASS_NAME = { M: 'MORPHABLE', S: 'STRUCTURAL', D: 'DEVICE' };
 const views = [];                  // per-frame updates of this file's own controls: { page, update() }
 let dockOn = null, page = 'sub', menu = null, padShown = true, lastRev = -1, seamRev = -1, hovered = null, hoveredSec = null;
+let paintInert = () => {};   // GUI-73: set once the bridge has dimmed its controls; with no bridge nothing is dimmed and there is no note
 let engine = null, transport = null, dev = null, S = null;
 function h(tag, a, ...kids) {
   const e = document.createElement(tag);
@@ -1797,7 +1802,7 @@ function selectPage(id) {
   if (id === 'morph' && mw) mw.mount();
   for (const k in pageEls) pageEls[k].hidden = k !== id;
   const now = nav.get(); if (now.group !== groupOf[id] || now.page !== id) nav.set(groupOf[id], id);
-  $('pages').scrollTop = 0; seamRev = -1;
+  $('pages').scrollTop = 0; seamRev = -1; paintInert();
 }
 
 // ===== BLOCK F: the chrome (ADR-315): the docked pad while morph is on, its hide toggle, the info box, the menu =====
@@ -2074,7 +2079,15 @@ if (BRIDGE) {
   if (BRIDGE === 'replay') window.GUI3_BRIDGE = { transport, dev, selectPage, pics: PICS };   // the browser check's hook, as GUI3_FEED is (GUI-34); never set inside the plug-in
   document.querySelectorAll('#pages [data-key]').forEach(e => { const r = ROW[e.dataset.key]; if (r && inertRow(r)) { e.classList.add('inert'); e.title = INERT_SAYS; } });
   const later = (dev.sides().resolver ? [] : ['the morph']).concat(['modulation', 'the FX rack and Arp']);
-  Object.values(pageEls).forEach(el => { if (el.querySelector('.inert')) el.insertBefore(h('p', { class: 'hd-hint inert-note', text: 'Dimmed controls aren’t in this engine yet: ' + later.join(', ') + ' come later.' }), el.children[1] || null); });
+  // GUI-73: one note in the header's page row, shown on a page that has dimmed controls; the full sentence is its title
+  const inertNote = h('span', { class: 'hd-hint inert-note', id: 'inertNote', text: 'Dimmed controls aren’t in this engine yet', title: 'Dimmed controls aren’t in this engine yet: ' + later.join(', ') + ' come later.' });
+  $('pnav').append(inertNote);
+  paintInert = () => {
+    const row = $('pnav').querySelector('.pn-pages'), tabs = row ? [...row.querySelectorAll('.pn-p')] : [], end = tabs.length ? Math.max(...tabs.map(b => b.offsetLeft + b.offsetWidth)) : 0;
+    inertNote.hidden = !(pageEls[page] && pageEls[page].querySelector('.inert'));
+    if (row) inertNote.style.cssText = `left: ${end + 14}px; top: ${row.offsetTop}px; height: ${row.offsetHeight}px`;
+  };
+  paintInert();
   // MAP makes no sound here: routes reach no engine (RC-4). The morph does once the bridge hosts it (B636, B639; GUI-59).
   if (!dev.sides().resolver) { $('morphOn').disabled = true; $('morphOn').closest('label').classList.add('inert'); $('morphOn').closest('label').title = INERT_SAYS + ': the morph'; }
   $('mapHost').classList.add('inert'); $('mapHost').title = INERT_SAYS + ': modulation';

@@ -12737,6 +12737,33 @@ The tile's frame carries the corner's colour, and inside the glass the corner is
 
 **FX device (ADR-254).** None: it has no oscillators.
 
+## GUI-73 — RULED by the human: the dimmed-controls note moves into the header, so Main fits the plug-in window without scrolling; `./verify` holds it (GB39; 2026-11-25)
+
+**The human, 2026-11-25** (build 13 in Live, through the lead): "Also realizing I want to do something about the main page having to scroll for the XYs". **By poll the same day,** they chose A, the note to the header (over B, both squares shrinking to 213 px, and A with squares that size to fit), and asked for the check.
+
+**What it fixes.**
+- **The cause, measured on the plug-in's own page** (980 × 720, the stand-in bridge): on the bridge, a page with dimmed controls (GUI-46) carried a line saying so above its content. On Main that cost 30 px, so the stage had 434 px for two 228 px squares and a 6 px gap. The XY ran 29 px past the page area, and the page scrolled. The browser lab has no bridge, so no note, and fitted.
+- **The note now sits in the header's page row, just after the page's tabs.** It reads "Dimmed controls aren't in this engine yet", and the full sentence (what comes later) is its title. It shows on a page that has dimmed controls; today those are Main, FX and Arp, each with one tab, so it sits clear of the preset bar, the colours and the switches.
+- **Nothing on the page moves:** both squares stay 228 px (GUI-40), and every page with the note gains its 30 px back.
+
+**The check (the human: "Yes, add the check").** `tools/labharness/gui3_browser_check.mjs`, already in `./verify fast`, gains a row. In plug-in mode it requires that:
+- Main's page area doesn't scroll;
+- the pad and the XY are square and wholly inside it;
+- the note shows in the header, meeting no tab, the preset bar, the colours or the switches;
+- no note is left on a page.
+
+Its control plants the 30 px line back on Main and must read red. On main's shell before this change the row read red, with "its page area scrolls by 29 px; the XY is 228 x 228, not wholly inside the page".
+
+**Readings, for the human to correct.**
+- The note keeps its first clause in full rather than a shorter "Dimmed: not in this engine yet", since there is room for it.
+- If a page with more tabs ever has dimmed controls, the row's check catches a note that meets the header's controls; where it goes then is a new ruling.
+
+**State (GUI-27).** None: the note is text placed by the shell. It persists nothing, and undo and snapshots don't see it.
+
+**Engine impact.** None: the window stays 980 × 720 and doesn't resize (the lead's `tools/engine-preview`), and no row or message changes.
+
+**FX device (ADR-254).** The same: its header carries the note on a page with dimmed controls.
+
 ## ADR-365 — RULED by the human: the 8 Hz blocker for FM free in pitch FM; item 7.8's table remade; spec round 58 (B621, B623; 2026-11-04)
 
 **Context.** FM free in pitch FM runs an accumulator that never restarts, while each of C.16's readings starts it at 0, so the estimate cannot see its mean and BL-19 cannot hold by the law alone (Q-TA-71: engine-free, 95 of its 144 one-member cases over 0.003, up to 0.046). ADR-363 sent this to a scratch trial of C.16's existing blocker, with clips for the human. Separately, item 7.8's reference R2 places FM free's modulator half a cycle from round 56's start, and 7.8 plays before its settings settle (Q-TA-77).
