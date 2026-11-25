@@ -331,7 +331,7 @@ const PV_DESC = (() => {
   const keys = [...new Set((readFileSync(join(ROOT, 'design/gui3/shell-data.js'), 'utf8').match(/"fx\.scape\.(verb|io)\.[a-zA-Z]+"/g) || []).map(k => k.slice(1, -1).replace(/^fx\.scape\.(verb|io)\./, '')))];
   const rows = [['on', 'Filter on', ['off', 'on']], ['mode', 'Filter mode', ['LP', 'BP', 'HP', 'Notch', 'Peak']], ['cutoff', 'Filter cutoff'], ['resonance', 'Filter resonance'], ['ring', 'Filter ring'], ['mix', 'Filter mix']]
     .map(([k, n, l]) => Object.assign({ key: 'preview.filter.' + k, name: n, min: 0, max: l ? l.length - 1 : 1, default: 0, stepped: !!l, unit: '' }, l ? { labels: l } : {}));
-  rows.push({ key: 'preview.scape.on', name: 'Scape on', min: 0, max: 1, default: 1, stepped: true, labels: ['off', 'on'], unit: '' });
+  rows.push({ key: 'preview.scape.on', name: 'Scape on', min: 0, max: 1, default: 0, stepped: true, labels: ['off', 'on'], unit: '' });
   keys.forEach(k => rows.push(k === 'era' || k === 'delayMotion' ? { key: 'preview.scape.' + k, name: 'Scape ' + k, min: 0, max: 1, default: 0, stepped: true, labels: k === 'era' ? ['clean', 'vintage'] : ['crossfade', 'glide'], unit: '' }
     : { key: 'preview.scape.' + k, name: 'Scape ' + k, min: k === 'decay' ? 0.2 : 0, max: k === 'decay' ? 12 : 1, default: k === 'decay' ? 2.2 : 0.5, stepped: false, unit: k === 'decay' ? 's' : '' }));
   return { value: 'v = (host - min) / (max - min)', rows };
