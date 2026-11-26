@@ -314,6 +314,7 @@
    "status": "retired",
    "note": "Superseded by fx-design-lab.html (its lab-superseded-by tag). History, never a source."
   },
+  "fx-routing-lab.html": {"status": "exploring", "note": "GB21 under ADR-410 ruling 3: tidy, separated wires and a send matrix with levels per corner, drawn from one wire model; replaces GUI-41's unruled FX patching. W1-W3 and L1-L3 await the human's poll. Levels are MOCK in the bridge's planned shape (B715)."},
   "fx-screen-marks-lab.html": {
    "status": "ruled",
    "adr": "GUI-58",
