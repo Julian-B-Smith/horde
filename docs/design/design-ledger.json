@@ -8858,6 +8858,10 @@
   {
    "adr": "ADR-411",
    "reason": "The human's rulings on B713's questions (feedback behind a settings toggle, true bypass, FX slot picks tested before ruling, Device settings stored with an approval screen on load, the other twelve as recommended): contract and engine rulings. Their design consequences (the approval screen, the feedback toggle, the routing lab's feedback wires and pick switch) are the GUI session's to rule as GUI-n with their own ledger rows."
+  },
+  {
+   "adr": "ADR-412",
+   "reason": "The human's rulings on B714's stage-1 questions (delete the per-module code once its replacements fail on the same faults, the test plug-in's module ids as morph rows, FOUNDATIONS pinned, Weir's state budget ruled at 4,096 B): build, state and contract rulings with nothing in the design master. The page's move from the preview keys to the generic slot keys is the GUI session's to rule, as a GB row."
   }
  ],
  "engine_impact": {
