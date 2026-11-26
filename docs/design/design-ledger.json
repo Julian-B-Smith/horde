@@ -480,6 +480,10 @@
    "adr": "ADR-302",
    "note": "GB11. The study behind ADR-302 rulings 3 and 4, copied from its Artifact at version 1793204183-5a81. The automaton's code is cleared to be public (the human, 2026-11-04: 'Yes, it can go public')."
   },
+  "source-routing-lab.html": {
+   "status": "exploring",
+   "note": "GB43: every source routed on its own to the filters, the FX and Out as one graph (the human, 2026-11-26), on the master's FxRouting with the voice boundary drawn and refused, and the Mix picture (GUI-14 r5) drawn from the graph. Asks Q1 (filter sends as levels or on/off), Q2 (the dry path: a wire to Out or a Σ VOICES box), Q3 (make-up per path or at the master), and Q4, a finding: 11 boxes beside the matrix scroll at 980 px. All levels MOCK; the engine half is GN-50, X13 and RC-1, a request until a spec round."
+  },
   "spectra-lab.html": {
    "status": "retired",
    "note": "Archived in the design index (its lab-archive tag): retired engine (H2-PLAN Archived engines). History, never a source."
