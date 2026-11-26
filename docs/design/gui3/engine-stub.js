@@ -303,7 +303,9 @@
     if (m.type === 'set' || m.type === 'corner') {   // a corner names engine rows by the same rules as a set (the bridge's `corner` case)
       var ok = rows ? rows.reduce(function (o, r) { if (!r.reserved) o[r.key] = 1; return o; }, {}) : null;
       for (var k in m.values) {
-        if (ok && !ok[k]) return 'a ' + m.type + ' naming ' + k + ', not one of the engine\u2019s rows';
+        // B711, GUI-74: a set may also name the test plug-in's preview keys (`preview.*`, published in hello.preview); the bridge
+        // lists one it doesn't know in refused.unknown. A corner never may: those keys are never morphed.
+        if (ok && !ok[k] && !(m.type === 'set' && k.lastIndexOf('preview.', 0) === 0)) return 'a ' + m.type + ' naming ' + k + ', not one of the engine\u2019s rows';
         if (typeof m.values[k] !== 'number' || m.values[k] !== m.values[k]) return 'a ' + m.type + ' with a value for ' + k + ' that isn\u2019t a number';
       }
     }
