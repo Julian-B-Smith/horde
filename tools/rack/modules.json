@@ -1,0 +1,31 @@
+{
+  "_about": "The modules the generic slot library can host (ROADMAP B714, ADR-410 r4, ADR-412). One entry per module, in slot order: the first is fx/1, the next fx/2 (SPEC-ENGINE MO-28 numbers slots from 1). Everything the rack knows about a module comes from here and the files it names: the sibling tree and its pin, the manifest inside it, the state-budget row, horde's interim law/mod overlay (tools/rack/law/), the build recipe that compiles its adapter (tools/rack/modules/), and the adapter's factory function. No module is named in code: tools/module_neutral_check.py reads this file and is red when one of these names, a manifest address or a legacy identifier appears as a token in the library, preview_plugin.cpp or bridge_core.*. A consumer picks which entries it links (tools/rack/CMakeLists.txt, horde_rack_registry): the default plug-in takes every entry whose test_only is false. Paths are repo-relative; a tree's default is ~-relative and expanded at configure time, never a machine path. tree.untracked_ok keeps Weir's check what it was before B714 (git diff of the clean paths, untracked files allowed: Weir is header-only and an untracked header is never included by a tracked one); every other tree is checked with untracked files too.",
+  "modules": [
+    {
+      "key": "weir",
+      "module": "fxfilter",
+      "name": "Filter",
+      "test_only": false,
+      "tree": {"var": "HORDE_WEIR_DIR", "default": "~/Documents/Claude/synthetic-worlds/Weir", "pin": "tools/engine-preview/weir.pin", "clean": ["include", "docs/fx"], "untracked_ok": true},
+      "manifest": "docs/fx/manifest-fxfilter.json",
+      "vendored_foundations": null,
+      "budget": {"file": "tools/admission/state_budgets.json", "key": "weir"},
+      "overlay": "tools/rack/law/weir.json",
+      "recipe": "tools/rack/modules/weir.cmake",
+      "factory": "weirModule"
+    },
+    {
+      "key": "scape",
+      "module": "scape",
+      "name": "Scape",
+      "test_only": false,
+      "tree": {"var": "HORDE_SCAPE_DIR", "default": "~/Documents/Claude/synthetic-worlds/Scape", "pin": "tools/engine-preview/scape.pin", "clean": ["core"], "untracked_ok": false},
+      "manifest": "core/manifest.lock.json",
+      "vendored_foundations": "core/third_party/foundations/include/foundations/fx_operator.h",
+      "budget": {"file": "tools/admission/state_budgets.json", "key": "scape"},
+      "overlay": "tools/rack/law/scape.json",
+      "recipe": "tools/rack/modules/scape.cmake",
+      "factory": "scapeModule"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "_about": "HORDE-INTERIM (ROADMAP B714, ADR-410's readings; RS-2.9). Weir's manifest at the pin declares no normalised law and no mod flag; FOUNDATIONS is asked to name both (horde's brief seq 6, respond-by 2026-12-09). Until it answers, horde states them here, and this file is the swap-in point: when the manifest carries the fields, these entries are deleted and tools/rack_overlay_check.py goes red on any that remain (a manifest that declares `law` itself, redundantly or not). Every entry is horde's reading, not Weir's. cutoff is log (20 Hz to 20 kHz, the old filter_core.h position law, x = log(f/20)/log(1000)); the flip keys step; the rest lin. mod: true on the morph-class keys, false on flip keys (X114 (b): a key modulation may reach).",
+  "module": "fxfilter",
+  "status": "horde-interim",
+  "keys": {
+    "fxfilter.type": {"law": "step", "mod": false, "status": "horde-interim"},
+    "fxfilter.mode": {"law": "step", "mod": false, "status": "horde-interim"},
+    "fxfilter.cutoff": {"law": "log", "mod": true, "status": "horde-interim"},
+    "fxfilter.resonance": {"law": "lin", "mod": true, "status": "horde-interim"},
+    "fxfilter.morph": {"law": "lin", "mod": true, "status": "horde-interim"},
+    "fxfilter.mix": {"law": "lin", "mod": true, "status": "horde-interim"}
+  }
+}
