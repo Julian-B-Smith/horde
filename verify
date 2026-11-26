@@ -441,6 +441,24 @@ fast() {
   # budget-over-figure, fired by admission_check in full. ~1 s, no build. Added under
   # ADR-180 §1.
   python3 tools/state_budget_check.py || ok=1
+  # THE RACK'S HOST IDS ARE APPEND-ONLY (B714, ADR-411 Q17 (b), ADR-412 r2). tools/engine-preview/host_ids.lock.json
+  # (and the test module's block) give every module key the test plug-in hosts its CLAP id; red on a renumbered or
+  # removed id against the merge base, on the pre-B714 numbering (0xA00010-33) moved, on an id at next_free, and on a
+  # pinned manifest's key with no id. Six must-fail controls on in-memory copies every run. ~1 s. Added under ADR-180 §1.
+  # Through tgate: its SKIPPED rows (a shallow checkout has no merge base) reach .harness/last-verify.json as skipped.
+  tgate host_id_ledger python3 tools/host_id_ledger_check.py || ok=1
+  # HORDE'S INTERIM LAW/MOD OVERLAY (B714, RS-2.9, X123 (a)). tools/rack/law/<module>.json names exactly each pinned
+  # manifest's keys, with a law and a mod each, and steps aside the day a manifest declares `law` itself; four
+  # must-fail controls every run. A sibling tree that is absent is SKIPPED for its module, never green. ~1 s. Added
+  # under ADR-180 §1.
+  tgate rack_overlay python3 tools/rack_overlay_check.py || ok=1   # through tgate for the same reason: an absent tree is a skip
+  # NO MODULE IS NAMED IN THE HOSTING CODE (B714 acceptance (1), its secondary gate; the behavioural one is the
+  # preview smoke's third module by data alone). Every name the data files give a module (modules.json's key, module,
+  # factory and name, each address's first segment, the legacy prefixes and alias words, and their run-ons with each key
+  # tail), every address and every ledger host id written as a number is red in preview_plugin.cpp, bridge_core.* or
+  # the slot library, as a token or a word inside one; controls plant each kind (red) and "escape" (green). ~1 s.
+  # Added under ADR-180 §1.
+  python3 tools/module_neutral_check.py || ok=1
   # THE ARMOR CATALOGUE (B448 A1, ADR-197). docs/armor/catalogue.json holds one row
   # per risk-register row, agent-signature rule and security category; each row is
   # a gate this file or a workflow actually runs (parsed, never listed), or a hole
@@ -1543,6 +1561,15 @@ full() {
   # renders. No tree: WARNING + SKIPPED, never GREEN. The slot rows (A6 tests 4-6, A7, A13,
   # A14, A16) wait for the shell (B398). Added under ADR-180 §1.
   gate admission_check python3 tools/admission_check.py || return 1
+
+  # THE GENERIC MODULE SLOT (B714, ADR-410 r4; acceptance (5), (6), (9); critic findings 7-9). tools/rack/tests'
+  # rack_test against every module modules.json names, then each of its seven plants, each of which must fail; then the
+  # rack's audio path under RealtimeSanitizer (planted malloc reported, empty scope clean, a rack whose process()
+  # allocates reported, the clean schedule clean); then, when HORDE_PREVIEW_ENGINE names an engine commit, the test
+  # plug-in's own smoke and bridge test through tools/engine-preview/build.sh. HERE, not in fast: sibling trees and
+  # FOUNDATIONS that CI does not have, and minutes of builds. A part that cannot run is SKIPPED with its reason and
+  # named in the receipt, never GREEN. Added under ADR-180 §1.
+  gate rack_check python3 tools/rack_check.py || return 1
 
   # THREAD SAFETY, THE MAIN-THREAD/AUDIO-THREAD HANDOFF (B448 B2, ADR-197 risk
   # row 2, ADR-199). The real shell under ThreadSanitizer: the audio thread

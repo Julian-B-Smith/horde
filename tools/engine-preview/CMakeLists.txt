@@ -4,11 +4,11 @@
 #   HORDE_ENGINE2_DIR   the exported engine2/ directory (required)
 #   HORDE_LIBS_DIR      libs/ with clap, clap-wrapper and choc (default: this repo's)
 #   HORDE_PREVIEW_WEBVIEW, HORDE_PREVIEW_PAGE   the window (below)
-#   HORDE_WEIR_DIR, HORDE_SCAPE_DIR   the two pinned sibling modules, read only (below)
+#   each hosted module's tree, read only, and HORDE_FOUNDATIONS_DIR: the variables tools/rack/modules.json names (below)
 cmake_minimum_required(VERSION 3.20)
-# 13.3, not 11.0 as before B710: Scape's core writes numbers with std::to_chars for double (scape/numtext.h: no locale,
-# no allocation, any thread), which libc++ offers from macOS 13.3. Lowering only scape_core's target would leave a bundle
-# claiming 11.0 that can't load there; this says what the bundle needs.
+# 13.3, not 11.0 as before B710: a hosted module's core (B710's) writes numbers with std::to_chars for double (no locale,
+# no allocation, any thread), which libc++ offers from macOS 13.3. Lowering only that module's target would leave a
+# bundle claiming 11.0 that can't load there; this says what the bundle needs.
 set(CMAKE_OSX_DEPLOYMENT_TARGET "13.3" CACHE STRING "")
 project(horde_engine_preview VERSION 0.0.1 LANGUAGES C CXX OBJC OBJCXX)
 set(CMAKE_CXX_STANDARD 20)
@@ -23,57 +23,6 @@ if(NOT HORDE_ENGINE2_DIR)
 endif()
 set(HORDE_REPO_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../..)
 set(HORDE_LIBS_DIR ${HORDE_REPO_ROOT}/libs CACHE PATH "libs/ with clap and clap-wrapper")
-
-# Weir (B660), the sibling repo's header-only filter library, for the test-only post-engine filter. READ ONLY: nothing is
-# checked out or edited there. The build uses whatever is at HORDE_WEIR_DIR, so it must be exactly the commit weir.pin
-# names, and its headers must match that commit (an edited include/ is not the pin); anything else stops the configure.
-# The default is expanded here from $HOME, never written into a tracked file as an absolute path.
-set(HORDE_WEIR_DIR "$ENV{HOME}/Documents/Claude/synthetic-worlds/Weir" CACHE PATH "Weir checkout (read only), at weir.pin's commit")
-file(STRINGS ${CMAKE_CURRENT_SOURCE_DIR}/weir.pin PREVIEW_WEIR_PIN LIMIT_COUNT 1)
-execute_process(COMMAND git -C "${HORDE_WEIR_DIR}" rev-parse HEAD OUTPUT_VARIABLE PREVIEW_WEIR_HEAD RESULT_VARIABLE PREVIEW_WEIR_RC
-                OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
-if(NOT PREVIEW_WEIR_RC EQUAL 0 OR NOT PREVIEW_WEIR_HEAD STREQUAL PREVIEW_WEIR_PIN)
-  message(FATAL_ERROR "Weir at ${HORDE_WEIR_DIR} is at '${PREVIEW_WEIR_HEAD}', but tools/engine-preview/weir.pin pins ${PREVIEW_WEIR_PIN}. "
-                      "Set HORDE_WEIR_DIR to a Weir checkout at that commit (read only: check it out in a worktree, never edit it here), "
-                      "or move the pin in the same change as the re-test.")
-endif()
-execute_process(COMMAND git -C "${HORDE_WEIR_DIR}" diff --quiet HEAD -- include RESULT_VARIABLE PREVIEW_WEIR_DIRTY)
-if(NOT PREVIEW_WEIR_DIRTY EQUAL 0)
-  message(FATAL_ERROR "Weir's include/ at ${HORDE_WEIR_DIR} differs from its HEAD ${PREVIEW_WEIR_PIN}: the build would not be the pinned Weir.")
-endif()
-set(PREVIEW_WEIR_INCLUDE ${HORDE_WEIR_DIR}/include)
-message(STATUS "Weir pinned at ${PREVIEW_WEIR_PIN}")
-
-# Scape (B710, ADR-408), the sibling repo's reverb, for the test-only post-engine reverb. READ ONLY, pinned as Weir is:
-# HORDE_SCAPE_DIR must be a checkout at exactly the commit scape.pin names, with core/ as that commit has it (no edit
-# and no untracked file), or the configure stops. Its core/ is built by its OWN core/CMakeLists.txt, as
-# tools/admission/CMakeLists.txt builds it (EXCLUDE_FROM_ALL: only scape_core, which the plug-in links), so its
-# arithmetic flags are Scape's (-ffp-contract=fast, Scape Q-026, PRIVATE to scape_core): the module played is the module
-# admitted (tools/admission_check.py at the same pin). The binary directory is under this build's: nothing is written
-# into Scape's tree. Moving the pin is a re-test, admission first.
-set(HORDE_SCAPE_DIR "$ENV{HOME}/Documents/Claude/synthetic-worlds/Scape" CACHE PATH "Scape checkout (read only), at scape.pin's commit")
-file(STRINGS ${CMAKE_CURRENT_SOURCE_DIR}/scape.pin PREVIEW_SCAPE_PIN LIMIT_COUNT 1)
-execute_process(COMMAND git -C "${HORDE_SCAPE_DIR}" rev-parse HEAD OUTPUT_VARIABLE PREVIEW_SCAPE_HEAD RESULT_VARIABLE PREVIEW_SCAPE_RC
-                OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
-if(NOT PREVIEW_SCAPE_RC EQUAL 0 OR NOT PREVIEW_SCAPE_HEAD STREQUAL PREVIEW_SCAPE_PIN)
-  message(FATAL_ERROR "Scape at ${HORDE_SCAPE_DIR} is at '${PREVIEW_SCAPE_HEAD}', but tools/engine-preview/scape.pin pins ${PREVIEW_SCAPE_PIN}. "
-                      "Set HORDE_SCAPE_DIR to a Scape checkout at that commit (read only: a clone checked out at the pin, never "
-                      "a checkout in Scape's own tree), or move the pin in the same change as the re-test.")
-endif()
-# --untracked-files=all is load-bearing: a stray source file in core/ would compile in (its CMakeLists globs nothing
-# today, but a diff alone cannot see a file git does not track).
-execute_process(COMMAND git -C "${HORDE_SCAPE_DIR}" status --porcelain --untracked-files=all -- core
-                OUTPUT_VARIABLE PREVIEW_SCAPE_DIRTY RESULT_VARIABLE PREVIEW_SCAPE_STATUS_RC)
-if(NOT PREVIEW_SCAPE_STATUS_RC EQUAL 0 OR NOT PREVIEW_SCAPE_DIRTY STREQUAL "")
-  message(FATAL_ERROR "Scape's core/ at ${HORDE_SCAPE_DIR} differs from its HEAD ${PREVIEW_SCAPE_PIN}: the build would not be the pinned Scape.\n${PREVIEW_SCAPE_DIRTY}")
-endif()
-add_subdirectory(${HORDE_SCAPE_DIR}/core ${CMAKE_BINARY_DIR}/scape EXCLUDE_FROM_ALL)
-get_target_property(preview_scape_opts scape_core COMPILE_OPTIONS)
-string(FIND "${preview_scape_opts}" "-ffp-contract=fast" preview_scape_fp)
-if(preview_scape_fp EQUAL -1)
-  message(FATAL_ERROR "scape_core is not built with Scape's own -ffp-contract=fast (Scape Q-026): the module played would not be the module admitted")
-endif()
-message(STATUS "Scape pinned at ${PREVIEW_SCAPE_PIN}")
 
 # The same pinned SDK commits as the main build's CMakeLists.txt, and for the same reason: clap-wrapper's own download
 # names them by git tag, which its owner can move. Bumping one means bumping it there too.
@@ -116,6 +65,23 @@ if(NOT PREVIEW_CHOC_RC EQUAL 0)
   message(FATAL_ERROR "choc patch not applied (see the error above)")
 endif()
 
+# The rack (B714): the generic module slot, tools/rack, and every module tools/rack/modules.json hands the default
+# plug-in (its non-test entries), each from its pin: a tree at exactly its .pin's commit with its clean paths as that
+# commit has them, or the configure stops (the module played is the module admitted), and FOUNDATIONS pinned by tree
+# (tools/rack/pins/foundations.pin), its fx_operator.h byte-identical to every copy a module vendors. tools/rack/CMakeLists.txt says
+# how. Nothing here names a module.
+set(HORDE_RACK_CHOC_DIR ${PREVIEW_CHOC_DIR})
+add_subdirectory(${HORDE_REPO_ROOT}/tools/rack ${CMAKE_BINARY_DIR}/rack)
+set(PREVIEW_LEDGERS ${CMAKE_CURRENT_SOURCE_DIR}/host_ids.lock.json)
+horde_rack_library(preview_rack)
+horde_rack_registry(preview_rack_modules RACK preview_rack MODULES ${HORDE_RACK_DEFAULT_MODULES} LEDGERS ${PREVIEW_LEDGERS})
+# The rack with no module at all: "the build as it was", the reference every off-is-bit-identical check is held to.
+horde_rack_registry(preview_rack_none RACK preview_rack MODULES LEDGERS ${PREVIEW_LEDGERS})
+# The rack that never sends a value (tools/rack/rack.cpp's no-values plant): each module plays its own defaults, the
+# deaf control of smoke.cpp's "the values reach the module" checks through the plug-in.
+horde_rack_library(preview_rack_novalues DEFINES HORDE_RACK_PLANT_NO_VALUES)
+horde_rack_registry(preview_rack_modules_novalues RACK preview_rack_novalues MODULES ${HORDE_RACK_DEFAULT_MODULES} LEDGERS ${PREVIEW_LEDGERS})
+
 # The page as a byte array, through the same tool the main build embeds its GUI with: it also gives the page a policy
 # that runs only the page's own inline scripts and loads nothing from anywhere, and refuses a page that would break it.
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
@@ -155,8 +121,8 @@ add_library(preview-impl STATIC preview_plugin.cpp bridge_core.cpp morph_core.cp
 set(HORDE_PREVIEW_BUILD_LABEL "engine unknown, build 0" CACHE STRING "")
 target_compile_definitions(preview-impl PUBLIC "HORDE_PREVIEW_BUILD_LABEL=\"${HORDE_PREVIEW_BUILD_LABEL}\"")
 add_dependencies(preview-impl bank_embedded preview_page)
-target_include_directories(preview-impl PUBLIC ${CMAKE_BINARY_DIR}/generated ${CMAKE_CURRENT_SOURCE_DIR} ${HORDE_REPO_ROOT}/h2 ${PREVIEW_CHOC_DIR} ${PREVIEW_WEIR_INCLUDE})
-target_link_libraries(preview-impl PUBLIC clap clap-wrapper-extensions horde_engine2 scape_core ${PREVIEW_WINDOW_LIBS})
+target_include_directories(preview-impl PUBLIC ${CMAKE_BINARY_DIR}/generated ${CMAKE_CURRENT_SOURCE_DIR} ${HORDE_REPO_ROOT}/h2 ${PREVIEW_CHOC_DIR})
+target_link_libraries(preview-impl PUBLIC clap clap-wrapper-extensions horde_engine2 preview_rack_modules ${PREVIEW_WINDOW_LIBS})
 
 make_clapfirst_plugins(
   TARGET_NAME horde-engine-preview
@@ -190,25 +156,31 @@ endforeach()
 #                        keeps the demo's other corners (B645)
 #   preview-plant-morph  the pad's position dropped, from the host or the page (B636, B639), alone: every other plant here changes something
 #                        the morph's checks also read, which would let its control fail for the wrong reason
-#   preview-plant-nofilter  the test-only filter (B660) compiled out entirely, alone: it is "the build as it was before the
-#                        filter", the reference every preset must match bit for bit with the filter off, and the no-op
-#                        filter the filter-on test must tell from the real one
-#   preview-plant-noreverb  the test-only reverb (B710) compiled out entirely, Scape neither compiled nor linked, alone: the
-#                        reference every preset must match with Scape off, and the dry render the reverb-on checks read
-#   preview-plant-reverb-deaf  Scape on, but the host's values never reach it (it plays its own defaults), alone: the
-#                        control of the checks that the parameters reach Scape
-#   preview-plant-reverb-idle  the idle engine's skip (OU-4) cuts the reverb, alone: the control of the tail check
+#   preview-plant-norack  the rack with no module at all, alone: "the build as it was", the reference every preset must
+#                        match bit for bit with every slot off (B714; it stands in for B660's and B710's no-module builds)
+#   preview-plant-rack-idle  the idle engine's skip (OU-4) cuts every slot's tail, alone: the control of the tail checks
+#                        (B714; B710's reverb-idle plant, generic)
+#   preview-plant-silent-refusal  a refused chunk says nothing (no log line, no `load` member), alone: the control of the
+#                        loud refusal (B714, acceptance (6))
 #   preview-plant-droptest  the page's sets of the test rows (B711) dropped, alone: their descriptors, gestures and host
 #                        parameters are all there, so the checks that a page set reaches the host fail for that reason only
-foreach(plant preview-plant preview-plant-map preview-plant-morph preview-plant-nofilter preview-plant-noreverb
-              preview-plant-reverb-deaf preview-plant-reverb-idle preview-plant-droptest)
+#   preview-plant-rack-noftz  the rack called outside the engine's flush-to-zero scope, alone: the control of the slot
+#                        meters' unflushed count (B714)
+#   preview-plant-rack-novalues  the rack that never sends a value, alone: the deaf control of the Scape checks (B714;
+#                        B710's deaf build, generic)
+foreach(plant preview-plant preview-plant-map preview-plant-morph preview-plant-norack preview-plant-rack-idle
+              preview-plant-silent-refusal preview-plant-droptest preview-plant-rack-noftz preview-plant-rack-novalues)
   add_library(${plant} MODULE preview_plugin.cpp bridge_core.cpp morph_core.cpp preview_gui.mm preview_entry.cpp)
   add_dependencies(${plant} bank_embedded)
   target_compile_definitions(${plant} PRIVATE "HORDE_PREVIEW_BUILD_LABEL=\"${HORDE_PREVIEW_BUILD_LABEL}\"")
-  target_include_directories(${plant} PRIVATE ${CMAKE_BINARY_DIR}/generated ${CMAKE_CURRENT_SOURCE_DIR} ${HORDE_REPO_ROOT}/h2 ${PREVIEW_CHOC_DIR} ${PREVIEW_WEIR_INCLUDE})
+  target_include_directories(${plant} PRIVATE ${CMAKE_BINARY_DIR}/generated ${CMAKE_CURRENT_SOURCE_DIR} ${HORDE_REPO_ROOT}/h2 ${PREVIEW_CHOC_DIR})
   target_link_libraries(${plant} PRIVATE clap horde_engine2 "-framework AppKit")
-  if(NOT plant STREQUAL "preview-plant-noreverb")
-    target_link_libraries(${plant} PRIVATE scape_core)
+  if(plant STREQUAL "preview-plant-norack")
+    target_link_libraries(${plant} PRIVATE preview_rack_none)
+  elseif(plant STREQUAL "preview-plant-rack-novalues")
+    target_link_libraries(${plant} PRIVATE preview_rack_modules_novalues)
+  else()
+    target_link_libraries(${plant} PRIVATE preview_rack_modules)
   endif()
   set_target_properties(${plant} PROPERTIES PREFIX "" SUFFIX ".clap")
 endforeach()
@@ -218,11 +190,41 @@ target_compile_definitions(preview-plant PRIVATE HORDE_PREVIEW_PLANT_NO_ROUTES H
 target_compile_definitions(preview-plant-map PRIVATE HORDE_PREVIEW_PLANT_KEYMAP_SHIFT HORDE_PREVIEW_PLANT_SILENT_TAP
                            HORDE_PREVIEW_PLANT_DEMO_KEEPS_CORNERS)
 target_compile_definitions(preview-plant-morph PRIVATE HORDE_PREVIEW_PLANT_DROP_POSITION)
-target_compile_definitions(preview-plant-nofilter PRIVATE HORDE_PREVIEW_PLANT_NO_FILTER)
-target_compile_definitions(preview-plant-noreverb PRIVATE HORDE_PREVIEW_PLANT_NO_REVERB)
-target_compile_definitions(preview-plant-reverb-deaf PRIVATE HORDE_PREVIEW_PLANT_REVERB_DEAF)
-target_compile_definitions(preview-plant-reverb-idle PRIVATE HORDE_PREVIEW_PLANT_REVERB_IDLE_CUT)
+target_compile_definitions(preview-plant-rack-idle PRIVATE HORDE_PREVIEW_PLANT_RACK_IDLE_CUT)
+target_compile_definitions(preview-plant-silent-refusal PRIVATE HORDE_PREVIEW_PLANT_SILENT_REFUSAL)
 target_compile_definitions(preview-plant-droptest PRIVATE HORDE_PREVIEW_PLANT_DROP_TEST_SETS)
+target_compile_definitions(preview-plant-rack-noftz PRIVATE HORDE_PREVIEW_PLANT_RACK_NO_FTZ)
+
+# B714, acceptance (1): the TEST CONFIGURATION. The same preview_plugin.cpp and bridge_core.cpp, with the registry of
+# every modules.json entry (its test-only ones too: a module added by data alone) and the test module's own ledger block
+# beside the plug-in's. Never installed, never the plug-in. preview-plant-module-branch is the same build with one
+# `if (module == ...)` planted in state_save; the module it names is the first test-only entry's, read here from
+# modules.json, never written in the source. smoke runs the generated rack checks on both: the first passes, the
+# second must fail.
+file(GLOB PREVIEW_TEST_LEDGER_FILES ${HORDE_REPO_ROOT}/tools/rack/test/host_ids*.json)   # a test module's own id block
+set(PREVIEW_TEST_LEDGERS ${PREVIEW_LEDGERS} ${PREVIEW_TEST_LEDGER_FILES})
+set(PREVIEW_ALL_MODULES "")
+set(PREVIEW_BRANCH_MODULE "")
+string(JSON preview_n LENGTH "${HORDE_RACK_MODULES_JSON}" modules)
+math(EXPR preview_last "${preview_n} - 1")
+foreach(i RANGE ${preview_last})
+  string(JSON k GET "${HORDE_RACK_MODULES_JSON}" modules ${i} key)
+  string(JSON only GET "${HORDE_RACK_MODULES_JSON}" modules ${i} test_only)
+  list(APPEND PREVIEW_ALL_MODULES ${k})
+  if(only AND PREVIEW_BRANCH_MODULE STREQUAL "")
+    string(JSON PREVIEW_BRANCH_MODULE GET "${HORDE_RACK_MODULES_JSON}" modules ${i} module)
+  endif()
+endforeach()
+horde_rack_registry(preview_rack_testmods RACK preview_rack MODULES ${PREVIEW_ALL_MODULES} LEDGERS ${PREVIEW_TEST_LEDGERS})
+foreach(plant preview-testmods preview-plant-module-branch)
+  add_library(${plant} MODULE preview_plugin.cpp bridge_core.cpp morph_core.cpp preview_gui.mm preview_entry.cpp)
+  add_dependencies(${plant} bank_embedded)
+  target_compile_definitions(${plant} PRIVATE "HORDE_PREVIEW_BUILD_LABEL=\"${HORDE_PREVIEW_BUILD_LABEL}, test configuration\"")
+  target_include_directories(${plant} PRIVATE ${CMAKE_BINARY_DIR}/generated ${CMAKE_CURRENT_SOURCE_DIR} ${HORDE_REPO_ROOT}/h2 ${PREVIEW_CHOC_DIR})
+  target_link_libraries(${plant} PRIVATE clap horde_engine2 preview_rack_testmods "-framework AppKit")
+  set_target_properties(${plant} PROPERTIES PREFIX "" SUFFIX ".clap")
+endforeach()
+target_compile_definitions(preview-plant-module-branch PRIVATE "HORDE_PREVIEW_PLANT_MODULE_BRANCH=\"${PREVIEW_BRANCH_MODULE}\"")
 
 add_executable(preview-smoke smoke.cpp morph_core.cpp)
 add_dependencies(preview-smoke bank_embedded)
@@ -235,11 +237,12 @@ add_executable(preview-gui-shot gui_shot.mm)
 target_include_directories(preview-gui-shot PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(preview-gui-shot PRIVATE clap "-framework AppKit" "-framework WebKit")
 
-# The bridge's pure half, headless (section 7's rows). It links the engine only for its manifest, and the two test-only
-# modules (Weir, Scape) for their wrappers' DSP checks.
+# The bridge's pure half, headless (section 7's rows). It links the engine only for its manifest, and the rack's registry
+# for its slot table (the rack's keys on the page, the chunk's fx section and its migration).
 add_executable(preview-bridge-test bridge_test.cpp bridge_core.cpp morph_core.cpp)
-target_include_directories(preview-bridge-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${HORDE_REPO_ROOT}/h2 ${PREVIEW_CHOC_DIR} ${PREVIEW_WEIR_INCLUDE})
-target_link_libraries(preview-bridge-test PRIVATE horde_engine2 scape_core)
+target_include_directories(preview-bridge-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${HORDE_REPO_ROOT}/h2 ${PREVIEW_CHOC_DIR})
+target_link_libraries(preview-bridge-test PRIVATE horde_engine2 preview_rack_modules)
+target_compile_definitions(preview-bridge-test PRIVATE "HORDE_PREVIEW_FIXTURES=\"${CMAKE_CURRENT_SOURCE_DIR}/fixtures\"")
 
 # The recorded frames GUI 3's ReplayTransport plays (section 7): a fixed chord through the built plug-in's bridge.
 add_executable(preview-frames-dump frames_dump.cpp)
@@ -254,8 +257,8 @@ add_executable(preview-morph-probe morph_probe.cpp)
 add_library(preview-morph-wholespan MODULE preview_plugin.cpp bridge_core.cpp morph_core.cpp preview_gui.mm preview_entry.cpp)
 add_dependencies(preview-morph-wholespan bank_embedded)
 target_compile_definitions(preview-morph-wholespan PRIVATE "HORDE_PREVIEW_BUILD_LABEL=\"${HORDE_PREVIEW_BUILD_LABEL}\"" HORDE_PREVIEW_PROBE_WHOLE_SPANS)
-target_include_directories(preview-morph-wholespan PRIVATE ${CMAKE_BINARY_DIR}/generated ${CMAKE_CURRENT_SOURCE_DIR} ${HORDE_REPO_ROOT}/h2 ${PREVIEW_CHOC_DIR} ${PREVIEW_WEIR_INCLUDE})
-target_link_libraries(preview-morph-wholespan PRIVATE clap horde_engine2 scape_core "-framework AppKit")
+target_include_directories(preview-morph-wholespan PRIVATE ${CMAKE_BINARY_DIR}/generated ${CMAKE_CURRENT_SOURCE_DIR} ${HORDE_REPO_ROOT}/h2 ${PREVIEW_CHOC_DIR})
+target_link_libraries(preview-morph-wholespan PRIVATE clap horde_engine2 preview_rack_modules "-framework AppKit")
 set_target_properties(preview-morph-wholespan PROPERTIES PREFIX "" SUFFIX ".clap")
 target_include_directories(preview-morph-probe PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(preview-morph-probe PRIVATE clap horde_engine2)

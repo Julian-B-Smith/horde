@@ -1,0 +1,9 @@
+{
+  "_about": "The test module's law and mod (ROADMAP B714): horde's own module, so these are its declarations, not an interim reading of a sibling's.",
+  "module": "passthrough",
+  "status": "horde test module",
+  "keys": {
+    "pass.gain": {"law": "lin", "mod": true, "status": "horde test module"},
+    "pass.mode": {"law": "step", "mod": false, "status": "horde test module"}
+  }
+}

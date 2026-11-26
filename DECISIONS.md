@@ -14060,3 +14060,69 @@ The plan went to the human as a private claude.ai artifact, and four questions g
 **FX device (ADR-254):** the same. It hosts the same modules through the same library and the same budgets. Ruling 2 is the test plug-in's alone, since the product and the FX device expose only slot macros (RS-5.6).
 
 **Engine impact:** none on the resolver. The slot library (B714) gains a FOUNDATIONS pin and a ledger of generated host ids.
+
+## ADR-413 — RULED by the human: B714 stage 1's tolerance registry (retire the three entries whose code is gone, register nine) and Weir's -140 dB idle stop restored; and the lead's readings for stage 1 (B714; 2026-11-26)
+
+**Context.** B714's stage 1 (one generic slot library in the test plug-in; ADR-410 r4, ADR-411, ADR-412) was built by an Opus implementer. Two adversarial review rounds checked it:
+- First, five Opus lenses, with two refuters per finding: 24 findings survived, two of them blockers.
+- Then an Opus re-review of the fixes, which added nine more (N1 to N9).
+
+The blockers were gate weakening. The checks that the filter filters, and that Scape's tail rings to the human-approved -40 dB, had been dropped. Both are restored at main's thresholds, with their no-op controls. After the fixes, `tolerance_registry_check` was the only red gate. Clearing it needs the human's approval, so the human was polled: three questions, then one more that ruling 3 raised.
+
+**Rulings** (the human, 2026-11-26, each by the recommended option):
+1. **"Retire them".** These registry entries leave `docs/armor/tolerances.json`, because their code no longer exists:
+   - `tools/engine-preview/post_filter.h::inline-float-compare` (`<1e-7`, Weir's level stop);
+   - `tools/engine-preview/post_reverb.h::inline-float-compare` (`>=0.5`, the reverb's on text);
+   - `tools/engine-preview/preview_plugin.cpp::inline-float-compare` (`>=0.5 | <0.5 | >=0.5 | >=0.5`, the filter's and the reverb's on tests and texts).
+
+   What replaces them:
+   - The rack's slot switch: a stepped 0/1 host value, read as `lround(clamp(v, 0, 1)) != 0`, with the same rule in the chunk and in the host text.
+   - Each module's declared tail, for the idle cut.
+2. **"Register all nine".** These are registered at their current values (`approved: ADR-413`):
+
+   | File | Thresholds |
+   |---|---|
+   | `tools/admission/weir_adapter.cpp` | `kStressCutoffThresholdHz` 2000, `kStressResonanceThreshold` 0.9, `kStressRingThreshold` 0.5 |
+   | `tools/engine-preview/smoke.cpp` | `kTailFromBoundS` 1.5, `kTailToBoundS` 4 |
+   | `tools/rack/rack.cpp` | `kClipThreshold` 1.0, `kOldLevelThreshold` 1e-7 (a plant) |
+   | `tools/rack/rack.h` | `kGainGlideBoundS` 0.020 |
+   | `tools/rack/tests/rack_test.cpp` | `kIdleTailBoundS` 40 |
+
+   Their names were chosen so the inventory sees them, and they stay. The re-review's N8 asked to rename them for what they are; the human's approval of them as named overrules it.
+   One threshold is still invisible to the inventory: smoke's `kLoudPresetsThreshold = kBankSize / 2`, computed from another name. It is listed here as a known blind spot.
+3. **"Restore the -140 dB stop".** horde's Weir adapter declares Weir's tail over once Weir's own tail level is below 1e-7 (-140 dB), as main's `post_filter.h` did. After that, the rack's idle cut makes the output exact zero.
+
+   Without the stop, Weir ran until its state was exactly zero. Measured on an idle instance:
+   - Weir alone: about 0.5 ms per second of audio extra, for about 100 s.
+   - Weir with Scape: Scape ran about 70 s longer than on main, at about 1.3 % of a core.
+
+   The threshold is registered with ruling 2's approval ref, as `weir_adapter.cpp`'s `kRungOutThreshold`, and it is a horde-interim adapter reading (see the Weir readings below).
+
+   Measured after the change, idle cost is back at main's. Weir and Scape run until 26.9 s, as on main, at 0.53 against 0.49 ms per second of audio after 30 s. Weir alone runs until 0.9 s, as on main.
+4. **"Register it" (asked after ruling 3, the same day).** The idle test's residue bound, `tools/rack/tests/rack_test.cpp`'s `kIdleResidueBound` 1e-7 (-140 dB), is registered with the others. It is the only check that catches a module cutting its own tail early: what the cut drops must be below -140 dB. Weir measures -228 dB at its defaults.
+
+**Rejected** (the polls' other options): "Not yet" (three times) and "Keep exact zero".
+
+**The lead's readings for stage 1** (open to overrule; nothing below is the human's):
+- **R1. Where the library lives.** It is `tools/rack/`, a self-contained static library (`horde_rack`) with its own CMakeLists. Its pins live in `tools/rack/pins/`, which a consumer can override. S8's shell links it by add_subdirectory.
+- **R2. A flip key with fewer than two values is a constant.** It is held at its default and kept out of the table, the host ids and the page. This covers Weir's `fxfilter.type`. The rule is generic.
+- **R3. The host-id ledger.** `tools/engine-preview/host_ids.lock.json` is append-only and maps each (module, address) to an id. The old ids 0xA00010 to 0xA00033 keep their numbers. Weir's slot-supplied I/O pair takes 0xA00034 and 0xA00035. Values are v by law (ADR-412 r2).
+
+  The ledger is guarded the way the param-id ratchet is: it is in `ledger_owner_check`'s LEDGERS, its check is in GUARDS, and CODEOWNERS covers both. `ledger_owner_check`'s own text called this "the human's ruling", so it is listed here for the human to overrule.
+- **R4. The test plug-in's old page keys.** `hello.preview` and the `preview.filter.*` / `preview.scape.*` keys are generated from the ledger's alias data. They are byte-compatible with main's frame, held against a capture of it. They are retired in S6, after the GUI session's GB42 moves the page to `hello.slots`.
+- **R5. Chunk v7.** It carries the `fx` section in SPEC-ENGINE MO-31's per-corner layout, with the four corners identical until S5. Device keys sit once, outside the corners. A reserved, empty `prefs` section is for device preferences. v5 and v6 migrate through a frozen legacy table held as data; v1 to v4 load dry. Anything else is refused loudly: state_load returns false, a session-log line is written, and a `load` frame is published.
+- **R6. The double hop.** The rack keeps double precision between slots, where main rounded to float between the filter and Scape. One module on migrates bit-identically to main. Both on differ by at most 1.97e-7 (RMS 3.58e-8, peak 0.174) on the v6 fixture. This is an intentional divergence of the test plug-in, which is not a JS-parity core.
+- **R7. Weir's default cutoff.** The module's manifest default wins: 1000 Hz, v 0.5663233. Main's `State{}` held 0.56628 (999.70 Hz). Old chunks carry explicit values, so the only change is a fresh instance's cutoff, by 0.3 Hz. This is the migration note Blind-Spot Armor asks for.
+- **R8. Weir's horde-interim adapter readings.** Weir ships no FX operator, so horde's adapter defines them:
+  - dry/wet mix per block;
+  - the mode index plus 1, Weir's own offset;
+  - latency 0 and min_block 1;
+  - state text in `%.17g` lines, within Weir's declared 4,096 B;
+  - the -140 dB tail stop (ruling 3).
+
+  A notice goes to Weir naming them. Weir can confirm them, or ship its own operator.
+- **R9. The law and mod overlay.** `tools/rack/law/<module>.json` holds horde's interim `law` and `mod` per address until FOUNDATIONS answers brief seq 6 (due 2026-12-09). `rack_overlay_check` is red when a pinned manifest declares `law` itself.
+
+**FX device (ADR-254):** the same library, with the same refusals and tests. The ledger, the aliases and R7 belong to the test plug-in alone, since the product and the FX device expose only slot macros (RS-5.6).
+
+**Engine impact:** none on the resolver.

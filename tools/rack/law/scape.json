@@ -1,0 +1,152 @@
+{
+  "_about": "HORDE-INTERIM (ROADMAP B714, ADR-410's readings; RS-2.9, X123 (a)). Scape's manifest at the pin declares no normalised law and no mod flag; FOUNDATIONS is asked to name both (horde's brief seq 6, respond-by 2026-12-09), and X123 (a) makes the law the module's choice, so every entry here is horde choosing on Scape's behalf until it does. This file is the swap-in point: when the manifest carries the fields, these entries are deleted, and tools/rack_overlay_check.py is red on a pinned manifest that declares `law` itself while an entry remains. The reading, from each key's unit: a frequency or a time whose range starts above 0 is log (lowCut, modRate, inHP, inLP, spinRate, decay, glideTime); one whose range starts at 0 cannot be log and is lin (preDelay, mixTimeMs, spinDepth, bassMono); era and delayMotion step; io.inGain and io.outGain io; the rest lin. mod: true on the morph-class keys, false on flip and Device keys.",
+  "module": "scape",
+  "status": "horde-interim",
+  "keys": {
+    "verb.mix": {
+      "law": "lin",
+      "mod": true,
+      "status": "horde-interim"
+    },
+    "verb.preDelay": {
+      "law": "lin",
+      "mod": true,
+      "status": "horde-interim"
+    },
+    "verb.erSend": {
+      "law": "lin",
+      "mod": true,
+      "status": "horde-interim"
+    },
+    "verb.erSize": {
+      "law": "lin",
+      "mod": true,
+      "status": "horde-interim"
+    },
+    "verb.erDecay": {
+      "law": "lin",
+      "mod": true,
+      "status": "horde-interim"
+    },
+    "verb.envelop": {
+      "law": "lin",
+      "mod": true,
+      "status": "horde-interim"
+    },
+    "verb.tailDecorr": {
+      "law": "lin",
+      "mod": true,
+      "status": "horde-interim"
+    },
+    "verb.mixTimeMs": {
+      "law": "lin",
+      "mod": true,
+      "status": "horde-interim"
+    },
+    "verb.diffuse": {
+      "law": "lin",
+      "mod": true,
+      "status": "horde-interim"
+    },
+    "verb.size": {
+      "law": "lin",
+      "mod": true,
+      "status": "horde-interim"
+    },
+    "verb.decay": {
+      "law": "log",
+      "mod": true,
+      "status": "horde-interim"
+    },
+    "verb.damp": {
+      "law": "lin",
+      "mod": true,
+      "status": "horde-interim"
+    },
+    "verb.lowCut": {
+      "law": "log",
+      "mod": true,
+      "status": "horde-interim"
+    },
+    "verb.modDepth": {
+      "law": "lin",
+      "mod": true,
+      "status": "horde-interim"
+    },
+    "verb.modRate": {
+      "law": "log",
+      "mod": true,
+      "status": "horde-interim"
+    },
+    "verb.width": {
+      "law": "lin",
+      "mod": true,
+      "status": "horde-interim"
+    },
+    "verb.bassMono": {
+      "law": "lin",
+      "mod": true,
+      "status": "horde-interim"
+    },
+    "verb.inHP": {
+      "law": "log",
+      "mod": true,
+      "status": "horde-interim"
+    },
+    "verb.inLP": {
+      "law": "log",
+      "mod": true,
+      "status": "horde-interim"
+    },
+    "verb.spinDepth": {
+      "law": "lin",
+      "mod": true,
+      "status": "horde-interim"
+    },
+    "verb.spinRate": {
+      "law": "log",
+      "mod": true,
+      "status": "horde-interim"
+    },
+    "verb.preGain": {
+      "law": "lin",
+      "mod": true,
+      "status": "horde-interim"
+    },
+    "verb.postGain": {
+      "law": "lin",
+      "mod": true,
+      "status": "horde-interim"
+    },
+    "io.outGain": {
+      "law": "io",
+      "mod": false,
+      "status": "horde-interim"
+    },
+    "verb.era": {
+      "law": "step",
+      "mod": false,
+      "status": "horde-interim"
+    },
+    "verb.delayMotion": {
+      "law": "step",
+      "mod": false,
+      "status": "horde-interim"
+    },
+    "verb.glideTime": {
+      "law": "log",
+      "mod": true,
+      "status": "horde-interim"
+    },
+    "io.inGain": {
+      "law": "io",
+      "mod": false,
+      "status": "horde-interim"
+    },
+    "verb.image": {
+      "law": "lin",
+      "mod": true,
+      "status": "horde-interim"
+    }
+  }
+}

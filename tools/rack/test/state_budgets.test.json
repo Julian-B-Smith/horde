@@ -1,0 +1,6 @@
+{
+  "_about": "The test module's state-budget row (ROADMAP B714). Not in tools/admission/state_budgets.json, which mirrors the contract's §12.9 table row for row (tools/state_budget_check.py): a test-only module has no ruling to mirror, and the plug-in never links it.",
+  "modules": {
+    "passthrough": {"name": "Pass", "bytes": 1024, "counts": "own", "status": "test-only"}
+  }
+}

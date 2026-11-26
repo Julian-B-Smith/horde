@@ -1,10 +1,10 @@
 // horde ENGINE PREVIEW (B624): a thin CLAP around the clean-room engine, so the human can play it in Live and we
 // can see what it costs there. Throwaway on purpose: it isn't the B398 shell and owes none of ADR-186 §5's rules.
 // Its window is GUI 3's page in a web view (preview_webview.mm, B628), or the small AppKit one (preview_gui.mm) when
-// built with HORDE_PREVIEW_WEBVIEW=OFF. No effects or modulation matrix: the engine has none of them yet, and its only
-// filter is the test-only one (B660): Weir's SVF 12 after the engine's output, six host parameters (filter_core.h), off by default.
-// After the filter, the test-only reverb (B710, ADR-408): Scape's whole module, "Scape on" and Scape's own 29 parameters
-// as host parameters (reverb_core.h, post_reverb.h), off by default. Neither is the rack (RC-5, B398).
+// built with HORDE_PREVIEW_WEBVIEW=OFF. No modulation matrix: the engine has none yet. Effects come after the engine's
+// output through the generic module slot (B714, tools/rack): every module modules.json hands this build, on one serial
+// chain, each slot off by default and off a true bypass, its keys host parameters by the ledger's ids
+// (host_ids.lock.json). Nothing in this file names a module: tools/module_neutral_check.py holds it to that.
 // Pitch bend and the bank's glide are played here, a stand-in for the pitch system (RC-3) until B504 (B632). The morph
 // is the clean room's own resolver (IF-12), hosted here (B636; see "the morph system" below).
 //
@@ -51,16 +51,14 @@
 #include "bank.h"
 #include "bridge_core.h"
 #include "bridge_ext.h"
-#include "filter_core.h"
 #include "flush_to_zero.h"
 #include "horde_engine.h"
 #include "morph_core.h"
-#include "post_filter.h"
-#ifndef HORDE_PREVIEW_PLANT_NO_REVERB   // the plant without it is the build as it was: no Scape compiled or linked at all
-#include "post_reverb.h"
-#endif
 #include "preview_gui.h"
-#include "test_rows.h"
+#include "rack/chunk.h"
+#include "rack/descriptor.h"
+#include "rack/rack.h"
+#include "rack/slot_table.h"
 
 namespace {
 
@@ -85,29 +83,16 @@ constexpr const char* kDefaultPreset = "Trance jitter";
 // explicit ids from a lockfile; none is committed yet, so these are the plug-in's own, in a block of its own beside
 // Preset's: above every engine id (each engine source owns a range below 0x6000) and below IF-11's 0xB00000.
 constexpr clap_id kMorphXId = 0xA00001, kMorphYId = 0xA00002;
-// B660's test-only filter: six host parameters after the morph's pair (ids from 0xA00010, filter_core.h). The smoke test's
-// must-fail build compiles all of it out, which is also what "the build without the filter" is for the bit-identity
-// control: that build and this one must render every preset to the same bits with the filter off.
-#ifdef HORDE_PREVIEW_PLANT_NO_FILTER
-constexpr int kFilterHostParams = 0;
-#else
-constexpr int kFilterHostParams = preview::filter::kParams;
-#endif
-// B710's test-only reverb: "Scape on" and Scape's 29 after the filter's six (ids from 0xA00016, reverb_core.h). Its
-// bit-identity plant compiles all of it out, on the same rule as the filter's: that build and this one must render every
-// preset to the same bits with Scape off.
-#ifdef HORDE_PREVIEW_PLANT_NO_REVERB
-constexpr int kReverbHostParams = 0;
-#else
-constexpr int kReverbHostParams = preview::reverb::kHostParams;
-#endif
+// The rack's host parameters (B714) follow the morph's pair: every slot's switch and keys, by the ledger's ids
+// (host_ids.lock.json), in ascending id order, so the blocks laid before B714 keep their places and a new key lands
+// after them (rack_params below).
 constexpr int kMaxPoints = 65;   // one key's waypoints as the page sends them: past MO-21's 8 the resolver refuses the list
 // The morph (B636). Events one span may carry: spans are cut at every control interval while the morph moves, so one
 // boundary's worth (every key and set) fits many times over. A resolver drop past this is counted, never silent.
 constexpr std::size_t kMorphEvents = 4096;
 constexpr std::size_t kTextBytes = horde::kRatiosMaxBytes + 1;
 using preview::morph::kSettings;
-// MO-14's groups the engine renders (fx/N goes to a rack this plug-in hasn't got), for IF-10's heard sets in frames.
+// MO-14's groups the engine renders (fx/N goes to the rack, through no setting set in 1.0), for IF-10's heard sets in frames.
 constexpr const char* kSetGroups[] = {"osc1/pan", "osc1/env", "osc1/kernel", "osc1/swarm", "osc2/pan", "osc2/env",
                                       "osc2/kernel", "osc2/swarm", "noise/env", "sub/chain", "noise/chain"};
 constexpr int kSetGroupCount = int(sizeof kSetGroups / sizeof kSetGroups[0]);   // one of the lighter patches in the 2026-11-05 worst-block run
@@ -159,10 +144,35 @@ int manifest_index(clap_id id) {
   return it != all.end() && (*it)->id == id ? int(it - all.begin()) : -1;
 }
 
-// The test rows the page may name (B711), each a host parameter of this build: built once on the main thread, read-only
-// after. Never on the audio thread, which knows them only by id.
+// The rack's slot table (B714), built once from this build's registry (tools/rack, generated from modules.json) on the
+// main thread, read-only after: every thread may read it.
+const rack::SlotTable& rack_table() { return rack::registered_table(); }
+
+// The rack's host parameters in params order: ascending host id. (slot, key), key -1 for the slot's switch.
+struct RackParam { std::uint32_t id; int slot, key; };
+const std::vector<RackParam>& rack_params() {
+  static const std::vector<RackParam> list = [] {
+    std::vector<RackParam> out;
+    const rack::SlotTable& t = rack_table();
+    for (std::size_t s = 0; s < t.slots.size(); ++s) {
+      out.push_back({t.slots[s].on_id, int(s), -1});
+      for (std::size_t k = 0; k < t.slots[s].keys.size(); ++k) out.push_back({t.slots[s].keys[k].host_id, int(s), int(k)});
+    }
+    std::sort(out.begin(), out.end(), [](const RackParam& a, const RackParam& b) { return a.id < b.id; });
+    return out;
+  }();
+  return list;
+}
+const RackParam* rack_param(clap_id id) {
+  const auto& list = rack_params();
+  auto it = std::lower_bound(list.begin(), list.end(), id, [](const RackParam& p, clap_id i) { return p.id < i; });
+  return it != list.end() && it->id == id ? &*it : nullptr;
+}
+
+// The rack's keys the page may name (B711, B714): fx/N/<address>, fx/N.on, and the ledger's pre-B714 aliases, each a
+// host parameter of this build. Built once on the main thread, read-only after; the audio thread knows them by id.
 const preview::bridge::TestKeys& testkeys() {
-  static const preview::bridge::TestKeys keys(preview::bridge::test_rows());
+  static const preview::bridge::TestKeys keys(preview::bridge::test_rows(rack_table()));
   return keys;
 }
 
@@ -382,18 +392,13 @@ struct Plugin {
   const clap_host_params_t* host_params = nullptr;
 
   double sample_rate = 44100;
-  // The test-only post-engine filter (B660): host values in the host's form, written by the audio thread (events) and the
-  // main thread (a state load), read by the audio thread once a block. A plain atomic per value, as the morph's position.
-  std::atomic<double> filter_v[preview::filter::kParams];
-  preview::filter::PostFilter post_filter;   // audio thread; prepared at activation
-  bool filter_was_on = false;                // audio thread
-  // The test-only reverb (B710): "Scape on" then Scape's values in its own units, on the filter's rule (atomics the audio
-  // thread's events and the main thread's state load write, read once a block).
-#ifndef HORDE_PREVIEW_PLANT_NO_REVERB
-  std::atomic<double> reverb_v[preview::reverb::kHostParams];
-  preview::reverb::PostReverb post_reverb;   // audio thread; prepared at activation
-  bool reverb_was_on = false;                // audio thread
-#endif
+  // The rack (B714): its values are atomics the audio thread's events and the main thread's state load write, and the
+  // audio thread reads once a block; its modules are made and prepared at activation (main thread).
+  rack::Rack rack;
+  // State loads (B714): each one's report, for the frame's `load` member (once) and the session log (every one).
+  preview::bridge::LoadReport load_report;
+  bool load_due = false;
+  std::vector<std::string> load_log;
   int max_block = kEngineMaxBlock;
   bool active = false;      // main thread
   int built_preset = -1;    // main thread
@@ -496,6 +501,14 @@ struct Plugin {
 
 Plugin* self(const clap_plugin_t* p) { return static_cast<Plugin*>(p->plugin_data); }
 
+// One line for the session log's state-load section (B714), main thread. A session keeps the first kLoadLines; any more
+// are counted in the line that says so, never dropped silently.
+constexpr std::size_t kLoadLines = 256;
+void note_load(Plugin& s, const std::string& line) {
+  if (s.load_log.size() < kLoadLines) s.load_log.push_back(line);
+  else if (s.load_log.size() == kLoadLines) s.load_log.push_back("(later lines not kept: the session keeps " + std::to_string(kLoadLines) + ")");
+}
+
 // Main thread: moves the audio thread's overrun records into the log's list (B642).
 void drain_overruns(Plugin& s) {
   OverrunRing& r = s.overrun_ring;
@@ -545,6 +558,10 @@ void write_stats(Plugin& s) {
   for (const OverrunRecord& o : s.overrun_log)
     std::fprintf(f, "%.3f\t%s\t%u\t%.2f\t%s\t%d\t%d\n", o.at_s, kBank[o.preset].name, o.frames, 100 * o.share, kMorph[std::clamp(o.morph, 0, 2)], o.unison[0],
                  o.unison[1]);
+  // B714: every state load (its version, whether it migrated, or why it was refused) and anything the rack refused, one
+  // comment line each, after the overruns, so the per-overrun lines read as they did.
+  std::fprintf(f, "# state loads and the rack: %zu lines\n", s.load_log.size());
+  for (const std::string& line : s.load_log) std::fprintf(f, "# %s\n", line.c_str());
   std::fclose(f);
   std::rename(temp.c_str(), s.log_path.c_str());
 }
@@ -784,22 +801,7 @@ bool set_param(Plugin& s, clap_id id, double value, std::uint32_t sample = 0) {
     s.wanted_preset.store(std::clamp(int(std::lround(value)), 0, kBankSize - 1), std::memory_order_relaxed);
     return true;
   }
-#ifndef HORDE_PREVIEW_PLANT_NO_FILTER
-  if (preview::filter::is_filter_id(id)) {
-    if (!std::isfinite(value)) return false;
-    const int f = preview::filter::param_of(id);
-    s.filter_v[f].store(preview::filter::clamped(f, value), std::memory_order_relaxed);
-    return true;
-  }
-#endif
-#ifndef HORDE_PREVIEW_PLANT_NO_REVERB
-  if (preview::reverb::is_reverb_id(id)) {
-    if (!std::isfinite(value)) return false;
-    const int k = preview::reverb::param_of(id);
-    s.reverb_v[k + 1].store(preview::reverb::clamped(k, value), std::memory_order_relaxed);
-    return true;
-  }
-#endif
+  if (rack_param(id)) return s.rack.set_host(id, value);   // B714: a rack key, in its host form; non-finite is refused
   if (id == kMorphXId || id == kMorphYId) {   // the pad's position: the resolver's, never the engine's (IF-11, IF-12)
     if (!std::isfinite(value)) return false;
     const double v = std::clamp(value, 0.0, 1.0);
@@ -829,12 +831,7 @@ bool set_param(Plugin& s, clap_id id, double value, std::uint32_t sample = 0) {
 
 bool host_parameter(clap_id id) {
   if (id == kPresetId || id == kMorphXId || id == kMorphYId) return true;
-#ifndef HORDE_PREVIEW_PLANT_NO_FILTER
-  if (preview::filter::is_filter_id(id)) return true;
-#endif
-#ifndef HORDE_PREVIEW_PLANT_NO_REVERB
-  if (preview::reverb::is_reverb_id(id)) return true;
-#endif
+  if (rack_param(id)) return true;
   const int m = manifest_index(id);
   return m >= 0 && rows().host_of[std::size_t(m)] >= 0;
 }
@@ -1053,7 +1050,7 @@ void follow_voices(Plugin& s, horde::Engine& engine) {
         default: break;
       }
     }
-    if (n < 64) break;   // bounded: the engine's own queue is finite, and each pass empties up to 64 of it
+    if (n < 64) break;   // bounded: the engine's own queue is finite, and each round empties up to 64 of it
   }
 }
 
@@ -1385,7 +1382,9 @@ std::size_t morph_to_events(Plugin& s, Slot& slot, std::size_t n, std::uint64_t 
     } else if (ev.kind == horde::MorphEvent::Kind::Ratios) {
       if (n_texts < std::size_t(kMaxTexts) && ev.text) texts[n_texts++] = {at, ev.osc, ev.text};
     } else if (ev.kind == horde::MorphEvent::Kind::Set && ev.set) {
-      if (!std::strncmp(ev.set->group, "fx/", 3)) continue;   // IF-12: an FX slot's set goes to a rack, and there is none
+      // IF-12: an FX slot's set goes to the rack, never the engine; the rack takes no morph events until S5 (B714), so
+      // until then a set for fx/N is dropped here, as before.
+      if (!std::strncmp(ev.set->group, "fx/", 3)) continue;
       horde::Event e;
       e.type = horde::EventType::SettingSet;
       e.sample = at;
@@ -1606,44 +1605,6 @@ void note_overrun(Plugin& s, int preset, std::uint32_t frames, double share) {
 #endif
 }
 
-// B660: Weir's SVF 12 on the engine's output, in place. Off, it does nothing at all (not even a read of the buffers), so
-// the output is bit for bit what the engine rendered. Turning it on starts from cleared state: a stale ring from the last
-// time it ran would otherwise burst out.
-void apply_post_filter(Plugin& s, float* left, float* right, std::uint32_t frames, bool engine_idle = false) {
-#ifndef HORDE_PREVIEW_PLANT_NO_FILTER
-  preview::filter::State v;
-  for (int f = 0; f < preview::filter::kParams; ++f) v.v[f] = s.filter_v[f].load(std::memory_order_relaxed);
-  const bool on = v.v[preview::filter::kOn] >= 0.5;
-  if (on && !s.filter_was_on) s.post_filter.reset();
-  s.filter_was_on = on;
-  // An idle engine puts zeros in: the filter still runs while it rings (OU-4 stays cheap once it has rung out).
-  if (on && !(engine_idle && s.post_filter.rung_out())) s.post_filter.process(v, left, right, frames);
-#else
-  (void)s; (void)left; (void)right; (void)frames; (void)engine_idle;
-#endif
-}
-
-// B710: Scape on the output after the filter, in place. Off, it does nothing at all (not even a read of the buffers), so the
-// output is bit for bit what came before it. Turning it on starts from a cleared Scape with every value landed. True when
-// it wrote the buffers: zeros in still ring out Scape's tail, through the idle engine's skip too, until its declared tail
-// has passed (post_reverb.h).
-bool apply_post_reverb(Plugin& s, float* left, float* right, std::uint32_t frames) {
-#ifndef HORDE_PREVIEW_PLANT_NO_REVERB
-  if (s.reverb_v[0].load(std::memory_order_relaxed) < 0.5) {
-    s.reverb_was_on = false;
-    return false;
-  }
-  if (!s.reverb_was_on) s.post_reverb.reset();
-  s.reverb_was_on = true;
-  double v[preview::reverb::kScapeParams];
-  for (int k = 0; k < preview::reverb::kScapeParams; ++k) v[k] = s.reverb_v[k + 1].load(std::memory_order_relaxed);
-  return s.post_reverb.process(v, left, right, frames);
-#else
-  (void)s; (void)left; (void)right; (void)frames;
-  return false;
-#endif
-}
-
 // Output guard (Blind-Spot Armor: latch and report, never clamp silently): a bad sample must not reach the host, and the
 // session log shows the count. Also the output meter's peak.
 void guard_output(Plugin& s, float* left, float* right, std::uint32_t frames) {
@@ -1694,14 +1655,15 @@ clap_process_status plugin_process(const clap_plugin_t* p, const clap_process_t*
     std::fill_n(right, frames, 0.0f);
     skip_morph(s, *s.live, frames);
     s.live->engine->skip(frames);
-    bool rang = false;   // zeros in: a resonant filter and a reverb's tail still ring out (B660, B710)
+    // Zeros in: each slot still rings out while its declared tail runs (rack.h's idle cut). Whenever ANY slot ran, the
+    // block is sound: guarded and metered as any block is (before B714 only one module's ringing set this).
+    bool rang = false;
     horde2::underFlushToZero([&] {
-      apply_post_filter(s, left, right, frames, true);
-#ifndef HORDE_PREVIEW_PLANT_REVERB_IDLE_CUT   // smoke.cpp's must-fail build: the idle engine's skip cuts the reverb's tail
-      rang = apply_post_reverb(s, left, right, frames);
+#ifndef HORDE_PREVIEW_PLANT_RACK_IDLE_CUT   // smoke.cpp's must-fail build: the idle engine's skip cuts every slot's tail
+      rang = s.rack.process(left, right, frames, true);
 #endif
     });
-    if (rang) guard_output(s, left, right, frames);   // a tail is sound: guarded and metered as any block is
+    if (rang) guard_output(s, left, right, frames);
     if (s.live->resolver && s.want_morph.load(std::memory_order_relaxed)) publish_heard_sets(s, *s.live);
     tap(s, left, right, frames);
     s.engine_silent.store(true, std::memory_order_relaxed);
@@ -1722,11 +1684,17 @@ clap_process_status plugin_process(const clap_plugin_t* p, const clap_process_t*
   const bool was_silent = s.live->engine->silent();
   s.block_moving = false;
   const auto t0 = std::chrono::steady_clock::now();
+  // The rack inside the engine's flush-to-zero scope, as the engine is (rack.h, FLUSH-TO-ZERO): its slots' meters
+  // count every block run outside it, and smoke.cpp holds that count at 0 against the build that moves it out.
   horde2::underFlushToZero([&] {
     render(s, proc, left, right, frames);
-    apply_post_filter(s, left, right, frames);
-    apply_post_reverb(s, left, right, frames);
+#ifndef HORDE_PREVIEW_PLANT_RACK_NO_FTZ
+    s.rack.process(left, right, frames, false);
+#endif
   });
+#ifdef HORDE_PREVIEW_PLANT_RACK_NO_FTZ   // smoke.cpp's must-fail build: the rack runs outside flush-to-zero
+  s.rack.process(left, right, frames, false);
+#endif
   const auto t1 = std::chrono::steady_clock::now();
 
   guard_output(s, left, right, frames);
@@ -1795,12 +1763,10 @@ bool plugin_activate(const clap_plugin_t* p, double sample_rate, std::uint32_t, 
   s.sample_rate = sample_rate;
   s.frames_total = 0;   // the overrun records' clock starts at each activation (B642)
   s.max_block = max_frames ? int(std::min<std::uint32_t>(max_frames, kEngineMaxBlock)) : kEngineMaxBlock;
-  s.post_filter.prepare(sample_rate);   // allocates, so here and not on the audio thread
-  s.filter_was_on = false;
-#ifndef HORDE_PREVIEW_PLANT_NO_REVERB
-  s.post_reverb.prepare(sample_rate);   // the same: Scape's buffers for this rate (12 to 27 MiB), whether on or off
-  s.reverb_was_on = false;
-#endif
+  // The rack's modules at this rate. Allocates (a module may hold tens of MiB whether on or off), so here and never on
+  // the audio thread. A slot that fails is left out of the chain and said in the log and in hello.slots, never silent.
+  s.rack.prepare(sample_rate);
+  for (const std::string& e : s.rack.errors()) note_load(s, "rack: " + e);
   s.events.reserve(kMaxEvents + 1);
   s.morph_events.reserve(kMorphEvents);
   s.merged.reserve(kMaxEvents + 1 + kMorphEvents);
@@ -1848,10 +1814,8 @@ bool plugin_init(const clap_plugin_t* p) {
   s.heard = std::make_unique<std::atomic<double>[]>(t.all.size());
   for (std::size_t m = 0; m < t.all.size(); ++m) s.heard[m].store(t.default_v[m], std::memory_order_relaxed);
   for (int i = 0; i < kSettings; ++i) s.morph_v[i].store(preview::morph::default_v(i), std::memory_order_relaxed);
-  for (int f = 0; f < preview::filter::kParams; ++f) s.filter_v[f].store(preview::filter::default_value(f), std::memory_order_relaxed);
-#ifndef HORDE_PREVIEW_PLANT_NO_REVERB
-  for (int k = -1; k < preview::reverb::kScapeParams; ++k) s.reverb_v[k + 1].store(preview::reverb::default_value(k), std::memory_order_relaxed);
-#endif
+  s.rack.attach(rack_table());   // every slot off, every key at its default: the dry state
+  for (const std::string& r : rack_table().refused) note_load(s, "rack table: " + r);
   s.modes.assign(t.all.size() + 2, preview::morph::KeyChoice{});
   s.waypoints.assign(t.all.size() + 2, {});
   s.lock_offsets.assign(t.all.size() + 2, {});
@@ -1880,10 +1844,7 @@ bool plugin_start_processing(const clap_plugin_t*) { return true; }
 void plugin_stop_processing(const clap_plugin_t*) {}
 void plugin_reset(const clap_plugin_t* p) {
   Plugin& s = *self(p);
-  s.post_filter.reset();
-#ifndef HORDE_PREVIEW_PLANT_NO_REVERB
-  s.post_reverb.reset();
-#endif
+  s.rack.reset();
   if (!s.live) return;
   s.live->engine->reset();
   forget_voices(s);
@@ -1894,33 +1855,29 @@ void plugin_reset(const clap_plugin_t* p) {
 
 // ---- params ----------------------------------------------------------------------------------------------------
 // Preset, every engine row, then the morph's two (B639): last, so no earlier index moves.
-// B660's test-only filter's six follow the morph's two, and B710's reverb's thirty follow them.
-std::uint32_t params_count(const clap_plugin_t*) { return std::uint32_t(1 + rows().count + 2 + kFilterHostParams + kReverbHostParams); }
+// The rack's (B714) follow the morph's two, by ascending id.
+std::uint32_t params_count(const clap_plugin_t*) { return std::uint32_t(1 + rows().count + 2 + rack_params().size()); }
 
 bool params_get_info(const clap_plugin_t*, std::uint32_t index, clap_param_info_t* info) {
   if (index >= params_count(nullptr)) return false;
   std::memset(info, 0, sizeof *info);
   info->flags = CLAP_PARAM_IS_AUTOMATABLE;
-#ifndef HORDE_PREVIEW_PLANT_NO_REVERB
-  if (index >= std::uint32_t(1 + rows().count + 2 + kFilterHostParams)) {
-    const int k = int(index) - (1 + rows().count + 2 + kFilterHostParams) - 1;   // -1 is Scape on
-    info->id = k < 0 ? preview::reverb::kOnId : preview::reverb::id_of(k);
-    if (preview::reverb::stepped(k)) info->flags |= CLAP_PARAM_IS_STEPPED | (k >= 0 ? CLAP_PARAM_IS_ENUM : 0u);
-    preview::reverb::param_name(k, info->name, sizeof info->name);
-    info->min_value = preview::reverb::min_value(k);
-    info->max_value = preview::reverb::max_value(k);
-    info->default_value = preview::reverb::default_value(k);
-    return true;
-  }
-#endif
-  if (index >= std::uint32_t(1 + rows().count + 2)) {
-    const int f = int(index) - (1 + rows().count + 2);
-    info->id = preview::filter::id_of(f);
-    if (preview::filter::stepped(f)) info->flags |= CLAP_PARAM_IS_STEPPED | (f == preview::filter::kMode ? CLAP_PARAM_IS_ENUM : 0u);
-    std::snprintf(info->name, sizeof info->name, "%s", preview::filter::param_name(f));
+  if (index >= std::uint32_t(1 + rows().count + 2)) {   // B714: a rack key, in its host form (v, or an option's index)
+    const RackParam& rp = rack_params()[index - std::uint32_t(1 + rows().count + 2)];
+    const rack::SlotRow& row = rack_table().slots[std::size_t(rp.slot)];
+    info->id = rp.id;
+    std::snprintf(info->name, sizeof info->name, "%s", preview::bridge::rack_param_name(row, rp.key).c_str());
     info->min_value = 0;
-    info->max_value = preview::filter::max_value(f);
-    info->default_value = preview::filter::default_value(f);
+    if (rp.key < 0) {
+      info->flags |= CLAP_PARAM_IS_STEPPED;
+      info->max_value = 1;
+      info->default_value = 0;
+      return true;
+    }
+    const rack::KeyRow& key = row.keys[std::size_t(rp.key)];
+    if (rack::stepped(key.law)) info->flags |= CLAP_PARAM_IS_STEPPED | (key.labels.empty() ? 0u : CLAP_PARAM_IS_ENUM);
+    info->max_value = rack::host_max(key.law);
+    info->default_value = rack::host_of_units(key.law, key.def);
     return true;
   }
   if (index > std::uint32_t(rows().count)) {   // D.2's morph.x and morph.y: 0 to 1, lin, default 0 (round 61)
@@ -1957,12 +1914,7 @@ bool params_get_value(const clap_plugin_t* p, clap_id id, double* out) {
   Plugin& s = *self(p);
   if (id == kPresetId) { *out = s.wanted_preset.load(std::memory_order_relaxed); return true; }
   if (id == kMorphXId || id == kMorphYId) { *out = (id == kMorphXId ? s.pos_x : s.pos_y).load(std::memory_order_relaxed); return true; }
-#ifndef HORDE_PREVIEW_PLANT_NO_FILTER
-  if (preview::filter::is_filter_id(id)) { *out = s.filter_v[preview::filter::param_of(id)].load(std::memory_order_relaxed); return true; }
-#endif
-#ifndef HORDE_PREVIEW_PLANT_NO_REVERB
-  if (preview::reverb::is_reverb_id(id)) { *out = s.reverb_v[preview::reverb::param_of(id) + 1].load(std::memory_order_relaxed); return true; }
-#endif
+  if (rack_param(id)) return s.rack.get_host(id, *out);
   const int m = manifest_index(id);
   if (m < 0 || rows().host_of[std::size_t(m)] < 0) return false;
   *out = v_to_host(*rows().all[std::size_t(m)], s.shadow[m].load(std::memory_order_relaxed));
@@ -1978,23 +1930,27 @@ bool params_value_to_text(const clap_plugin_t*, clap_id id, double value, char* 
     std::snprintf(out, size, "%.3g", value);
     return true;
   }
-#ifndef HORDE_PREVIEW_PLANT_NO_FILTER
-  if (preview::filter::is_filter_id(id)) {
-    switch (preview::filter::param_of(id)) {
-      case preview::filter::kOn: std::snprintf(out, size, "%s", value >= 0.5 ? "on" : "off"); break;
-      case preview::filter::kMode: std::snprintf(out, size, "%s", preview::filter::mode_name(int(std::lround(value)))); break;
-      case preview::filter::kCutoff: std::snprintf(out, size, "%.0f Hz", preview::filter::cutoff_hz(value)); break;
-      default: std::snprintf(out, size, "%.3g", value); break;
+  if (const RackParam* rp = rack_param(id)) {   // B714: off or on, an option's label, or the value in the module's unit
+    if (rp->key < 0) {
+      std::snprintf(out, size, "%s", std::lround(std::clamp(value, 0.0, 1.0)) != 0 ? "on" : "off");
+      return true;
     }
+    const rack::KeyRow& key = rack_table().slots[std::size_t(rp->slot)].keys[std::size_t(rp->key)];
+    const double units = rack::units_of_host(key.law, value);
+    if (rack::stepped(key.law)) {
+      const long index = std::lround(std::clamp(value, 0.0, rack::host_max(key.law)));
+      const std::vector<std::string>& labels = rack::host_labels(key);
+      if (index >= 0 && std::size_t(index) < labels.size()) std::snprintf(out, size, "%s", labels[std::size_t(index)].c_str());
+      else std::snprintf(out, size, "%ld", index);
+      return true;
+    }
+    // Nine places first (no -2e-15 on a panel). From 1000 up, whole units ("12000 Hz", as the pre-B714 build read),
+    // never %g's exponent form ("1.2e+04"); below it, four significant digits.
+    const double shown = std::round(units * 1e9) / 1e9 + 0.0;
+    const char* form = std::fabs(shown) >= 1000 ? (key.unit.empty() ? "%.0f" : "%.0f %s") : (key.unit.empty() ? "%.4g" : "%.4g %s");
+    std::snprintf(out, size, form, shown, key.unit.c_str());
     return true;
   }
-#endif
-#ifndef HORDE_PREVIEW_PLANT_NO_REVERB
-  if (preview::reverb::is_reverb_id(id)) {
-    preview::reverb::value_text(preview::reverb::param_of(id), value, out, size);
-    return true;
-  }
-#endif
   const int m = manifest_index(id);
   if (m < 0 || rows().host_of[std::size_t(m)] < 0) return false;
   const horde::ParamInfo& row = *rows().all[std::size_t(m)];
@@ -2135,15 +2091,12 @@ bool state_save(const clap_plugin_t* p, const clap_ostream_t* stream) {
 #ifndef HORDE_PREVIEW_PLANT_STATE_NO_MORPH   // smoke.cpp's must-fail build: the chunk forgets the morph
   saved.morph = morph_state(s, saved.preset, all_loaded);
 #endif
-#ifndef HORDE_PREVIEW_PLANT_NO_FILTER
-  for (int f = 0; f < preview::filter::kParams; ++f) saved.filter.v[f] = s.filter_v[f].load(std::memory_order_relaxed);
-#endif
-#ifndef HORDE_PREVIEW_PLANT_NO_REVERB
-  saved.reverb.on = s.reverb_v[0].load(std::memory_order_relaxed) >= 0.5;
-  for (int k = 0; k < preview::reverb::kScapeParams; ++k) {
-    const double v = s.reverb_v[k + 1].load(std::memory_order_relaxed);
-    if (v != preview::reverb::default_value(k)) saved.reverb.values.emplace_back(k, v);   // exact: the same value reloads
-  }
+  saved.fx = rack::capture(s.rack);   // B714: every slot not at the dry state, in the module's units
+#ifdef HORDE_PREVIEW_PLANT_MODULE_BRANCH
+  // Acceptance (1)'s must-fail build: ONE per-module branch, planted here. The module it names comes from CMake
+  // (-DHORDE_PREVIEW_PLANT_MODULE_BRANCH="<name>"), never from this file. The generated round trip must read it red.
+  for (std::size_t i = 0; i < saved.fx.slots.size(); ++i)
+    if (saved.fx.slots[i].module == HORDE_PREVIEW_PLANT_MODULE_BRANCH) saved.fx.slots.erase(saved.fx.slots.begin() + std::ptrdiff_t(i--));
 #endif
   const std::string text = preview::bridge::write_state(saved);
   for (std::size_t done = 0; done < text.size();) {
@@ -2217,7 +2170,18 @@ bool state_load(const clap_plugin_t* p, const clap_istream_t* stream) {
     if (text.size() > 1 << 20) return false;
   }
   preview::bridge::SavedState saved;
-  if (!preview::bridge::read_state(text, saved)) return false;
+  preview::bridge::LoadReport report;
+  if (!preview::bridge::read_state(text, saved, &rack_table(), &report)) {
+    // Refused LOUDLY (B714, acceptance (6)): false to the host, a line in the session log now, and the frame's `load`
+    // member says why. Nothing of the chunk is applied.
+#ifndef HORDE_PREVIEW_PLANT_SILENT_REFUSAL   // smoke.cpp's must-fail build: the refusal says nothing
+    note_load(s, "state load refused: " + report.refused);
+    s.load_report = report;
+    s.load_due = true;
+    write_stats(s);
+#endif
+    return false;
+  }
   const int preset = std::clamp(saved.preset, 0, kBankSize - 1);
   s.wanted_preset.store(preset, std::memory_order_relaxed);
   // The preset's own values first, then the rows the state says differ: a row it doesn't name is the preset's.
@@ -2229,15 +2193,16 @@ bool state_load(const clap_plugin_t* p, const clap_istream_t* stream) {
     if (m >= 0 && !t.all[std::size_t(m)]->reserved) s.shadow[m].store(std::clamp(v, 0.0, 1.0), std::memory_order_relaxed);
   }
   load_morph(s, preset, loaded, saved.morph);
-#ifndef HORDE_PREVIEW_PLANT_NO_FILTER
-  for (int f = 0; f < preview::filter::kParams; ++f) s.filter_v[f].store(saved.filter.v[f], std::memory_order_relaxed);   // no line: off
-#endif
-#ifndef HORDE_PREVIEW_PLANT_NO_REVERB
-  // No line: off, at Scape's defaults. A value is clamped to Scape's range, as a host event's is.
-  s.reverb_v[0].store(saved.reverb.on ? 1.0 : 0.0, std::memory_order_relaxed);
-  for (int k = 0; k < preview::reverb::kScapeParams; ++k) s.reverb_v[k + 1].store(preview::reverb::default_value(k), std::memory_order_relaxed);
-  for (const auto& [k, v] : saved.reverb.values) s.reverb_v[k + 1].store(preview::reverb::clamped(k, v), std::memory_order_relaxed);
-#endif
+  // B714: the rack from the chunk's `fx` (version 7) or its migrated module lines (5, 6); anything else loads dry. A
+  // value lands clamped to its module's range, as a host event's does; a record the rack can't take is said, not hidden.
+  std::vector<std::string> said;
+  rack::apply(s.rack, saved.fx, said);
+  char line[96];
+  std::snprintf(line, sizeof line, "state loaded: version %d, %s", report.version, report.migrated ? "its module lines migrated into fx" : "nothing migrated");
+  note_load(s, line);
+  for (const std::string& l : said) note_load(s, "state load: " + l);
+  s.load_report = report;
+  s.load_due = true;
   s.apply_shadow = true;
   s.force_build = true;
   s.session.state = text;
@@ -2705,6 +2670,9 @@ const std::string& bridge_frame(Plugin& s) {
   in.out_tapped = true;
   in.out_peak = s.out_peak.load(std::memory_order_relaxed);
   s.out_peak_reset.store(true, std::memory_order_relaxed);
+  const std::string slot_meters = rack::slot_meters_json(s.rack);   // B714: each slot's in, out and guard, then cleared
+  s.rack.clear_meters();
+  in.slot_meters = &slot_meters;
   p.observe = observe_json(in, ss.want);
 
   std::vector<std::pair<std::string, double>> changed;
@@ -2741,10 +2709,14 @@ const std::string& bridge_frame(Plugin& s) {
     ss.sent_plugin = true;
   }
   if (ss.state_due) p.state = &ss.state;
+  const std::string load = s.load_due ? preview::bridge::load_json(s.load_report) : "";
+  if (s.load_due) p.load = &load;
+  const std::string slots = ss.hello_due && completes ? rack::slots_json(s.rack) : "";
   if (ss.hello_due && completes) {
     p.build = &build;
     p.engine_hash = &t.hash;
     p.test_rows = &tk.rows();
+    p.slots = &slots;   // B714: every slot and key, from the slot table
     p.mismatch = &ss.mismatch;
   }
   if (ss.refused_due) {
@@ -2757,7 +2729,7 @@ const std::string& bridge_frame(Plugin& s) {
   ss.out = snapshot_json(p);
   ss.events.clear();
   if (completes) ss.hello_due = false;
-  ss.refused_due = ss.state_due = false;
+  ss.refused_due = ss.state_due = s.load_due = false;
   return ss.out;
 }
 
@@ -2782,7 +2754,9 @@ bool ext_note_pitch(const clap_plugin_t* p, std::int32_t note_id, double* played
 }
 void ext_overrun_at(const clap_plugin_t* p, double fraction) { self(p)->overrun_at.store(fraction, std::memory_order_relaxed); }
 
-const preview_bridge_ext kBridgeExt = {ext_receive, ext_frame, ext_engine_v, ext_note_pitch, ext_overrun_at};
+void ext_rack_never_cut(const clap_plugin_t* p, bool on) { self(p)->rack.set_never_cut(on); }
+
+const preview_bridge_ext kBridgeExt = {ext_receive, ext_frame, ext_engine_v, ext_note_pitch, ext_overrun_at, ext_rack_never_cut};
 
 const void* plugin_get_extension(const clap_plugin_t*, const char* id) {
   if (!std::strcmp(id, CLAP_EXT_PARAMS)) return &kParams;
