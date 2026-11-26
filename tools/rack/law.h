@@ -37,7 +37,7 @@ inline double units_of_v(const KeyLaw& k, double v) {
     const double offset = index * step;
     return std::clamp(k.lo + offset, std::min(k.lo, k.hi), std::max(k.lo, k.hi));
   }
-  if (k.law == Law::Log) return k.lo * std::pow(k.hi / k.lo, v);   // 20 x pow(1000, x): filter_core.h's cutoff law
+  if (k.law == Law::Log) return k.lo * std::pow(k.hi / k.lo, v);   // e.g. 20 x pow(1000, x), the pre-B714 cutoff law
   const double offset = v * (k.hi - k.lo);
   return std::clamp(k.lo + offset, std::min(k.lo, k.hi), std::max(k.lo, k.hi));
 }

@@ -1730,8 +1730,21 @@ int main(int argc, char** argv) {
   if (argc < 2) {
     std::printf("usage: smoke <clap> [<plant> <plant-map> <plant-morph> <plant-norack> <plant-rack-idle> <plant-silent-refusal> <plant-droptest>\n"
                 "                    [<test-configuration clap> <plant-module-branch>]]\n"
-                "       smoke --migration <clap> <reference clap of main, before B714>\n");
+                "       smoke --migration <clap> <reference clap of main, before B714>\n"
+                "       smoke --rack <clap> [<plant-norack> [<plant-rack-idle>]]     the rack's generated checks alone\n"
+                "       smoke --hello <clap> <out.json>                              the frame answering a hello, written whole\n");
     return 2;
+  }
+  if (!std::strcmp(argv[1], "--hello")) {   // B714: the frame that answers a page's hello, written whole (a GUI fixture)
+    if (argc < 4) return 2;
+    Loaded p;
+    const preview_bridge_ext* bridge = p.open(argv[2]) ? bridge_of(p) : nullptr;
+    long long seq = 0;
+    const std::string frame = bridge ? send_until_acked(p.plugin, bridge, seq, "\"type\":\"hello\"") : "";
+    std::ofstream(argv[3]) << frame;
+    std::printf("hello frame: %zu bytes to %s\n", frame.size(), argv[3]);
+    close_instance(p);
+    return frame.empty() ? 1 : 0;
   }
   if (!std::strcmp(argv[1], "--rack")) {   // B714: the rack's generated checks alone, on one build (a quicker loop)
     if (argc < 3) return 2;

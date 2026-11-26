@@ -56,13 +56,13 @@ std::vector<float> burst(std::uint32_t sound, std::uint32_t silence, std::uint32
 // Runs the input through the rack in blocks; a block of zeros in is called as the shell's idle path calls it, unless
 // `idle_path` is false (the reference: as if the shell never took its idle path). `ran_last`: whether the last block
 // ran any slot's module.
-std::vector<float> render(rack::Rack& r, const std::vector<float>& in, bool* ran_last = nullptr, bool idle_path = true) {
+std::vector<float> render(rack::Rack& r, const std::vector<float>& in, bool* ran_last = nullptr, bool idle_path = true, std::uint32_t block = kBlock) {
   const std::uint32_t frames = std::uint32_t(in.size() / 2);
   std::vector<float> out(in.size());
-  std::vector<float> l(kBlock), rr(kBlock);
+  std::vector<float> l(block), rr(block);
   bool ran = false;
-  for (std::uint32_t pos = 0; pos < frames; pos += kBlock) {
-    const std::uint32_t n = std::min(kBlock, frames - pos);
+  for (std::uint32_t pos = 0; pos < frames; pos += block) {
+    const std::uint32_t n = std::min(block, frames - pos);
     bool zeros = true;
     for (std::uint32_t i = 0; i < n; ++i) {
       l[i] = in[2 * (pos + i)];
@@ -252,6 +252,19 @@ int main() {
     set_probe(*stress, s, probe);
     const std::vector<float> ys = render(*stress, in), yd = render(*defaults, in);
     check(ys != in, "fx/" + std::to_string(row.n) + " " + row.key + " on at its stress settings changes the signal (the slot runs its module)");
+    bool finite = true;
+    for (float x : ys) finite = finite && std::isfinite(x);
+    check(finite, "fx/" + std::to_string(row.n) + " " + row.key + " at its stress settings: every sample finite");
+    // The output doesn't depend on how the host cuts its blocks (B710's check on the old wrapper, now on the slot): 1,
+    // 64, 100 and 4096 frames against 512, at the stress settings, the burst and the half second after it.
+    bool split = true;
+    for (std::uint32_t b : {1u, 64u, 100u, 4096u}) {
+      auto other = make_rack(table);
+      other->set_on(s, true);
+      set_probe(*other, s, probe);
+      split = split && render(*other, in, nullptr, true, b) == ys;
+    }
+    check(split, "fx/" + std::to_string(row.n) + " " + row.key + " at its stress settings: bit-identical whether the host's blocks are 1, 64, 100, 512 or 4096 frames");
     check(ys != yd, "fx/" + std::to_string(row.n) + " " + row.key + " at its stress settings differs from its defaults (the values reach the module)");
     const auto dry_module = row.make();
     if (dry_module->dryExact() && !dry_module->dryProbe().empty()) {
