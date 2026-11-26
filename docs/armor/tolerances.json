@@ -532,6 +532,42 @@
       "value": "-60.0"
     },
     {
+      "approved": "ADR-413 (the human, 2026-11-26, by poll on B714 stage 1: Register all nine / Restore the -140 dB stop / Register it)",
+      "file": "tools/admission/weir_adapter.cpp",
+      "governs": "Weir's tail is over once its tail() bound is below this (-140 dB): HORDE-INTERIM, per ADR-413.",
+      "id": "tools/admission/weir_adapter.cpp::kRungOutThreshold",
+      "locator": "(?<![\\w])kRungOutThreshold(?:\\s*:\\s*[\\w\\[\\], .]+?)?\\s*=(?!=)\\s*([-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)(?:\\s*[-+*/]\\s*\\(?\\s*[-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)\\)?)*)(?=\\s*(?:[;,)\\]}]|$))",
+      "ref": "ADR-413",
+      "value": "1e-7"
+    },
+    {
+      "approved": "ADR-413 (the human, 2026-11-26, by poll on B714 stage 1: Register all nine / Restore the -140 dB stop / Register it)",
+      "file": "tools/admission/weir_adapter.cpp",
+      "governs": "the module\" check exercises, so they are named for the tolerance inventory to list.",
+      "id": "tools/admission/weir_adapter.cpp::kStressCutoffThresholdHz",
+      "locator": "(?<![\\w])kStressCutoffThresholdHz(?:\\s*:\\s*[\\w\\[\\], .]+?)?\\s*=(?!=)\\s*([-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)(?:\\s*[-+*/]\\s*\\(?\\s*[-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)\\)?)*)(?=\\s*(?:[;,)\\]}]|$))",
+      "ref": "unattributed",
+      "value": "2000"
+    },
+    {
+      "approved": "ADR-413 (the human, 2026-11-26, by poll on B714 stage 1: Register all nine / Restore the -140 dB stop / Register it)",
+      "file": "tools/admission/weir_adapter.cpp",
+      "governs": "the module\" check exercises, so they are named for the tolerance inventory to list.",
+      "id": "tools/admission/weir_adapter.cpp::kStressResonanceThreshold",
+      "locator": "(?<![\\w])kStressResonanceThreshold(?:\\s*:\\s*[\\w\\[\\], .]+?)?\\s*=(?!=)\\s*([-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)(?:\\s*[-+*/]\\s*\\(?\\s*[-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)\\)?)*)(?=\\s*(?:[;,)\\]}]|$))",
+      "ref": "unattributed",
+      "value": "0.9"
+    },
+    {
+      "approved": "ADR-413 (the human, 2026-11-26, by poll on B714 stage 1: Register all nine / Restore the -140 dB stop / Register it)",
+      "file": "tools/admission/weir_adapter.cpp",
+      "governs": "the module\" check exercises, so they are named for the tolerance inventory to list.",
+      "id": "tools/admission/weir_adapter.cpp::kStressRingThreshold",
+      "locator": "(?<![\\w])kStressRingThreshold(?:\\s*:\\s*[\\w\\[\\], .]+?)?\\s*=(?!=)\\s*([-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)(?:\\s*[-+*/]\\s*\\(?\\s*[-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)\\)?)*)(?=\\s*(?:[;,)\\]}]|$))",
+      "ref": "unattributed",
+      "value": "0.5"
+    },
+    {
       "approved": "baseline 2026-10-08",
       "file": "tools/anchor_check.cpp",
       "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
@@ -676,33 +712,6 @@
       "value": ">0.5 | >=0.5"
     },
     {
-      "approved": "the human, 2026-11-08, by poll on B660: Approve",
-      "file": "tools/engine-preview/post_filter.h",
-      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
-      "id": "tools/engine-preview/post_filter.h::inline-float-compare",
-      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
-      "ref": "unattributed",
-      "value": "<1e-7"
-    },
-    {
-      "approved": "the human, 2026-11-24, by poll on B710 (ADR-408): Approve, smoke's tail bound at -40 dB",
-      "file": "tools/engine-preview/post_reverb.h",
-      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
-      "id": "tools/engine-preview/post_reverb.h::inline-float-compare",
-      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
-      "ref": "unattributed",
-      "value": ">=0.5"
-    },
-    {
-      "approved": "the human, 2026-11-24, by poll on B710 (ADR-408): Approve, smoke's tail bound at -40 dB",
-      "file": "tools/engine-preview/preview_plugin.cpp",
-      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
-      "id": "tools/engine-preview/preview_plugin.cpp::inline-float-compare",
-      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
-      "ref": "unattributed",
-      "value": ">=0.5 | <0.5 | >=0.5 | >=0.5"
-    },
-    {
       "approved": "the human, 2026-11-24, by poll on B710 (ADR-408): Approve, smoke's tail bound at -40 dB",
       "file": "tools/engine-preview/smoke.cpp",
       "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
@@ -710,6 +719,24 @@
       "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
       "ref": "unattributed",
       "value": "<0.01 | >1e-3 | >0.9 | <0.01 | >=0.5 | >1e-4"
+    },
+    {
+      "approved": "ADR-413 (the human, 2026-11-26, by poll on B714 stage 1: Register all nine / Restore the -140 dB stop / Register it)",
+      "file": "tools/engine-preview/smoke.cpp",
+      "governs": "silent within 1.2 s of their note-off at 0.3 s) to the end of the render.",
+      "id": "tools/engine-preview/smoke.cpp::kTailFromBoundS",
+      "locator": "(?<![\\w])kTailFromBoundS(?:\\s*:\\s*[\\w\\[\\], .]+?)?\\s*=(?!=)\\s*([-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)(?:\\s*[-+*/]\\s*\\(?\\s*[-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)\\)?)*)(?=\\s*(?:[;,)\\]}]|$))",
+      "ref": "unattributed",
+      "value": "1.5"
+    },
+    {
+      "approved": "ADR-413 (the human, 2026-11-26, by poll on B714 stage 1: Register all nine / Restore the -140 dB stop / Register it)",
+      "file": "tools/engine-preview/smoke.cpp",
+      "governs": "silent within 1.2 s of their note-off at 0.3 s) to the end of the render.",
+      "id": "tools/engine-preview/smoke.cpp::kTailToBoundS",
+      "locator": "(?<![\\w])kTailToBoundS(?:\\s*:\\s*[\\w\\[\\], .]+?)?\\s*=(?!=)\\s*([-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)(?:\\s*[-+*/]\\s*\\(?\\s*[-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)\\)?)*)(?=\\s*(?:[;,)\\]}]|$))",
+      "ref": "unattributed",
+      "value": "4"
     },
     {
       "approved": "baseline 2026-10-08",
@@ -1115,6 +1142,51 @@
       "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
       "ref": "unattributed",
       "value": ">1e-9f | >1e-6f | >1e-9f | >15.848932f | >1.f | >=1.f | >=1.f | >=1.f | >=1.f | <1e-4 | <1e-5 | <1e-5 | >1e-4 | <=1.0 | >1.0 | <1e-5 | >1e-5 | <1e-5 | >1e-5 | <1e-3 | <1e-4 | <=1.0 | >0.01"
+    },
+    {
+      "approved": "ADR-413 (the human, 2026-11-26, by poll on B714 stage 1: Register all nine / Restore the -140 dB stop / Register it)",
+      "file": "tools/rack/rack.cpp",
+      "governs": "0 dBFS. A clip is a sample past full scale: the meter's threshold.",
+      "id": "tools/rack/rack.cpp::kClipThreshold",
+      "locator": "(?<![\\w])kClipThreshold(?:\\s*:\\s*[\\w\\[\\], .]+?)?\\s*=(?!=)\\s*([-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)(?:\\s*[-+*/]\\s*\\(?\\s*[-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)\\)?)*)(?=\\s*(?:[;,)\\]}]|$))",
+      "ref": "unattributed",
+      "value": "1.0f"
+    },
+    {
+      "approved": "ADR-413 (the human, 2026-11-26, by poll on B714 stage 1: Register all nine / Restore the -140 dB stop / Register it)",
+      "file": "tools/rack/rack.cpp",
+      "governs": "declaration, and tools/rack/tests' delay probe (quiet out for whole blocks, then its echo) is what i",
+      "id": "tools/rack/rack.cpp::kOldLevelThreshold",
+      "locator": "(?<![\\w])kOldLevelThreshold(?:\\s*:\\s*[\\w\\[\\], .]+?)?\\s*=(?!=)\\s*([-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)(?:\\s*[-+*/]\\s*\\(?\\s*[-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)\\)?)*)(?=\\s*(?:[;,)\\]}]|$))",
+      "ref": "ADR-413, B714",
+      "value": "1e-7"
+    },
+    {
+      "approved": "ADR-413 (the human, 2026-11-26, by poll on B714 stage 1: Register all nine / Restore the -140 dB stop / Register it)",
+      "file": "tools/rack/rack.h",
+      "governs": "RS-4.6's slot gain ramp, in seconds (ADR-009)",
+      "id": "tools/rack/rack.h::kGainGlideBoundS",
+      "locator": "(?<![\\w])kGainGlideBoundS(?:\\s*:\\s*[\\w\\[\\], .]+?)?\\s*=(?!=)\\s*([-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)(?:\\s*[-+*/]\\s*\\(?\\s*[-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)\\)?)*)(?=\\s*(?:[;,)\\]}]|$))",
+      "ref": "ADR-009",
+      "value": "0.020"
+    },
+    {
+      "approved": "ADR-413 (the human, 2026-11-26, by poll on B714 stage 1: Register all nine / Restore the -140 dB stop / Register it)",
+      "file": "tools/rack/tests/rack_test.cpp",
+      "governs": "pre-B714 shell's rung_out did) declare its tail over at. HORDE-INTERIM, as the adapter's own thresho",
+      "id": "tools/rack/tests/rack_test.cpp::kIdleResidueBound",
+      "locator": "(?<![\\w])kIdleResidueBound(?:\\s*:\\s*[\\w\\[\\], .]+?)?\\s*=(?!=)\\s*([-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)(?:\\s*[-+*/]\\s*\\(?\\s*[-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)\\)?)*)(?=\\s*(?:[;,)\\]}]|$))",
+      "ref": "ADR-413, B714",
+      "value": "1e-7"
+    },
+    {
+      "approved": "ADR-413 (the human, 2026-11-26, by poll on B714 stage 1: Register all nine / Restore the -140 dB stop / Register it)",
+      "file": "tools/rack/tests/rack_test.cpp",
+      "governs": "default tail is preDelay + 1 + 11 x decay, about 25 s).",
+      "id": "tools/rack/tests/rack_test.cpp::kIdleTailBoundS",
+      "locator": "(?<![\\w])kIdleTailBoundS(?:\\s*:\\s*[\\w\\[\\], .]+?)?\\s*=(?!=)\\s*([-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)(?:\\s*[-+*/]\\s*\\(?\\s*[-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)\\)?)*)(?=\\s*(?:[;,)\\]}]|$))",
+      "ref": "unattributed",
+      "value": "40"
     },
     {
       "approved": "baseline 2026-10-08",

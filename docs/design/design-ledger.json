@@ -8834,6 +8834,10 @@
   {
    "adr": "ADR-411",
    "reason": "The human's rulings on B713's questions (feedback behind a settings toggle, true bypass, FX slot picks tested before ruling, Device settings stored with an approval screen on load, the other twelve as recommended): contract and engine rulings. Their design consequences (the approval screen, the feedback toggle, the routing lab's feedback wires and pick switch) are the GUI session's to rule as GUI-n with their own ledger rows."
+  },
+  {
+   "adr": "ADR-413",
+   "reason": "The human's rulings on B714 stage 1's tolerance registry (three entries retired with their deleted code, eleven thresholds registered) and Weir's -140 dB idle stop, with the lead's readings for the slot library (its place, the host-id ledger, the page's generated preview keys, chunk v7, the double hop, Weir's manifest default and adapter readings): test-plug-in build and state rulings with nothing in the design master. The page's move to hello.slots is the GUI session's GB42."
   }
  ],
  "engine_impact": {
