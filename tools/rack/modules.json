@@ -26,6 +26,19 @@
       "overlay": "tools/rack/law/scape.json",
       "recipe": "tools/rack/modules/scape.cmake",
       "factory": "scapeModule"
+    },
+    {
+      "key": "passthrough",
+      "module": "passthrough",
+      "name": "Pass",
+      "test_only": true,
+      "tree": null,
+      "manifest": "tools/rack/test/passthrough.manifest.json",
+      "vendored_foundations": null,
+      "budget": {"file": "tools/rack/test/state_budgets.test.json", "key": "passthrough"},
+      "overlay": "tools/rack/law/passthrough.json",
+      "recipe": "tools/rack/modules/passthrough.cmake",
+      "factory": "passthroughModule"
     }
   ]
 }
