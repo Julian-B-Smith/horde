@@ -14029,3 +14029,34 @@ Sixteen points were left for the human. The lead published them on a decision pa
 - the resolver's slot-pick call (SPEC-ENGINE IF-12, MO-29 (3)), which B714 exposes as the switch;
 - the slot library (B714): the back edges, the toggle (`device.fxFeedback`, X127) and the runaway guard;
 - the approval flow on the bridge: the load reports a difference and applies the device settings only on approval.
+
+## ADR-412 — RULED by the human: B714's four stage-1 questions. Delete the per-module code once its replacements fail on the same faults; the test plug-in's module ids are morph rows, as RS-5.6 says; FOUNDATIONS is pinned; Weir's state budget is 4,096 B, ruled (B714; 2026-11-26)
+
+**Context.** B714 (one generic module slot, in the test plug-in first; ADR-410 ruling 4) was surveyed by four Opus readers (the test plug-in's FX hosting, the bridge and page bindings, the contract, and `src/routing_core.h`), planned in six stages and attacked by an Opus critic. The critic found three blockers in stage 1, all fixed in the plan before the poll:
+- the migration golden could not be bit-identical, because today's filter→Scape hop rounds to float;
+- dropping the page's `preview.*` keys in S1 would tie it to the GUI session's timing;
+- a name search cannot prove "no per-module branch".
+
+The plan went to the human as a private claude.ai artifact, and four questions gating stage 1 went by poll.
+
+**Rulings** (the human, 2026-11-26, each by the recommended option):
+1. **"Yes, delete them".** B714's stage 1 may delete the per-module code the generic slot replaces:
+   - `tools/engine-preview/filter_core.h`, `reverb_core.h`, `post_filter.h`, `post_reverb.h` and `test_rows.h`;
+   - the Weir and Scape plants.
+   A plant is deleted only after its generated replacement has gone red on the same fault. The PR carries the old→new map.
+2. **"Morph rows, as ruled".** The test plug-in's module host ids follow RS-5.6 as written: generated from each module's manifest, as morph rows like the engine's, with host values 0 to 1 by each key's law, in append-only blocks.
+   - The old ids 0xA00010 to 0xA00033 keep their numbers.
+   - Saved project state from chunk versions 5 and 6 migrates.
+   - An old DAW automation lane drawn on a Scape setting, in Scape's own units, now reads as 0 to 1 and needs redrawing. Weir's old ids were already 0 to 1.
+3. **"Pin FOUNDATIONS".** The test plug-in's build pins the FOUNDATIONS repo for the FX-operator header (a `foundations.pin`, like `weir.pin` and `scape.pin`). Configure checks that each hosted module's vendored copy of `fx_operator.h` is byte-identical to the pinned one, and stops otherwise. This is the new dependency the charter gates.
+4. **"Rule it at 4,096 B".** Weir's row in the contract's §12.9 budget table is ruled at 4,096 B per corner. The counted figure is its state, as Weir's FX manifest declares it (`stateBudget: 4096`, Weir D-020, Weir `main` 92ff8af). ADR-401's other ask of Weir, a creation bound before admission, still stands and is due by the module cutoff (2026-12-11).
+
+**Rejected** (the poll's other options): "Keep them for now", "Keep Scape's old units", "Use the modules' copies" and "Leave it provisional".
+
+**Where they land:**
+- Ruling 4 lands in this PR: §12.9's row, `tools/admission/state_budgets.json`, and the contract's notes on Weir's figure.
+- Rulings 1 to 3 are built in B714's stage 1, whose PR also records the lead's readings for the stage.
+
+**FX device (ADR-254):** the same. It hosts the same modules through the same library and the same budgets. Ruling 2 is the test plug-in's alone, since the product and the FX device expose only slot macros (RS-5.6).
+
+**Engine impact:** none on the resolver. The slot library (B714) gains a FOUNDATIONS pin and a ledger of generated host ids.

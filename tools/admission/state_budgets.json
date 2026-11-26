@@ -10,6 +10,6 @@
     "scape": {"name": "Scape", "bytes": 4096, "counts": "patch-text", "status": "ruled", "adr": "ADR-401"},
     "shriek": {"name": "Shriek", "bytes": 4096, "counts": "own", "status": "ruled", "adr": "ADR-401"},
     "sluice": {"name": "Sluice", "bytes": 12288, "counts": "own", "status": "ruled", "adr": "ADR-359 r1; ADR-401 r2"},
-    "weir": {"name": "Weir", "bytes": 4096, "counts": "own", "status": "provisional", "adr": "ADR-401"}
+    "weir": {"name": "Weir", "bytes": 4096, "counts": "own", "status": "ruled", "adr": "ADR-401; ADR-412 r4"}
   }
 }
