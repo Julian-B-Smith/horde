@@ -117,7 +117,7 @@ def main():
         print("FAIL  " + f)
     if skipped:
         print("KIT-GATE skipped: " + "; ".join(skipped) + f" (judged {judged} of {len(modules)})")
-    print(f"rack_overlay_check: {'RED' if fails else 'GREEN'} ({judged} of {len(modules)} modules held to their pinned manifests)")
+    print(f"rack_overlay_check: {'RED' if fails else 'PARTIAL' if skipped else 'GREEN'} ({judged} of {len(modules)} modules held to their pinned manifests)")
     return 1 if fails else 0
 
 

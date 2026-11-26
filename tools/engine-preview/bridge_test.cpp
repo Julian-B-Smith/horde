@@ -10,8 +10,6 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
-#include <fstream>
-#include <sstream>
 #include <string>
 #include <vector>
 
@@ -531,10 +529,13 @@ int main() {
     // 3159a196 published), but for the ONE ruled difference: the filter cutoff's default is the module's own 1000 Hz
     // (Weir's manifest), not State{}'s 0.56628 (999.70 Hz). It is put back here before the comparison, and only there.
     {
-      std::ifstream f(std::string(HORDE_PREVIEW_FIXTURES) + "/hello-preview-main.json");
-      std::stringstream ss;
-      ss << f.rdbuf();
-      const std::string main_preview = ss.str();
+      // C stdio, not <fstream>: <sstream> brings std::quoted, which ADL would set against the bridge's own quoted().
+      std::string main_preview;
+      if (std::FILE* f = std::fopen((std::string(HORDE_PREVIEW_FIXTURES) + "/hello-preview-main.json").c_str(), "rb")) {
+        char buf[4096];
+        for (std::size_t got; (got = std::fread(buf, 1, sizeof buf, f)) > 0;) main_preview.append(buf, got);
+        std::fclose(f);
+      }
       std::string ours = test_rows_json(tests);
       const std::size_t row = ours.find("\"key\":\"preview.filter.cutoff\"");
       const std::size_t at = row == std::string::npos ? row : ours.find("\"default\":", row);

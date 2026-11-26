@@ -261,7 +261,7 @@ def main():
     skipped = [n for n in base_notes + notes if "SKIPPED" in n]
     if skipped:
         print("KIT-GATE skipped: " + "; ".join(skipped))
-    print(f"host_id_ledger_check: {'RED' if fails else 'GREEN'} ({n_ids} ids in {len(docs)} ledgers, {len(FROZEN)} frozen, "
+    print(f"host_id_ledger_check: {'RED' if fails else 'PARTIAL' if skipped else 'GREEN'} ({n_ids} ids in {len(docs)} ledgers, {len(FROZEN)} frozen, "
           f"{sum(1 for _, r in fired if r)}/{len(fired)} controls fired)")
     return 1 if fails else 0
 
