@@ -114,6 +114,8 @@
 (function () {
   'use strict';
   const H = window.Horde, $ = id => document.getElementById(id);
+  // the house guard (as bank-morph-lane-lab): without the design system there is nothing to mount, so say so in words and stop
+  if (!H || !H.FxRouting || !H.ChainConsole) { const n = document.createElement('p'); n.setAttribute('role', 'alert'); n.textContent = 'The design system did not load (arp-face/bundle.js). Open this lab from docs/design/ so it can.'; document.body.prepend(n); return; }
   const el = (tag, attrs, kids) => { const e = document.createElement(tag); for (const k in attrs || {}) { if (k === 'text') e.textContent = attrs[k]; else e.setAttribute(k, attrs[k]); } (kids || []).forEach(c => e.append(c)); return e; };
   const all = v => [v, v, v, v];
 
