@@ -48,8 +48,8 @@ fi
 cmake "${args[@]}"
 # At most 4 threads, niced: the clean-room sessions share this machine (see the CPU throttle rule).
 nice -n 10 cmake --build "$build_dir" -j4 --target horde-engine-preview_all preview-plant preview-plant-map preview-plant-morph preview-plant-norack \
-  preview-plant-rack-idle preview-plant-silent-refusal preview-plant-droptest preview-testmods preview-plant-module-branch preview-smoke preview-gui-shot \
-  preview-bridge-test preview-frames-dump
+  preview-plant-rack-idle preview-plant-silent-refusal preview-plant-droptest preview-testmods preview-plant-module-branch preview-plant-rack-noftz \
+  preview-plant-rack-novalues preview-smoke preview-gui-shot preview-bridge-test preview-frames-dump
 
 # Every configure rewrites the AU bundle's Info.plist from CMake's template, and only a relink copies the wrapper's real
 # one back. So a second run with nothing to relink leaves an AU with no identity, and auval "didn't find the component".
@@ -68,11 +68,17 @@ plant_silent_refusal="$(find "$build_dir" -name 'preview-plant-silent-refusal.cl
 plant_droptest="$(find "$build_dir" -name 'preview-plant-droptest.clap' -maxdepth 3 | head -1)"
 testmods="$(find "$build_dir" -name 'preview-testmods.clap' -maxdepth 3 | head -1)"
 plant_module_branch="$(find "$build_dir" -name 'preview-plant-module-branch.clap' -maxdepth 3 | head -1)"
+plant_rack_noftz="$(find "$build_dir" -name 'preview-plant-rack-noftz.clap' -maxdepth 3 | head -1)"
+plant_rack_novalues="$(find "$build_dir" -name 'preview-plant-rack-novalues.clap' -maxdepth 3 | head -1)"
 smoke="$(find "$build_dir" -name 'preview-smoke' -type f -maxdepth 3 | head -1)"
 "$(dirname "$smoke")/preview-bridge-test"
 # B714: the migration goldens (fixtures/migration-goldens.json) are held only where they were made on this engine commit.
 HORDE_PREVIEW_ENGINE="$full" HORDE_PREVIEW_GOLDENS="$here/fixtures/migration-goldens.json" \
-  "$smoke" "$clap" "$plant" "$plant_map" "$plant_morph" "$plant_norack" "$plant_rack_idle" "$plant_silent_refusal" "$plant_droptest" "$testmods" "$plant_module_branch"
+  "$smoke" "$clap" "$plant" "$plant_map" "$plant_morph" "$plant_norack" "$plant_rack_idle" "$plant_silent_refusal" "$plant_droptest" "$testmods" "$plant_module_branch" \
+  "$plant_rack_noftz" "$plant_rack_novalues"
+# B714: what the idle path costs, and for how long, on this machine under its load now: printed (and kept in $out) after
+# every smoke, reported, never gating (ADR-347), so a change to a slot's tail shows up in the next build's output.
+"$smoke" --idle-cost "$clap" | tee "$out/idle-cost.txt"
 "$(dirname "$smoke")/preview-gui-shot" "$clap" "$out/window.png"
 
 # The recorded frames GUI 3's ReplayTransport plays (B628), where gui3_browser_check reads them. A fresh dump is held

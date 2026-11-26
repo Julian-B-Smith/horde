@@ -56,13 +56,16 @@ target_include_directories(rack_test PRIVATE ${HORDE_RACK_ROOT}/h2)
 #   deaf             the slot passes its input and never runs its module
 #   no-values        the host's values never reach the module (it plays its defaults; the old reverb-deaf plant's fault)
 #   idle-cut         the idle path cuts every slot, tails and all (the old reverb-idle plant's fault)
-#   level-cut        a slot stops once its output is quiet (under 1e-7, the old filter's rung_out), not exactly silent
+#   level-cut        a slot stops once its output is quiet (under 1e-7), whatever tail its module declares
+#   never-cut        no slot is ever skipped for its tail: an idle instance runs every module forever
 #   drop-slot-state  a save forgets the first slot's record (the round trip)
 #   ignore-legacy    the legacy reader consumes version 5 and 6 lines and drops what they say (the migration)
 #   guard-no-latch   the non-finite guard zeroes a sample and counts nothing (RS-7.9: latch and report)
 #   infinite-as-finite  kInfiniteTail read as 2^32 - 1 samples
 #   apply-via-dry    a load passes through the dry state (the first S1 build), so a slot it keeps on restarts
-foreach(plant OFF_KEEPS_GAINS DEAF NO_VALUES IDLE_CUT LEVEL_CUT DROP_SLOT_STATE IGNORE_LEGACY GUARD_NO_LATCH INFINITE_AS_FINITE APPLY_VIA_DRY)
+#   no-const-cap     the table takes more constant keys than kMaxKeys (slot_table.cpp's refusal removed)
+foreach(plant OFF_KEEPS_GAINS DEAF NO_VALUES IDLE_CUT LEVEL_CUT NEVER_CUT DROP_SLOT_STATE IGNORE_LEGACY GUARD_NO_LATCH INFINITE_AS_FINITE APPLY_VIA_DRY
+              NO_CONST_CAP)
   string(TOLOWER ${plant} name)
   string(REPLACE "_" "-" name ${name})
   horde_rack_library(rack_${name} DEFINES HORDE_RACK_PLANT_${plant})

@@ -93,10 +93,10 @@ std::string slot_meters_json(const Rack& rack) {
   std::string out = "[";
   for (int s = 0; t && s < rack.slots(); ++s) {
     const SlotMeters m = rack.meters(s);
-    char b[200];
-    std::snprintf(b, sizeof b, "%s{\"slot\":%d,\"in\":{\"peak\":%.7g,\"clip\":%s},\"out\":{\"peak\":%.7g,\"clip\":%s},\"nonfinite\":%llu,\"tailLost\":%s}",
+    char b[256];
+    std::snprintf(b, sizeof b, "%s{\"slot\":%d,\"in\":{\"peak\":%.7g,\"clip\":%s},\"out\":{\"peak\":%.7g,\"clip\":%s},\"nonfinite\":%llu,\"tailLost\":%s,\"unflushed\":%llu}",
                   s ? "," : "", t->slots[std::size_t(s)].n, double(m.in_peak), m.in_clip ? "true" : "false", double(m.out_peak), m.out_clip ? "true" : "false",
-                  (unsigned long long)m.nonfinite, m.tail_lost ? "true" : "false");
+                  (unsigned long long)m.nonfinite, m.tail_lost ? "true" : "false", (unsigned long long)m.unflushed);
     out += b;
   }
   return out + "]";

@@ -19,6 +19,11 @@
 //   changed, once a block; the module's own smoothing is the only smoothing (RS-4.2).
 // - GUARD (RS-7.9, Blind-Spot Armor: latch and report, never clamp silently). A non-finite sample out of a module is
 //   counted, latched on its slot and replaced by 0 before the next slot hears it; the counts are readable.
+// - FLUSH-TO-ZERO (B660's subnormal rule, now the caller's). process() must run under horde2::underFlushToZero, as the
+//   engine's render does: a module's long silent tail otherwise decays through subnormals. The rack can't see a
+//   subnormal its modules hold, so it checks the cause instead: each block a slot runs its module with the FP control
+//   word's flush bits off is counted and latched on the slot (SlotMeters::unflushed), and the test plug-in's smoke holds
+//   the count at 0 against a build that calls the rack outside the scope.
 // Real time: process() allocates nothing, takes no lock and makes no call into the system; everything it touches is
 // sized at prepare(), which runs on the main thread (a module may allocate there: tens of MiB, for a reverb).
 #include <atomic>
@@ -44,6 +49,7 @@ struct SlotMeters {
   std::uint64_t nonfinite = 0;   // samples zeroed since the slot was prepared: the latch is "not zero"
   bool tail_lost = false;        // properties() stopped declaring a tail after prepare (latched): the slot was not cut
   std::uint64_t starts = 0;      // times the slot started cleared
+  std::uint64_t unflushed = 0;   // blocks its module ran without flush-to-zero in force (latched): the caller's fault
 };
 
 class Rack {

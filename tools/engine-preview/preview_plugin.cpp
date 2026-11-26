@@ -1684,10 +1684,17 @@ clap_process_status plugin_process(const clap_plugin_t* p, const clap_process_t*
   const bool was_silent = s.live->engine->silent();
   s.block_moving = false;
   const auto t0 = std::chrono::steady_clock::now();
+  // The rack inside the engine's flush-to-zero scope, as the engine is (rack.h, FLUSH-TO-ZERO): its slots' meters
+  // count every block run outside it, and smoke.cpp holds that count at 0 against the build that moves it out.
   horde2::underFlushToZero([&] {
     render(s, proc, left, right, frames);
+#ifndef HORDE_PREVIEW_PLANT_RACK_NO_FTZ
     s.rack.process(left, right, frames, false);
+#endif
   });
+#ifdef HORDE_PREVIEW_PLANT_RACK_NO_FTZ   // smoke.cpp's must-fail build: the rack runs outside flush-to-zero
+  s.rack.process(left, right, frames, false);
+#endif
   const auto t1 = std::chrono::steady_clock::now();
 
   guard_output(s, left, right, frames);

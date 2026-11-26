@@ -7,7 +7,8 @@
 // pre-B714 chunk lines themselves; it runs only for a slot that hosts the module the line was written for.
 //
 // The input is a seeded burst (mulberry32, seed fixed), so every run reads the same samples, and every comparison is
-// exact: bit for bit, or a stated equality of units. There is no tolerance in this file.
+// exact: bit for bit, or a stated equality of units, but one. The idle cut's residue is held to kIdleResidueBound,
+// ADR-413's -140 dB: a module may declare its tail over below it (Weir does), so what the cut drops is bounded, not 0.
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -39,6 +40,12 @@ constexpr double kPi = 3.14159265358979323846;
 // How long after its input stops a declared tail must have ended for the idle check below to see the cut (Scape's
 // default tail is preDelay + 1 + 11 x decay, about 25 s).
 constexpr double kIdleTailBoundS = 40;
+// What the idle cut may drop of a module's tail: below -140 dB, the level ADR-413 lets a module (Weir's adapter, as the
+// pre-B714 shell's rung_out did) declare its tail over at. HORDE-INTERIM, as the adapter's own threshold is.
+constexpr double kIdleResidueBound = 1e-7;
+// The delay probe's delay, and so its declared tail: past three blocks, so its output is silent for whole blocks after
+// its input stops and then sounds (its echo), the case a level-based cut gets wrong.
+constexpr std::uint32_t kDelaySamples = 3 * kBlock + 100;
 
 std::uint32_t mulberry32(std::uint32_t& a) {
   std::uint32_t t = a += 0x6D2B79F5u;
@@ -181,26 +188,49 @@ void table_rules() {
     const rack::SlotTable t = rack::build_slot_table({synthetic(key(0, "morph", "") + "," + key(1, "morph", ""), law(0, "lin") + "," + law(1, "lin"))}, {synthetic_ledger(1)});
     check(t.slots.empty() && !t.refused.empty() && t.refused[0].find("no host id") != std::string::npos, "table: an address with no ledger id is refused loudly");
   }
+  {  // kMaxKeys holds the constants too: more one-value flip keys than a slot's fixed array is refused at the table
+    std::string params = key(0, "morph", ""), laws = law(0, "lin");
+    for (int k = 1; k <= rack::kMaxKeys + 1; ++k)
+      params += "," + key(k, "flip", ",\"values\":[\"only\"],\"switch\":{\"method\":\"crossfade\"}"), laws += "," + law(k, "step");
+    const rack::SlotTable t = rack::build_slot_table({synthetic(params, laws)}, {synthetic_ledger(1)});
+    check(t.slots.empty() && !t.refused.empty() && t.refused[0].find("constant keys") != std::string::npos,
+          "table: a module with " + std::to_string(rack::kMaxKeys + 1) + " constants, past kMaxKeys, is refused loudly: " + (t.refused.empty() ? "" : t.refused[0]));
+  }
+  {  // an alias can rename a stepped key's options, never change how many there are
+    std::string ledger = synthetic_ledger(1);
+    ledger.insert(ledger.size() - 1, ",\"aliases\":[{\"module\":\"synthetic\",\"key\":\"s.k0\",\"preview\":\"preview.synthetic.k0\",\"form\":\"host\","
+                                     "\"name\":\"Synth k0\",\"labels\":[\"a\",\"b\",\"c\"]}]");
+    const rack::SlotTable t =
+        rack::build_slot_table({synthetic(key(0, "flip", ",\"values\":[\"one\",\"two\"],\"switch\":{\"method\":\"crossfade\"}"), law(0, "step"))}, {ledger});
+    check(t.aliases.empty() && !t.refused.empty() && t.refused[0].find("3 labels") != std::string::npos,
+          "table: an alias with 3 labels for a key's 2 options is refused loudly: " + (t.refused.empty() ? "" : t.refused[0]));
+  }
 }
 
 // ---- test modules of this file's own, for the guard, the tail sentinel and a tail lost at run time -----------------
 // Each passes its input, one key (t.gain, unused), and does one thing on top: emits a NaN once; or declares
-// kInfiniteTail; or stops declaring a tail once `lose` is set; or records whether its input ever held a non-finite.
+// kInfiniteTail; or stops declaring a tail once `lose` is set; or records whether its input ever held a non-finite; or
+// delays its input by kDelaySamples and declares exactly that as its tail.
 struct Probe final : admission::Module {
-  enum Kind { kNanOnce, kInfinite, kLosesTail, kRecorder } kind;
+  enum Kind { kNanOnce, kInfinite, kLosesTail, kRecorder, kDelay } kind;
   explicit Probe(Kind k) : kind(k) {}
   bool lose = false, saw_nonfinite = false, emitted = false;
   std::uint64_t calls = 0;
   std::vector<admission::ParamSpec> manifest() const override { return {}; }
   std::string manifestJson() const override { return ""; }
   admission::Declared declared() const override { return {}; }
-  bool prepare(double, std::uint32_t) override { prepared = true; return true; }
-  void reset() override {}
+  bool prepare(double, std::uint32_t) override {
+    ring.assign(2 * std::size_t(kDelaySamples), 0.0);
+    prepared = true;
+    return true;
+  }
+  void reset() override { std::fill(ring.begin(), ring.end(), 0.0), at = 0; }
   foundations::OperatorProperties properties() const override {
     foundations::OperatorProperties p;
     if (!prepared) return p;
     p.latency = foundations::LatencyDecl{0, 0.0, foundations::ResidualSign::kNone};
-    if (!(kind == kLosesTail && lose)) p.tail = foundations::TailDecl{kind == kInfinite || kind == kLosesTail ? foundations::kInfiniteTail : 0u, true};
+    if (!(kind == kLosesTail && lose))
+      p.tail = foundations::TailDecl{kind == kInfinite || kind == kLosesTail ? foundations::kInfiniteTail : kind == kDelay ? kDelaySamples : 0u, true};
     p.min_block = 1;
     return p;
   }
@@ -212,6 +242,11 @@ struct Probe final : admission::Module {
     for (std::uint32_t i = 0; i < n; ++i) {
       saw_nonfinite = saw_nonfinite || !std::isfinite(il[i]) || !std::isfinite(ir[i]);
       ol[i] = il[i], orr[i] = ir[i];
+      if (kind == kDelay) {
+        std::swap(ol[i], ring[2 * at]);
+        std::swap(orr[i], ring[2 * at + 1]);
+        at = (at + 1) % kDelaySamples;
+      }
     }
     if (kind == kNanOnce && !emitted && n > 10) ol[10] = std::numeric_limits<double>::quiet_NaN(), emitted = true;
   }
@@ -233,6 +268,8 @@ struct Probe final : admission::Module {
   bool dryExact() const override { return true; }
   admission::Settings stressProbe() const override { return {}; }
   bool prepared = false;
+  std::vector<double> ring;   // the delay's, stereo interleaved
+  std::uint32_t at = 0;
 };
 // A table of Probe modules, one per kind given, slot i named "probe<i>", their instances kept in `made`.
 rack::SlotTable probe_table(const std::vector<Probe::Kind>& kinds, std::vector<Probe*>& made) {
@@ -304,6 +341,38 @@ void guard_and_tail_rules() {
     render(*r, burst(0, 2 * kBlock));
     check(made[0]->calls == before + 2 && r->meters(0).tail_lost && rack::slot_meters_json(*r).find("\"tailLost\":true") != std::string::npos,
           "tail: a tail lost at run time does not cut the slot, and is latched and reported");
+  }
+  {  // the declared tail is what cuts (rack.h, IDLE CUT): a module silent for whole blocks after its input stops and then
+     // sounding (a delay's echo) runs exactly the blocks it declares, its echo whole, and not one block more. A rack
+     // that cuts early (on the idle path, or on its output's level) loses the echo; one that never cuts runs on.
+    std::vector<Probe*> made;
+    const rack::SlotTable t = probe_table({Probe::kDelay}, made);
+    auto cut = make_rack(t);
+    Probe* const pc = made[0];
+    auto never = make_rack(t);
+    cut->set_on(0, true);
+    never->set_on(0, true);
+    never->set_never_cut(true);
+    const std::vector<float> in = burst(kBlock, 20 * kBlock, 12);
+    bool cut_ran = true;
+    const std::vector<float> yc = render(*cut, in, &cut_ran), yn = render(*never, in, nullptr, false);
+    const std::uint64_t want = 1 + (kDelaySamples + kBlock - 1) / kBlock;
+    check(yc == yn && nonzero_after(yc, 2 * std::size_t(kBlock) * 2), "tail: a delay declaring its delay as its tail is cut with its echo whole (bit-identical to the rack that never cuts)");
+    check(pc && pc->calls == want && !cut_ran, "tail: it runs exactly the " + std::to_string(want) + " blocks its declared tail covers (" + std::to_string(pc ? pc->calls : 0) +
+                                                    "), and is skipped after");
+  }
+  {  // flush-to-zero: a block a slot runs outside it is counted on the slot and latched; one inside it is not
+    std::vector<Probe*> made;
+    const rack::SlotTable t = probe_table({Probe::kRecorder}, made);
+    auto r = make_rack(t);
+    r->set_on(0, true);
+    horde2::underFlushToZero([&] { render(*r, burst(4 * kBlock, 0, 13)); });
+    const std::uint64_t inside = r->meters(0).unflushed;
+    render(*r, burst(2 * kBlock, 0, 14));
+    horde2::underFlushToZero([&] { render(*r, burst(kBlock, 0, 15)); });
+    const std::uint64_t after = r->meters(0).unflushed;
+    check(inside == 0 && after == 2 && rack::slot_meters_json(*r).find("\"unflushed\":2") != std::string::npos,
+          "flush-to-zero: blocks run under it count nothing (" + std::to_string(inside) + "); the 2 run outside it are counted, latched and reported (" + std::to_string(after) + ")");
   }
 }
 
@@ -385,14 +454,21 @@ int main() {
     bool finite = true;
     for (float x : ys) finite = finite && std::isfinite(x);
     check(finite, "fx/" + std::to_string(row.n) + " " + row.key + " at its stress settings: every sample finite");
-    // The output doesn't depend on how the host cuts its blocks (B710's check on the old wrapper, now on the slot): 1,
-    // 64, 100 and 4096 frames against 512, at the stress settings, the burst and the half second after it.
+    // The module's output doesn't depend on how the host cuts its blocks (B710's check on the old wrapper, now on the
+    // slot): 1, 64, 100 and 4096 frames against 512, at the stress settings, the burst and the half second after it.
+    // With the idle cut held off, in both: the cut falls on a block's edge by design (rack.h: whole blocks only), so
+    // where a module declares its tail over at a level (ADR-413) the block size moves it; the idle check below bounds
+    // what that moves.
     bool split = true;
-    for (std::uint32_t b : {1u, 64u, 100u, 4096u}) {
+    std::vector<float> whole;
+    for (std::uint32_t b : {512u, 1u, 64u, 100u, 4096u}) {
       auto other = make_rack(table);
       other->set_on(s, true);
+      other->set_never_cut(true);
       set_probe(*other, s, probe);
-      split = split && render(*other, in, nullptr, true, b) == ys;
+      const std::vector<float> y = render(*other, in, nullptr, true, b);
+      if (b == 512u) whole = y;
+      else split = split && y == whole;
     }
     check(split, "fx/" + std::to_string(row.n) + " " + row.key + " at its stress settings: bit-identical whether the host's blocks are 1, 64, 100, 512 or 4096 frames");
     check(ys != yd, "fx/" + std::to_string(row.n) + " " + row.key + " at its stress settings differs from its defaults (the values reach the module)");
@@ -405,25 +481,47 @@ int main() {
     }
   }
   // ---- (5) idle cut: one rule, against the same rack that never cuts ----
+  // Up to the block where the slot's declared tail ends, the cut render IS the never-cut one, bit for bit; from it on,
+  // exact zero; and what the never-cut rack still plays there is under kIdleResidueBound (a module may declare its tail
+  // over at -140 dB, ADR-413; one whose tail ends in exact zero drops nothing). At its defaults and at its stress
+  // settings; at its defaults, 40 s on, the slot is skipped.
   {
     const std::vector<float> tail_in = burst(std::uint32_t(kRate / 4), std::uint32_t(kIdleTailBoundS * kRate));
-    for (int s = 0; s < full->slots(); ++s) {
+    for (int s = 0; s < full->slots(); ++s)
+      for (bool stress : {false, true}) {   // at its defaults, and at its stress settings (a resonant filter rings longer)
       const rack::SlotRow& row = table.slots[std::size_t(s)];
+      const std::string name = "fx/" + std::to_string(row.n) + " " + row.key + (stress ? " at its stress settings" : " at its defaults");
       auto cut = make_rack(table), never = make_rack(table);
       cut->set_on(s, true);
       never->set_on(s, true);
       never->set_never_cut(true);
+      if (stress) {
+        set_probe(*cut, s, row.make()->stressProbe());
+        set_probe(*never, s, row.make()->stressProbe());
+      }
       bool cut_ran = true, never_ran = false;
       const std::vector<float> yc = render(*cut, tail_in, &cut_ran), yn = render(*never, tail_in, &never_ran, false);
       // From the first block that is all zeros: the first the shell's idle path would take.
       const std::size_t after = (std::size_t(kRate / 4) + kBlock - 1) / kBlock * kBlock * 2;
-      const bool rings = nonzero_after(yn, after);
-      std::printf("     fx/%d %s: rings after its input stops: %s; still running 40 s later: %s (never-cut: %s)\n", row.n, row.key.c_str(), rings ? "yes" : "no",
+      // Rings: the never-cut rack still plays at or above the bound once the input has stopped.
+      double late = 0;
+      for (std::size_t i = after; i < yn.size(); ++i) late = std::max(late, std::fabs(double(yn[i])));
+      const bool rings = !(late < kIdleResidueBound);
+      std::size_t first = 0;
+      while (first < yc.size() && yc[first] == yn[first]) ++first;
+      double residue = 0;
+      for (std::size_t i = first; i < yn.size(); ++i) residue = std::max(residue, std::fabs(double(yn[i])));
+      char at[160];
+      if (first == yc.size()) std::snprintf(at, sizeof at, "the cut drops nothing (its tail ends in exact zero)");
+      else std::snprintf(at, sizeof at, "the cut renders differ from %.3f s, where the never-cut rack plays at most %.1f dB", double(first / 2) / kRate, 20 * std::log10(residue));
+      std::printf("     %s: rings above -140 dB after its input stops: %s; %s; still running 40 s later: %s (never-cut: %s)\n", name.c_str(), rings ? "yes" : "no", at,
                   cut_ran ? "yes" : "no", never_ran ? "yes" : "no");
-      check(yc == yn, "fx/" + std::to_string(row.n) + " " + row.key + " idle: bit-identical to the rack that never cuts it and never takes the idle path (its tail ends in exact zero; nothing audible is cut)");
-      check(!rings || nonzero_after(yc, after), "fx/" + std::to_string(row.n) + " " + row.key + " idle: it runs on the idle path while its tail rings");
-      check(!cut_ran, "fx/" + std::to_string(row.n) + " " + row.key + " idle: 40 s after its input stopped it is skipped (its declared tail has passed)");
-    }
+      check(first >= after && !nonzero_after(yc, first), name + " idle: bit-identical to the rack that never cuts it until its input has stopped and its declared tail has ended, exact zero after");
+      check(residue < kIdleResidueBound, name + " idle: what the cut drops is under -140 dB (ADR-413)");
+      check(!rings || nonzero_after(yc, after), name + " idle: it runs on the idle path while its tail rings above -140 dB");
+      // At its defaults only: a stress setting may declare a tail past the render (Scape's longest decay rings minutes).
+      if (!stress) check(!cut_ran, name + " idle: 40 s after its input stopped it is skipped (its declared tail has passed)");
+      }
   }
   // ---- (5) state round trip, on a non-default fixture (critic finding 20) ----
   {
@@ -463,9 +561,15 @@ int main() {
     check(again == text, "round trip: save, load, save is byte-identical (%.17g)");
     check(render(*a, in) == render(*b, in), "round trip: the loaded rack plays what the saved one played, bit for bit");
   }
-  // ---- every value of every stepped key, every other key at its minimum and then its maximum: finite, and no
-  // subnormal under flush-to-zero through a long silent tail with subnormal samples in its input (B660's corner sweep,
-  // generated from the table). The control is the same runs without flush-to-zero, which must reach subnormals. ----
+  // ---- the corner sweep (B660's, generated from the table): every value of every stepped key, crossed with each
+  // continuous key alone at its minimum, middle and maximum (the others at their defaults), and with all of them at
+  // their minima and then their maxima. Each module's dry-probe keys are held away from dry (at the end of their range
+  // away from the dry value, the top where dry is inside it) unless the swept key is one, so a run hears the module.
+  // Under flush-to-zero, as the shell runs the rack, through a long silent tail with subnormal samples in its input.
+  // Every run: every sample finite, and the output not the input (bar a dry-probe key swept onto its dry value).
+  // No subnormal check: under flush-to-zero the rack's float output cannot hold one by construction (the double to
+  // float conversion flushes it), so a count of 0 could never fail. What can fail is the shell calling the rack outside
+  // flush-to-zero: the rack's `unflushed` meter, held to 0 through the plug-in by smoke.cpp against its no-ftz plant. ----
   {
     std::vector<float> corner_in(2 * 60 * 2048, 0.0f);
     {
@@ -473,76 +577,109 @@ int main() {
       std::copy(b.begin(), b.end(), corner_in.begin());
       for (std::size_t i = 2 * 4 * 2048; i < corner_in.size(); i += 97) corner_in[i] = 1e-40f;   // subnormal input, here and there
     }
-    std::size_t flushed = 0, unflushed = 0, runs = 0;
-    bool finite = true;
+    std::size_t runs = 0;
     for (int s = 0; s < full->slots(); ++s) {
       const rack::SlotRow& row = table.slots[std::size_t(s)];
-      std::vector<int> stepped_keys;
-      for (std::size_t k = 0; k < row.keys.size(); ++k)
-        if (rack::stepped(row.keys[k].law)) stepped_keys.push_back(int(k));
+      const admission::Settings dry = row.make()->dryProbe();
+      std::vector<int> stepped_keys, continuous;
+      for (std::size_t k = 0; k < row.keys.size(); ++k) (rack::stepped(row.keys[k].law) ? stepped_keys : continuous).push_back(int(k));
       std::size_t combos = 1;
       for (int k : stepped_keys) combos *= std::size_t(row.keys[std::size_t(k)].law.n);
+      // A sweep point: one continuous key (index into `continuous`) at one place, or (-1) all of them at lo or hi.
+      struct Point { int key; int place; };   // place 0 lo, 1 mid, 2 hi
+      std::vector<Point> points = {{-1, 0}, {-1, 2}};
+      for (int c = 0; c < int(continuous.size()); ++c)
+        for (int place = 0; place < 3; ++place) points.push_back({c, place});
+      std::vector<std::string> bad;
       for (std::size_t c = 0; c < combos; ++c)
-        for (bool high : {false, true})
-          for (bool flush : {true, false}) {
-            auto r = make_rack(table);
-            r->set_on(s, true);
-            std::size_t rest = c;
-            for (std::size_t k = 0; k < row.keys.size(); ++k) {
-              const rack::KeyLaw& law = row.keys[k].law;
-              if (rack::stepped(law)) {
-                r->set_units(s, int(k), rack::units_of_host(law, double(rest % std::size_t(law.n))));
-                rest /= std::size_t(law.n);
-              } else {
-                r->set_units(s, int(k), high ? law.hi : law.lo);
-              }
-            }
-            std::vector<float> y;
-            if (flush) horde2::underFlushToZero([&] { y = render(*r, corner_in, nullptr, true, 2048); });
-            else y = render(*r, corner_in, nullptr, true, 2048);
-            // A subnormal the slot MADE: one that is not its input handed on untouched (a slot skipped for its tail
-            // passes its input as it came, as a bypassed one does, and under flush-to-zero a subnormal input reads as
-            // zero to that test).
-            for (std::size_t i = 0; i < y.size(); ++i) {
-              finite = finite && std::isfinite(y[i]);
-              (flush ? flushed : unflushed) += std::fpclassify(y[i]) == FP_SUBNORMAL && y[i] != corner_in[i] ? 1 : 0;
-            }
-            runs += flush;
+        for (const Point& pt : points) {
+          auto r = make_rack(table);
+          r->set_on(s, true);
+          std::size_t rest = c;
+          std::string label;
+          for (int k : stepped_keys) {
+            const rack::KeyLaw& law = row.keys[std::size_t(k)].law;
+            r->set_units(s, k, rack::units_of_host(law, double(rest % std::size_t(law.n))));
+            label += row.keys[std::size_t(k)].address + "=" + std::to_string(rest % std::size_t(law.n)) + " ";
+            rest /= std::size_t(law.n);
           }
+          const auto place_of = [](const rack::KeyLaw& law, int place) { return place == 0 ? law.lo : place == 2 ? law.hi : rack::units_of_v(law, 0.5); };
+          if (pt.key < 0)
+            for (int k : continuous) r->set_units(s, k, place_of(row.keys[std::size_t(k)].law, pt.place));
+          bool exempt = false;
+          for (const auto& [address, units] : dry) {
+            const int k = key_of(row, address);
+            if (k < 0 || (pt.key >= 0 && continuous[std::size_t(pt.key)] == k)) continue;
+            const rack::KeyLaw& law = row.keys[std::size_t(k)].law;
+            r->set_units(s, k, units == law.hi ? law.lo : law.hi);
+          }
+          if (pt.key >= 0) {
+            const int k = continuous[std::size_t(pt.key)];
+            const double u = place_of(row.keys[std::size_t(k)].law, pt.place);
+            r->set_units(s, k, u);
+            for (const auto& [address, units] : dry) exempt = exempt || (key_of(row, address) == k && r->units(s, k) == rack::clamp_units(row.keys[std::size_t(k)].law, units));
+            label += row.keys[std::size_t(k)].address + (pt.place == 0 ? " lo" : pt.place == 1 ? " mid" : " hi");
+          } else {
+            label += pt.place == 0 ? "all lo" : "all hi";
+          }
+          std::vector<float> y;
+          horde2::underFlushToZero([&] { y = render(*r, corner_in, nullptr, true, 2048); });
+          bool finite = true;
+          for (float v : y) finite = finite && std::isfinite(v);
+          if (!finite || (!exempt && y == corner_in)) bad.push_back(label + (finite ? " (the input, untouched)" : " (not finite)"));
+          ++runs;
+        }
+      check(bad.empty(), "fx/" + std::to_string(row.n) + " " + row.key + " corner sweep, " + std::to_string(combos * points.size()) +
+                             " runs: every one finite, and none the input untouched" + (bad.empty() ? "" : " (" + std::to_string(bad.size()) + " not; first: " + bad[0] + ")"));
     }
-    check(finite && flushed == 0, "every slot, every value of every stepped key, the rest at their minima and maxima (" + std::to_string(runs) +
-                                      " runs): finite, and no subnormal made under flush-to-zero, its long silent tail and subnormal input included");
-    check(unflushed > 0, "control: the same runs without flush-to-zero do make subnormals (" + std::to_string(unflushed) + "), so the check can see one");
+    std::printf("     corner sweep: %zu runs\n", runs);
   }
-  // ---- a load while the audio thread runs never passes through a dry state: a slot it keeps on is never restarted ----
+  // ---- a load while the audio thread runs never passes through a dry state: a slot it keeps on is never restarted,
+  // and no key reads its default in between (every key is off its default before the load and in what it loads) ----
   {
-    auto r = make_rack(table);
-    for (int s = 0; s < r->slots(); ++s) r->set_on(s, true);
+    // A second value off the default, unlike other_units's where it can be: a stepped key's other option is its only one.
+    const auto alt_units = [](const rack::KeyRow& k) {
+      if (rack::stepped(k.law)) return other_units(k);
+      const double a = rack::units_of_v(k.law, 0.6);
+      return a == k.def ? rack::units_of_v(k.law, 0.4) : a;
+    };
+    auto src = make_rack(table), r = make_rack(table);
+    for (int s = 0; s < r->slots(); ++s) {
+      src->set_on(s, true);
+      r->set_on(s, true);
+      for (std::size_t k = 0; k < table.slots[std::size_t(s)].keys.size(); ++k) {
+        src->set_units(s, int(k), other_units(table.slots[std::size_t(s)].keys[k]));
+        r->set_units(s, int(k), alt_units(table.slots[std::size_t(s)].keys[k]));
+      }
+    }
     render(*r, in);
-    rack::FxState keep = rack::capture(*r);   // every slot on; and a value that moves, so the load changes something
-    for (auto& rec : keep.slots)
-      for (const auto& row : table.slots)
-        if (row.module == rec.module)
-          for (const auto& k : row.keys)
-            if (k.cls != rack::Cls::Device && !rack::stepped(k.law)) {
-              for (auto& corner : rec.keys) corner.push_back({k.address, other_units(k), NAN});
-              break;
-            }
+    const rack::FxState keep = rack::capture(*src);   // every slot on, every key off its default
     std::vector<std::uint64_t> before;
     for (int s = 0; s < r->slots(); ++s) before.push_back(r->meters(s).starts);
     std::vector<float> l(kBlock), rr(kBlock);
     std::uint32_t seed = 21;
     int blocks = 0;
+    std::string at_default;
     std::vector<std::string> report;
     rack::apply(*r, keep, report, [&] {
+      for (int s = 0; s < r->slots() && at_default.empty(); ++s)
+        for (std::size_t k = 0; k < table.slots[std::size_t(s)].keys.size(); ++k)
+          if (r->units(s, int(k)) == table.slots[std::size_t(s)].keys[k].def) {
+            at_default = "fx/" + std::to_string(table.slots[std::size_t(s)].n) + "/" + table.slots[std::size_t(s)].keys[k].address;
+            break;
+          }
       for (std::uint32_t i = 0; i < kBlock; ++i) l[i] = float(double(mulberry32(seed)) / 4294967296.0 - 0.5), rr[i] = l[i];
       r->process(l.data(), rr.data(), kBlock, false);
       ++blocks;
     });
-    bool kept = true;
-    for (int s = 0; s < r->slots(); ++s) kept = kept && r->meters(s).starts == before[std::size_t(s)] && r->on(s);
-    check(kept && blocks > 0, "a load that keeps every slot on, with an audio block after every store (" + std::to_string(blocks) +
-                                  "), never switches one off or restarts it");
+    bool kept = true, landed = true;
+    for (int s = 0; s < r->slots(); ++s) {
+      kept = kept && r->meters(s).starts == before[std::size_t(s)] && r->on(s);
+      for (std::size_t k = 0; k < table.slots[std::size_t(s)].keys.size(); ++k) landed = landed && r->units(s, int(k)) == src->units(s, int(k));
+    }
+    check(kept && landed && blocks > 0, "a load that keeps every slot on, with an audio block after every store (" + std::to_string(blocks) +
+                                            "), never switches one off or restarts it, and lands every value");
+    check(at_default.empty(), "a load passes no key through its default on the way (" + (at_default.empty() ? std::string("none did") : at_default + " did") + ")");
   }
   // ---- (6) the frozen legacy lines migrate (a), and a reader that drops them is caught (d) ----
   {

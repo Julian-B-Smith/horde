@@ -11,10 +11,11 @@
 //     0 is Weir's bypass, which the slot's on switch covers).
 //   - fxfilter.type has one value (SVF 12) and is a constant the slot never exposes; it is accepted and ignored.
 //   - Latency 0 (svf.h: latency() 0). min_block 1 (Weir's Q-005: bit-identical for any block split). No load entry.
-//   - TAIL: kInfiniteTail while the filter's state holds anything, 0 once Weir's own flush (D-010) has made it exactly
-//     zero, may_change. Weir's tail() bounds every future output by the state's norm; only an exactly zero state
-//     bounds it by zero, so this is the one figure after which the output is exact zero (the rack's idle cut). The
-//     pre-B714 shell stopped at tail() < 1e-7 instead, a level, not exact zero.
+//   - TAIL: kInfiniteTail while Weir's own tail() bound (every future output, by the state's norm) is at or above
+//     kRungOutThreshold, 0 once it is below, may_change. That is the pre-B714 shell's stop (post_filter.h rung_out:
+//     under 1e-7, below -140 dB, inaudible), restored by the human's ruling (ADR-413, "Restore the -140 dB stop"):
+//     once it is declared over, the rack's idle cut makes the output exact zero. Holding Weir to exact zero instead kept
+//     it, and a reverb after it, running on an idle instance about 96 s after a note (measured; main: about 27 s).
 //   - The state text: one line per key, "<address> <value %.17g>", in manifest order; stateBudget is the manifest's.
 //   - Weir's own smoothing ramp is ON (5 ms, as post_filter.h had it): nothing upstream glides these keys.
 // Weir declares no io keys, so the slot supplies the pair (RS-4.7); this adapter has none.
@@ -36,6 +37,9 @@
 
 namespace admission {
 namespace {
+
+// Weir's tail is over once its tail() bound is below this (-140 dB): HORDE-INTERIM, per ADR-413.
+constexpr double kRungOutThreshold = 1e-7;
 
 // The manifest's keys at the pin, in its order. A transcription of docs/fx/manifest-fxfilter.json for this adapter's
 // manifest() (admission's A1); the rack never reads it, it reads the pinned manifest itself.
@@ -99,7 +103,7 @@ class WeirModule final : public Module {
     foundations::OperatorProperties p;
     if (!svf_) return p;   // undeclared before prepare: validate() refuses it
     p.latency = foundations::LatencyDecl{0, 0.0, foundations::ResidualSign::kNone};
-    p.tail = foundations::TailDecl{svf_->tail() == 0 ? 0u : foundations::kInfiniteTail, true};
+    p.tail = foundations::TailDecl{svf_->tail() < kRungOutThreshold ? 0u : foundations::kInfiniteTail, true};
     p.min_block = 1;
     return p;
   }

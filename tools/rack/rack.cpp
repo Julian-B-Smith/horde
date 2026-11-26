@@ -7,6 +7,7 @@
 #include <limits>
 #include <vector>
 
+#include "flush_to_zero.h"
 #include "module.h"
 
 namespace rack {
@@ -16,8 +17,9 @@ constexpr std::uint64_t kRungOut = std::numeric_limits<std::uint64_t>::max() / 2
 // 0 dBFS. A clip is a sample past full scale: the meter's threshold.
 constexpr float kClipThreshold = 1.0f;
 #ifdef HORDE_RACK_PLANT_LEVEL_CUT
-// The pre-B714 shell's stop for its first module (a tail() under 1e-7: a level, not exact zero), as the
-// must-fail control that the idle check tells "quiet" from "exactly silent".
+// A slot that stops on its OUTPUT level, whatever its module declares. The level is the pre-B714 shell's for its first
+// module, which ADR-413 restores inside that module's adapter, as its declared tail; here, in the rack, it ignores the
+// declaration, and tools/rack/tests' delay probe (quiet out for whole blocks, then its echo) is what it cuts short.
 constexpr double kOldLevelThreshold = 1e-7;
 #endif
 double gain_of_db(double db) { return std::pow(10.0, db / 20.0); }
@@ -52,6 +54,7 @@ struct Rack::Slot {
   std::atomic<std::uint64_t> nonfinite{0};
   std::atomic<bool> tail_lost{false};    // its properties() lost the tail it declared at prepare: latched, reported
   std::atomic<std::uint64_t> starts{0};  // times the slot started cleared (switched on, or the host's reset)
+  std::atomic<std::uint64_t> unflushed{0};   // blocks its module ran with flush-to-zero off: latched, reported
   float acc_in = 0, acc_out = 0;
   double last_out = 0;                   // the last block's output peak (the level-cut plant reads it)
   bool acc_in_clip = false, acc_out_clip = false;
@@ -154,7 +157,9 @@ double Rack::units(int slot, int key) const {
   return slot_[std::size_t(slot)].value[key].load(std::memory_order_relaxed);
 }
 void Rack::set_on(int slot, bool on) {
-  if (slot >= 0 && slot < slots()) slot_[std::size_t(slot)].on.store(on, std::memory_order_relaxed);
+  // Release, with the audio thread's acquire: a switch it sees on comes with every value stored before it (chunk.cpp's
+  // apply stores a slot's values first and its switch last), so a slot never starts cleared on stale values.
+  if (slot >= 0 && slot < slots()) slot_[std::size_t(slot)].on.store(on, std::memory_order_release);
 }
 bool Rack::on(int slot) const { return slot >= 0 && slot < slots() && slot_[std::size_t(slot)].on.load(std::memory_order_relaxed); }
 
@@ -227,7 +232,13 @@ bool Rack::process(float* left, float* right, std::uint32_t frames, bool idle) {
       sl.acc_in = sl.acc_out = 0;
       sl.acc_in_clip = sl.acc_out_clip = false;
     }
+#ifdef HORDE_RACK_PLANT_NEVER_CUT   // must-fail: no slot is ever skipped for its tail, so an idle instance runs forever
+  const bool never_cut = true;
+#else
   const bool never_cut = never_cut_.load(std::memory_order_relaxed);
+#endif
+  // Read once: the caller's FP control word, whose flush bits must be on (rack.h, FLUSH-TO-ZERO).
+  const bool flushing = (horde2::fpControlWord() & horde2::flush_detail::kFlushBits) == horde2::flush_detail::kFlushBits;
   bool ran = false;
   for (std::uint32_t done = 0; done < frames;) {
     const std::uint32_t n = std::min(frames - done, kMaxBlock);
@@ -239,7 +250,7 @@ bool Rack::process(float* left, float* right, std::uint32_t frames, bool idle) {
     for (int s = 0; s < slots(); ++s) {
       Slot& sl = slot_[std::size_t(s)];
       if (!sl.usable) continue;
-      if (!sl.on.load(std::memory_order_relaxed)) {
+      if (!sl.on.load(std::memory_order_acquire)) {
         sl.was_on = false;
 #ifdef HORDE_RACK_PLANT_OFF_KEEPS_GAINS   // must-fail (RS-4.8 as it stood): an off slot keeps its I/O gains in the path
         double db = 0;
@@ -328,6 +339,7 @@ bool Rack::process(float* left, float* right, std::uint32_t frames, bool idle) {
       };
       apply_gain(0, x);
       sl.mod->process(x[0], x[1], y[0], y[1], n);
+      if (!flushing) sl.unflushed.fetch_add(1, std::memory_order_relaxed);
       apply_gain(1, y);
       std::uint64_t bad = 0;
       float po = sl.acc_out;
@@ -378,6 +390,7 @@ SlotMeters Rack::meters(int slot) const {
   m.nonfinite = sl.nonfinite.load(std::memory_order_relaxed);
   m.tail_lost = sl.tail_lost.load(std::memory_order_relaxed);
   m.starts = sl.starts.load(std::memory_order_relaxed);
+  m.unflushed = sl.unflushed.load(std::memory_order_relaxed);
   return m;
 }
 void Rack::clear_meters() { meter_reset_.store(true, std::memory_order_relaxed); }

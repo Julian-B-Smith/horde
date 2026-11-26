@@ -445,16 +445,19 @@ fast() {
   # (and the test module's block) give every module key the test plug-in hosts its CLAP id; red on a renumbered or
   # removed id against the merge base, on the pre-B714 numbering (0xA00010-33) moved, on an id at next_free, and on a
   # pinned manifest's key with no id. Six must-fail controls on in-memory copies every run. ~1 s. Added under ADR-180 §1.
-  python3 tools/host_id_ledger_check.py || ok=1
+  # Through tgate: its SKIPPED rows (a shallow checkout has no merge base) reach .harness/last-verify.json as skipped.
+  tgate host_id_ledger python3 tools/host_id_ledger_check.py || ok=1
   # HORDE'S INTERIM LAW/MOD OVERLAY (B714, RS-2.9, X123 (a)). tools/rack/law/<module>.json names exactly each pinned
   # manifest's keys, with a law and a mod each, and steps aside the day a manifest declares `law` itself; four
   # must-fail controls every run. A sibling tree that is absent is SKIPPED for its module, never green. ~1 s. Added
   # under ADR-180 §1.
-  python3 tools/rack_overlay_check.py || ok=1
+  tgate rack_overlay python3 tools/rack_overlay_check.py || ok=1   # through tgate for the same reason: an absent tree is a skip
   # NO MODULE IS NAMED IN THE HOSTING CODE (B714 acceptance (1), its secondary gate; the behavioural one is the
-  # preview smoke's third module by data alone). Every name, address and legacy identifier the data files give a module
-  # is red as a whole token in preview_plugin.cpp, bridge_core.* or the slot library; controls plant a name, a branch and
-  # an address (red) and "escape" (green). ~1 s. Added under ADR-180 §1.
+  # preview smoke's third module by data alone). Every name the data files give a module (modules.json's key, module,
+  # factory and name, each address's first segment, the legacy prefixes and alias words, and their run-ons with each key
+  # tail), every address and every ledger host id written as a number is red in preview_plugin.cpp, bridge_core.* or
+  # the slot library, as a token or a word inside one; controls plant each kind (red) and "escape" (green). ~1 s.
+  # Added under ADR-180 §1.
   python3 tools/module_neutral_check.py || ok=1
   # THE ARMOR CATALOGUE (B448 A1, ADR-197). docs/armor/catalogue.json holds one row
   # per risk-register row, agent-signature rule and security category; each row is

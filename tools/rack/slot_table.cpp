@@ -255,7 +255,9 @@ SlotTable build_slot_table(const std::vector<ModuleSource>& modules, const std::
       if (row.keys[k].address == "io.outGain") row.io_out = int(k);
     }
     if (int(row.keys.size()) > kMaxKeys) { refuse(std::to_string(row.keys.size()) + " keys, past kMaxKeys (" + std::to_string(kMaxKeys) + ")"); continue; }
+#ifndef HORDE_RACK_PLANT_NO_CONST_CAP   // must-fail: the table takes more constants than a slot can hold
     if (int(row.constants.size()) > kMaxKeys) { refuse(std::to_string(row.constants.size()) + " constant keys, past kMaxKeys (" + std::to_string(kMaxKeys) + ")"); continue; }
+#endif
     if (man.hasObjectMember("fixedControls") && man["fixedControls"].isArray())
       for (std::uint32_t i = 0; i < man["fixedControls"].size() && i < 4; ++i) {
         const auto f = man["fixedControls"][i];
@@ -286,7 +288,14 @@ SlotTable build_slot_table(const std::vector<ModuleSource>& modules, const std::
     } else {
       KeyRow& k = row.keys[std::size_t(al.key)];
       if (!al.name.empty()) k.host_name = al.name;
-      if (al.labels.size() == k.labels.size()) k.host_labels = al.labels;   // an alias can rename options, never add one
+      // An alias can rename a key's options, never add or drop one: a count that differs is a ledger at odds with the
+      // manifest, refused loudly (the host would otherwise read the manifest's labels under the alias's name).
+      if (!al.labels.empty() && al.labels.size() != k.labels.size()) {
+        t.refused.push_back("alias " + al.preview + ": " + std::to_string(al.labels.size()) + " labels for " + k.address + "'s " +
+                            std::to_string(k.labels.size()) + " options; the alias is ignored");
+        continue;
+      }
+      if (!al.labels.empty()) k.host_labels = al.labels;
     }
     t.aliases.push_back(al);
   }

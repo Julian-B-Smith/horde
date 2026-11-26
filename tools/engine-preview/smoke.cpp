@@ -1101,9 +1101,12 @@ void demo_checks(const char* clap, const char* plant, const char* plant_map, int
 //   preview-plant-silent-refusal   a refused chunk says nothing
 //   preview-plant-map, -droptest   the page's key map one row off; the page's rack-key sets dropped (B711's, kept)
 //   preview-plant-module-branch    (test configuration) one `if (module == ...)` planted in state_save
+//   preview-plant-rack-noftz       the rack called outside flush-to-zero (the slot meters' unflushed count must see it)
+//   preview-plant-rack-novalues    the rack that never sends a value (the deaf control of the Scape checks)
 // What runs in tools/rack_check.py instead, on the rack alone: true bypass at +-6 dB of owned and supplied I/O gains,
-// deaf and values-dropped, the idle cut against a level cut, a dropped slot record, and a reader that drops the legacy
-// lines (tools/rack/tests/rack_test.cpp and its plants).
+// deaf and values-dropped, the idle cut against an early, a level and a never cut, the corner sweep, a dropped slot
+// record, a load through the dry state, the constants cap, and a reader that drops the legacy lines
+// (tools/rack/tests/rack_test.cpp and its plants).
 struct Descriptor {
   std::string key, name, unit;
   clap_id id = CLAP_INVALID_ID;
@@ -1556,10 +1559,12 @@ void rack_checks(const char* clap, const char* norack, const char* rack_idle, co
       std::printf("     %s CPU, the chord and its tail (2 s of audio): every slot off %.3f s, every slot on at its defaults %.3f s (%+.0f %%), reported, never gating\n", label,
                   off, on, 100 * (on / off - 1));
     }
-    // (5) The idle cut, per slot: the slot alone on at its defaults, a note, and silence. Its tail after the engine has
-    // fallen silent equals the same instance's with the cut turned off (rack.h: nothing audible is cut), it rings on the
-    // idle path while it has a tail, every block it writes there is guarded and metered (the pre-B714 gap: only one
-    // module's ringing used to count), and the build that cuts the idle path reads silence there.
+    // (5) The idle cut, per slot: the slot alone on at its defaults, a note, and silence. Its render is an instance's
+    // with the cut turned off, bit for bit, up to where the slot's declared tail ends, and exact zero from there (rack.h:
+    // a module may declare its tail over at -140 dB, ADR-413, as Weir does, so the cut can drop a residue under it;
+    // tools/rack/tests/rack_test.cpp bounds that residue, and this prints it). It rings on the idle path while it has a
+    // tail, every block it writes there is guarded and metered (the pre-B714 gap: only one module's ringing used to
+    // count), and the build that cuts the idle path reads silence there.
     {
       int quick = -1;
       for (const char* name : {"Blade pluck", "Crunch horde", "Trance jitter", "Wobble jaw", "Glass horde pad"}) {
@@ -1591,7 +1596,15 @@ void rack_checks(const char* clap, const char* norack, const char* rack_idle, co
         const bool rings = energy_between(yn, kTailFromBoundS, kTailToBoundS) > 0;
         ringing += rings;
         std::printf("     %s: %s after the engine falls silent\n", name.c_str(), rings ? "rings" : "is silent");
-        check(!yc.empty() && yc == yn, tag + name + " idle: bit-identical to an instance that never cuts it (its tail ends in exact zero)");
+        std::size_t first = 0;
+        while (first < yc.size() && first < yn.size() && yc[first] == yn[first]) ++first;
+        bool zero_after = yc.size() == yn.size();
+        double residue = 0;
+        for (std::size_t i = first; i < yc.size() && zero_after; ++i) zero_after = yc[i] == 0, residue = std::max(residue, std::fabs(double(yn[i])));
+        if (first < yc.size())
+          std::printf("     %s: the cut render leaves the never-cut one at %.3f s, where that one plays at most %.1f dB\n", name.c_str(), double(first / 2) / 44100,
+                      20 * std::log10(residue));
+        check(!yc.empty() && zero_after, tag + name + " idle: bit-identical to an instance that never cuts it until its declared tail ends, exact zero after");
         check(!rings || energy_between(yc, kTailFromBoundS, kTailToBoundS) > 0, tag + name + " idle: it rings on the idle path while it has a tail");
         check(unmetered == 0, tag + name + ": every block it writes, on the idle path too, is guarded and metered (" + std::to_string(unmetered) + " blocks not)");
         if (cut_given) check(!yp.empty() && (!rings || energy_between(yp, kTailFromBoundS, kTailToBoundS) == 0), tag + "control: " + name + " in the build whose idle skip cuts the rack is silent there");
@@ -1648,11 +1661,14 @@ void rack_checks(const char* clap, const char* norack, const char* rack_idle, co
 // keys' host ids, in the host form hello.slots states (v by law, an option's index). The thresholds are the ones the
 // human approved for these checks before B714 (the filter's 20 dB, B660; the reverb's tail at -40 dB, the poll on
 // B710), and each check keeps its no-op control: the build with no rack module at all, which must fail it.
+// A missing key is a failed check naming it, never a silently skipped setting (a renamed address would otherwise
+// leave a check running at the module's default and passing or failing for that reason).
 const SlotKey* key_of(const RackHello& h, const char* module, const char* address) {
   for (const SlotDesc& s : h.slots)
     if (s.module == module)
       for (const SlotKey& k : s.keys)
-        if (k.key.size() > std::strlen(address) && k.key.compare(k.key.size() - std::strlen(address), std::string::npos, address) == 0) return &k;
+        if (k.key == "fx/" + std::to_string(s.n) + "/" + address) return &k;
+  check(false, std::string("module behaviour: hello.slots has no key ") + address + " on a " + module + " slot");
   return nullptr;
 }
 const SlotDesc* slot_named(const RackHello& h, const char* module) {
@@ -1674,7 +1690,7 @@ double rms_of(const std::vector<float>& x) {
   for (float v : x) e += double(v) * double(v);
   return std::sqrt(e / double(x.size()));
 }
-void module_behaviour_checks(const char* clap, const char* norack, const char* rack_idle) {
+void module_behaviour_checks(const char* clap, const char* norack, const char* rack_idle, const char* novalues) {
   Loaded p, ref;
   const preview_bridge_ext* bridge = p.open(clap) ? bridge_of(p) : nullptr;
   if (!bridge || !norack || !ref.open(norack)) {
@@ -1760,6 +1776,31 @@ void module_behaviour_checks(const char* clap, const char* norack, const char* r
       check(tail > 1e-4 * note && peak(wet) > 0, std::string("the reverb on: ") + kBank[quick].name + "'s tail rings on for seconds after the engine has fallen silent");
       check(energy_between(play_tail(ref, quick), kTailFromBoundS, kTailToBoundS) == 0, "control: the build with no rack module, a no-op, is silent there, so it fails the bound");
       check(!cut_wet.empty() && cut_tail == 0, "control: the build whose idle skip cuts the rack is silent there, so the tail above is the idle loop's");
+      // The values reach Scape through the plug-in (B710's two checks, kept): mix 0 with the slot on is the build with
+      // no rack module bit for bit, and a long decay rings far longer than a short one. Each control is the build whose
+      // rack never sends a value (rack.cpp's no-values plant: Scape plays its own defaults, mix 0.35), which must miss.
+      Loaded deaf;
+      const bool have_deaf = novalues && deaf.open(novalues);
+      check(have_deaf, "the build whose rack sends no value loads (the deaf control of the two checks below)");
+      const auto mix0 = [&](Loaded& l) {
+        set_units(l, key_of(h, "scape", "verb.mix"), 0);
+        return play_tail(l, quick, {reverb->on.id}, every);
+      };
+      check(mix0(p) == dry, "Scape on with mix 0: bit-identical to the build with no rack module (the host's mix reaches Scape)");
+      check(have_deaf && mix0(deaf) != dry, "control: the deaf build, Scape at its own mix 0.35, is not");
+      const auto decay_ratio = [&](Loaded& l) {
+        set_units(l, key_of(h, "scape", "verb.mix"), 0.5);
+        set_units(l, key_of(h, "scape", "verb.decay"), 10);
+        const double long_tail = energy_between(play_tail(l, quick, {reverb->on.id}, every), 2.5, kTailToBoundS);
+        set_units(l, key_of(h, "scape", "verb.decay"), 0.3);
+        const double short_tail = energy_between(play_tail(l, quick, {reverb->on.id}, every), 2.5, kTailToBoundS);
+        return long_tail / (short_tail + 1e-300);
+      };
+      const double ratio = decay_ratio(p), deaf_ratio = have_deaf ? decay_ratio(deaf) : 0;
+      std::printf("     tail energy 2.5 to 4 s, decay 10 s over decay 0.3 s: x%.3g; the deaf build x%.3g\n", ratio, deaf_ratio);
+      check(ratio > 100, "Scape decay reaches Scape: 10 s rings far longer than 0.3 s");
+      check(have_deaf && !(deaf_ratio > 100), "control: the deaf build reads both decays alike");
+      close_instance(deaf);
       set_hosts(p, {{reverb->on.id, 0}});
     }
   } else {
@@ -1769,10 +1810,91 @@ void module_behaviour_checks(const char* clap, const char* norack, const char* r
   close_instance(ref);
 }
 
+// ---- Every slot at its corner through the plug-in, and the rack under flush-to-zero (B660's plug-in-level check) ----
+// The adapter's stress probe isn't the host's to read, so the corner here is hello.slots': each slot alone, every
+// value of its stepped keys crossed, every continuous key at the top of its range but the slot's I/O pair (left at
+// 0 dB: the corner is the module's, not a +24 dB gain stage), through the brightest smoke chord and its tail. Each run
+// is finite and sounds (peak > 0), and no slot ran a block outside flush-to-zero (its meters' `unflushed`, rack.h),
+// held against the build that calls the rack outside the scope (preview_plugin.cpp's no-ftz plant), which must count.
+// No subnormal assertion: under flush-to-zero the rack's double-to-float conversion flushes one, so the output cannot
+// hold a subnormal by construction and a count of 0 could not fail; what could fail is the scope itself, which the
+// meter sees. The count is printed for both builds.
+std::uint64_t unflushed_in(const std::string& frame) {
+  std::uint64_t n = 0;
+  for (std::size_t at = frame.find("\"unflushed\":"); at != std::string::npos; at = frame.find("\"unflushed\":", at + 1))
+    n += std::strtoull(frame.c_str() + at + 12, nullptr, 10);
+  return n;
+}
+void corner_checks(const char* clap, const char* noftz) {
+  struct Run { bool finite = true, sounds = true; std::size_t subnormal = 0; std::uint64_t unflushed = 0; int runs = 0; std::string bad; };
+  const auto sweep = [](const char* path) {
+    Run out;
+    Loaded probe;
+    const preview_bridge_ext* bridge = probe.open(path) ? bridge_of(probe) : nullptr;
+    long long seq = 0;
+    const RackHello h = bridge ? rack_hello(probe, bridge, seq) : RackHello{};
+    close_instance(probe);
+    out.finite = out.sounds = !h.slots.empty();
+    const int preset = find_preset("Trance jitter");
+    std::vector<clap_id> every;
+    for (const SlotDesc& s : h.slots) every.push_back(s.on.id);
+    for (const SlotDesc& s : h.slots) {
+      std::vector<const SlotKey*> steps;
+      std::size_t combos = 1;
+      for (const SlotKey& k : s.keys)
+        if (k.stepped) steps.push_back(&k), combos *= k.labels.size();
+      for (std::size_t c = 0; c < combos; ++c) {
+        Loaded p;   // one instance per run: a corner's tail never rings into the next
+        if (!p.open(path)) { out.finite = false; continue; }
+        std::vector<std::pair<clap_id, double>> corner;
+        std::string label = "fx/" + std::to_string(s.n) + " " + s.module;
+        std::size_t rest = c;
+        for (const SlotKey& k : s.keys) {
+          if (k.stepped) continue;
+          const bool io = k.key.find("/io.") != std::string::npos;
+          corner.emplace_back(k.id, io ? host_form(k, k.def) : 1.0);
+        }
+        for (const SlotKey* k : steps) {
+          corner.emplace_back(k->id, double(rest % k->labels.size()));
+          label += " " + k->key.substr(k->key.rfind('/') + 1) + "=" + k->labels[rest % k->labels.size()];
+          rest /= k->labels.size();
+        }
+        set_hosts(p, corner);
+        const std::vector<float> y = play_tail(p, preset, {s.on.id}, every);
+        bool finite = true;
+        for (float v : y) finite = finite && std::isfinite(v), out.subnormal += std::fpclassify(v) == FP_SUBNORMAL;
+        const bool sounds = peak(y) > 0;
+        if ((!finite || !sounds) && out.bad.empty()) out.bad = label + (finite ? " (silent)" : " (not finite)");
+        out.finite = out.finite && finite;
+        out.sounds = out.sounds && sounds;
+        const preview_bridge_ext* b = bridge_of(p);
+        out.unflushed += b ? unflushed_in(b->frame(p.plugin)) : 0;
+        ++out.runs;
+        close_instance(p);
+      }
+    }
+    return out;
+  };
+  const Run clean = sweep(clap);
+  std::printf("     corner sweep through the plug-in: %d runs, %zu subnormal output samples, %llu slot blocks outside flush-to-zero\n", clean.runs, clean.subnormal,
+              (unsigned long long)clean.unflushed);
+  check(clean.runs > 0 && clean.finite && clean.sounds, "every slot at its corner, every value of its stepped keys (" + std::to_string(clean.runs) +
+                                                            " runs): finite and sounding" + (clean.bad.empty() ? "" : " (first not: " + clean.bad + ")"));
+  check(clean.runs > 0 && clean.unflushed == 0, "every slot ran every block under flush-to-zero (the slot meters' unflushed count is 0)");
+  if (!noftz) {
+    check(false, "the build that runs the rack outside flush-to-zero was not given, so the meter's control did not run");
+    return;
+  }
+  const Run planted = sweep(noftz);
+  std::printf("     the build that runs the rack outside flush-to-zero: %d runs, %zu subnormal output samples, %llu slot blocks outside it\n", planted.runs,
+              planted.subnormal, (unsigned long long)planted.unflushed);
+  check(planted.runs > 0 && planted.unflushed > 0, "control: the build that calls the rack outside flush-to-zero is counted (" + std::to_string(planted.unflushed) + " slot blocks)");
+}
+
 // ---- The idle path's cost (B714 review item 9), measured, never gated ------------------------------------------------
-// Weir now runs on the idle path until its state is exactly zero (its declared tail), where the pre-B714 shell stopped
-// it at a level of 1e-7, and the rack keeps double between slots, so Scape after it hears a non-zero input for as long.
-// This drives either build through the same host ids (the pre-B714 numbers, whose host forms the two builds share:
+// Weir declares its tail over at the pre-B714 shell's level again (tail() under 1e-7, ADR-413), and the rack keeps
+// double between slots, so Scape after it hears a non-zero input until then, where main's float chain may have
+// flushed it sooner. build.sh prints this after every smoke. This drives either build through the same host ids (the pre-B714 numbers, whose host forms the two builds share:
 // Weir's on, mode, cutoff position, resonance, ring and mix, and Scape's on): Weir's own audition setting (LP at
 // 600 Hz, resonance 1, Ring 1, fully wet) and Scape at its defaults, a note held 0.3 s, then silence for three
 // minutes. It prints the thread CPU per window of audio, and the last moment a block cost more than four times the
@@ -1945,7 +2067,7 @@ void refusal_checks(const char* clap, const char* quiet) {
 int main(int argc, char** argv) {
   if (argc < 2) {
     std::printf("usage: smoke <clap> [<plant> <plant-map> <plant-morph> <plant-norack> <plant-rack-idle> <plant-silent-refusal> <plant-droptest>\n"
-                "                    [<test-configuration clap> <plant-module-branch>]]\n"
+                "                    [<test-configuration clap> <plant-module-branch> [<plant-rack-noftz> <plant-rack-novalues>]]]\n"
                 "       smoke --migration <clap> <reference clap of main, before B714>\n"
                 "       smoke --rack <clap> [<plant-norack> [<plant-rack-idle>]]     the rack's generated checks alone\n"
                 "       smoke --hello <clap> <out.json>                              the frame answering a hello, written whole\n");
@@ -2764,7 +2886,8 @@ int main(int argc, char** argv) {
   const char* norack = argc > 5 ? argv[5] : nullptr;
   rack_checks(argv[1], norack, argc > 6 ? argv[6] : nullptr, argc > 3 ? argv[3] : nullptr, argc > 8 ? argv[8] : nullptr, "default", engine_rows);
   refusal_checks(argv[1], argc > 7 ? argv[7] : nullptr);
-  module_behaviour_checks(argv[1], norack, argc > 6 ? argv[6] : nullptr);
+  module_behaviour_checks(argv[1], norack, argc > 6 ? argv[6] : nullptr, argc > 12 ? argv[12] : nullptr);
+  corner_checks(argv[1], argc > 11 ? argv[11] : nullptr);
   migration_checks(argv[1], nullptr, std::getenv("HORDE_PREVIEW_ENGINE") ? std::getenv("HORDE_PREVIEW_ENGINE") : "?");
   std::vector<std::string> clean_failed;
   if (argc > 9) {

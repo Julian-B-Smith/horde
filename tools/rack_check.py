@@ -13,9 +13,11 @@ FOUNDATIONS tree, which CI does not have.
 
 THREE PARTS, each printed, none silently passed:
   A  TESTS     tools/rack/tests: rack_test against every module tools/rack/modules.json names (its test-only one too),
-               then each plant build (off-keeps-gains, deaf, no-values, idle-cut, level-cut, drop-slot-state,
-               ignore-legacy). The clean run must read GREEN; each plant must read RED with at least one FAIL line. A
-               plant that passes is a check that cannot see its fault: red.
+               then each plant build, the PLANTS list below (off-keeps-gains, deaf, no-values, idle-cut, level-cut,
+               never-cut, drop-slot-state, ignore-legacy, guard-no-latch, infinite-as-finite, apply-via-dry,
+               no-const-cap; tools/rack/tests/CMakeLists.txt says what each breaks). The clean run must read GREEN;
+               each plant must read RED with at least one FAIL line. A plant that passes is a check that cannot see
+               its fault: red.
   B  REAL TIME rack_rtsan_probe under RealtimeSanitizer, every module's DSP compiled by the sanitizer compiler (the rule
                is tools/rtsan_check.py's, imported, not restated: $HORDE_SANITIZER_CXX, else Homebrew LLVM, with the SDK
                passed as the sysroot). Order: the planted malloc must be reported; an empty scope must read zero; the
@@ -46,8 +48,8 @@ sys.path.insert(0, str(ROOT / "tools"))
 import rtsan_check  # the compiler rule, one copy (imported after the path it lives on is added)
 
 BUILD = ROOT / "build-rack"
-PLANTS = ["off-keeps-gains", "deaf", "no-values", "idle-cut", "level-cut", "drop-slot-state", "ignore-legacy", "guard-no-latch",
-          "infinite-as-finite", "apply-via-dry"]
+PLANTS = ["off-keeps-gains", "deaf", "no-values", "idle-cut", "level-cut", "never-cut", "drop-slot-state", "ignore-legacy", "guard-no-latch",
+          "infinite-as-finite", "apply-via-dry", "no-const-cap"]
 GOLDENS = ROOT / "tools/engine-preview/fixtures/migration-goldens.json"
 LEDGERS = [ROOT / "tools/engine-preview/host_ids.lock.json"] + sorted((ROOT / "tools/rack/test").glob("host_ids*.json"))
 

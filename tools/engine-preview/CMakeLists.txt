@@ -77,6 +77,10 @@ horde_rack_library(preview_rack)
 horde_rack_registry(preview_rack_modules RACK preview_rack MODULES ${HORDE_RACK_DEFAULT_MODULES} LEDGERS ${PREVIEW_LEDGERS})
 # The rack with no module at all: "the build as it was", the reference every off-is-bit-identical check is held to.
 horde_rack_registry(preview_rack_none RACK preview_rack MODULES LEDGERS ${PREVIEW_LEDGERS})
+# The rack that never sends a value (tools/rack/rack.cpp's no-values plant): each module plays its own defaults, the
+# deaf control of smoke.cpp's "the values reach the module" checks through the plug-in.
+horde_rack_library(preview_rack_novalues DEFINES HORDE_RACK_PLANT_NO_VALUES)
+horde_rack_registry(preview_rack_modules_novalues RACK preview_rack_novalues MODULES ${HORDE_RACK_DEFAULT_MODULES} LEDGERS ${PREVIEW_LEDGERS})
 
 # The page as a byte array, through the same tool the main build embeds its GUI with: it also gives the page a policy
 # that runs only the page's own inline scripts and loads nothing from anywhere, and refuses a page that would break it.
@@ -160,8 +164,12 @@ endforeach()
 #                        loud refusal (B714, acceptance (6))
 #   preview-plant-droptest  the page's sets of the test rows (B711) dropped, alone: their descriptors, gestures and host
 #                        parameters are all there, so the checks that a page set reaches the host fail for that reason only
+#   preview-plant-rack-noftz  the rack called outside the engine's flush-to-zero scope, alone: the control of the slot
+#                        meters' unflushed count (B714)
+#   preview-plant-rack-novalues  the rack that never sends a value, alone: the deaf control of the Scape checks (B714;
+#                        B710's deaf build, generic)
 foreach(plant preview-plant preview-plant-map preview-plant-morph preview-plant-norack preview-plant-rack-idle
-              preview-plant-silent-refusal preview-plant-droptest)
+              preview-plant-silent-refusal preview-plant-droptest preview-plant-rack-noftz preview-plant-rack-novalues)
   add_library(${plant} MODULE preview_plugin.cpp bridge_core.cpp morph_core.cpp preview_gui.mm preview_entry.cpp)
   add_dependencies(${plant} bank_embedded)
   target_compile_definitions(${plant} PRIVATE "HORDE_PREVIEW_BUILD_LABEL=\"${HORDE_PREVIEW_BUILD_LABEL}\"")
@@ -169,6 +177,8 @@ foreach(plant preview-plant preview-plant-map preview-plant-morph preview-plant-
   target_link_libraries(${plant} PRIVATE clap horde_engine2 "-framework AppKit")
   if(plant STREQUAL "preview-plant-norack")
     target_link_libraries(${plant} PRIVATE preview_rack_none)
+  elseif(plant STREQUAL "preview-plant-rack-novalues")
+    target_link_libraries(${plant} PRIVATE preview_rack_modules_novalues)
   else()
     target_link_libraries(${plant} PRIVATE preview_rack_modules)
   endif()
@@ -183,6 +193,7 @@ target_compile_definitions(preview-plant-morph PRIVATE HORDE_PREVIEW_PLANT_DROP_
 target_compile_definitions(preview-plant-rack-idle PRIVATE HORDE_PREVIEW_PLANT_RACK_IDLE_CUT)
 target_compile_definitions(preview-plant-silent-refusal PRIVATE HORDE_PREVIEW_PLANT_SILENT_REFUSAL)
 target_compile_definitions(preview-plant-droptest PRIVATE HORDE_PREVIEW_PLANT_DROP_TEST_SETS)
+target_compile_definitions(preview-plant-rack-noftz PRIVATE HORDE_PREVIEW_PLANT_RACK_NO_FTZ)
 
 # B714, acceptance (1): the TEST CONFIGURATION. The same preview_plugin.cpp and bridge_core.cpp, with the registry of
 # every modules.json entry (its test-only ones too: a module added by data alone) and the test module's own ledger block

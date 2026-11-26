@@ -526,8 +526,9 @@ int main() {
           "control: a reply without the rack's keys is the one it always was");
 
     // hello.preview is main's, byte for byte (fixtures/hello-preview-main.json: the `preview` member a build of main
-    // 3159a196 published), but for the ONE ruled difference: the filter cutoff's default is the module's own 1000 Hz
-    // (Weir's manifest), not State{}'s 0.56628 (999.70 Hz). It is put back here before the comparison, and only there.
+    // 3159a196 published), but for ONE difference: the filter cutoff's default is the manifest's default (ADR-413, the
+    // lead's reading), Weir's own 1000 Hz, not State{}'s 0.56628 (999.70 Hz). It is put back here before the comparison,
+    // and only there.
     {
       // C stdio, not <fstream>: <sstream> brings std::quoted, which ADL would set against the bridge's own quoted().
       std::string main_preview;
@@ -546,7 +547,7 @@ int main() {
         ours.replace(from, to - from, "0.56628");
       }
       check(!main_preview.empty() && ours == main_preview && moved,
-            "hello.preview is byte for byte main's (names, labels, ranges, units, order), the cutoff's ruled default apart (" + std::to_string(main_preview.size()) + " bytes)");
+            "hello.preview is byte for byte main's (names, labels, ranges, units, order), the cutoff's default apart, the manifest's default (ADR-413, the lead's reading) (" + std::to_string(main_preview.size()) + " bytes)");
     }
   }
 
