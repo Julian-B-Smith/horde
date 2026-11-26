@@ -33,7 +33,24 @@
 - **Engine:** none yet. A lab rules nothing. Its engine half is per-source paths into the rack (GN-50), filter sends as levels (X13, RC-1) and make-up per path (Q3), a request until a spec round (ADR-361).
 - **FX device:** no sources or filters; its row starts at the audio input.
 
+**Ruled, GUI-76 (the human, 2026-11-26): "A, A, A, B".**
+- **Q1 A:** source-to-filter sends are levels.
+- **Q2 A:** the dry path is a wire to Out.
+- **Q3 A:** one make-up, at the master.
+- **Q4 B:** the routing views stack.
+
+**Records:**
+- the GUI-76 ruling;
+- GN-63 (filter routing as wires), with GUI-76 added to GN-50;
+- the ledger row `gui76-source-routing-graph` (ruled), with `engine_impact` GN-50 and GN-63;
+- the lab entry (ruled);
+- GB43's status;
+- the lab opens on the answers, and its review tag is removed.
+
+**The lead, 2026-11-26:** GUI-76 reopens ADR-411's Q15 pick (X110). The engine side (per-source taps in 1.0 or after, the CPU measurement first) is the lead's to put to the human. Filters in the graph are a SPEC-ENGINE round. B714's S3 holds its node list open.
+
 **Open.**
-- The human's answers to Q1 to Q4.
-- The Mix picture's shell hop waits on them.
+- The master hop: FxRouting with source and filter nodes, the voice boundary, and stacking; ChainConsole's flow from the graph.
+- Then the FX and Mix pages.
+- The engine ruling is the lead's.
 - **Verify:** `./verify fast`, exit code in the PR.

@@ -34,6 +34,11 @@
      (GN-50), nor do filter sends as levels (X13, RC-1). Nothing here edits gui3*, arp-face/ or the master; a ruling goes through the chain (ADR-316),
      and the engine half is a request until a spec round adopts it (ADR-361).
 
+     RULED, GUI-76 (the human, 2026-11-26): "A, A, A, B". Q1 A, source-to-filter sends are levels that morph; Q2 A, the dry path is a wire
+     to Out (no Σ box); Q3 A, one make-up at the master; Q4 B, the routing views stack. The lab opens on those, and keeps the other answers as
+     the record of what was compared. The engine side (per-source taps, filters in the graph) is not ruled here: it reopens ADR-411's Q15
+     pick and is the lead's to put to the human, then a SPEC-ENGINE round (GN-50, GN-63; ADR-361).
+
      THE SELF-CHECK prints in #selfcheck, each line with a control. HOUSE RULES. No Math.random. No clock: it redraws on change and on the
      session's frame. No wheel listener (B301). -->
 <html lang="en">
@@ -41,7 +46,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="lab-part" content="Sources and routing">
-<meta name="lab-review" content="GB43 · 2026-11-26">
 <title>Source routing lab — every source to the filters, the FX and Out, one graph (GB43)</title>
 <link rel="stylesheet" href="arp-face/tokens.css">
 <link rel="stylesheet" href="arp-face/bundle.css">
@@ -86,7 +90,7 @@
 <div class="col">
   <header>
     <h1>Source routing lab — every source to the filters, the FX and Out, one graph</h1>
-    <p class="tagline">GB43. Your ask: each source routes to the filters and the FX on its own. Here the filters join the FX routing's row, so one ladder and one matrix route everything, and the Mix picture below draws that graph live. Drag from a box onto another to make a wire; drag a level, 0 removes it; double-click a cell for 100 %. A dashed line marks the voice boundary: the sources and filters run per voice, the FX on the voices summed, so no wire crosses it backwards.</p>
+    <p class="tagline">GB43, RULED GUI-76 (A, A, A, B): it opens on your answers. Your ask: each source routes to the filters and the FX on its own. Here the filters join the FX routing's row, so one ladder and one matrix route everything, and the Mix picture below draws that graph live. Drag from a box onto another to make a wire; drag a level, 0 removes it; double-click a cell for 100 %. A dashed line marks the voice boundary: the sources and filters run per voice, the FX on the voices summed, so no wire crosses it backwards.</p>
     <p class="hint">Every level and wire is MOCK. The engine has one path into the rack today (SUM · VOICES, make-up, RACK IN) and X13's selects for the filters; per-source paths (GN-50) and filter sends as levels (X13, RC-1) are requests until a spec round adopts them.</p>
   </header>
 
@@ -143,7 +147,7 @@
                 sigma: [{ u: 'sub', v: 'sigma', lv: all(1) }, { u: 'f2', v: 'sigma', lv: [null, null, .7, null] }, { u: 'sigma', v: 'bulwark', lv: all(.8) }, { u: 'sigma', v: 'out', lv: [null, .6, null, null] }, { u: 'bulwark', v: 'out', lv: all(1) }] };
 
   // ---- the lab's model: the master's FxWires, plus the voice boundary, and Q1's on/off sends ----
-  const st = { q1: 'levels', q2: 'out', q3: 'master', q4: 'side' };
+  const st = { q1: 'levels', q2: 'out', q3: 'master', q4: 'stack' };   // GUI-76's answers: A, A, A, B
   function LabWires(o) { H.FxWires.call(this, o); }
   LabWires.prototype = Object.create(H.FxWires.prototype);
   LabWires.prototype.can = function (u, v) {
@@ -218,10 +222,10 @@
 
   // ---- the questions ----
   const QS = [
-    { id: 'q1', h: 'Q1 · Source-to-filter sends', opts: [['levels', 'Levels that morph by corner, as every FX send (drag them, 0 removes).'], ['onoff', 'On and off: a source is in a filter at 100 % or not at all.']] },
-    { id: 'q2', h: 'Q2 · The dry path', opts: [['out', 'A wire to Out is the dry path: SUM · VOICES and RACK IN go unfed (hollow below).'], ['sigma', 'A Σ VOICES box stays: what you wire into it is summed and goes on to the rack or Out as one node.']] },
-    { id: 'q3', h: 'Q3 · Make-up gain (asked in words; the console keeps one stage)', opts: [['master', 'One make-up, at the master.'], ['path', 'One make-up per path into the rack: each source, filter and Σ that feeds a module gets its own.']] },
-    { id: 'q4', h: 'Q4 · The FX page with 11 boxes in the row (a finding)', opts: [['side', 'Side by side, as GUI-75 rules: at the plug-in’s 980 px the ladder needs about 500 px and gets about 450, so it scrolls sideways.'], ['stack', 'Stacked: the ladder at full width over the matrix. Nothing scrolls; the page is taller.']] }];
+    { id: 'q1', h: 'Q1 · Source-to-filter sends — RULED A (GUI-76)', opts: [['levels', 'Levels that morph by corner, as every FX send (drag them, 0 removes).'], ['onoff', 'On and off: a source is in a filter at 100 % or not at all.']] },
+    { id: 'q2', h: 'Q2 · The dry path — RULED A (GUI-76)', opts: [['out', 'A wire to Out is the dry path: SUM · VOICES and RACK IN go unfed (hollow below).'], ['sigma', 'A Σ VOICES box stays: what you wire into it is summed and goes on to the rack or Out as one node.']] },
+    { id: 'q3', h: 'Q3 · Make-up gain — RULED A (GUI-76)', opts: [['master', 'One make-up, at the master.'], ['path', 'One make-up per path into the rack: each source, filter and Σ that feeds a module gets its own.']] },
+    { id: 'q4', h: 'Q4 · The FX page with 11 boxes in the row — RULED B (GUI-76)', opts: [['side', 'Side by side, as GUI-75 rules: at the plug-in’s 980 px the ladder needs about 500 px and gets about 450, so it scrolls sideways.'], ['stack', 'Stacked: the ladder at full width over the matrix. Nothing scrolls; the page is taller.']] }];
   function drawQs() {
     $('qs').replaceChildren(...QS.map(q => el('div', { class: 'q' }, [el('h3', { text: q.h }), el('div', { class: 'opts' }, q.opts.map(([v, t], i) => {
       const b = el('button', { class: 'opt', type: 'button', 'aria-pressed': String(st[q.id] === v) }, [el('b', { text: String.fromCharCode(65 + i) }), el('span', { text: t })]);
