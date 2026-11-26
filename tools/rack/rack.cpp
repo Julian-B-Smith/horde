@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <vector>
 
 #include "module.h"
 
@@ -15,7 +16,7 @@ constexpr std::uint64_t kRungOut = std::numeric_limits<std::uint64_t>::max() / 2
 // 0 dBFS. A clip is a sample past full scale: a definition of the meter, not a tolerance.
 constexpr float kFullScale = 1.0f;
 #ifdef HORDE_RACK_PLANT_LEVEL_CUT
-// The pre-B714 filter's own stop (post_filter.h rung_out: Weir's tail() under 1e-7, a level, not exact zero), as the
+// The pre-B714 shell's stop for its first module (a tail() under 1e-7: a level, not exact zero), as the
 // must-fail control that the idle check tells "quiet" from "exactly silent".
 constexpr double kOldLevelStop = 1e-7;
 #endif
@@ -33,6 +34,9 @@ struct Rack::Slot {
   int const_handle[kMaxKeys] = {};
   double const_value[kMaxKeys] = {};
   std::atomic<double> value[kMaxKeys];   // units
+  // The host value that set it, so the host reads back exactly what it wrote (host -> units -> host needn't round-trip
+  // bit for bit); a value set in units (a load) stores its own host form here.
+  std::atomic<double> host[kMaxKeys];
   std::atomic<bool> on{false};
   double sent[kMaxKeys] = {};
   bool was_on = false;
@@ -53,7 +57,10 @@ struct Rack::Slot {
 
 Rack::Rack() : slot_(std::make_unique<Slot[]>(kMaxSlots)) {
   for (int s = 0; s < kMaxSlots; ++s)
-    for (auto& v : slot_[std::size_t(s)].value) v.store(0, std::memory_order_relaxed);
+    for (int k = 0; k < kMaxKeys; ++k) {
+      slot_[std::size_t(s)].value[k].store(0, std::memory_order_relaxed);
+      slot_[std::size_t(s)].host[k].store(0, std::memory_order_relaxed);
+    }
 }
 Rack::~Rack() = default;
 
@@ -68,6 +75,7 @@ void Rack::attach(const SlotTable& table) {
       sl.law[k] = row.keys[std::size_t(k)].law;
       sl.is_param[k] = !row.keys[std::size_t(k)].slot_io;
       sl.value[k].store(row.keys[std::size_t(k)].def, std::memory_order_relaxed);
+      sl.host[k].store(host_of_units(sl.law[k], row.keys[std::size_t(k)].def), std::memory_order_relaxed);
     }
     sl.on.store(false, std::memory_order_relaxed);
     ids_[n_ids_++] = {row.on_id, std::int16_t(s), -1};
@@ -123,10 +131,20 @@ bool Rack::prepare(double sample_rate) {
 bool Rack::usable(int slot) const { return slot >= 0 && slot < slots() && slot_[std::size_t(slot)].usable; }
 std::size_t Rack::effective_budget(int slot) const { return usable(slot) ? slot_[std::size_t(slot)].budget : 0; }
 
-void Rack::set_units(int slot, int key, double u) {
+void Rack::set_units(int slot, int key, double u, double host) {
   if (slot < 0 || slot >= slots() || key < 0 || key >= slot_[std::size_t(slot)].n_keys || !std::isfinite(u)) return;
   Slot& s = slot_[std::size_t(slot)];
-  s.value[key].store(clamp_units(s.law[key], u), std::memory_order_relaxed);
+  const KeyLaw& law = s.law[key];
+  const double units = clamp_units(law, u);
+  s.value[key].store(units, std::memory_order_relaxed);
+  const double h = !std::isfinite(host) ? host_of_units(law, units)
+                   : stepped(law)        ? std::round(std::clamp(host, 0.0, host_max(law)))
+                                         : std::clamp(host, 0.0, 1.0);
+  s.host[key].store(h, std::memory_order_relaxed);
+}
+double Rack::host(int slot, int key) const {
+  if (slot < 0 || slot >= slots() || key < 0 || key >= slot_[std::size_t(slot)].n_keys) return 0;
+  return slot_[std::size_t(slot)].host[key].load(std::memory_order_relaxed);
 }
 double Rack::units(int slot, int key) const {
   if (slot < 0 || slot >= slots() || key < 0 || key >= slot_[std::size_t(slot)].n_keys) return 0;
@@ -151,14 +169,21 @@ bool Rack::owns(std::uint32_t id) const {
 bool Rack::set_host(std::uint32_t id, double host) {
   const IdEntry* e = std::lower_bound(ids_, ids_ + n_ids_, id, [](const IdEntry& a, std::uint32_t i) { return a.id < i; });
   if (e == ids_ + n_ids_ || e->id != id || !std::isfinite(host)) return false;
-  if (e->key < 0) set_on(e->slot, std::lround(std::clamp(host, 0.0, 1.0)) != 0);
-  else set_units(e->slot, e->key, units_of_host(slot_[std::size_t(e->slot)].law[e->key], host));
+  if (e->key < 0) {
+    set_on(e->slot, std::lround(std::clamp(host, 0.0, 1.0)) != 0);
+    return true;
+  }
+  Slot& s = slot_[std::size_t(e->slot)];
+  const KeyLaw& law = s.law[e->key];
+  const double h = stepped(law) ? std::round(std::clamp(host, 0.0, host_max(law))) : std::clamp(host, 0.0, 1.0);
+  s.value[e->key].store(units_of_host(law, h), std::memory_order_relaxed);
+  s.host[e->key].store(h, std::memory_order_relaxed);
   return true;
 }
 bool Rack::get_host(std::uint32_t id, double& host) const {
   const IdEntry* e = std::lower_bound(ids_, ids_ + n_ids_, id, [](const IdEntry& a, std::uint32_t i) { return a.id < i; });
   if (e == ids_ + n_ids_ || e->id != id) return false;
-  host = e->key < 0 ? (on(e->slot) ? 1.0 : 0.0) : host_of_units(slot_[std::size_t(e->slot)].law[e->key], units(e->slot, e->key));
+  host = e->key < 0 ? (on(e->slot) ? 1.0 : 0.0) : slot_[std::size_t(e->slot)].host[e->key].load(std::memory_order_relaxed);
   return true;
 }
 
@@ -182,6 +207,12 @@ void Rack::send_values(Slot& s, int slot, bool all) {
 
 bool Rack::process(float* left, float* right, std::uint32_t frames, bool idle) {
   if (!table_) return false;
+#ifdef HORDE_RACK_PLANT_ALLOC   // must-fail of the real-time gate (tools/rack_check.py): one allocation on the audio path
+  {
+    std::vector<double> scratch(frames + 1);
+    sample_rate_ += scratch[0];   // used, so the allocation can't be optimised away; adds 0
+  }
+#endif
 #ifdef HORDE_RACK_PLANT_IDLE_CUT   // must-fail: the shell's idle path cuts every slot, tails and all
   if (idle) return false;
 #else

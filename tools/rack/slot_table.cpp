@@ -42,7 +42,7 @@ struct LedgerKey {
 };
 
 // The four switch methods a manifest may declare (ADR-309). The slot itself builds none of them in S1: a module
-// switches its own flip keys by crossfade or silently, as Scape and Weir do. `gate` (the slot's duck, swap and un-duck,
+// switches its own flip keys by crossfade or silently, as every module hosted at S1 does. `gate` (the slot's duck, swap and un-duck,
 // RS-4.3) and `seeded-jump` (whose seed the slot would have to own, critic finding 18) are refused until built.
 bool switch_supported(const std::string& method, std::string& why) {
   if (method == "crossfade" || method == "silent") return true;
@@ -156,7 +156,7 @@ SlotTable build_slot_table(const std::vector<ModuleSource>& modules, const std::
     const auto okeys = over.hasObjectMember("keys") ? over["keys"] : choc::value::Value();
     std::string why;
     bool in = false, out = false;
-    // label_by_type names a key per type: the module's one type is its constant flip key's only value (Weir's "SVF 12")
+    // label_by_type names a key per type: the module's one type is its constant flip key's only value
     std::string the_type;
     for (std::uint32_t i = 0; params.isArray() && i < params.size(); ++i) {
       const auto p = params[i];

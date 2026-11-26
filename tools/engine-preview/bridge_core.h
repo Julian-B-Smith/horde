@@ -16,10 +16,11 @@
 #include <string_view>
 #include <vector>
 
-#include "filter_core.h"
-#include "reverb_core.h"
 #include "horde_engine.h"
 #include "morph_core.h"
+#include "rack/chunk.h"
+#include "rack/law.h"
+#include "rack/slot_table.h"
 
 namespace preview::bridge {
 
@@ -48,28 +49,40 @@ class KeyMap {
   std::vector<int> by_key_;   // indices into rows_, sorted by key, for a binary search
 };
 
-// ---- the test rows (B711) ---------------------------------------------------------------------------------------
-// The test-only filter's six and reverb's thirty (B660, B710) are host parameters, but no page control touched them, so
-// Live's panel (empty above 64 parameters until a touch in the plug-in's window) could never learn them. The page names
-// them by key as it names an engine row: `preview.filter.<name>`, `preview.scape.on` and `preview.scape.<Scape's own
-// key>`. They aren't the engine's, so they stay out of the KeyMap, the manifest and its hash; the hello reply describes
-// each (test_rows_json), so a page draws only what this build has.
-// Values cross the bridge as v, the engine rows' convention: v in [0, 1] is the host value's place on its range, host =
-// min + v x (max - min), and a stepped row's option is min + round(v x (max - min)), as a stepped engine row's is.
+// ---- the rack's keys on the page (B711, B714) --------------------------------------------------------------------
+// The rack's host parameters (rack/rack.h), which no engine row names. The page names them by key, two ways, and both
+// stay out of the KeyMap, the manifest and its hash:
+// - fx/N/<address> and fx/N.on (SPEC-ENGINE MO-28's names), described in the hello reply's `slots` (rack/descriptor.h):
+//   v is the key's place by its law, as an engine row's (rack/law.h), a stepped key's its option (index / (n - 1)).
+// - the pre-B714 keys (`preview.<module>.<name>`), generated from the ledger's alias table, data, so GUI 3's page reads
+//   hello.preview unchanged until it moves to hello.slots (critic finding 2; retired in S6). Each in the form it was
+//   published in (the ledger says which): the host value itself, or module units, with
+//   v = (published - min) / (max - min) and a stepped row's option min + round(v x (max - min)).
+// Internally every key is one TestRow by its host id; `published` keeps a row in hello.preview, `units` says its
+// published value is in module units and reaches the host through the key's law.
 struct TestRow {
   std::string key;
   std::uint32_t id = 0;
   std::string name;                    // the host parameter's own name
-  double min = 0, max = 1, def = 0;    // in the host parameter's units, as it declares them
+  double min = 0, max = 1, def = 0;    // in the published form
   bool stepped = false;
   std::vector<std::string> labels;     // stepped: one per option, min to max, as the host's text reads it
   std::string unit;                    // the unit its value is in ("" for none, or where labels name the options)
+  bool published = false;              // a pre-B714 key: listed in hello.preview
+  bool units = false;                  // the published value is in module units: the host value is law(units)
+  rack::KeyLaw law;                    // the key's law, where `units`
 };
 constexpr std::string_view kTestPrefix = "preview.";
+constexpr std::string_view kRackPrefix = "fx/";
 constexpr const char* kTestValueRule = "v = (host - min) / (max - min)";   // the descriptor states the convention
 double test_host(const TestRow& row, double v);   // v to the host value, clamped to the range, stepped rows rounded
 double test_v(const TestRow& row, double host);   // the host value to v
-std::string test_rows_json(const std::vector<TestRow>& rows);   // {"value": kTestValueRule, "rows": [...]}
+std::string test_rows_json(const std::vector<TestRow>& rows);   // {"value": kTestValueRule, "rows": [the published ones]}
+// Every rack key of the table, both ways: per slot its switch and each key by MO-28's name, and each alias.
+std::vector<TestRow> test_rows(const rack::SlotTable& table);
+// The host parameter's name for a slot's switch or key: "<module name> on", "<module name> <label>".
+std::string rack_param_name(const rack::SlotRow& row, int key);
+bool is_rack_key(std::string_view key);   // a key this TestKeys path owns: fx/... or preview....
 
 class TestKeys {
  public:
@@ -147,8 +160,9 @@ struct Message {
   double offsets[3] = {};
 };
 
-// Parses one message. Never throws; an unreadable one comes back Invalid with `error` set. A `preview.` key is looked up
-// in `tests` alone (none given: every such key is unknown), and one it lacks is reported as an unknown engine key is.
+// Parses one message. Never throws; an unreadable one comes back Invalid with `error` set. A rack key (`fx/...` or
+// `preview....`) is looked up in `tests` alone (none given: every such key is unknown), and one it lacks is reported as
+// an unknown engine key is.
 Message parse_message(std::string_view json, const KeyMap& keys, const TestKeys* tests = nullptr);
 
 // ---- the mismatch banner ----------------------------------------------------------------------------------------
@@ -167,17 +181,23 @@ Mismatch check_hello(const Message& hello, const std::string& engine_hash, const
 // waypoints and law and MO-24's locks to them. A morph line is written only where the morph holds something a load
 // wouldn't rebuild by itself, and the chunk says version 4 only when it holds a morph line; otherwise it is version 2,
 // byte for byte as before, so an untouched patch saves exactly what it did. Versions 1 and 2 load with the morph at its
-// defaults, version 3 with no waypoints or locks. Version 5 (B660) adds the test-only post-engine filter's line
-// (filter_core.h); the chunk says version 5 only when the filter differs from its defaults (off), so every other chunk
-// is byte for byte what it was, and a chunk with no filter line loads with the filter off. Version 6 (B710) adds the
-// test-only reverb's lines (reverb_core.h) on the same rule: only when Scape is on or a Scape value differs from Scape's
-// default, and a chunk with none loads with the reverb off at Scape's defaults.
+// defaults, version 3 with no waypoints or locks.
+// Versions 5 (B660) and 6 (B710) added one line each for the two test-only modules that sat after the engine before the
+// rack; they are read now only through the rack's frozen legacy table (rack/chunk.h read_legacy_line: data in the
+// ledger, never module code) and MIGRATE into `fx`. Versions 1 to 4 load dry (MO-31: every slot off at its defaults).
+// Version 7 (B714) carries the rack's `fx` section and the device preferences (rack/chunk.h's layout), written only
+// when some slot is not at the dry state, so every other chunk is byte for byte what it was. Anything else, an
+// unknown magic or a version past 7, is REFUSED LOUDLY: read_state says why, and the plug-in logs it and publishes it.
 struct SavedState {
   int preset = 0;
   std::vector<std::pair<std::uint32_t, double>> values;   // id, v
   morph::State morph;
-  filter::State filter;
-  reverb::State reverb;
+  rack::FxState fx;
+};
+struct LoadReport {
+  int version = 0;          // the chunk's, 0 when there was none to read
+  bool migrated = false;    // its module lines came through the legacy table
+  std::string refused;      // why it was refused, "" when it was read
 };
 extern const char* const kStateMagic1;
 extern const char* const kStateMagic2;
@@ -185,8 +205,13 @@ extern const char* const kStateMagic3;
 extern const char* const kStateMagic4;
 extern const char* const kStateMagic5;
 extern const char* const kStateMagic6;
+extern const char* const kStateMagic7;
 std::string write_state(const SavedState& s);
-bool read_state(std::string_view text, SavedState& out);   // false: not ours, and nothing is applied
+// False: refused, nothing is applied, and `report.refused` says why. `table` translates version 5 and 6 lines (none
+// given: they are read as no line).
+bool read_state(std::string_view text, SavedState& out, const rack::SlotTable* table = nullptr, LoadReport* report = nullptr);
+// The frame's `load` member: {version, migrated, refused?: {reason}}.
+std::string load_json(const LoadReport& r);
 // The rows of `current` that differ from `loaded` (both indexed like `ids`), as (id, v).
 std::vector<std::pair<std::uint32_t, double>> differences(const std::vector<std::uint32_t>& ids, const std::vector<double>& current,
                                                           const std::vector<double>& loaded);
@@ -207,7 +232,8 @@ struct NoteSlot {
 
 // What one `observe` is built from. Section 3 pins its decoded shape:
 //   {sounding, voices: [{level, env: [4 stages], notes: {key, vel, gate}, osc: [{R, psi, frame, phases, levels,
-//    blades: [{pos, width}]}]}], meters: {osc1, osc2, sub, noise, out: {peak, clip}}, latches: {clip, nonFinite},
+//    blades: [{pos, width}]}]}], meters: {osc1, osc2, sub, noise, out: {peak, clip}, slots: [..] (B714)},
+//    latches: {clip, nonFinite},
 //    counters: {IF-9's}}
 // plus, only when want.summed asks (B632; section 3 has no shape for it, so this is the simplest): summed: {rate,
 // samples: [..]}, the plug-in's own output, mono ((L + R) / 2), the newest window, every 16th sample.
@@ -218,6 +244,7 @@ struct FrameInputs {
   int unison[2] = {horde::kMaxMembers, horde::kMaxMembers};   // members to send per oscillator
   bool out_tapped = false;                  // the plug-in's own output peak since the last frame, when it has one
   float out_peak = 0;
+  const std::string* slot_meters = nullptr; // the rack's slots (rack/descriptor.h slot_meters_json): meters.slots
   const float* scope = nullptr;             // GN-4: the summed output's window, when `want.summed` asked and there is one
   int scope_n = 0;
   double scope_rate = 0;                    // samples per second of that window
@@ -282,7 +309,9 @@ struct Pieces {
   const std::string* state = nullptr;
   const std::string* build = nullptr;                      // the hello reply's build label
   const std::string* engine_hash = nullptr;                // the hello reply's manifest hash
-  const std::vector<TestRow>* test_rows = nullptr;         // the hello reply's `preview` (B711)
+  const std::vector<TestRow>* test_rows = nullptr;         // the hello reply's `preview` (B711): the published rows
+  const std::string* slots = nullptr;                      // the hello reply's `slots` (B714, rack/descriptor.h)
+  const std::string* load = nullptr;                       // the `load` member after a state load (B714, load_json)
   const Mismatch* mismatch = nullptr;
   const std::vector<std::string>* refused_unknown = nullptr;
   const std::vector<std::string>* refused_reserved = nullptr;

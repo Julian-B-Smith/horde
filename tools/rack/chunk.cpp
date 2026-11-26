@@ -31,10 +31,10 @@ FxRecord& legacy_record(FxState& fx, const SlotTable& t, int slot) {
   fx.slots.push_back(std::move(r));
   return fx.slots.back();
 }
-void put_key(std::vector<std::pair<std::string, double>>& list, const std::string& address, double units) {
-  for (auto& [a, u] : list)
-    if (a == address) { u = units; return; }   // a later line for the same key replaces the earlier one
-  list.emplace_back(address, units);
+void put_key(std::vector<FxKey>& list, const std::string& address, double units, double v) {
+  for (auto& k : list)
+    if (k.address == address) { k.units = units; k.v = v; return; }   // a later line for the same key replaces the earlier one
+  list.push_back({address, units, v});
 }
 // One translated legacy value: a host id and its value, in that id's host form or (plain) in units.
 void legacy_value(FxState& fx, const SlotTable& t, std::uint32_t id, double value, bool plain) {
@@ -48,9 +48,10 @@ void legacy_value(FxState& fx, const SlotTable& t, std::uint32_t id, double valu
   }
   const KeyRow& k = t.slots[std::size_t(slot)].keys[std::size_t(key)];
   const double units = plain ? clamp_units(k.law, value) : units_of_host(k.law, value);
-  if (k.cls == Cls::Device) put_key(r.device, k.address, units);
+  const double v = v_of_units(k.law, units);
+  if (k.cls == Cls::Device) put_key(r.device, k.address, units, v);
   else
-    for (auto& c : r.keys) put_key(c, k.address, units);
+    for (auto& c : r.keys) put_key(c, k.address, units, v);
 }
 
 }  // namespace
@@ -72,9 +73,12 @@ FxState capture(const Rack& rack) {
       const double u = rack.units(s, int(k));
       if (u == row.keys[k].def) continue;   // exact: the same units reload to the same sound
       differs = true;
-      if (row.keys[k].cls == Cls::Device) r.device.emplace_back(row.keys[k].address, u);
+      const KeyLaw& law = row.keys[k].law;
+      const double host = rack.host(s, int(k));
+      const FxKey key{row.keys[k].address, u, stepped(law) ? host / double(law.n - 1) : host};
+      if (row.keys[k].cls == Cls::Device) r.device.push_back(key);
       else
-        for (auto& c : r.keys) c.emplace_back(row.keys[k].address, u);
+        for (auto& c : r.keys) c.push_back(key);
     }
 #ifdef HORDE_RACK_PLANT_DROP_SLOT_STATE   // must-fail: a save forgets the first slot's record
     if (s == 0) continue;
@@ -94,13 +98,13 @@ void write_fx(const FxState& fx, std::string& text) {
     for (int c = 0; c < 4; ++c) {
       std::snprintf(line, sizeof line, "fx.on %d %d %d\n", r.n, c, r.on[c] ? 1 : 0);
       text += line;
-      for (const auto& [address, u] : r.keys[c]) {
-        std::snprintf(line, sizeof line, "fx.key %d %d %s %.17g\n", r.n, c, address.c_str(), u);
+      for (const FxKey& k : r.keys[c]) {
+        std::snprintf(line, sizeof line, "fx.key %d %d %s %.17g %.17g\n", r.n, c, k.address.c_str(), k.units, k.v);
         text += line;
       }
     }
-    for (const auto& [address, u] : r.device) {
-      std::snprintf(line, sizeof line, "fx.device %d %s %.17g\n", r.n, address.c_str(), u);
+    for (const FxKey& k : r.device) {
+      std::snprintf(line, sizeof line, "fx.device %d %s %.17g %.17g\n", r.n, k.address.c_str(), k.units, k.v);
       text += line;
     }
   }
@@ -114,7 +118,7 @@ bool read_fx_line(std::string_view line_in, FxState& fx) {
   const std::string line(line_in);
   char a[160] = "", b[160] = "", c[160] = "";
   int n = 0, corner = 0, on = 0;
-  double u = 0;
+  double u = 0, v = NAN;
   if (std::sscanf(line.c_str(), "fx.slot %d %159s %159s %159s", &n, a, b, c) == 4) {
     if (record_of(fx, n)) return true;   // a slot named twice: the first record stands
     FxRecord r;
@@ -129,15 +133,15 @@ bool read_fx_line(std::string_view line_in, FxState& fx) {
       r->on[corner] = on != 0;
       r->bytes[corner] += line.size() + 1;
     }
-  } else if (std::sscanf(line.c_str(), "fx.key %d %d %159s %lf", &n, &corner, a, &u) == 4) {
+  } else if (std::sscanf(line.c_str(), "fx.key %d %d %159s %lf %lf", &n, &corner, a, &u, &v) >= 4) {
     FxRecord* r = record_of(fx, n);
     if (r && corner >= 0 && corner < 4 && std::isfinite(u)) {
-      put_key(r->keys[corner], a, u);
+      put_key(r->keys[corner], a, u, v);
       r->bytes[corner] += line.size() + 1;
     }
-  } else if (std::sscanf(line.c_str(), "fx.device %d %159s %lf", &n, a, &u) == 3) {
+  } else if (std::sscanf(line.c_str(), "fx.device %d %159s %lf %lf", &n, a, &u, &v) >= 3) {
     FxRecord* r = record_of(fx, n);
-    if (r && std::isfinite(u)) put_key(r->device, a, u);
+    if (r && std::isfinite(u)) put_key(r->device, a, u, v);
   }
   // `fx 1`, `fx.end`, `prefs 1`, `prefs.end` and any line of a later layout: consumed, nothing to hold in S1
   return true;
@@ -215,13 +219,19 @@ void apply(Rack& rack, const FxState& fx, std::vector<std::string>& report) {
         if (row.keys[k].address == address) return int(k);
       return -1;
     };
-    for (const auto& [address, u] : r.keys[0]) {
-      const int k = key_of(address);
-      if (k >= 0 && row.keys[std::size_t(k)].cls != Cls::Device) rack.set_units(slot, k, u);
+    // The units are what the module hears; the v, where the record has one, is the host value it read (a v the
+    // reader could not read is NaN, and the rack derives one from the units).
+    const auto host_of = [&](int k, double v) {
+      const KeyLaw& law = row.keys[std::size_t(k)].law;
+      return stepped(law) ? v * double(law.n - 1) : v;
+    };
+    for (const FxKey& key : r.keys[0]) {
+      const int k = key_of(key.address);
+      if (k >= 0 && row.keys[std::size_t(k)].cls != Cls::Device) rack.set_units(slot, k, key.units, host_of(k, key.v));
     }
-    for (const auto& [address, u] : r.device) {
-      const int k = key_of(address);
-      if (k >= 0 && row.keys[std::size_t(k)].cls == Cls::Device) rack.set_units(slot, k, u);
+    for (const FxKey& key : r.device) {
+      const int k = key_of(key.address);
+      if (k >= 0 && row.keys[std::size_t(k)].cls == Cls::Device) rack.set_units(slot, k, key.units, host_of(k, key.v));
     }
     rack.set_on(slot, r.on[0]);
   }

@@ -27,21 +27,26 @@
 #include <tuple>
 #include <vector>
 
+#include <CommonCrypto/CommonDigest.h>
+
 #include "bank.h"
 #include "bridge_ext.h"
-#include "filter_core.h"
 #include "flush_to_zero.h"
 #include "horde_engine.h"
 #include "morph_core.h"
-#include "reverb_core.h"
 #include "choc/text/choc_JSON.h"
 
 namespace {
 
 int failures = 0;
+// While a whole suite runs as a must-fail control (the planted module branch), its lines read "ctl+" / "ctl-": a
+// failure there is the control firing, never a FAIL of this run. Each failure's text is kept, so a control can be
+// judged on the failures its plant ADDS, not on ones it shares with the clean build.
+bool controlling = false;
+std::vector<std::string> failed_checks;
 void check(bool ok, const std::string& what) {
-  std::printf("%s %s\n", ok ? "ok  " : "FAIL", what.c_str());
-  if (!ok) ++failures;
+  std::printf("%s %s\n", controlling ? (ok ? "ctl+" : "ctl-") : ok ? "ok  " : "FAIL", what.c_str());
+  if (!ok) ++failures, failed_checks.push_back(what);
 }
 
 bool callback_requested = false;
@@ -473,9 +478,10 @@ std::vector<std::string> audit_host(const clap_plugin_t* plugin, const clap_plug
   passed = 0;
   bridge->frame(plugin);
   // The engine rows only: Preset is first, and morph.x and morph.y (B639) reach the resolver, never the engine, so their
-  // own check holds them (host_xy). The test-only filter's six (B660) and reverb's thirty (B710) come after them and have
-  // checks of their own.
-  const std::uint32_t n = params->count(plugin) - 2 - preview::filter::kParams - preview::reverb::kHostParams;
+  // own check holds them (host_xy). The rack's keys (B714) come after them and have checks of their own.
+  int engine_rows = 0;
+  for (std::size_t i = 0; i < horde::manifest_size(); ++i) engine_rows += horde::manifest_param(i).reserved ? 0 : 1;
+  const std::uint32_t n = std::uint32_t(1 + engine_rows);
   for (std::uint32_t i = 1; i < n; ++i) {
     clap_param_info_t info{}, target{};
     params->get_info(plugin, i, &info);
@@ -1068,369 +1074,108 @@ void demo_checks(const char* clap, const char* plant, const char* plant_map, int
 
 }  // namespace
 
-// ---- B660's test-only filter ----------------------------------------------------------------------------------------
-// Weir's SVF 12 after the engine, six host parameters, off by default. `ref` is the plant built without any of it (the
-// build as it was before the filter), so "off is bit-identical" is held to the real thing, not to the filter's own word,
-// and the same plant is the no-op filter that the filter-on checks must tell from the real one.
-namespace flt = preview::filter;
-
-void set_filter(Loaded& p, double on, double mode, double cutoff, double res, double ring, double mix) {
-  float l[64], r[64];
-  Events e;
-  const double v[flt::kParams] = {on, mode, cutoff, res, ring, mix};
-  for (int f = 0; f < flt::kParams; ++f) e.param(flt::id_of(f), v[f]);
-  process(p.plugin, e, l, r, 64);
-}
-// The high band: the second difference's energy, a crude high-pass; the left channel of `play`'s interleaved output.
-double high_band(const std::vector<float>& x) {
-  double e = 0;
-  for (std::size_t i = 2; i < x.size() / 2; ++i) {
-    const double d = double(x[2 * i]) - 2.0 * double(x[2 * i - 2]) + double(x[2 * i - 4]);
-    e += d * d;
-  }
-  return e;
-}
-double rms_of(const std::vector<float>& x) {
-  double e = 0;
-  for (float v : x) e += double(v) * double(v);
-  return std::sqrt(e / double(x.size()));
-}
-void filter_checks(const char* clap, const char* nofilter) {
-  Loaded p, ref;
-  check(p.open(clap), "filter: the plug-in loads");
-  if (!nofilter) { check(false, "the no-filter plant was not given, so the filter's bit-identity control did not run"); return; }
-  check(ref.open(nofilter), "filter: the build without the filter loads");
-  if (!p.plugin || !ref.plugin) return;
-
-  // The parameters: six, after the morph's pair (and before B710's reverb's thirty), at 0xA00010 on, off by default; the
-  // plant has none.
-  const std::uint32_t n = p.params->count(p.plugin);
-  const std::uint32_t first = n - preview::reverb::kHostParams - flt::kParams;
-  bool listed = n > std::uint32_t(flt::kParams) && ref.params->count(ref.plugin) == n - flt::kParams;
-  for (int f = 0; f < flt::kParams && listed; ++f) {
-    clap_param_info_t info{};
-    listed = p.params->get_info(p.plugin, first + std::uint32_t(f), &info) && info.id == 0xA00010 + std::uint32_t(f) &&
-             !std::strcmp(info.name, flt::param_name(f)) && info.default_value == flt::default_value(f) && info.min_value == 0 &&
-             info.max_value == flt::max_value(f) && (info.flags & CLAP_PARAM_IS_STEPPED) == (flt::stepped(f) ? CLAP_PARAM_IS_STEPPED : 0u);
-  }
-  check(listed, "the filter's six parameters follow the morph's, at 0xA00010 to 0xA00015, Filter on defaulting to off; the build without has none");
-  double on_now = -1;
-  check(p.params->get_value(p.plugin, 0xA00010, &on_now) && on_now == 0, "control: Filter on reads 0 (off) on a fresh instance");
-  char text[64];
-  check(p.params->value_to_text(p.plugin, 0xA00012, 1.0 / 3.0, text, sizeof text) && !std::strcmp(text, "200 Hz") &&
-            p.params->value_to_text(p.plugin, 0xA00011, 2, text, sizeof text) && !std::strcmp(text, "HP"),
-        "the cutoff reads in Hz on its log law (one third is 200 Hz) and the mode by name");
-
-  // Off is the build as it was, bit for bit, on every preset the plug-in offers: the factory bank and the demo bank.
-  const auto t0 = std::chrono::steady_clock::now();
-  int identical = 0, loud = 0, first_bad = -1;
-  for (int i = 0; i < kBankSize; ++i) {
-    const std::vector<float> a = play(p, i, {128}), b = play(ref, i, {128});
-    const bool same = a == b;
-    identical += same;
-    loud += peak(a) > 0;
-    if (!same && first_bad < 0) first_bad = i;
-  }
-  const double took = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
-  std::printf("     filter off, %d presets played twice in %.0f s\n", kBankSize, took);
-  check(identical == kBankSize, "filter off: every preset (" + std::to_string(kBankSize) + ", factory and demo) is bit-identical to the build without the filter" +
-                                    (first_bad >= 0 ? " (first difference: " + std::string(kBank[first_bad].name) + ")" : ""));
-  check(loud >= kBankSize / 2, "control: most of them make sound, so identical is not the silence of two dead builds (" + std::to_string(loud) + ")");
-
-  // The brightest of the smoke presets (as the plant renders it), through LP at 200 Hz.
-  int bright = -1;
-  double best = 0;
-  for (const char* name : {"Trance jitter", "Glass horde pad", "Crunch horde", "Wobble jaw"}) {
-    const int i = find_preset(name);
-    if (i < 0) continue;
-    const std::vector<float> a = play(ref, i, {128});
-    const double ratio = high_band(a) / (rms_of(a) * rms_of(a) + 1e-30);
-    if (ratio > best) { best = ratio; bright = i; }
-  }
-  check(bright >= 0, "a bright preset to filter");
-  if (bright < 0) return;
-  const std::vector<float> dry = play(ref, bright, {128});
-  set_filter(p, 1, 0, 1.0 / 3.0, 0, 0, 1);
-  set_filter(ref, 1, 0, 1.0 / 3.0, 0, 0, 1);   // the plant has no such parameter: what a no-op filter does with it
-  const std::vector<float> wet = play(p, bright, {128});
-  const std::vector<float> noop = play(ref, bright, {128});
-  const double drop = high_band(wet) / high_band(dry), noop_drop = high_band(noop) / high_band(dry);
-  std::printf("     %s through LP at 200 Hz: high band x%.5f, level x%.3f; the no-op filter: high band x%.3f\n", kBank[bright].name, drop,
-              rms_of(wet) / rms_of(dry), noop_drop);
-  check(drop < 0.01 && rms_of(wet) > 1e-3 * rms_of(dry), std::string("filter on: LP at 200 Hz takes ") + kBank[bright].name + "'s high band down by more than 20 dB and is not a mute");
-  check(noop_drop > 0.9 && !(noop_drop < 0.01), "control: a no-op filter (the build without) reads the same drop as 1, so the check above fails it");
-
-  // Mix 0 is the dry signal, bit for bit, with the filter on: the other way to read the same control.
-  set_filter(p, 1, 0, 1.0 / 3.0, 0, 0, 0);
-  check(play(p, bright, {128}) == dry, "control: filter on with Mix 0 is bit-identical to the dry render");
-
-  // No NaN, no subnormal out of the real plug-in, every mode at full resonance and Ring (the pure-DSP corners are in bridge_test).
-  bool clean = true;
-  for (int mode = 0; mode < flt::kModeCount; ++mode) {
-    set_filter(p, 1, mode, 0.4, 1, 1, 1);
-    const std::vector<float> a = play(p, bright, {512});
-    for (float v : a) clean = clean && std::isfinite(v) && std::fpclassify(v) != FP_SUBNORMAL;
-    clean = clean && peak(a) > 0;
-  }
-  check(clean, "filter on: every mode at full Resonance and Ring is finite, never subnormal, and sounds");
-
-  // The state: what was set saves, loads into a new instance and plays the same; a default filter saves no line.
-  set_filter(p, 1, 3, 0.45, 0.6, 0.25, 0.75);
-  std::string chunk;
-  check(save_to(p, chunk) && chunk.find("\nfilter 1 3 ") != std::string::npos && chunk.rfind("horde-engine-preview 5", 0) == 0, "state: the filter's values are in the saved chunk");
-  Loaded q;
-  check(q.open(clap), "filter: a second instance loads");
-  std::string plain;
-  check(save_to(q, plain) && plain.find("filter") == std::string::npos && plain.rfind("horde-engine-preview 2", 0) == 0,
-        "control: an untouched instance saves no filter line and the chunk it always did");
-  if (q.plugin && load_from(q, chunk)) {
-    const double want[flt::kParams] = {1, 3, 0.45, 0.6, 0.25, 0.75};
-    bool same = true;
-    for (int f = 0; f < flt::kParams; ++f) {
-      double got = -1;
-      same = same && q.params->get_value(q.plugin, flt::id_of(f), &got) && got == want[f];
-    }
-    check(same, "state: a new instance loads the six values back exactly");
-    // Off, a new engine (so nothing of the last note is still sounding), then on: the cleared filter the new instance starts with.
-    set_filter(p, 0, 3, 0.45, 0.6, 0.25, 0.75);
-    fresh(p, bright);
-    set_filter(p, 1, 3, 0.45, 0.6, 0.25, 0.75);
-    check(play(p, bright, {128}) == play(q, bright, {128}), "state: and it plays what the saved instance plays, bit for bit");
-    check(load_from(q, plain) && q.params->get_value(q.plugin, 0xA00010, &on_now) && on_now == 0, "state: an older chunk, with no filter line, loads with the filter off");
-  } else {
-    check(false, "the saved chunk did not load");
-  }
-
-  // Off again after on: nothing stale reaches the output.
-  set_filter(p, 0, 3, 0.45, 0.6, 0.25, 0.75);
-  check(play(p, bright, {128}) == dry, "filter turned off again: bit-identical to the build without the filter once more");
-
-  for (Loaded* l : {&p, &ref, &q}) {
-    if (!l->plugin) continue;
-    l->plugin->stop_processing(l->plugin);
-    l->plugin->deactivate(l->plugin);
-    l->plugin->destroy(l->plugin);
-  }
-}
-
-// ---- B710's test-only reverb (ADR-408) ------------------------------------------------------------------------------
-// Scape after the engine (after the filter), "Scape on" and Scape's 29 parameters, off by default. `ref` is the plant
-// built without any of it (no Scape compiled or linked: the build as it was), so "off is bit-identical" is held to the
-// real thing; `deaf` is Scape on with the host's values never reaching it, the control of every check that they do; `idle`
-// cuts the reverb in the idle engine's skip (OU-4), the control of the tail check. Each plant carries its one fault alone.
-namespace rv = preview::reverb;
-
-// Sets reverb parameters by their host names ("Scape on", "Scape decay"), as a host's automation would, in one block.
-bool set_reverb(Loaded& p, const std::vector<std::pair<const char*, double>>& values) {
-  float l[64], r[64];
-  Events e;
-  bool found = true;
-  for (const auto& [name, v] : values) {
-    const clap_id id = host_id(p, name);
-    found = found && id != CLAP_INVALID_ID;
-    if (id != CLAP_INVALID_ID) e.param(id, v);
-  }
-  process(p.plugin, e, l, r, 64);
-  return found;
-}
-// One note, released at 0.3 s, then silence to 4 s, in blocks of 512: the engine falls silent and its idle skip runs,
-// so whatever sounds late in this render is the reverb's tail. Interleaved, as `play`'s.
-constexpr std::uint32_t kTailFrames = 44100 * 4, kTailOff = 44100 * 3 / 10;
-// Each render starts from a cleared Scape (Scape on, if it is, is turned off and on again, which clears it): a decay of
-// seconds would otherwise still be ringing from the render before, and every comparison would read that. Before `fresh`,
-// so the new engine's clock starts at the same block in every build (the build without Scape has no such blocks), and
-// fresh's own silent blocks leave a cleared Scape cleared: zeros in, nothing to ring.
-std::vector<float> play_tail(Loaded& p, int preset) {
-  double on = 0;
-  const clap_id on_id = host_id(p, "Scape on");
-  if (on_id != CLAP_INVALID_ID && p.params->get_value(p.plugin, on_id, &on) && on >= 0.5) {
-    set_reverb(p, {{"Scape on", 0}});
-    set_reverb(p, {{"Scape on", 1}});
-  }
-  fresh(p, preset);
-  std::vector<float> l(kTailFrames), r(kTailFrames);
-  for (std::uint32_t pos = 0; pos < kTailFrames; pos += 512) {
-    const std::uint32_t n = std::min<std::uint32_t>(512, kTailFrames - pos);
-    Events e;
-    if (pos == 0) e.note(true, 0, 1, 60, kVelocity);
-    if (kTailOff >= pos && kTailOff < pos + n) e.note(false, kTailOff - pos, 1, 60, 0);
-    process(p.plugin, e, l.data() + pos, r.data() + pos, n);
-    if (callback_requested) { callback_requested = false; p.plugin->on_main_thread(p.plugin); }
-  }
-  std::vector<float> interleaved(2 * kTailFrames);
-  for (std::uint32_t i = 0; i < kTailFrames; ++i) { interleaved[2 * i] = l[i]; interleaved[2 * i + 1] = r[i]; }
-  return interleaved;
-}
-double energy_between(const std::vector<float>& x, double from_s, double to_s) {
-  double e = 0;
-  for (std::size_t i = 2 * std::size_t(from_s * 44100); i < 2 * std::size_t(to_s * 44100) && i < x.size(); ++i) e += double(x[i]) * double(x[i]);
-  return e;
-}
-
-void reverb_checks(const char* clap, const char* noreverb, const char* deaf_path, const char* idle_path) {
-  Loaded p, ref, deaf, idle;
-  check(p.open(clap), "reverb: the plug-in loads");
-  if (!noreverb || !deaf_path || !idle_path) { check(false, "the reverb's three plants were not given, so its controls did not run"); return; }
-  check(ref.open(noreverb) && deaf.open(deaf_path) && idle.open(idle_path), "reverb: the build without Scape and the two must-fail builds load");
-  if (!p.plugin || !ref.plugin || !deaf.plugin || !idle.plugin) return;
-
-  // The parameters: thirty, last, at 0xA00016 on, Scape on first and off; the build without has none of them.
-  const std::uint32_t n = p.params->count(p.plugin);
-  bool listed = n > std::uint32_t(rv::kHostParams) && ref.params->count(ref.plugin) == n - rv::kHostParams;
-  for (int j = 0; j < rv::kHostParams && listed; ++j) {
-    clap_param_info_t info{};
-    listed = p.params->get_info(p.plugin, n - rv::kHostParams + std::uint32_t(j), &info) && info.id == rv::kOnId + std::uint32_t(j) &&
-             !std::strncmp(info.name, "Scape ", 6) && (j > 0 || (!std::strcmp(info.name, "Scape on") && info.default_value == 0 && info.max_value == 1));
-  }
-  check(listed, "the reverb's thirty parameters follow the filter's, at 0xA00016 (Scape on, off) to 0xA00033; the build without has none");
-  check(host_id(ref, "Scape on") == CLAP_INVALID_ID, "control: the build without Scape has no Scape on");
-  double now = -1;
-  check(p.params->get_value(p.plugin, rv::kOnId, &now) && now == 0, "control: Scape on reads 0 (off) on a fresh instance");
-  {
-    clap_param_info_t decay{};
-    bool found = false;
-    for (std::uint32_t i = n - rv::kHostParams; i < n && !found; ++i) found = p.params->get_info(p.plugin, i, &decay) && !std::strcmp(decay.name, "Scape decay");
-    char text[64] = "", era[64] = "";
-    p.params->value_to_text(p.plugin, decay.id, 6, text, sizeof text);
-    p.params->value_to_text(p.plugin, host_id(p, "Scape era"), 1, era, sizeof era);
-    std::printf("     Scape decay: %g to %g s, default %g; 6 reads \"%s\"; era 1 reads \"%s\"\n", decay.min_value, decay.max_value, decay.default_value, text, era);
-    check(found && decay.min_value == 0.2 && decay.max_value == 12 && decay.default_value == 2.2 && !std::strcmp(text, "6 s") && !std::strcmp(era, "vintage"),
-          "Scape's own ranges, defaults and units reach the host (decay 0.2 to 12 s, default 2.2; era by name)");
-  }
-
-  // Off is the build as it was, bit for bit, on every preset the plug-in offers: the factory bank and the demo bank.
-  const auto t0 = std::chrono::steady_clock::now();
-  int identical = 0, loud = 0, first_bad = -1;
-  for (int i = 0; i < kBankSize; ++i) {
-    const std::vector<float> a = play(p, i, {128}), b = play(ref, i, {128});
-    const bool same = a == b;
-    identical += same;
-    loud += peak(a) > 0;
-    if (!same && first_bad < 0) first_bad = i;
-  }
-  const double took = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
-  std::printf("     Scape off, %d presets played twice in %.0f s\n", kBankSize, took);
-  check(identical == kBankSize, "Scape off: every preset (" + std::to_string(kBankSize) + ", factory and demo) is bit-identical to the build without Scape" +
-                                    (first_bad >= 0 ? " (first difference: " + std::string(kBank[first_bad].name) + ")" : ""));
-  check(loud >= kBankSize / 2, "control: most of them make sound, so identical is not the silence of two dead builds (" + std::to_string(loud) + ")");
-
-  // A preset whose note ends well inside the render (as the build without Scape plays it): exact zero from 1.5 s on, so
-  // the engine is idle there, and anything later is the reverb.
-  int quick = -1;
-  for (const char* name : {"Blade pluck", "Crunch horde", "Trance jitter", "Wobble jaw", "Glass horde pad"}) {
-    const int i = find_preset(name);
-    if (i < 0) continue;
-    const std::vector<float> a = play_tail(ref, i);
-    if (peak(a) > 0 && energy_between(a, 1.5, 4) == 0) { quick = i; break; }
-  }
-  check(quick >= 0, "a smoke preset that falls silent within 1.2 s of its note-off, to hear a tail after");
-  if (quick < 0) return;
-  const std::vector<float> dry = play_tail(ref, quick);
-  const double note = energy_between(dry, 0, 1.5);
-
-  // The tail rings after note-off, through the idle engine's skip; the build that cuts it there reads silence.
-  const std::vector<std::pair<const char*, double>> hall = {{"Scape on", 1}, {"Scape mix", 0.5}, {"Scape decay", 6}};
-  check(set_reverb(p, hall) && set_reverb(idle, hall) && set_reverb(deaf, hall), "reverb: Scape on, mix 0.5, decay 6 s");
-  const std::vector<float> wet = play_tail(p, quick), cut = play_tail(idle, quick);
-  const double tail = energy_between(wet, 1.5, 4), cut_tail = energy_between(cut, 1.5, 4);
-  std::printf("     %s, note-off at 0.3 s: energy 1.5 to 4 s with Scape %.4g, the note itself (dry, 0 to 1.5 s) %.4g; the idle-cut build %.4g\n",
-              kBank[quick].name, tail, note, cut_tail);
-  // -40 dB of the note's energy (the human, 2026-11-24, by poll on B710: "Approve, smoke at -40 dB"): the tail measured
-  // about -28 dB, so -30 left 2 dB for a legitimate change to Scape or the preset; the idle-cut build reads exactly 0,
-  // so any positive bound still catches it.
-  check(tail > 1e-4 * note && peak(wet) > 0, std::string("Scape on: ") + kBank[quick].name + "'s tail rings on for seconds after the engine has fallen silent");
-  check(cut_tail == 0, "control: the build whose idle skip cuts the reverb is silent there, so the tail above is the idle loop's");
-  bool finite = true;
-  for (float v : wet) finite = finite && std::isfinite(v) && std::fpclassify(v) != FP_SUBNORMAL;
-  check(finite, "Scape on: the output is finite and never subnormal, tail included");
-
-  // The values reach Scape: mix 0 is the dry render bit for bit, and a long decay rings far longer than a short one.
-  // The deaf build, playing Scape's own defaults whatever the host says, must miss both.
-  set_reverb(p, {{"Scape mix", 0}});
-  set_reverb(deaf, {{"Scape mix", 0}});
-  check(play_tail(p, quick) == dry, "Scape on with mix 0: bit-identical to the build without Scape (the host's mix reaches Scape)");
-  check(play_tail(deaf, quick) != dry, "control: the deaf build, at Scape's default mix 0.35, is not");
-  const auto decay_ratio = [&](Loaded& l) {
-    set_reverb(l, {{"Scape mix", 0.5}, {"Scape decay", 10}});
-    const double long_tail = energy_between(play_tail(l, quick), 2.5, 4);
-    set_reverb(l, {{"Scape decay", 0.3}});
-    const double short_tail = energy_between(play_tail(l, quick), 2.5, 4);
-    return long_tail / (short_tail + 1e-300);
-  };
-  const double ratio = decay_ratio(p), deaf_ratio = decay_ratio(deaf);
-  std::printf("     tail energy 2.5 to 4 s, decay 10 s over decay 0.3 s: x%.3g; the deaf build x%.3g\n", ratio, deaf_ratio);
-  check(ratio > 100, "Scape decay reaches Scape: 10 s rings far longer than 0.3 s");
-  check(!(deaf_ratio > 100), "control: the deaf build reads both decays alike");
-  double read = -1;
-  check(p.params->get_value(p.plugin, host_id(p, "Scape decay"), &read) && read == 0.3, "Scape decay reads back what the host set");
-
-  // The state: what was set saves, loads into a new instance and plays the same; an untouched reverb saves nothing.
-  check(set_reverb(p, hall), "reverb: back to the hall");
-  std::string chunk;
-  check(save_to(p, chunk) && chunk.rfind("horde-engine-preview 6", 0) == 0 && chunk.find("\nscape on 1\n") != std::string::npos &&
-            chunk.find("\nscape 10 6\n") != std::string::npos && chunk.find("\nscape 0 0.5\n") != std::string::npos,
-        "state: the reverb's switch and its changed values are in the saved chunk, by Scape's ids (decay 10, mix 0)");
-  Loaded q;
-  check(q.open(clap), "reverb: a second instance loads");
-  std::string plain;
-  check(save_to(q, plain) && plain.find("scape") == std::string::npos && plain.rfind("horde-engine-preview 2", 0) == 0,
-        "control: an untouched instance saves no scape line and the chunk it always did");
-  if (q.plugin && load_from(q, chunk)) {
-    double on_q = -1, decay_q = -1, mix_q = -1;
-    check(q.params->get_value(q.plugin, rv::kOnId, &on_q) && on_q == 1 && q.params->get_value(q.plugin, host_id(q, "Scape decay"), &decay_q) && decay_q == 6 &&
-              q.params->get_value(q.plugin, host_id(q, "Scape mix"), &mix_q) && mix_q == 0.5,
-          "state: a new instance loads the reverb on, decay 6 s, mix 0.5");
-    // Off and on again: the cleared Scape a new instance starts with.
-    set_reverb(p, {{"Scape on", 0}});
-    set_reverb(p, {{"Scape on", 1}});
-    check(play_tail(p, quick) == play_tail(q, quick), "state: and it plays what the saved instance plays, bit for bit, tail included");
-    check(load_from(q, plain) && q.params->get_value(q.plugin, rv::kOnId, &on_q) && on_q == 0 && q.params->get_value(q.plugin, host_id(q, "Scape decay"), &decay_q) &&
-              decay_q == 2.2,
-          "state: an older chunk, with no scape line, loads with the reverb off at Scape's defaults");
-  } else {
-    check(false, "the saved chunk did not load");
-  }
-
-  // Off again after on: nothing stale reaches the output.
-  set_reverb(p, {{"Scape on", 0}});
-  check(play_tail(p, quick) == dry, "Scape turned off again: bit-identical to the build without Scape once more");
-
-  for (Loaded* l : {&p, &ref, &deaf, &idle, &q}) {
-    if (!l->plugin) continue;
-    l->plugin->stop_processing(l->plugin);
-    l->plugin->deactivate(l->plugin);
-    l->plugin->destroy(l->plugin);
-  }
-}
-
-// ---- B711's test rows: the filter's and Scape's host parameters, reached from the page -------------------------------
-// The hello reply describes each test row; the page sets and gestures them by key in v, and they reach the host as the
-// engine rows' do. Every check here reads the plug-in from outside: its descriptors are held to its own CLAP parameter
-// list, and a page touch to the events the host hears. Controls: `preview-plant-map` (the key map one row off, test rows
-// included) and `preview-plant-droptest` (the page's test-row sets dropped, alone) must fail the audit; the builds
-// without the filter or the reverb publish none of their rows and refuse their keys.
+// ---- B714: the rack's slots, through the plug-in, generated from its own hello.slots --------------------------------
+// Every check below reads the slots the build publishes in its hello reply (rack/descriptor.h), so none names a module:
+// the default plug-in and the test configuration (with the do-nothing test module added by data alone) run the same
+// code. Its value laws are written out again here from tools/rack/law.h's statement (lin, log, step, io), so the
+// plug-in's conversions are held to a second implementation. The references and controls:
+//   preview-plant-norack           the rack with no module at all: what every preset must be, bit for bit, with every
+//                                  slot off (it stands in for B660's no-filter and B710's no-Scape builds)
+//   preview-plant-rack-idle        the idle engine's skip cuts every slot (B710's reverb-idle plant, generic)
+//   preview-plant-silent-refusal   a refused chunk says nothing
+//   preview-plant-map, -droptest   the page's key map one row off; the page's rack-key sets dropped (B711's, kept)
+//   preview-plant-module-branch    (test configuration) one `if (module == ...)` planted in state_save
+// What runs in tools/rack_check.py instead, on the rack alone: true bypass at +-6 dB of owned and supplied I/O gains,
+// deaf and values-dropped, the idle cut against a level cut, a dropped slot record, and a reader that drops the legacy
+// lines (tools/rack/tests/rack_test.cpp and its plants).
 struct Descriptor {
   std::string key, name, unit;
   clap_id id = CLAP_INVALID_ID;
   double min = 0, max = 0, def = 0;
   bool stepped = false;
   std::vector<std::string> labels;
+  // Where the published form is module units (a pre-B714 alias published so), the key's law: the host value is then
+  // the units' place by it. Filled from hello.slots by id.
+  bool plain = false;
+  std::string law;
+  double lo = 0, hi = 1;
 };
-struct TestHello {
+struct SlotKey {
+  std::string key, name, cls, law, unit;
+  clap_id id = CLAP_INVALID_ID;
+  double min = 0, max = 1, def = 0;
+  bool stepped = false;
+  std::vector<std::string> labels;
+};
+struct SlotDesc {
+  int n = 0;
+  std::string module, name;
+  bool usable = false, owns_io = false;
+  double budget = 0;
+  SlotKey on;
+  std::vector<SlotKey> keys;
+};
+struct RackHello {
   std::string frame, rule;
   bool read = false;
-  std::vector<Descriptor> rows;
+  std::vector<Descriptor> aliases;
+  std::vector<SlotDesc> slots;
+  std::vector<std::string> refused;
 };
-TestHello test_hello(Loaded& p, const preview_bridge_ext* bridge, long long& seq) {
-  TestHello h;
+
+// tools/rack/law.h's laws, written again: v by the key's law, and the host form (v, or a stepped key's option index).
+double v_by_law(const std::string& law, double lo, double hi, double u) {
+  if (!(hi != lo)) return 0;
+  if (law == "log") return std::log(u / lo) / std::log(hi / lo);
+  return (u - lo) / (hi - lo);
+}
+double host_form(const SlotKey& k, double u) {
+  const double v = v_by_law(k.stepped ? "lin" : k.law, k.min, k.max, u);
+  return k.stepped ? std::round(v * double(k.labels.size() - 1)) : v;
+}
+double host_max(const SlotKey& k) { return k.stepped ? double(k.labels.size() - 1) : 1.0; }
+
+RackHello rack_hello(Loaded& p, const preview_bridge_ext* bridge, long long& seq) {
+  RackHello h;
   h.frame = send_until_acked(p.plugin, bridge, seq, "\"type\":\"hello\"");
   try {
     const choc::value::Value doc = choc::json::parse(h.frame);
+    const auto key_of = [](const choc::value::ValueView& r) {
+      SlotKey k;
+      k.key = std::string(r["key"].getString());
+      k.id = clap_id(r["id"].get<double>());
+      if (r.hasObjectMember("name")) k.name = std::string(r["name"].getString());
+      if (r.hasObjectMember("cls")) k.cls = std::string(r["cls"].getString());
+      if (r.hasObjectMember("law")) k.law = std::string(r["law"].getString());
+      if (r.hasObjectMember("unit")) k.unit = std::string(r["unit"].getString());
+      if (r.hasObjectMember("min")) k.min = r["min"].get<double>(), k.max = r["max"].get<double>(), k.def = r["default"].get<double>();
+      if (r.hasObjectMember("stepped")) k.stepped = r["stepped"].getBool();
+      if (r.hasObjectMember("labels"))
+        for (std::uint32_t i = 0; i < r["labels"].size(); ++i) k.labels.emplace_back(r["labels"][i].getString());
+      return k;
+    };
+    const auto slots = doc["hello"]["slots"];
+    for (std::uint32_t i = 0; i < slots["refused"].size(); ++i) h.refused.emplace_back(slots["refused"][i].getString());
+    for (std::uint32_t s = 0; s < slots["slots"].size(); ++s) {
+      const auto d = slots["slots"][s];
+      SlotDesc sd;
+      sd.n = int(d["slot"].get<double>());
+      sd.module = std::string(d["module"].getString());
+      sd.name = std::string(d["name"].getString());
+      sd.usable = d["usable"].getBool();
+      sd.owns_io = d["owns_io"].getBool();
+      sd.budget = d["budget"]["bytes"].get<double>();
+      sd.on = key_of(d["on"]);
+      sd.on.stepped = true;
+      sd.on.labels = {"off", "on"};
+      sd.on.name = sd.name + " on";
+      for (std::uint32_t k = 0; k < d["keys"].size(); ++k) sd.keys.push_back(key_of(d["keys"][k]));
+      h.slots.push_back(sd);
+    }
     const auto preview = doc["hello"]["preview"];
     h.rule = std::string(preview["value"].getString());
-    const auto rows = preview["rows"];
-    for (std::uint32_t i = 0; i < rows.size(); ++i) {
-      const auto r = rows[i];
+    for (std::uint32_t i = 0; i < preview["rows"].size(); ++i) {
+      const auto r = preview["rows"][i];
       Descriptor d;
       d.key = std::string(r["key"].getString());
       d.name = std::string(r["name"].getString());
@@ -1442,45 +1187,79 @@ TestHello test_hello(Loaded& p, const preview_bridge_ext* bridge, long long& seq
       d.stepped = r["stepped"].getBool();
       if (r.hasObjectMember("labels"))
         for (std::uint32_t k = 0; k < r["labels"].size(); ++k) d.labels.emplace_back(r["labels"][k].getString());
-      h.rows.push_back(d);
+      h.aliases.push_back(d);
     }
     h.read = true;
   } catch (const std::exception&) {}
+  // An alias published in module units carries its key's law, so its host value can be computed here.
+  for (Descriptor& d : h.aliases)
+    for (const SlotDesc& s : h.slots)
+      for (const SlotKey& k : s.keys)
+        if (k.id == d.id && !(d.min == 0 && d.max == host_max(k))) d.plain = true, d.law = k.stepped ? "lin" : k.law, d.lo = k.min, d.hi = k.max;
   return h;
 }
-// "Filter cutoff" -> preview.filter.cutoff, "Scape decay" -> preview.scape.decay: the key the host's own name implies.
-std::string key_from_name(const std::string& name) {
-  const std::size_t space = name.find(' ');
-  std::string group = name.substr(0, space);
-  for (char& c : group) c = char(std::tolower(static_cast<unsigned char>(c)));
-  return "preview." + group + "." + name.substr(space + 1);
+// Every slot's switch and key, as the page's audit drives them: v is the host value's place on its host range.
+std::vector<Descriptor> slot_descriptors(const RackHello& h) {
+  std::vector<Descriptor> out;
+  for (const SlotDesc& s : h.slots)
+    for (int k = -1; k < int(s.keys.size()); ++k) {
+      const SlotKey& key = k < 0 ? s.on : s.keys[std::size_t(k)];
+      Descriptor d;
+      d.key = key.key;
+      d.name = key.name;
+      d.id = key.id;
+      d.max = host_max(key);
+      d.def = k < 0 ? 0 : host_form(key, key.def);
+      d.stepped = key.stepped;
+      d.labels = key.labels;
+      out.push_back(d);
+    }
+  return out;
 }
-// Each descriptor against the plug-in's CLAP parameter of the same id, and every test-row host parameter described
-// once. Returns the first difference ("" for none).
-std::string descriptor_miss(Loaded& p, const std::vector<Descriptor>& rows) {
-  int hosted = 0;
-  const std::uint32_t n = p.params->count(p.plugin);
-  for (std::uint32_t i = 0; i < n; ++i) {
-    clap_param_info_t info{};
-    if (p.params->get_info(p.plugin, i, &info) && (preview::filter::is_filter_id(info.id) || preview::reverb::is_reverb_id(info.id))) ++hosted;
+const SlotKey* slot_key(const RackHello& h, clap_id id) {
+  for (const SlotDesc& s : h.slots) {
+    if (s.on.id == id) return &s.on;
+    for (const SlotKey& k : s.keys)
+      if (k.id == id) return &k;
   }
-  if (hosted != int(rows.size())) return "the host has " + std::to_string(hosted) + " test-row parameters, the reply describes " + std::to_string(rows.size());
+  return nullptr;
+}
+// The host value a page's v names: the convention the reply states, written again here from its rule.
+// The product in its own statement: in one expression clang may fuse it into an fma, an ulp off the plug-in's value.
+double host_of(const Descriptor& d, double v) {
+  const double scaled = d.stepped ? std::round(v * (d.max - d.min)) : v * (d.max - d.min);
+  const double published = std::clamp(d.min + scaled, d.min, d.max);
+  if (!d.plain) return published;
+  const double place = v_by_law(d.law, d.lo, d.hi, published);
+  return d.stepped ? std::round(place * (d.max - d.min)) : place;
+}
+// Each slot key against the plug-in's CLAP parameter of the same id, and every rack host parameter described once.
+// Returns the first difference ("" for none).
+std::string descriptor_miss(Loaded& p, const RackHello& h, int engine_rows) {
+  const std::uint32_t n = p.params->count(p.plugin);
+  const std::vector<Descriptor> rows = slot_descriptors(h);
+  if (int(n) - (1 + engine_rows + 2) != int(rows.size()))
+    return "the host has " + std::to_string(int(n) - (1 + engine_rows + 2)) + " rack parameters, hello.slots describes " + std::to_string(rows.size());
   for (const Descriptor& d : rows) {
     clap_param_info_t info{};
     bool found = false;
     for (std::uint32_t i = 0; i < n && !found; ++i) found = p.params->get_info(p.plugin, i, &info) && info.id == d.id;
     if (!found) return d.key + ": no host parameter has its id";
     const bool stepped = (info.flags & CLAP_PARAM_IS_STEPPED) != 0;
-    if (d.name != info.name || d.key != key_from_name(info.name) || d.min != info.min_value || d.max != info.max_value || d.def != info.default_value ||
-        d.stepped != stepped)
-      return d.key + ": its name, key, range, default or stepping differs from the host's " + info.name;
-    if (!stepped && !d.labels.empty()) return d.key + ": labels on a continuous row";
-    if (stepped && int(d.labels.size()) != int(d.max - d.min) + 1) return d.key + ": not one label per option";
+    if (d.name != info.name || info.min_value != 0 || d.max != info.max_value || d.def != info.default_value || d.stepped != stepped)
+      return d.key + ": its name, host range, default or stepping differs from the host's " + info.name;
     for (std::size_t k = 0; stepped && k < d.labels.size(); ++k) {
       char text[64] = "";
-      p.params->value_to_text(p.plugin, d.id, d.min + double(k), text, sizeof text);
+      p.params->value_to_text(p.plugin, d.id, double(k), text, sizeof text);
       if (d.labels[k] != text) return d.key + ": label " + d.labels[k] + " where the host reads " + text;
     }
+  }
+  for (const Descriptor& a : h.aliases) {
+    clap_param_info_t info{};
+    bool found = false;
+    for (std::uint32_t i = 0; i < n && !found; ++i) found = p.params->get_info(p.plugin, i, &info) && info.id == a.id;
+    if (!found || a.name != info.name) return a.key + ": the alias names no host parameter of its id and name";
+    if (!a.plain && (a.max != info.max_value || a.def != info.default_value)) return a.key + ": a host-form alias whose range or default is not its parameter's";
   }
   return "";
 }
@@ -1497,28 +1276,23 @@ std::string send_heard(const clap_plugin_t* plugin, const preview_bridge_ext* br
   }
   return "";
 }
-// The host value a page's v names: the convention the reply states, written again here from its rule.
-// The product in its own statement: in one expression clang may fuse it into an fma, an ulp off the plug-in's value.
-double host_of(const Descriptor& d, double v) {
-  const double scaled = d.stepped ? std::round(v * (d.max - d.min)) : v * (d.max - d.min);
-  return d.min + scaled;
-}
 std::string set_body(const std::string& key, double v) {
   char body[200];
   std::snprintf(body, sizeof body, "\"type\":\"set\",\"values\":{\"%s\":%.17g}", key.c_str(), v);
   return body;
 }
-// The mapping audit: each test row set from the page to a v unlike its own, then a second, must reach the host as one
-// gesture (begin, value, end) at that v's host value, read back from the host, and come back in the next frame's params
-// as the page's v exactly. A stepped row goes to its last option and its first. Returns the keys that failed.
-std::vector<std::string> audit_tests(Loaded& p, const preview_bridge_ext* bridge, long long& seq, const std::vector<Descriptor>& rows) {
+// The mapping audit (B711's, every rack key now): each key set from the page to a v unlike its own, then a second, must
+// reach the host as one gesture (begin, value, end) at that v's host value, read back from the host, and come back in
+// the next frame's params as the page's v exactly. A stepped row goes to its last option and its first. Returns the
+// keys that failed.
+std::vector<std::string> audit_keys(Loaded& p, const preview_bridge_ext* bridge, long long& seq, const std::vector<Descriptor>& rows) {
   std::vector<std::string> failed;
   bridge->frame(p.plugin);
   for (const Descriptor& d : rows) {
     double now = NAN;
     p.params->get_value(p.plugin, d.id, &now);
     std::vector<double> targets;
-    if (d.stepped) targets = now == d.max ? std::vector<double>{0.0, 1.0} : std::vector<double>{1.0, 0.0};
+    if (d.stepped) targets = now == host_of(d, 1) ? std::vector<double>{0.0, 1.0} : std::vector<double>{1.0, 0.0};
     else targets = now == host_of(d, 0.375) ? std::vector<double>{0.625, 0.375} : std::vector<double>{0.375, 0.625};
     bool ok = true;
     for (double v : targets) {
@@ -1534,176 +1308,452 @@ std::vector<std::string> audit_tests(Loaded& p, const preview_bridge_ext* bridge
   }
   return failed;
 }
-const Descriptor* row_named(const std::vector<Descriptor>& rows, const std::string& key) {
-  for (const Descriptor& d : rows)
-    if (d.key == key) return &d;
-  return nullptr;
-}
 void close_instance(Loaded& l) {
   if (!l.plugin) return;
   l.plugin->stop_processing(l.plugin);
   l.plugin->deactivate(l.plugin);
   l.plugin->destroy(l.plugin);
 }
+const preview_bridge_ext* bridge_of(Loaded& l) {
+  return l.plugin ? static_cast<const preview_bridge_ext*>(l.plugin->get_extension(l.plugin, kPreviewBridgeExt)) : nullptr;
+}
+// Host values set in one block, as a host's automation would.
+void set_hosts(Loaded& p, const std::vector<std::pair<clap_id, double>>& values) {
+  float l[64], r[64];
+  Events e;
+  for (const auto& [id, v] : values) e.param(id, v);
+  process(p.plugin, e, l, r, 64);
+}
+// Every slot off, then the ones named on: a slot turned on starts cleared (rack.h), so a render starts from nothing.
+void only_on(Loaded& p, const RackHello& h, const std::vector<int>& on) {
+  std::vector<std::pair<clap_id, double>> off, start;
+  for (const SlotDesc& s : h.slots) off.emplace_back(s.on.id, 0);
+  for (int s : on) start.emplace_back(h.slots[std::size_t(s)].on.id, 1);
+  set_hosts(p, off);
+  set_hosts(p, start);
+}
+// One note, released at 0.3 s, then silence to 4 s, in blocks of 512: the engine falls silent and its idle skip runs,
+// so whatever sounds late is the slots' tails. Interleaved. The slots in `on` are switched on in the note's own first
+// block, every other slot off, so no slot hears silence before the note (a module with free-running state, a reverb's
+// modulation, would otherwise run on through those blocks in one render and skip them in another). `unmetered`: blocks
+// whose output sounds while the frame after them reads the output peak as 0 (the idle path skipped a block's guard and
+// meter although a slot wrote it).
+constexpr std::uint32_t kTailFrames = 44100 * 4, kTailOff = 44100 * 3 / 10;
+std::vector<float> play_tail(Loaded& p, int preset, const std::vector<clap_id>& on = {}, const std::vector<clap_id>& off = {}, int* unmetered = nullptr) {
+  std::vector<std::pair<clap_id, double>> offs;
+  for (clap_id id : off) offs.emplace_back(id, 0);
+  set_hosts(p, offs);
+  fresh(p, preset);
+  const preview_bridge_ext* bridge = bridge_of(p);
+  std::vector<float> l(kTailFrames), r(kTailFrames);
+  if (unmetered) *unmetered = 0;
+  for (std::uint32_t pos = 0; pos < kTailFrames; pos += 512) {
+    const std::uint32_t n = std::min<std::uint32_t>(512, kTailFrames - pos);
+    Events e;
+    if (pos == 0)
+      for (clap_id id : on) e.param(id, 1);
+    if (pos == 0) e.note(true, 0, 1, 60, kVelocity);
+    if (kTailOff >= pos && kTailOff < pos + n) e.note(false, kTailOff - pos, 1, 60, 0);
+    process(p.plugin, e, l.data() + pos, r.data() + pos, n);
+    if (callback_requested) { callback_requested = false; p.plugin->on_main_thread(p.plugin); }
+    if (unmetered && bridge) {
+      const std::string frame = bridge->frame(p.plugin);
+      const std::size_t at = frame.find("\"out\":{\"peak\":");
+      const double metered = at == std::string::npos ? 0 : std::strtod(frame.c_str() + at + 14, nullptr);
+      bool sounds = false;
+      for (std::uint32_t i = pos; i < pos + n && !sounds; ++i) sounds = l[i] != 0 || r[i] != 0;
+      if (sounds && !(metered > 0)) ++*unmetered;
+    }
+  }
+  std::vector<float> interleaved(2 * kTailFrames);
+  for (std::uint32_t i = 0; i < kTailFrames; ++i) { interleaved[2 * i] = l[i]; interleaved[2 * i + 1] = r[i]; }
+  return interleaved;
+}
+double energy_between(const std::vector<float>& x, double from_s, double to_s) {
+  double e = 0;
+  for (std::size_t i = 2 * std::size_t(from_s * 44100); i < 2 * std::size_t(to_s * 44100) && i < x.size(); ++i) e += double(x[i]) * double(x[i]);
+  return e;
+}
+// The session logs under `home`, read whole.
+std::string logs_under(const std::string& home) {
+  std::string all;
+  const std::string list = "cat " + home + "/Library/Logs/horde-engine-preview/session-*.tsv 2>/dev/null";
+  if (FILE* f = popen(list.c_str(), "r")) {
+    char buf[4096];
+    for (std::size_t got; (got = std::fread(buf, 1, sizeof buf, f)) > 0;) all.append(buf, got);
+    pclose(f);
+  }
+  return all;
+}
+// A fresh HOME for one instance's session log, so its lines are its own.
+std::string scratch_home() {
+  char home[] = "/tmp/engine-preview-rack-XXXXXX";
+  if (!mkdtemp(home)) return "";
+  mkdir((std::string(home) + "/Library").c_str(), 0755);
+  return home;
+}
 
-void test_row_checks(const char* clap, const char* plant_map, const char* droptest, const char* nofilter, const char* noreverb) {
-  namespace flt = preview::filter;
-  namespace rv = preview::reverb;
-  const int all = flt::kParams + rv::kHostParams;
+// The generated checks, on one build. `label` names it in the report ("default", "test configuration").
+void rack_checks(const char* clap, const char* norack, const char* rack_idle, const char* plant_map, const char* droptest, const char* label,
+                 int engine_rows) {
+  const std::string tag = std::string("rack (") + label + "): ";
   Loaded p;
-  check(p.open(clap), "test rows: the plug-in loads");
-  const auto* bridge = p.plugin ? static_cast<const preview_bridge_ext*>(p.plugin->get_extension(p.plugin, kPreviewBridgeExt)) : nullptr;
+  check(p.open(clap), tag + "the plug-in loads");
+  const preview_bridge_ext* bridge = bridge_of(p);
   if (!bridge) return;
   long long seq = 0;
 
-  // (1) The hello reply: one descriptor per test row, the value rule, each held to the host's own parameter.
-  const TestHello h = test_hello(p, bridge, seq);
-  std::printf("     the hello reply describes %zu test rows; value: \"%s\"\n", h.rows.size(), h.rule.c_str());
-  check(h.read && int(h.rows.size()) == all && h.rule == "v = (host - min) / (max - min)",
-        "the hello reply publishes one descriptor per test row (" + std::to_string(all) + ") and the rule its values follow");
-  const std::string miss = descriptor_miss(p, h.rows);
-  check(miss.empty(), "each descriptor is its host parameter's own id, name, range, default, stepping and option names, keyed by that name" +
+  // (1) hello.slots: every slot, every key, each held to its own host parameter; the aliases beside them.
+  const RackHello h = rack_hello(p, bridge, seq);
+  for (const std::string& r : h.refused) std::printf("     refused: %s\n", r.c_str());
+  std::string list;
+  for (const SlotDesc& s : h.slots) list += " fx/" + std::to_string(s.n) + "=" + s.module + "(" + std::to_string(s.keys.size()) + " keys, budget " + std::to_string(int(s.budget)) + " B)";
+  std::printf("     %s hello.slots:%s; %zu pre-B714 aliases\n", label, list.c_str(), h.aliases.size());
+  bool usable = h.read && !h.slots.empty() && h.refused.empty();
+  for (const SlotDesc& s : h.slots) usable = usable && s.usable;
+  check(usable, tag + "hello.slots publishes every slot, each usable, nothing refused");
+  const std::string miss = descriptor_miss(p, h, engine_rows);
+  check(miss.empty(), tag + "each slot's switch and key is its host parameter's own id, name, host range, default, stepping and option names; each alias names its parameter" +
                           (miss.empty() ? std::string() : " (" + miss + ")"));
   {
     bool at_defaults = true;
-    for (const Descriptor& d : h.rows) at_defaults = at_defaults && param_in(h.frame, d.key.c_str()) == (d.def - d.min) / (d.max - d.min);
-    check(at_defaults, "the frame that answers hello carries every test row in params, at its default's v");
-    const Descriptor* era = row_named(h.rows, "preview.scape.era");
-    const Descriptor* decay = row_named(h.rows, "preview.scape.decay");
-    check(era && decay && era->labels == std::vector<std::string>{"clean", "vintage"} && decay->unit == "s" && decay->min == 0.2 && decay->max == 12,
-          "in the units the rows use: Scape decay 0.2 to 12 s, Scape era clean or vintage");
+    for (const Descriptor& d : slot_descriptors(h)) at_defaults = at_defaults && param_in(h.frame, d.key.c_str()) == (d.def - d.min) / (d.max - d.min);
+    check(at_defaults, tag + "the frame that answers hello carries every rack key in params, at its default's v");
   }
 
-  // (2) and (3): every test row set from the page reaches the host as one gesture and comes back in the frame.
-  const std::vector<std::string> failed = audit_tests(p, bridge, seq, h.rows);
-  std::string list;
-  for (const auto& k : failed) list += " " + k;
-  std::printf("     test-row audit: %d of %zu rows reach the host and come back exactly%s%s\n", int(h.rows.size() - failed.size()), h.rows.size(),
-              failed.empty() ? "" : "; failed:", list.c_str());
-  check(!h.rows.empty() && failed.empty(), "every test row set from the page reaches the host as begin, value, end at its v's host value, and the frame gives the v back");
-
-  // A page gesture holds one begin and one end around every value of the drag; without one each value is its own.
-  const Descriptor* decay = row_named(h.rows, "preview.scape.decay");
-  if (decay) {
-    bridge->frame(p.plugin);
-    Heard drag;
-    post(p.plugin, bridge, seq, "\"type\":\"gesture\",\"key\":\"preview.scape.decay\",\"phase\":\"begin\"");
-    post(p.plugin, bridge, seq, set_body(decay->key, 0.25));
-    post(p.plugin, bridge, seq, set_body(decay->key, 0.5));
-    const std::string frame = send_heard(p.plugin, bridge, seq, "\"type\":\"gesture\",\"key\":\"preview.scape.decay\",\"phase\":\"end\"", drag);
-    const std::vector<std::tuple<char, clap_id, double>> one = {
-        {'b', decay->id, 0.0}, {'v', decay->id, host_of(*decay, 0.25)}, {'v', decay->id, host_of(*decay, 0.5)}, {'e', decay->id, 0.0}};
-    check(drag.list == one && has(frame, "{\"type\":\"gesture\",\"key\":\"preview.scape.decay\",\"phase\":\"begin\"}") &&
-              has(frame, "{\"type\":\"gesture\",\"key\":\"preview.scape.decay\",\"phase\":\"end\"}"),
-          "a page drag on a test row reaches the host as one gesture around its values, and the page hears its gesture back");
-    Heard loose;
-    post(p.plugin, bridge, seq, set_body(decay->key, 0.25));
-    (void)send_heard(p.plugin, bridge, seq, set_body(decay->key, 0.5), loose);
-    check(loose.list.size() == 6 && std::get<0>(loose.list[0]) == 'b' && std::get<0>(loose.list[2]) == 'e' && std::get<0>(loose.list[3]) == 'b',
-          "control: without the page's gesture, each value is a gesture of its own");
-
-    // (3) Host automation reaches the page as a changed row, in v.
-    const std::string quiet = bridge->frame(p.plugin);
-    float l[256], r[256];
-    Events automation;
-    automation.param(decay->id, 6.0);
-    process(p.plugin, automation, l, r, 256);
-    const std::string moved = bridge->frame(p.plugin);
-    check(std::isnan(param_in(quiet, decay->key.c_str())) && param_in(moved, decay->key.c_str()) == (6.0 - decay->min) / (decay->max - decay->min),
-          "host automation of a test row reaches the page's frame as its v (and a frame with nothing changed carries none)");
-  } else {
-    check(false, "no preview.scape.decay to drag");
-  }
-
-  // (4) An unknown `preview.` key is refused and reported as an unknown engine key is; the known one beside it lands.
+  // (2) The page reaches every rack key, by MO-28's name and by the aliases, as one gesture each, and gets its v back.
   {
-    const Descriptor* ring = row_named(h.rows, "preview.filter.ring");
+    std::vector<Descriptor> rows = slot_descriptors(h);
+    rows.insert(rows.end(), h.aliases.begin(), h.aliases.end());
+    const std::vector<std::string> failed = audit_keys(p, bridge, seq, rows);
+    std::string names;
+    for (const auto& k : failed) names += " " + k;
+    std::printf("     rack-key audit: %d of %zu keys reach the host and come back exactly%s%s\n", int(rows.size() - failed.size()), rows.size(), failed.empty() ? "" : "; failed:", names.c_str());
+    check(!rows.empty() && failed.empty(), tag + "every rack key set from the page reaches the host as begin, value, end at its v's host value, and the frame gives the v back");
     Heard heard;
-    const std::string frame =
-        send_heard(p.plugin, bridge, seq, "\"type\":\"set\",\"values\":{\"preview.scape.nope\":0.5,\"preview.filter.cutof\":0.5,\"preview.filter.ring\":0.75}", heard);
+    const std::string frame = send_heard(p.plugin, bridge, seq, "\"type\":\"set\",\"values\":{\"fx/99/none\":0.5,\"preview.nope.none\":0.5}", heard);
     const std::size_t refused = frame.find("\"refused\":{\"unknown\":[");
-    const std::string unknown = refused == std::string::npos ? "" : frame.substr(refused, frame.find(']', refused) - refused);
-    check(ring && has(unknown, "\"preview.scape.nope\"") && has(unknown, "\"preview.filter.cutof\"") && heard.list.size() == 3 &&
-              std::get<1>(heard.list[1]) == ring->id && std::isnan(param_in(frame, "preview.scape.nope")),
-          "an unknown preview key is refused and listed in refused.unknown, reaching neither host nor frame; the known one beside it lands");
+    check(refused != std::string::npos && frame.find("\"fx/99/none\"", refused) != std::string::npos && frame.find("\"preview.nope.none\"", refused) != std::string::npos &&
+              heard.list.empty(),
+          tag + "an unknown rack key is refused and listed in refused.unknown, reaching neither host nor frame");
+    if (plant_map) {
+      Loaded q;
+      const auto* qb = q.open(plant_map) ? bridge_of(q) : nullptr;
+      long long qs = 0;
+      const RackHello qh = qb ? rack_hello(q, qb, qs) : RackHello{};
+      const std::size_t wrong = qb ? audit_keys(q, qb, qs, slot_descriptors(qh)).size() : 0;
+      check(!qh.slots.empty() && wrong > 0, tag + "control: with the key map one row off, the rack-key audit fails " + std::to_string(wrong) + " keys");
+      close_instance(q);
+    }
+    if (droptest) {
+      Loaded q;
+      const auto* qb = q.open(droptest) ? bridge_of(q) : nullptr;
+      long long qs = 0;
+      const RackHello qh = qb ? rack_hello(q, qb, qs) : RackHello{};
+      const std::vector<Descriptor> qrows = slot_descriptors(qh);
+      const std::size_t wrong = qb ? audit_keys(q, qb, qs, qrows).size() : 0;
+      check(!qrows.empty() && descriptor_miss(q, qh, engine_rows).empty() && wrong == qrows.size(),
+            tag + "control: with the page's rack-key sets dropped, the descriptors still match and every key fails the audit (" + std::to_string(wrong) + ")");
+      close_instance(q);
+    }
   }
 
-  // (7) The state chunk is the one the host's own automation writes: a page set saves as the same host value would.
+  // (3) A page drag is one host gesture; host automation reaches the page as v.
   {
-    Loaded a, b;
-    check(a.open(clap) && b.open(clap), "test rows: two fresh instances load");
-    const auto* ba = a.plugin ? static_cast<const preview_bridge_ext*>(a.plugin->get_extension(a.plugin, kPreviewBridgeExt)) : nullptr;
-    if (ba && b.plugin && decay) {
-      long long sa = 0;
-      (void)send_until_acked(a.plugin, ba, sa, "\"type\":\"set\",\"values\":{\"preview.scape.decay\":0.5,\"preview.filter.on\":1}");
-      float l[256], r[256];
-      Events automation;
-      automation.param(decay->id, host_of(*decay, 0.5));
-      automation.param(flt::id_of(flt::kOn), 1);
-      process(b.plugin, automation, l, r, 256);
-      std::string from_page, from_host;
-      check(save_to(a, from_page) && save_to(b, from_host) && from_page == from_host && from_page.rfind("horde-engine-preview 6", 0) == 0 &&
-                has(from_page, "\nscape 10 ") && has(from_page, "\nfilter 1 "),
-            "a page's test-row sets save the chunk the host's automation of the same values saves (version 6, a scape and a filter line)");
+    const SlotKey* key = nullptr;
+    for (const SlotDesc& s : h.slots)
+      for (const SlotKey& k : s.keys)
+        if (!key && !k.stepped) key = &k;
+    if (key) {
+      bridge->frame(p.plugin);
+      Heard drag;
+      post(p.plugin, bridge, seq, "\"type\":\"gesture\",\"key\":\"" + key->key + "\",\"phase\":\"begin\"");
+      post(p.plugin, bridge, seq, set_body(key->key, 0.25));
+      post(p.plugin, bridge, seq, set_body(key->key, 0.5));
+      (void)send_heard(p.plugin, bridge, seq, "\"type\":\"gesture\",\"key\":\"" + key->key + "\",\"phase\":\"end\"", drag);
+      const std::vector<std::tuple<char, clap_id, double>> one = {{'b', key->id, 0.0}, {'v', key->id, 0.25}, {'v', key->id, 0.5}, {'e', key->id, 0.0}};
+      check(drag.list == one, tag + "a page drag on " + key->key + " reaches the host as one gesture around its values");
+      const std::string quiet = bridge->frame(p.plugin);
+      set_hosts(p, {{key->id, 0.125}});
+      const std::string moved = bridge->frame(p.plugin);
+      check(std::isnan(param_in(quiet, key->key.c_str())) && param_in(moved, key->key.c_str()) == 0.125,
+            tag + "host automation of " + key->key + " reaches the page's frame as its v (and a frame with nothing changed carries none)");
     }
-    close_instance(a);
-    close_instance(b);
+  }
+
+  // (4) Off is no module: every slot off, every preset (factory and demo), bit for bit the rack with no module at all;
+  // and again after every slot has run and been switched off, so nothing of its time on survives.
+  if (norack) {
+    Loaded ref;
+    check(ref.open(norack), tag + "the build with no rack module loads");
+    for (int pass = 0; pass < 2 && ref.plugin; ++pass) {
+      if (pass == 1) {
+        std::vector<int> all;
+        for (std::size_t s = 0; s < h.slots.size(); ++s) all.push_back(int(s));
+        only_on(p, h, all);
+        (void)play(p, find_preset("Trance jitter"), {128});
+        only_on(p, h, {});
+      }
+      const auto t0 = std::chrono::steady_clock::now();
+      int identical = 0, loud = 0, first_bad = -1;
+      for (int i = 0; i < kBankSize; ++i) {
+        const std::vector<float> a = play(p, i, {128}), b = play(ref, i, {128});
+        identical += a == b;
+        loud += peak(a) > 0;
+        if (a != b && first_bad < 0) first_bad = i;
+      }
+      std::printf("     %s, every slot off%s: %d presets played twice in %.0f s\n", label, pass ? " after each ran" : "", kBankSize,
+                  std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count());
+      check(identical == kBankSize, tag + "every slot off" + (pass ? " (after each has run)" : "") + ": every preset (" + std::to_string(kBankSize) +
+                                        ") is bit-identical to the build with no rack module" + (first_bad >= 0 ? " (first difference: " + std::string(kBank[first_bad].name) + ")" : ""));
+      check(loud >= kBankSize / 2, tag + "control: most of them make sound, so identical is not the silence of two dead builds (" + std::to_string(loud) + ")");
+    }
+    // Reported, never gating (ADR-347): what the slots cost here, on this machine under its load now.
+    {
+      const int preset = find_preset("Trance jitter");
+      const auto cost = [&](bool on) {
+        std::vector<int> which;
+        for (std::size_t s = 0; on && s < h.slots.size(); ++s) which.push_back(int(s));
+        only_on(p, h, which);
+        const auto t0 = std::chrono::steady_clock::now();
+        (void)play(p, preset, {512});
+        return std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+      };
+      const double off = cost(false), on = cost(true);
+      only_on(p, h, {});
+      std::printf("     %s CPU, the chord and its tail (2 s of audio): every slot off %.3f s, every slot on at its defaults %.3f s (%+.0f %%), reported, never gating\n", label,
+                  off, on, 100 * (on / off - 1));
+    }
+    // (5) The idle cut, per slot: the slot alone on at its defaults, a note, and silence. Its tail after the engine has
+    // fallen silent equals the same instance's with the cut turned off (rack.h: nothing audible is cut), it rings on the
+    // idle path while it has a tail, every block it writes there is guarded and metered (the pre-B714 gap: only one
+    // module's ringing used to count), and the build that cuts the idle path reads silence there.
+    {
+      int quick = -1;
+      for (const char* name : {"Blade pluck", "Crunch horde", "Trance jitter", "Wobble jaw", "Glass horde pad"}) {
+        const int i = find_preset(name);
+        if (i < 0) continue;
+        const std::vector<float> a = play_tail(ref, i);
+        if (peak(a) > 0 && energy_between(a, 1.5, 4) == 0) { quick = i; break; }
+      }
+      check(quick >= 0, tag + "a smoke preset that falls silent within 1.2 s of its note-off, to hear a tail after");
+      std::vector<clap_id> every;
+      for (const SlotDesc& s : h.slots) every.push_back(s.on.id);
+      int ringing = 0;
+      bool cut_given = rack_idle != nullptr;
+      for (std::size_t s = 0; quick >= 0 && s < h.slots.size(); ++s) {
+        const std::string name = "fx/" + std::to_string(h.slots[s].n) + " " + h.slots[s].module;
+        // Each render on an instance of its own, opened for it: every history is the same up to the note.
+        Loaded cut, never, planted;
+        int unmetered = 0;
+        std::vector<float> yc, yn, yp;
+        if (cut.open(clap)) yc = play_tail(cut, quick, {h.slots[s].on.id}, every, &unmetered);
+        if (never.open(clap) && bridge_of(never)) {
+          bridge_of(never)->rack_never_cut(never.plugin, true);
+          yn = play_tail(never, quick, {h.slots[s].on.id}, every);
+        }
+        if (cut_given && planted.open(rack_idle)) yp = play_tail(planted, quick, {h.slots[s].on.id}, every);
+        close_instance(cut);
+        close_instance(never);
+        close_instance(planted);
+        const bool rings = energy_between(yn, 1.5, 4) > 0;
+        ringing += rings;
+        std::printf("     %s: %s after the engine falls silent\n", name.c_str(), rings ? "rings" : "is silent");
+        check(!yc.empty() && yc == yn, tag + name + " idle: bit-identical to an instance that never cuts it (its tail ends in exact zero)");
+        check(!rings || energy_between(yc, 1.5, 4) > 0, tag + name + " idle: it rings on the idle path while it has a tail");
+        check(unmetered == 0, tag + name + ": every block it writes, on the idle path too, is guarded and metered (" + std::to_string(unmetered) + " blocks not)");
+        if (cut_given) check(!yp.empty() && (!rings || energy_between(yp, 1.5, 4) == 0), tag + "control: " + name + " in the build whose idle skip cuts the rack is silent there");
+      }
+      check(ringing > 0, tag + "control: at least one slot rings after the engine falls silent, so the idle checks above heard something");
+      if (!cut_given) check(false, tag + "the idle-cut plant was not given, so its control did not run");
+    }
+    close_instance(ref);
+  } else {
+    check(false, tag + "the build with no rack module was not given, so off-is-no-module and the idle checks did not run");
+  }
+
+  // (6) The state round trip, on a non-default fixture (critic finding 20): every slot on and every key a step from
+  // its default, saved, loaded into a new instance, saved again. On a fresh instance of its own: a slot keeps ringing
+  // across a preset change (it hears what the old engine was still playing), so an instance with a history would hold
+  // a tail the chunk rightly does not save.
+  {
+    std::vector<std::pair<clap_id, double>> fixture;
+    for (std::size_t s = 0; s < h.slots.size(); ++s) {
+      fixture.emplace_back(h.slots[s].on.id, 1);
+      for (const SlotKey& k : h.slots[s].keys) {
+        const double def = host_form(k, k.def);
+        const double v = k.stepped ? (def == 1 ? 0 : 1) : (def == 0.375 ? 0.625 : 0.375);
+        fixture.emplace_back(k.id, v);
+      }
+    }
+    Loaded src, q;
+    check(src.open(clap), tag + "a fresh instance for the round trip loads");
+    if (src.plugin) set_hosts(src, fixture);
+    std::string chunk;
+    bool every_slot = src.plugin && save_to(src, chunk) && chunk.rfind("horde-engine-preview 7", 0) == 0 && has(chunk, "\nfx 1\n");
+    for (const SlotDesc& s : h.slots) every_slot = every_slot && has(chunk, "\nfx.slot " + std::to_string(s.n) + " " + s.module + " ");
+    check(every_slot, tag + "the saved chunk is version 7 and its fx section holds every slot's record");
+    check(q.open(clap) && load_from(q, chunk), tag + "a new instance loads it");
+    bool same = src.plugin && q.plugin;
+    for (const auto& [id, v] : fixture) {
+      double a = NAN, b = NAN;
+      same = same && src.params->get_value(src.plugin, id, &a) && q.params->get_value(q.plugin, id, &b) && a == b;
+    }
+    check(same, tag + "every switch and key loads back exactly");
+    std::string again;
+    check(q.plugin && save_to(q, again) && again == chunk, tag + "save, load, save is byte-identical");
+    const int preset = find_preset("Trance jitter");
+    check(src.plugin && q.plugin && play(src, preset, {128}) == play(q, preset, {128}), tag + "the loaded instance plays what the saved one plays, bit for bit");
+    close_instance(src);
+    close_instance(q);
   }
   close_instance(p);
+}
 
-  // Controls. The key map one row off: every row's descriptor is right, but the audit must fail.
-  if (plant_map) {
-    Loaded q;
-    const auto* qb = q.open(plant_map) ? static_cast<const preview_bridge_ext*>(q.plugin->get_extension(q.plugin, kPreviewBridgeExt)) : nullptr;
-    long long qs = 0;
-    const TestHello qh = qb ? test_hello(q, qb, qs) : TestHello{};
-    const std::size_t wrong = qb ? audit_tests(q, qb, qs, qh.rows).size() : 0;
-    check(int(qh.rows.size()) == all && wrong > 0, "control: with the key map one row off, the test-row audit fails " + std::to_string(wrong) + " rows");
-    close_instance(q);
-  } else {
-    check(false, "the shifted-key-map plant was not given, so the test-row audit's control did not run");
+// A chunk made by a pre-B714 build (version 5's filter line, version 6's Scape lines), as a build of main reads it: the
+// pre-B714 module lines, written out from filter_core.h and reverb_core.h as they were. The preset line is filled in.
+struct Migration { const char* name; const char* body; bool one_module; };
+const Migration kMigrations[] = {
+    {"v5-filter-alone", "horde-engine-preview 5\npreset %d\nfilter 1 1 0.5 0.4 0.2 0.8\n", true},
+    {"v6-scape-alone", "horde-engine-preview 6\npreset %d\nscape on 1\nscape 10 3\nscape 0 0.4\nscape 9 0.7\n", true},
+    {"v6-both", "horde-engine-preview 6\npreset %d\nfilter 1 0 0.45 0.3 0 1\nscape on 1\nscape 0 0.4\n", false},
+};
+// The chunk loaded into a fresh instance, then a chord held for 1.5 s (never released: the engine never idles, so the
+// render is the sounding path alone), interleaved.
+std::vector<float> migrated_render(const char* clap, const std::string& chunk, bool* loaded) {
+  Loaded p;
+  *loaded = p.open(clap) && load_from(p, chunk);
+  std::vector<float> out;
+  if (!*loaded) { close_instance(p); return out; }
+  constexpr std::uint32_t kN = 44100 * 3 / 2;
+  std::vector<float> l(kN), r(kN);
+  for (std::uint32_t pos = 0; pos < kN; pos += 512) {
+    Events e;
+    if (pos == 0)
+      for (int k = 0; k < 4; ++k) e.note(true, 0, k + 1, kChord[k], kVelocity);
+    process(p.plugin, e, l.data() + pos, r.data() + pos, std::min<std::uint32_t>(512, kN - pos));
   }
-  // The page's test-row sets dropped: descriptors and host parameters all there, and no row reaches the host.
-  if (droptest) {
-    Loaded q;
-    const auto* qb = q.open(droptest) ? static_cast<const preview_bridge_ext*>(q.plugin->get_extension(q.plugin, kPreviewBridgeExt)) : nullptr;
-    long long qs = 0;
-    const TestHello qh = qb ? test_hello(q, qb, qs) : TestHello{};
-    const std::size_t wrong = qb ? audit_tests(q, qb, qs, qh.rows).size() : 0;
-    check(int(qh.rows.size()) == all && descriptor_miss(q, qh.rows).empty() && int(wrong) == all,
-          "control: with the page's test-row sets dropped, the descriptors still match and every row fails the audit (" + std::to_string(wrong) + ")");
-    close_instance(q);
-  } else {
-    check(false, "the dropped-test-sets plant was not given, so its control did not run");
-  }
-  // The builds without the filter, and without Scape, describe none of its rows and refuse their keys.
-  for (const auto& [path, group, left] : {std::tuple<const char*, const char*, int>{nofilter, "preview.filter.", rv::kHostParams},
-                                          std::tuple<const char*, const char*, int>{noreverb, "preview.scape.", flt::kParams}}) {
-    if (!path) {
-      check(false, std::string("the build without ") + group + "* was not given, so its control did not run");
+  for (std::uint32_t i = 0; i < kN; ++i) out.push_back(l[i]), out.push_back(r[i]);
+  close_instance(p);
+  return out;
+}
+std::string sha256_of(const std::vector<float>& x) {
+  unsigned char d[CC_SHA256_DIGEST_LENGTH];
+  CC_SHA256(x.data(), CC_LONG(x.size() * sizeof(float)), d);
+  std::string out;
+  for (unsigned char c : d) { char b[3]; std::snprintf(b, sizeof b, "%02x", c); out += b; }
+  return out;
+}
+std::string migration_chunk(const Migration& m) {
+  char text[400];
+  std::snprintf(text, sizeof text, m.body, find_preset("Trance jitter"));
+  return text;
+}
+
+// (6) and (5)'s "old chunk migrates", through the plug-in: each pre-B714 chunk loads, says so in its load member and the
+// session log, and plays. With a REFERENCE build of main (before B714) given, a chunk with ONE module on must play
+// bit-identically to it there (critic finding 1 (b)); with both on, the pre-B714 chain rounded to float between the two
+// modules and the rack keeps double, so the difference is MEASURED and printed, never judged against a tolerance (1 (c)).
+// Without one, the committed goldens (fixtures/migration-goldens.json) are held where they were made on this engine.
+void migration_checks(const char* clap, const char* reference, const std::string& engine) {
+  for (const Migration& m : kMigrations) {
+    const std::string chunk = migration_chunk(m);
+    Loaded p;
+    const bool open = p.open(clap);
+    const preview_bridge_ext* bridge = bridge_of(p);
+    const bool loaded = open && load_from(p, chunk);
+    const std::string frame = bridge ? bridge->frame(p.plugin) : "";
+    std::string saved;
+    check(loaded && has(frame, "\"load\":{\"version\":" + std::string(m.body).substr(21, 1) + ",\"migrated\":true}") && save_to(p, saved) &&
+              saved.rfind("horde-engine-preview 7", 0) == 0,
+          std::string("migration ") + m.name + ": it loads, its load member says it migrated, and it saves again as version 7");
+    close_instance(p);
+    bool ok = false;
+    const std::vector<float> ours = migrated_render(clap, chunk, &ok);
+    const std::string hash = sha256_of(ours);
+    std::printf("     migration %s: render sha256 %s (engine %s)\n", m.name, hash.c_str(), engine.c_str());
+    if (reference) {
+      bool ref_ok = false;
+      const std::vector<float> theirs = migrated_render(reference, chunk, &ref_ok);
+      if (!ref_ok || theirs.size() != ours.size()) { check(false, std::string("migration ") + m.name + ": the reference build did not load the chunk"); continue; }
+      double max_abs = 0, sum = 0;
+      for (std::size_t i = 0; i < ours.size(); ++i) {
+        const double d = double(ours[i]) - double(theirs[i]);
+        max_abs = std::max(max_abs, std::fabs(d));
+        sum += d * d;
+      }
+      std::printf("     migration %s against the pre-B714 build: max |difference| %.9g, RMS %.9g, over %zu samples (peak %.6g)\n", m.name, max_abs,
+                  std::sqrt(sum / double(ours.size())), ours.size(), peak(theirs));
+      if (m.one_module) check(ours == theirs, std::string("migration ") + m.name + ": one module on, bit-identical to the pre-B714 build");
       continue;
     }
-    Loaded q;
-    const auto* qb = q.open(path) ? static_cast<const preview_bridge_ext*>(q.plugin->get_extension(q.plugin, kPreviewBridgeExt)) : nullptr;
-    long long qs = 0;
-    const TestHello qh = qb ? test_hello(q, qb, qs) : TestHello{};
-    bool none = qh.read;
-    for (const Descriptor& d : qh.rows) none = none && d.key.rfind(group, 0) != 0;
-    const std::string key = std::string(group) + (std::string(group) == "preview.filter." ? "cutoff" : "decay");
-    const std::string frame = qb ? send_until_acked(q.plugin, qb, qs, set_body(key, 0.5)) : "";
-    const std::size_t refused = frame.find("\"refused\":{\"unknown\":[");
-    check(none && int(qh.rows.size()) == left && descriptor_miss(q, qh.rows).empty() && refused != std::string::npos &&
-              frame.find("\"" + key + "\"", refused) != std::string::npos,
-          std::string("the build without ") + (left == rv::kHostParams ? "the filter" : "Scape") + " describes only the rows it has (" + std::to_string(qh.rows.size()) +
-              ") and refuses " + key);
-    close_instance(q);
+    // The goldens: the hashes `smoke --migration <this clap> <reference clap>` printed against a build of main, held in
+    // fixtures/migration-goldens.json (build.sh passes its path) for the engine commit they were made on.
+    const char* golden_path = std::getenv("HORDE_PREVIEW_GOLDENS");
+    std::ifstream f(golden_path ? golden_path : "");
+    std::stringstream ss;
+    ss << f.rdbuf();
+    const std::string goldens = ss.str();
+    if (goldens.empty() || !has(goldens, "\"engine\": \"" + engine + "\"")) {
+      std::printf("     migration %s: NOT RUN against the pre-B714 build (fixtures/migration-goldens.json is not from engine %s)\n", m.name, engine.c_str());
+      continue;
+    }
+    if (m.one_module) check(has(goldens, "\"" + std::string(m.name) + "\": \"" + hash + "\""), std::string("migration ") + m.name + ": one module on, bit-identical to the pre-B714 build's committed golden");
+  }
+}
+
+// (6) A chunk this build cannot read is refused LOUDLY: state_load returns false, the session log says why, and the next
+// frame's load member carries the reason. `quiet` is the plant that refuses saying nothing: its checks must fail.
+void refusal_checks(const char* clap, const char* quiet) {
+  for (const auto& [path, is_plant] : {std::pair<const char*, bool>{clap, false}, std::pair<const char*, bool>{quiet, true}}) {
+    if (!path) {
+      check(false, "the silent-refusal plant was not given, so the loud refusal's control did not run");
+      continue;
+    }
+    const std::string before = std::getenv("HOME") ? std::getenv("HOME") : "";
+    const std::string home = scratch_home();
+    setenv("HOME", home.c_str(), 1);
+    Loaded p;
+    const bool open = p.open(path);
+    const preview_bridge_ext* bridge = bridge_of(p);
+    const bool refused = open && !load_from(p, "horde-engine-preview 99\npreset 1\n");
+    const std::string frame = bridge ? bridge->frame(p.plugin) : "";
+    const bool said = has(frame, "\"load\":{\"version\":0,\"migrated\":false,\"refused\":{\"reason\":") && has(logs_under(home), "state load refused: chunk version");
+    close_instance(p);
+    setenv("HOME", before.c_str(), 1);
+    if (!is_plant) check(refused && said, "an unknown chunk version is refused: the host hears false, the session log says why, and the frame's load member carries the reason");
+    else check(refused && !said, "control: the build whose refusal says nothing refuses the chunk too, and is caught saying nothing");
   }
 }
 
 int main(int argc, char** argv) {
   if (argc < 2) {
-    std::printf("usage: smoke <clap> [<plant> <plant-map> <plant-morph> <plant-nofilter> <plant-noreverb> <plant-reverb-deaf> <plant-reverb-idle> <plant-droptest>]\n");
+    std::printf("usage: smoke <clap> [<plant> <plant-map> <plant-morph> <plant-norack> <plant-rack-idle> <plant-silent-refusal> <plant-droptest>\n"
+                "                    [<test-configuration clap> <plant-module-branch>]]\n"
+                "       smoke --migration <clap> <reference clap of main, before B714>\n");
     return 2;
+  }
+  if (!std::strcmp(argv[1], "--rack")) {   // B714: the rack's generated checks alone, on one build (a quicker loop)
+    if (argc < 3) return 2;
+    char home[] = "/tmp/engine-preview-rack-XXXXXX";
+    if (!mkdtemp(home)) return 2;
+    setenv("HOME", home, 1);
+    mkdir((std::string(home) + "/Library").c_str(), 0755);
+    int engine_rows = 0;
+    for (std::size_t i = 0; i < horde::manifest_size(); ++i) engine_rows += horde::manifest_param(i).reserved ? 0 : 1;
+    rack_checks(argv[2], argc > 3 ? argv[3] : nullptr, argc > 4 ? argv[4] : nullptr, nullptr, nullptr, "default", engine_rows);
+    std::printf("%s (%d failed)\n", failures ? "engine-preview rack: RED" : "engine-preview rack: GREEN", failures);
+    return failures ? 1 : 0;
+  }
+  if (!std::strcmp(argv[1], "--migration")) {   // B714: the old chunks against a build of main, measured (critic finding 1)
+    if (argc < 4) return 2;
+    char home[] = "/tmp/engine-preview-migration-XXXXXX";
+    if (!mkdtemp(home)) return 2;
+    setenv("HOME", home, 1);
+    mkdir((std::string(home) + "/Library").c_str(), 0755);
+    migration_checks(argv[2], argv[3], std::getenv("HORDE_PREVIEW_ENGINE") ? std::getenv("HORDE_PREVIEW_ENGINE") : "?");
+    std::printf("%s (%d failed)\n", failures ? "engine-preview migration: RED" : "engine-preview migration: GREEN", failures);
+    return failures ? 1 : 0;
   }
   // The session log goes under $HOME, so point it at a scratch folder: a test mustn't write to the human's Logs.
   char home[] = "/tmp/engine-preview-smoke-XXXXXX";
@@ -1722,12 +1772,12 @@ int main(int argc, char** argv) {
   for (std::size_t i = 0; i < horde::manifest_size(); ++i) engine_rows += horde::manifest_param(i).reserved ? 0 : 1;
   // B632 (ADR-370): every engine row is a host parameter, past Live's 64, whose panel then fills from the window.
   // B639 (IF-11): and the morph's position, morph.x and morph.y, last.
-  // B660: and the test-only filter's six after them; B710: and the test-only reverb's thirty after those.
-  const int all = 1 + engine_rows + 2 + preview::filter::kParams + preview::reverb::kHostParams;
-  // B711: a frame that completes a load carries the test rows too (each host parameter of the filter and the reverb).
-  const int test_rows = preview::filter::kParams + preview::reverb::kHostParams;
-  check(int(n_params) == all, "every non-reserved engine row is a host parameter, plus Preset, morph.x and morph.y, the test-only filter's six and the test-only reverb's thirty (" +
-                                  std::to_string(all) + ")");
+  // B714: and the rack's keys after them, every slot's switch and keys (the rack checks hold them to hello.slots).
+  const int rack_keys = int(n_params) - (1 + engine_rows + 2);
+  // B711, B714: a frame that completes a load carries the rack's keys too, by MO-28's names and the pre-B714 aliases;
+  // how many aliases is read from the hello reply below.
+  int test_rows = rack_keys;
+  check(rack_keys > 0, "every non-reserved engine row is a host parameter, plus Preset, morph.x and morph.y, then the rack's keys (" + std::to_string(rack_keys) + ")");
   {
     clap_param_info_t xi{}, yi{};
     check(p.params->get_info(p.plugin, std::uint32_t(1 + engine_rows), &xi) && p.params->get_info(p.plugin, std::uint32_t(2 + engine_rows), &yi) &&
@@ -1768,6 +1818,9 @@ int main(int argc, char** argv) {
     check(ack_of(early) < 1 && params_rows(early) == 0 && !has(early, "\"hello\""), "control: before the hello is applied, no frame answers it");
     one_block(p.plugin);
     std::string frame = bridge->frame(p.plugin);
+    try {
+      test_rows = rack_keys + int(choc::json::parse(frame)["hello"]["preview"]["rows"].size());
+    } catch (const std::exception&) {}
     check(ack_of(frame) == 1 && params_rows(frame) == engine_rows + test_rows,
           "the frame that acknowledges hello carries every engine row (" + std::to_string(engine_rows) + ") and every test row (" + std::to_string(test_rows) + ")");
     check(has(frame, "\"hello\":{\"build\":\"engine ") && has(frame, "\"presets\":{\"names\":[") && has(frame, "\"params\":{") &&
@@ -2470,9 +2523,41 @@ int main(int argc, char** argv) {
     check(false, "the dropped-position plant was not given, so the pad's control did not run");
   }
 
-  filter_checks(argv[1], argc > 5 ? argv[5] : nullptr);
-  reverb_checks(argv[1], argc > 6 ? argv[6] : nullptr, argc > 7 ? argv[7] : nullptr, argc > 8 ? argv[8] : nullptr);
-  test_row_checks(argv[1], argc > 3 ? argv[3] : nullptr, argc > 9 ? argv[9] : nullptr, argc > 5 ? argv[5] : nullptr, argc > 6 ? argv[6] : nullptr);
+  // B714: the rack, generated from each build's hello.slots: the default plug-in, then the test configuration, whose
+  // third module arrived by data alone, and its must-fail twin with one `if (module == ...)` planted in state_save.
+  const char* norack = argc > 5 ? argv[5] : nullptr;
+  rack_checks(argv[1], norack, argc > 6 ? argv[6] : nullptr, argc > 3 ? argv[3] : nullptr, argc > 8 ? argv[8] : nullptr, "default", engine_rows);
+  refusal_checks(argv[1], argc > 7 ? argv[7] : nullptr);
+  migration_checks(argv[1], nullptr, std::getenv("HORDE_PREVIEW_ENGINE") ? std::getenv("HORDE_PREVIEW_ENGINE") : "?");
+  std::vector<std::string> clean_failed;
+  if (argc > 9) {
+    const std::size_t from = failed_checks.size();
+    rack_checks(argv[9], norack, argc > 6 ? argv[6] : nullptr, nullptr, nullptr, "test configuration", engine_rows);
+    clean_failed.assign(failed_checks.begin() + std::ptrdiff_t(from), failed_checks.end());
+  } else {
+    check(false, "the test configuration (a third module by data alone) was not given, so its generated checks did not run");
+  }
+  if (argc > 10) {
+    // The planted branch drops one module's record from every save. Run with the clean test configuration's very
+    // arguments; the control fires on the failures it ADDS to the clean run's (named in the line), never on a failure
+    // both share, and its failures are judged here, not added to this run's count.
+    const int before = failures;
+    const std::size_t from = failed_checks.size();
+    controlling = true;
+    rack_checks(argv[10], norack, argc > 6 ? argv[6] : nullptr, nullptr, nullptr, "test configuration", engine_rows);
+    controlling = false;
+    std::vector<std::string> added;
+    for (std::size_t i = from; i < failed_checks.size(); ++i)
+      if (std::find(clean_failed.begin(), clean_failed.end(), failed_checks[i]) == clean_failed.end()) added.push_back(failed_checks[i]);
+    failed_checks.resize(from);
+    failures = before;
+    std::string named;
+    for (const auto& a : added) named += "; " + a.substr(a.find(": ") + 2);
+    check(!added.empty(), "control: the test configuration with one `if (module == ...)` planted fails generated checks the clean one passes (" +
+                              std::to_string(added.size()) + named + ")");
+  } else {
+    check(false, "the planted-branch build was not given, so acceptance (1)'s must-fail control did not run");
+  }
 
   std::printf("%s (%d failed)\n", failures ? "engine-preview smoke: RED" : "engine-preview smoke: GREEN", failures);
   return failures ? 1 : 0;

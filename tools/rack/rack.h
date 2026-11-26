@@ -20,10 +20,11 @@
 // - GUARD (RS-7.9, Blind-Spot Armor: latch and report, never clamp silently). A non-finite sample out of a module is
 //   counted, latched on its slot and replaced by 0 before the next slot hears it; the counts are readable.
 // Real time: process() allocates nothing, takes no lock and makes no call into the system; everything it touches is
-// sized at prepare(), which runs on the main thread (a module may allocate there: Scape's 12 to 27 MiB).
+// sized at prepare(), which runs on the main thread (a module may allocate there: tens of MiB, for a reverb).
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <string>
 #include <vector>
@@ -64,9 +65,12 @@ class Rack {
   // RS-6.12's figure per corner: the table's row, or the module's own declared budget where that is smaller.
   std::size_t effective_budget(int slot) const;
 
-  // Values, any thread (atomics). Keys by the slot row's index; units are the module's, clamped to its range.
-  void set_units(int slot, int key, double units);
+  // Values, any thread (atomics). Keys by the slot row's index; units are the module's, clamped to its range. `host`,
+  // where given and finite, is the host value that names those units (a reloaded key keeps the host value it was set
+  // by); otherwise it is derived from the units.
+  void set_units(int slot, int key, double units, double host = std::numeric_limits<double>::quiet_NaN());
   double units(int slot, int key) const;
+  double host(int slot, int key) const;   // the key's host value: v, or a stepped key's option index
   void set_on(int slot, bool on);
   bool on(int slot) const;
   // Every switch off and every key at its default: what a patch with no `fx` loads (MO-31's dry state).

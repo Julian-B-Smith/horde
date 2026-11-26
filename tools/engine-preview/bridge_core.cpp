@@ -11,6 +11,7 @@
 #include <cstring>
 
 #include "choc/text/choc_JSON.h"
+#include "rack/descriptor.h"
 
 namespace preview::bridge {
 
@@ -154,7 +155,7 @@ int KeyMap::find(std::string_view key) const {
   return found;
 }
 
-// ---- the test rows (B711) ---------------------------------------------------------------------------------------
+// ---- the rack's keys on the page (B711, B714) --------------------------------------------------------------------
 double test_host(const TestRow& row, double v) {
   const double span = row.max - row.min;
   v = std::clamp(v, 0.0, 1.0);
@@ -163,15 +164,21 @@ double test_host(const TestRow& row, double v) {
   const double scaled = row.stepped ? std::round(v * span) : v * span;
   // Clamped after: min + 1 x span can round a ulp past max, and the plug-in's own clamp would then store another value
   // than this one, so the frame could no longer hand the page's v back exactly.
-  return std::clamp(row.min + scaled, row.min, row.max);
+  const double published = std::clamp(row.min + scaled, row.min, row.max);
+  return row.units ? rack::host_of_units(row.law, published) : published;
 }
-double test_v(const TestRow& row, double host) { return row.max > row.min ? (host - row.min) / (row.max - row.min) : 0.0; }
+double test_v(const TestRow& row, double host) {
+  const double published = row.units ? rack::units_of_host(row.law, host) : host;
+  return row.max > row.min ? (published - row.min) / (row.max - row.min) : 0.0;
+}
 
 std::string test_rows_json(const std::vector<TestRow>& rows) {
   std::string out = std::string("{\"value\":") + quoted(kTestValueRule) + ",\"rows\":[";
-  for (std::size_t i = 0; i < rows.size(); ++i) {
-    const TestRow& r = rows[i];
-    out += std::string(i ? "," : "") + "{\"key\":" + quoted(r.key) + ",\"id\":" + std::to_string(r.id) + ",\"name\":" + quoted(r.name) + ",\"min\":";
+  bool first = true;
+  for (const TestRow& r : rows) {
+    if (!r.published) continue;
+    out += std::string(first ? "" : ",") + "{\"key\":" + quoted(r.key) + ",\"id\":" + std::to_string(r.id) + ",\"name\":" + quoted(r.name) + ",\"min\":";
+    first = false;
     put_num(out, r.min);
     out += ",\"max\":";
     put_num(out, r.max);
@@ -187,10 +194,66 @@ std::string test_rows_json(const std::vector<TestRow>& rows) {
   return out + "]}";
 }
 
+std::string rack_param_name(const rack::SlotRow& row, int key) { return row.name + " " + (key < 0 ? std::string("on") : row.keys[std::size_t(key)].label); }
+
+bool is_rack_key(std::string_view key) { return key.substr(0, kTestPrefix.size()) == kTestPrefix || key.substr(0, kRackPrefix.size()) == kRackPrefix; }
+
+std::vector<TestRow> test_rows(const rack::SlotTable& table) {
+  std::vector<TestRow> out;
+  // A slot's switch or key in the host's own form (v, or a stepped key's option index), as its host parameter has it.
+  const auto host_row = [&](int s, int k) {
+    const rack::SlotRow& row = table.slots[std::size_t(s)];
+    TestRow r;
+    r.name = rack_param_name(row, k);
+    if (k < 0) {
+      r.id = row.on_id;
+      r.max = 1;
+      r.stepped = true;
+      r.labels = {"off", "on"};
+      return r;
+    }
+    const rack::KeyRow& key = row.keys[std::size_t(k)];
+    r.id = key.host_id;
+    r.max = rack::host_max(key.law);
+    r.def = rack::host_of_units(key.law, key.def);
+    r.stepped = rack::stepped(key.law);
+    r.labels = key.labels;
+    return r;
+  };
+  for (std::size_t s = 0; s < table.slots.size(); ++s) {
+    const rack::SlotRow& row = table.slots[s];
+    TestRow on = host_row(int(s), -1);
+    on.key = rack::switch_name(row.n);
+    out.push_back(on);
+    for (std::size_t k = 0; k < row.keys.size(); ++k) {
+      TestRow r = host_row(int(s), int(k));
+      r.key = rack::key_name(row.n, row.keys[k].address);
+      out.push_back(r);
+    }
+  }
+  for (const rack::Alias& a : table.aliases) {
+    TestRow r = host_row(a.slot, a.key);
+    r.key = a.preview;
+    r.published = true;
+    if (a.plain && a.key >= 0) {
+      const rack::KeyRow& key = table.slots[std::size_t(a.slot)].keys[std::size_t(a.key)];
+      r.units = true;
+      r.law = key.law;
+      r.min = key.law.lo;
+      r.max = key.law.hi;
+      r.def = key.def;
+      r.unit = r.stepped ? "" : key.unit;
+      if (r.stepped) r.max = key.law.lo + double(key.law.n - 1) * ((key.law.hi - key.law.lo) / double(key.law.n - 1));
+    }
+    out.push_back(r);
+  }
+  return out;
+}
+
 TestKeys::TestKeys(std::vector<TestRow> rows) : rows_(std::move(rows)) {}
 
 int TestKeys::find(std::string_view key) const {
-  // A linear search: 36 rows, on the main thread, once per key a page message names.
+  // A linear search: tens of rows, on the main thread, once per key a page message names.
   int found = -1;
   for (std::size_t i = 0; i < rows_.size() && found < 0; ++i)
     if (rows_[i].key == key) found = int(i);
@@ -230,7 +293,7 @@ Message parse_message(std::string_view json, const KeyMap& keys, const TestKeys*
       for (std::uint32_t i = 0; i < values.size(); ++i) {
         const auto member = values.getObjectMemberAt(i);
         double v = 0;
-        if (std::string_view(member.name).substr(0, kTestPrefix.size()) == kTestPrefix) {   // B711: a test row's, never the engine's
+        if (is_rack_key(member.name)) {   // B711, B714: a rack key's, never the engine's
           const int test = tests ? tests->find(member.name) : -1;
           if (test >= 0 && number_of(member.value, v)) m.test_values.push_back({test, v});
           else m.unknown.emplace_back(member.name);
@@ -249,7 +312,7 @@ Message parse_message(std::string_view json, const KeyMap& keys, const TestKeys*
     const std::string phase = doc.hasObjectMember("phase") && doc["phase"].isString() ? std::string(doc["phase"].getString()) : "";
     m.gesture_begin = phase == "begin";
     const bool phased = phase == "begin" || phase == "end";
-    if (std::string_view(m.gesture_key).substr(0, kTestPrefix.size()) == kTestPrefix) {
+    if (is_rack_key(m.gesture_key)) {
       const int test = tests ? tests->find(m.gesture_key) : -1;
       if (test >= 0 && phased) m.gesture_test = test;   // an unknown one goes nowhere, as on an unknown engine key
       return m;
@@ -466,10 +529,12 @@ const char* const kStateMagic3 = "horde-engine-preview 3";
 const char* const kStateMagic4 = "horde-engine-preview 4";
 const char* const kStateMagic5 = "horde-engine-preview 5";
 const char* const kStateMagic6 = "horde-engine-preview 6";
+const char* const kStateMagic7 = "horde-engine-preview 7";
 
 std::string write_state(const SavedState& s) {
-  // Version 2 whenever the morph holds nothing a load wouldn't rebuild: an untouched patch's chunk is unchanged.
-  std::string text = std::string(!s.reverb.is_default() ? kStateMagic6 : !s.filter.is_default() ? kStateMagic5 : s.morph.empty() ? kStateMagic2 : kStateMagic4) + "\n";
+  // Version 2 whenever the morph holds nothing a load wouldn't rebuild and the rack is dry: an untouched patch's chunk
+  // is unchanged. Versions 5 and 6 are never written again: their lines are the rack's `fx` now.
+  std::string text = std::string(!s.fx.empty() ? kStateMagic7 : s.morph.empty() ? kStateMagic2 : kStateMagic4) + "\n";
   text += "preset " + std::to_string(s.preset) + "\n";
   for (const auto& [id, v] : s.values) {
     text += std::to_string(id) + ' ';
@@ -477,35 +542,53 @@ std::string write_state(const SavedState& s) {
     text += '\n';
   }
   morph::write_lines(s.morph, text);
-  filter::write_line(s.filter, text);
-  reverb::write_lines(s.reverb, text);
+  rack::write_fx(s.fx, text);
   return text;
 }
 
-bool read_state(std::string_view text, SavedState& out) {
+bool read_state(std::string_view text, SavedState& out, const rack::SlotTable* table, LoadReport* report) {
+  LoadReport local;
+  LoadReport& r = report ? *report : local;
+  r = LoadReport{};
   const std::size_t first = text.find('\n');
-  const std::string_view magic = text.substr(0, first);
-  // No promise across builds: an unknown chunk leaves the default.
-  if (magic != kStateMagic1 && magic != kStateMagic2 && magic != kStateMagic3 && magic != kStateMagic4 && magic != kStateMagic5 &&
-      magic != kStateMagic6) return false;
+  const std::string magic(text.substr(0, first));
+  constexpr std::string_view kStem = "horde-engine-preview ";
+  if (magic.compare(0, kStem.size(), kStem) != 0) {
+    r.refused = "not a horde-engine-preview chunk (its first line reads \"" + magic.substr(0, 40) + "\")";
+    return false;
+  }
+  char* end = nullptr;
+  const long version = std::strtol(magic.c_str() + kStem.size(), &end, 10);
+  if (end == magic.c_str() + kStem.size() || *end || version < 1 || version > 7) {
+    r.refused = "chunk version \"" + magic.substr(kStem.size(), 12) + "\" is unknown to this build (it reads 1 to 7)";
+    return false;
+  }
+  r.version = int(version);
   SavedState s;
   std::size_t at = first;
   while (at != std::string_view::npos && at + 1 < text.size()) {
-    const std::size_t end = text.find('\n', at + 1);
-    const std::string line(text.substr(at + 1, end == std::string_view::npos ? std::string_view::npos : end - at - 1));
+    const std::size_t line_end = text.find('\n', at + 1);
+    const std::string line(text.substr(at + 1, line_end == std::string_view::npos ? std::string_view::npos : line_end - at - 1));
     int n = 0;
     unsigned id = 0;
     double v = 0;
-    if (filter::read_line(line, s.filter)) {}
-    else if (reverb::read_line(line, s.reverb)) {}
+    if (version == 7 && rack::read_fx_line(line, s.fx)) {}
+    else if (version >= 5 && version <= 6 && table && rack::read_legacy_line(*table, int(version), line, s.fx)) {}
     else if (morph::read_line(line, s.morph)) {}   // first: "morph corner 1 4097 0.5" would otherwise not read as a row only by luck
     else if (std::sscanf(line.c_str(), "preset %d", &n) == 1) s.preset = n;
     else if (std::sscanf(line.c_str(), "voices %d", &n) == 1) {}   // the retired Voices limit: read, ignored (no `continue`: `at` must move)
     else if (std::sscanf(line.c_str(), "%u %lf", &id, &v) == 2 && std::isfinite(v)) s.values.emplace_back(id, v);
-    at = end;
+    at = line_end;
   }
+  r.migrated = s.fx.migrated;
   out = std::move(s);
   return true;
+}
+
+std::string load_json(const LoadReport& r) {
+  std::string out = "{\"version\":" + std::to_string(r.version) + ",\"migrated\":" + (r.migrated ? "true" : "false");
+  if (!r.refused.empty()) out += ",\"refused\":{\"reason\":" + quoted(r.refused) + "}";
+  return out + "}";
 }
 
 std::vector<std::pair<std::uint32_t, double>> differences(const std::vector<std::uint32_t>& ids, const std::vector<double>& current,
@@ -607,7 +690,9 @@ std::string observe_json(const FrameInputs& in, const Want& want) {
   put_float(out, in.out_tapped ? in.out_peak : (f ? f->meters.output.peak : 0.0f));
   out += ",\"clip\":";
   out += f && f->meters.output.clip ? "true" : "false";
-  out += "}},\"latches\":{\"clip\":";
+  out += '}';
+  if (in.slot_meters) out += ",\"slots\":" + *in.slot_meters;   // B714: each rack slot's in and out, and its guard's count
+  out += "},\"latches\":{\"clip\":";
   out += f && f->clip_latch ? "true" : "false";
   out += ",\"nonFinite\":";
   out += f && f->nonfinite_latch ? "true" : "false";
@@ -766,9 +851,11 @@ std::string snapshot_json(const Pieces& p) {
   }
   if (p.plugin_build) out += ",\"plugin\":{\"build\":" + quoted(*p.plugin_build) + '}';
   if (p.state) out += ",\"state\":" + quoted(*p.state);
+  if (p.load) out += ",\"load\":" + *p.load;
   if (p.build || p.engine_hash) {
     out += ",\"hello\":{\"build\":" + quoted(p.build ? *p.build : "") + ",\"manifest_hash\":" + quoted(p.engine_hash ? *p.engine_hash : "");
     if (p.test_rows) out += ",\"preview\":" + test_rows_json(*p.test_rows);
+    if (p.slots) out += ",\"slots\":" + *p.slots;
     out += '}';
   }
   if (p.mismatch) {

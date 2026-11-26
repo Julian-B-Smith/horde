@@ -14,12 +14,10 @@
 #include <vector>
 
 #include "bridge_core.h"
-#include "filter_core.h"
 #include "flush_to_zero.h"
 #include "horde_engine.h"
-#include "post_filter.h"
-#include "post_reverb.h"
-#include "test_rows.h"
+#include "rack/descriptor.h"
+#include "rack/slot_table.h"
 #include "choc/text/choc_JSON.h"
 
 namespace {
@@ -376,292 +374,122 @@ int main() {
     check(capped_count_v(poly, v(8), 8) == v(8) && capped_count_v(poly, v(6), 8) == v(6), "control: a load asking for 8 or fewer keeps its own");
   }
 
-  // ---- the test-only post-engine filter (B660) ------------------------------------------------------------------
+  // ---- the rack's part of the chunk (B714): the fx section, the migration of versions 5 and 6, the loud refusal ------
+  // The table is this build's (the rack's registry: tools/rack/modules.json's default modules); the lines below are the
+  // pre-B714 chunk lines themselves, written out from filter_core.h and reverb_core.h as they were.
+  const rack::SlotTable& table = rack::registered_table();
+  const auto slot_of = [&](const std::string& module) {
+    for (std::size_t s = 0; s < table.slots.size(); ++s)
+      if (table.slots[s].module == module) return int(s);
+    return -1;
+  };
   {
-    namespace flt = preview::filter;
-    // Ids: a block of its own, clear of Preset, the morph's pair and the engine's range.
-    check(flt::id_of(0) == 0xA00010 && flt::id_of(flt::kParams - 1) == 0xA00015 && flt::id_of(0) > 0xA00002 && flt::id_of(flt::kParams - 1) < 0xB00001,
-          "the filter's six ids are 0xA00010 to 0xA00015, clear of the morph's 0xA00001/2 and Preset's 0xB00001");
-    // The state: off by default, and then the chunk is the one it always was (the must-read-zero control).
+    check(table.refused.empty() && !table.slots.empty(), "the rack's table builds (" + std::to_string(table.slots.size()) + " slots)");
     SavedState plain;
     plain.preset = 3;
     const std::string before = write_state(plain);
-    check(flt::State{}.is_default() && !has(before, "filter") && has(before, kStateMagic2), "control: a default filter writes no line and no new version");
+    check(!has(before, "\nfx") && has(before, kStateMagic2), "control: a dry rack writes no fx section and no new version: the chunk it always was");
     SavedState on = plain;
-    on.filter.v[flt::kOn] = 1;
-    on.filter.v[flt::kMode] = 3;
-    on.filter.v[flt::kCutoff] = 0.3333333333333333;
-    on.filter.v[flt::kResonance] = 0.7;
-    on.filter.v[flt::kRing] = 0.25;
-    on.filter.v[flt::kMix] = 0.5;
+    rack::FxRecord r;
+    r.n = table.slots[0].n;
+    r.module = table.slots[0].module;
+    r.version = table.slots[0].module_version;
+    for (int c = 0; c < 4; ++c) {
+      r.on[c] = true;
+      r.keys[c] = {{table.slots[0].keys[0].address, 0.1 + 0.2, 0.25}};
+    }
+    on.fx.slots.push_back(r);
     const std::string text = write_state(on);
     SavedState back;
-    check(has(text, kStateMagic5) && has(text, "\nfilter 1 3 ") && read_state(text, back) && back.filter == on.filter && back.preset == 3,
-          "the filter's six values round trip through the state, exactly, in version 5");
+    LoadReport report;
+    check(has(text, kStateMagic7) && has(text, "\nfx 1\n") && has(text, "\nfx.end\nprefs 1\nprefs.end\n") && read_state(text, back, &table, &report) &&
+              back.fx.slots.size() == 1 && back.fx.slots[0].keys[2].size() == 1 && back.fx.slots[0].keys[2][0].units == 0.1 + 0.2 && back.fx.slots[0].keys[2][0].v == 0.25 && back.fx.slots[0].on[3] &&
+              report.version == 7 && !report.migrated && report.refused.empty(),
+          "the fx section round trips in version 7, four corners and the device preferences' (empty) section, its units exactly");
+    check(write_state(back) == text, "save, load, save is byte-identical");
     SavedState old;
-    old.filter.v[flt::kOn] = 1;   // a stale value a load must not keep
-    check(read_state(before, old) && old.filter.is_default(), "an older chunk (no filter line) loads with the filter off");
-    SavedState hostile;
-    check(read_state(std::string(kStateMagic5) + "\nfilter nan 9 2 -1 5 7\n", hostile) && hostile.filter.is_default(),
-          "control: a filter line with a non-finite value is ignored");
-    check(read_state(std::string(kStateMagic5) + "\nfilter 1 9 2 -1 5 7\n", hostile) && hostile.filter.v[flt::kMode] == 4 && hostile.filter.v[flt::kCutoff] == 1 &&
-              hostile.filter.v[flt::kResonance] == 0 && hostile.filter.v[flt::kMix] == 1,
-          "an out-of-range value is clamped to its range");
-
-    // The DSP, on the plug-in's own class: 44.1 kHz, white noise (a fixed LCG: no wall clock, no RNG state shared).
-    constexpr double kRate = 44100;
-    constexpr std::size_t kN = 44100;
-    std::vector<float> noise(kN);
-    std::uint32_t lcg = 12345;
-    for (auto& x : noise) { lcg = lcg * 1664525u + 1013904223u; x = float(double(lcg >> 8) / double(1 << 24) - 0.5); }
-    const auto high_band = [](const std::vector<float>& x) {   // second difference: a crude high-pass, +12 dB/oct
-      double e = 0;
-      for (std::size_t i = 2; i < x.size(); ++i) { const double d = double(x[i]) - 2.0 * double(x[i - 1]) + double(x[i - 2]); e += d * d; }
-      return e;
-    };
-    const auto rms = [](const std::vector<float>& x) {
-      double e = 0;
-      for (float v : x) e += double(v) * double(v);
-      return std::sqrt(e / double(x.size()));
-    };
-    const auto run = [&](const flt::State& s, std::size_t block, std::vector<float>* right = nullptr) {
-      flt::PostFilter f;
-      f.prepare(kRate);
-      std::vector<float> l = noise, r = noise;
-      for (std::size_t at = 0; at < kN; at += block) f.process(s, l.data() + at, r.data() + at, std::min(block, kN - at));
-      if (right) *right = r;
-      return l;
-    };
-    flt::State lp;
-    lp.v[flt::kOn] = 1;
-    lp.v[flt::kMode] = 0;
-    lp.v[flt::kCutoff] = 1.0 / 3.0;   // 200 Hz
-    const std::vector<float> filtered = run(lp, 512);
-    const double drop = high_band(filtered) / high_band(noise);
-    check(drop < 1e-3 && rms(filtered) > 1e-3, "LP at 200 Hz takes the high band down by more than 30 dB and is not a mute (drop " + std::to_string(drop) + ")");
-    flt::State dry = lp;
-    dry.v[flt::kMix] = 0;
-    check(run(dry, 512) == noise, "control: Mix 0 hands the dry signal back bit for bit");
-    flt::State open = lp;
-    open.v[flt::kCutoff] = 1;   // 20 kHz
-    const double wide = high_band(run(open, 512)) / high_band(noise);
-    check(wide > 0.1, "control: LP at 20 kHz leaves the high band (a filter that always cuts would fail here)");
-    std::vector<float> r512;
-    const std::vector<float> l512 = run(lp, 512, &r512);
-    check(l512 == r512, "both channels get the same filter (a mono input stays mono)");
-    check(run(lp, 64) == l512 && run(lp, 4096) == l512 && run(lp, 100) == l512, "the output doesn't depend on how the host cuts the blocks (64, 100, 512, 4096)");
-
-    // No NaN, no subnormal: every mode at the corners of the range, noise then a long silent tail (where a decaying
-    // state meets the denormal range). The plug-in runs the filter under flush-to-zero, as the engine, so the run does too;
-    // the control is the same run without it, which must reach subnormals, or the tail was too short to test anything.
-    const auto corners = [&](bool flush, std::size_t* subnormal) {
-      bool finite = true;
-      *subnormal = 0;
-      const auto body = [&] {
-        for (int mode = 0; mode < flt::kModeCount; ++mode)
-          for (double x : {0.0, 0.5, 1.0})
-            for (double res : {0.0, 1.0})
-              for (double ring : {0.0, 1.0}) {
-                flt::State s;
-                s.v[flt::kOn] = 1;
-                s.v[flt::kMode] = mode;
-                s.v[flt::kCutoff] = x;
-                s.v[flt::kResonance] = res;
-                s.v[flt::kRing] = ring;
-                flt::PostFilter f;
-                f.prepare(kRate);
-                std::vector<float> l(2048), r(2048);
-                for (int block = 0; block < 60; ++block) {
-                  for (std::size_t i = 0; i < l.size(); ++i) l[i] = r[i] = block < 4 ? noise[(std::size_t(block) * 2048 + i) % kN] : 0.0f;
-                  f.process(s, l.data(), r.data(), l.size());
-                  for (std::size_t i = 0; i < l.size(); ++i) {
-                    finite = finite && std::isfinite(l[i]) && std::isfinite(r[i]);
-                    *subnormal += std::fpclassify(l[i]) == FP_SUBNORMAL ? 1 : 0;
-                    *subnormal += std::fpclassify(r[i]) == FP_SUBNORMAL ? 1 : 0;
-                  }
-                }
-              }
-      };
-      if (flush) horde2::underFlushToZero(body); else body();
-      return finite;
-    };
-    std::size_t flushed = 0, unflushed = 0;
-    const bool finite_flushed = corners(true, &flushed), finite_unflushed = corners(false, &unflushed);
-    check(finite_flushed && finite_unflushed && flushed == 0, "no NaN or infinity out of any mode at the corners of the range, and no subnormal under flush-to-zero, tail included (60 runs)");
-    check(unflushed > 0, "control: the same runs without flush-to-zero do reach subnormals (" + std::to_string(unflushed) + "), so the tail is long enough to test them");
+    old.fx = on.fx;   // a stale state a load must not keep
+    check(read_state(before, old, &table) && old.fx.empty(), "a chunk with no fx section loads dry");
+  }
+  {
+    const int weir = slot_of("fxfilter"), scape = slot_of("scape");
+    SavedState v5, v6, hostile;
+    LoadReport r5, r6, rh;
+    check(read_state(std::string(kStateMagic5) + "\npreset 3\nfilter 1 3 0.45 0.6 0.25 0.75\n", v5, &table, &r5) && r5.version == 5 && r5.migrated == (weir >= 0) &&
+              v5.fx.slots.size() == (weir >= 0 ? 1u : 0u) && (weir < 0 || (v5.fx.slots[0].on[0] && v5.fx.slots[0].keys[0].size() == 5)),
+          "a version 5 chunk's line migrates into fx through the ledger's frozen table: the switch and five keys");
+    check(read_state(std::string(kStateMagic6) + "\npreset 3\nscape on 1\nscape 10 6\nscape 27 -3\n", v6, &table, &r6) && r6.migrated == (scape >= 0) &&
+              v6.fx.slots.size() == (scape >= 0 ? 1u : 0u) && (scape < 0 || (v6.fx.slots[0].keys[0].size() == 1 && v6.fx.slots[0].device.size() == 1)),
+          "a version 6 chunk's lines migrate into fx: a morph key in every corner, a Device key once, outside them");
+    check(read_state(std::string(kStateMagic6) + "\nfilter nan 9 2 -1 5 7\nscape 29 1\nscape -1 2\nscape 9 nan\nscape 9 inf\n", hostile, &table, &rh) &&
+              hostile.fx.empty() && !rh.migrated,
+          "control: a legacy line with a non-finite value, or an id outside its range, is no line at all");
+    SavedState no_table;
+    check(read_state(std::string(kStateMagic5) + "\nfilter 1 3 0.45 0.6 0.25 0.75\n", no_table) && no_table.fx.empty(), "control: with no table, a legacy line is read as no line");
+  }
+  {
+    SavedState x;
+    LoadReport r;
+    check(!read_state("horde-engine-preview 8\npreset 1\n", x, &table, &r) && has(r.refused, "unknown") && has(load_json(r), "\"refused\":{\"reason\":"),
+          "a chunk version this build does not know is refused, with its reason, for the frame's load member");
+    check(!read_state("something else\npreset 3\n", x, &table, &r) && has(r.refused, "not a horde-engine-preview chunk"), "an unknown magic is refused, with its reason");
+    LoadReport ok;
+    check(read_state(std::string(kStateMagic4) + "\npreset 1\n", x, &table, &ok) && load_json(ok) == "{\"version\":4,\"migrated\":false}",
+          "control: a known version reads, and its load member carries no refusal");
   }
 
-  // ---- the test-only post-engine reverb (B710, ADR-408): Scape at scape.pin -------------------------------------
+  // ---- the rack's keys on the page (B711, B714): MO-28's names and the ledger's pre-B714 aliases -----------------------
   {
-    namespace rv = preview::reverb;
-    // Ids: the block after the filter's, "Scape on" first, then Scape's own parameters by their stable ids.
-    check(rv::kOnId == 0xA00016 && rv::id_of(0) == 0xA00017 && rv::id_of(rv::kScapeParams - 1) == 0xA00033 && rv::kOnId > preview::filter::id_of(preview::filter::kParams - 1) &&
-              rv::id_of(rv::kScapeParams - 1) < 0xB00001 && rv::kHostParams == 1 + scape::kParamCount,
-          "the reverb's thirty ids are 0xA00016 (Scape on) to 0xA00033, after the filter's 0xA00015, one per Scape parameter");
-    check(!rv::is_reverb_id(0xA00015) && !rv::is_reverb_id(0xA00034) && rv::is_reverb_id(0xA00016) && rv::is_reverb_id(0xA00033),
-          "control: the block's edges are exactly the filter's last id and the next free one");
-    char text[64];
-    const int era = int(scape::Param::era), decay = int(scape::Param::decay), mix = int(scape::Param::mix);
-    rv::param_name(decay, text, sizeof text);
-    bool named = !std::strcmp(text, "Scape decay");
-    rv::param_name(-1, text, sizeof text);
-    named = named && !std::strcmp(text, "Scape on");
-    rv::value_text(era, 1, text, sizeof text);
-    named = named && !std::strcmp(text, "vintage");
-    rv::value_text(era, 0, text, sizeof text);
-    named = named && !std::strcmp(text, "clean");
-    rv::value_text(decay, 2.2, text, sizeof text);
-    named = named && !std::strcmp(text, "2.2 s");
-    check(named && rv::default_value(-1) == 0 && rv::default_value(decay) == scape::paramInfo(scape::Param::decay).def && rv::stepped(era) && !rv::stepped(decay),
-          "names, units and enum values are Scape's own (Scape decay, 2.2 s; era clean or vintage); Scape on defaults to off");
-
-    // The state: an untouched reverb writes nothing, so every chunk is the one it was (the must-read-zero control).
-    SavedState plain;
-    plain.preset = 3;
-    const std::string before = write_state(plain);
-    check(rv::State{}.is_default() && !has(before, "scape") && has(before, kStateMagic2), "control: a default reverb writes no line and no new version");
-    SavedState on = plain;
-    on.reverb.on = true;
-    on.reverb.values = {{decay, 7.25}, {era, 1}, {mix, 0.1234567890123}};
-    const std::string chunk = write_state(on);
-    SavedState back;
-    check(has(chunk, kStateMagic6) && has(chunk, "\nscape on 1\n") && read_state(chunk, back) && back.reverb == on.reverb && back.preset == 3,
-          "the reverb's switch and its changed values round trip through the state, exactly, in version 6");
-    SavedState both = on;
-    both.filter.v[preview::filter::kOn] = 1;
-    SavedState both_back;
-    check(read_state(write_state(both), both_back) && both_back.reverb == on.reverb && both_back.filter == both.filter, "with the filter on too, one version 6 chunk carries both");
-    SavedState values_only = plain;
-    values_only.reverb.values = {{decay, 3}};
-    check(has(write_state(values_only), kStateMagic6) && !has(write_state(values_only), "scape on"), "a changed value with the reverb off is kept, and it stays off");
-    SavedState old;
-    old.reverb = on.reverb;   // a stale state a load must not keep
-    check(read_state(before, old) && old.reverb.is_default(), "an older chunk (no scape line) loads with the reverb off at Scape's defaults");
-    SavedState hostile;
-    check(read_state(std::string(kStateMagic6) + "\nscape 29 1\nscape -1 2\nscape 9 nan\nscape 9 inf\n", hostile) && hostile.reverb.is_default(),
-          "control: a scape line with an id outside Scape's or a non-finite value is ignored");
-
-    // The DSP, on the plug-in's own class: 44.1 kHz, a quarter second of the noise above, then silence.
-    constexpr double kRate = 44100;
-    constexpr std::size_t kN = 44100 * 4, kBurst = 44100 / 4;
-    std::vector<float> burst(kN, 0.0f);
-    std::uint32_t lcg = 777;
-    for (std::size_t i = 0; i < kBurst; ++i) { lcg = lcg * 1664525u + 1013904223u; burst[i] = float(double(lcg >> 8) / double(1 << 24) - 0.5); }
-    std::vector<double> defaults(rv::kScapeParams);
-    for (int k = 0; k < rv::kScapeParams; ++k) defaults[std::size_t(k)] = rv::default_value(k);
-    const auto run = [&](const std::vector<double>& v, std::size_t block, std::vector<float>* right = nullptr, std::size_t* processed = nullptr) {
-      rv::PostReverb f;
-      f.prepare(kRate);
-      std::vector<float> l = burst, r = burst;
-      std::size_t wrote = 0;
-      horde2::underFlushToZero([&] {
-        for (std::size_t at = 0; at < kN; at += block) wrote += f.process(v.data(), l.data() + at, r.data() + at, std::min(block, kN - at)) ? 1 : 0;
-      });
-      if (right) *right = r;
-      if (processed) *processed = wrote;
-      return l;
-    };
-    const auto energy = [&](const std::vector<float>& x, double from_s, double to_s) {
-      double e = 0;
-      for (std::size_t i = std::size_t(from_s * kRate); i < std::size_t(to_s * kRate) && i < x.size(); ++i) e += double(x[i]) * double(x[i]);
-      return e;
-    };
-    std::vector<float> right;
-    const std::vector<float> wet = run(defaults, 512, &right);
-    bool finite = true;
-    for (std::size_t i = 0; i < kN; ++i) finite = finite && std::isfinite(wet[i]) && std::isfinite(right[i]);
-    const double tail = energy(wet, 0.5, 1.5);
-    std::printf("     Scape at its defaults: tail energy 0.25 s to 1.25 s after the burst %.4g (the burst itself %.4g)\n", tail, energy(burst, 0, 0.25));
-    // -50 dB: Scape at its defaults (mix 0.35, decay 2.2 s) measured -37 dB here at 8350fb8; any energy at all is the
-    // reverb's (the control below), the bound only keeps a near-silent leak from passing.
-    check(finite && tail > 1e-5 * energy(burst, 0, 0.25), "at Scape's defaults the burst rings on after its input stops (a tail), and every sample is finite");
-    check(energy(burst, 0.5, 1.5) == 0, "control: the input itself is silent there, so the energy is the reverb's");
-    std::vector<double> dry = defaults;
-    dry[std::size_t(mix)] = 0;
-    check(run(dry, 512) == burst, "control: mix 0 hands the input back bit for bit (Scape's exact dry, its A6)");
-    std::vector<double> long_v = defaults, short_v = defaults;
-    long_v[std::size_t(decay)] = 8;
-    short_v[std::size_t(decay)] = 0.2;
-    const double long_tail = energy(run(long_v, 512), 2, 3), short_tail = energy(run(short_v, 512), 2, 3);
-    std::printf("     tail energy 1.75 s to 2.75 s after the burst: decay 8 s %.4g, decay 0.2 s %.4g\n", long_tail, short_tail);
-    check(long_tail > 1000 * short_tail && long_tail > 0, "the values reach Scape: decay 8 s rings far longer than decay 0.2 s");
-    check(run(defaults, 64) == wet && run(defaults, 100) == wet && run(defaults, 4096) == wet, "the output doesn't depend on how the host cuts the blocks (64, 100, 512, 4096)");
-    check(wet != right, "a mono input comes out wide (Scape decorrelates its tail: changes_image, declared)");
-    // The tail's end: with decay 0.2 s Scape's declared tail is 0.02 + 1 + 11 x 0.2 = 3.22 s, so a 4 s run stops writing
-    // inside it, and every sample it skips was already exact zero where it last wrote.
-    std::size_t blocks = 0;
-    const std::vector<float> ended = run(short_v, 512, nullptr, &blocks);
-    const std::size_t last = blocks * 512;
-    bool zero_end = last < kN && last > std::size_t(3.22 * kRate);
-    for (std::size_t i = last > 512 ? last - 512 : 0; i < kN && zero_end; ++i) zero_end = ended[i] == 0.0f;
-    check(zero_end, "after its declared tail of zeros in, Scape is skipped, and its last block written was already exact zero (stopped after " +
-                        std::to_string(double(last) / kRate) + " s)");
-    std::size_t all_blocks = 0;
-    run(long_v, 512, nullptr, &all_blocks);
-    check(all_blocks * 512 >= kN, "control: with decay 8 s (a declared tail of 89 s) every block of the 4 s run is processed");
-  }
-
-  // ---- the test rows (B711): the filter's and the reverb's host parameters, by key, through the bridge ----------
-  {
-    namespace flt = preview::filter;
-    namespace rv = preview::reverb;
-    const std::vector<TestRow> tests = test_rows();
+    const std::vector<TestRow> tests = test_rows(table);
     const TestKeys tk(tests);
-    // What each key must name, derived apart from test_rows(): its own table's id, and the key from the host's name
-    // ("Filter cutoff" -> preview.filter.cutoff, "Scape decay" -> preview.scape.decay).
+    // What each key must name, derived from the table apart from test_rows(): a switch's id and each key's.
     std::vector<std::pair<std::string, std::uint32_t>> expect;
-    const auto key_from_name = [](const std::string& name) {
-      const std::size_t space = name.find(' ');
-      std::string group = name.substr(0, space);
-      for (char& c : group) c = char(std::tolower(static_cast<unsigned char>(c)));
-      return "preview." + group + "." + name.substr(space + 1);
-    };
-    for (int f = 0; f < flt::kParams; ++f) expect.emplace_back(key_from_name(flt::param_name(f)), flt::id_of(f));
-    for (int k = -1; k < rv::kScapeParams; ++k) {
-      char name[64];
-      rv::param_name(k, name, sizeof name);
-      expect.emplace_back(key_from_name(name), k < 0 ? rv::kOnId : rv::id_of(k));
+    for (const auto& row : table.slots) {
+      expect.emplace_back(rack::switch_name(row.n), row.on_id);
+      for (const auto& k : row.keys) expect.emplace_back(rack::key_name(row.n, k.address), k.host_id);
     }
-    bool same = int(tests.size()) == flt::kParams + rv::kHostParams && tests.size() == expect.size();
+    for (const auto& a : table.aliases)
+      expect.emplace_back(a.preview, a.key < 0 ? table.slots[std::size_t(a.slot)].on_id : table.slots[std::size_t(a.slot)].keys[std::size_t(a.key)].host_id);
+    bool same = tests.size() == expect.size();
     for (std::size_t i = 0; same && i < tests.size(); ++i) same = tests[i].key == expect[i].first && tests[i].id == expect[i].second;
-    check(same, "one test row per host parameter of the filter (6) and the reverb (30), each keyed by its host name, at its own id (" +
-                    std::to_string(tests.size()) + ")");
+    std::size_t published = 0;
+    for (const TestRow& r : tests) published += r.published ? 1 : 0;
+    check(same && published == table.aliases.size(), "one row per switch and key by MO-28's name, and one per ledger alias, each at its own host id (" + std::to_string(tests.size()) +
+                                                          " rows, " + std::to_string(published) + " of them the pre-B714 keys)");
     bool shaped = true;
     for (const TestRow& r : tests)
-      shaped = shaped && (r.stepped ? int(r.labels.size()) == int(r.max - r.min) + 1 : r.labels.empty()) && r.min <= r.def && r.def <= r.max;
-    const TestRow& era = tests[std::size_t(tk.find("preview.scape.era"))];
-    const TestRow& decay = tests[std::size_t(tk.find("preview.scape.decay"))];
-    const TestRow& mode = tests[std::size_t(tk.find("preview.filter.mode"))];
-    check(shaped && era.labels == std::vector<std::string>{"clean", "vintage"} && mode.labels.size() == 5 && mode.labels[3] == "Notch" && decay.unit == "s" &&
-              decay.min == 0.2 && decay.max == 12 && decay.def == 2.2 && !decay.stepped,
-          "each row carries its range and default in its own units, and a stepped one a label per option (era clean or vintage; decay 0.2 to 12 s, 2.2)");
+      shaped = shaped && (r.stepped ? int(r.labels.size()) == int(std::lround(r.max - r.min)) + 1 || r.units : r.labels.empty()) && r.min <= r.def && r.def <= r.max;
+    check(shaped, "each row carries its range and default, and a stepped one a label per option");
+    // The pre-B714 forms, data from the ledger: a host-form row (the old filter's) is the host value itself; a plain row
+    // (the old Scape's) is lin in module units, reaching the host through the key's law.
+    const int decay_at = tk.find("preview.scape.decay"), cutoff_at = tk.find("preview.filter.cutoff");
+    if (decay_at >= 0) {
+      const TestRow& decay = tests[std::size_t(decay_at)];
+      const double scaled = 0.375 * (decay.max - decay.min);
+      check(decay.units && decay.min == 0.2 && decay.max == 12 && decay.def == 2.2 && decay.unit == "s" && test_host(decay, 0.375) == rack::host_of_units(decay.law, decay.min + scaled) &&
+                test_v(decay, rack::host_of_units(decay.law, 12)) == 1,
+            "an old Scape row is published as it was (0.2 to 12 s, 2.2), and its v reaches the host through the key's law");
+    }
+    if (cutoff_at >= 0) {
+      const TestRow& cutoff = tests[std::size_t(cutoff_at)];
+      check(!cutoff.units && cutoff.min == 0 && cutoff.max == 1 && test_host(cutoff, 0.25) == 0.25 && test_v(cutoff, 0.5) == 0.5,
+            "an old filter row is published as it was, its v the host value itself (the cutoff's place on its log law)");
+    }
 
-    // v and the host value: the engine rows' convention, min + v x (max - min), a stepped row rounded to an option. The
-    // product apart, so no fma contraction moves it an ulp from test_host's (which keeps it apart for the same reason).
-    const double scaled = 0.375 * (12.0 - 0.2);
-    check(test_host(decay, 0.375) == 0.2 + scaled && test_host(decay, 1) == 12 && test_host(decay, 2) == 12 && test_host(decay, -1) == 0.2 &&
-              test_host(mode, 0.5) == 2 && test_host(era, 0.6) == 1 && test_v(mode, 2) == 0.5 && test_v(decay, 12) == 1,
-          "v reaches the host as min + v x (max - min), clamped, a stepped row on its nearest option, and back");
-
-    // Parsing: a test key is sent, an unknown `preview.` key is reported as an unknown engine key is, and neither is ever
-    // an engine row. The control is the build without the test rows' path, every such key unknown and nothing sent.
-    const std::string body = "{\"type\":\"set\",\"seq\":40,\"values\":{\"preview.filter.cutoff\":0.25,\"preview.scape.decay\":0.5,\"preview.scape.nope\":0.5,\"out.level\":0.25}}";
+    const std::string body = "{\"type\":\"set\",\"seq\":40,\"values\":{\"" + expect[0].first + "\":1,\"" + expect[1].first +
+                             "\":0.5,\"preview.nope\":0.5,\"fx/99/none\":0.5,\"out.level\":0.25}}";
     const Message set = parse_message(body, keys, &tk);
-    const bool sent = set.test_values.size() == 2 && tk.row(set.test_values[0].row).id == flt::id_of(flt::kCutoff) && set.test_values[0].v == 0.25 &&
-                      tk.row(set.test_values[1].row).id == rv::id_of(int(scape::Param::decay)) && set.test_values[1].v == 0.5;
-    check(sent && set.values.size() == 1 && set.unknown == std::vector<std::string>{"preview.scape.nope"},
-          "a `set` sends each test key to its own row at the page's v, beside the engine rows, and reports an unknown `preview.` key");
+    check(set.test_values.size() == 2 && tk.row(set.test_values[0].row).id == expect[0].second && set.test_values[1].v == 0.5 && set.values.size() == 1 &&
+              set.unknown == std::vector<std::string>{"preview.nope", "fx/99/none"},
+          "a `set` sends each rack key to its own row at the page's v, beside the engine rows, and reports an unknown rack key");
     const Message dropped = parse_message(body, keys);
-    check(dropped.test_values.empty() && dropped.unknown.size() == 3 && dropped.values.size() == 1,
-          "control: with no test rows, every `preview.` key is reported unknown and nothing reaches them");
-    const Message begin = parse_message("{\"type\":\"gesture\",\"seq\":41,\"key\":\"preview.scape.decay\",\"phase\":\"begin\"}", keys, &tk);
-    const Message stray = parse_message("{\"type\":\"gesture\",\"seq\":42,\"key\":\"preview.scape.nope\",\"phase\":\"begin\"}", keys, &tk);
-    const Message phaseless = parse_message("{\"type\":\"gesture\",\"seq\":43,\"key\":\"preview.scape.decay\",\"phase\":\"middle\"}", keys, &tk);
-    check(begin.gesture_test >= 0 && tk.row(begin.gesture_test).key == "preview.scape.decay" && begin.gesture_begin && begin.gesture_row < 0,
-          "a gesture on a test key opens that row's gesture, never an engine row's");
-    check(stray.gesture_test < 0 && phaseless.gesture_test < 0, "control: a gesture on an unknown test key, or with no phase, reaches nothing");
+    check(dropped.test_values.empty() && dropped.unknown.size() == 4 && dropped.values.size() == 1,
+          "control: with no rack keys, every such key is reported unknown and nothing reaches them");
+    const Message begin = parse_message("{\"type\":\"gesture\",\"seq\":41,\"key\":\"" + expect[1].first + "\",\"phase\":\"begin\"}", keys, &tk);
+    const Message stray = parse_message("{\"type\":\"gesture\",\"seq\":42,\"key\":\"fx/99/none\",\"phase\":\"begin\"}", keys, &tk);
+    check(begin.gesture_test >= 0 && tk.row(begin.gesture_test).id == expect[1].second && begin.gesture_row < 0 && stray.gesture_test < 0,
+          "a gesture on a rack key opens that row's gesture, never an engine row's; an unknown one reaches nothing");
 
-    // The mapping audit: each expected key, sent alone, reaches its own id. The control is the key map one row off.
     const auto audit = [&](const TestKeys& map) {
       int wrong = 0;
       for (const auto& [key, id] : expect) {
@@ -673,32 +501,29 @@ int main() {
     std::vector<TestRow> rotated = tests;
     for (std::size_t i = 0; i < rotated.size(); ++i) rotated[i].key = tests[(i + 1) % tests.size()].key;
     const int shifted_wrong = audit(TestKeys(rotated));
-    check(audit(tk) == 0, "every test key, sent through the bridge, reaches its own host id");
+    check(audit(tk) == 0, "every rack key, sent through the bridge, reaches its own host id");
     check(shifted_wrong == int(expect.size()), "control: with the key map one row off, every key misses (" + std::to_string(shifted_wrong) + ")");
 
-    // The hello reply carries the descriptors, as JSON the page reads; without them it is the reply it was.
-    const std::string build = "engine x, build 1", hash = "abc";
+    const std::string build = "engine x, build 1", hash = "abc", slots = "{\"ledger\":\"x\",\"refused\":[],\"slots\":[]}";
     Pieces with;
     with.build = &build;
     with.engine_hash = &hash;
     with.test_rows = &tests;
+    with.slots = &slots;
     const std::string reply = snapshot_json(with);
     Pieces without = with;
     without.test_rows = nullptr;
+    without.slots = nullptr;
     bool parsed = false;
     std::size_t listed = 0;
     try {
       const choc::value::Value doc = choc::json::parse(reply);
-      const auto preview = doc["hello"]["preview"];
-      parsed = preview["value"].getString() == std::string_view(kTestValueRule);
-      listed = preview["rows"].size();
+      parsed = doc["hello"]["preview"]["value"].getString() == std::string_view(kTestValueRule) && doc["hello"]["slots"]["ledger"].getString() == std::string_view("x");
+      listed = doc["hello"]["preview"]["rows"].size();
     } catch (const std::exception&) {}
-    check(parsed && listed == tests.size(), "the hello reply's `preview` is JSON: the value rule and one descriptor per test row");
-    check(has(reply, "{\"key\":\"preview.filter.on\",\"id\":10485776,\"name\":\"Filter on\",\"min\":0,\"max\":1,\"default\":0,\"stepped\":true,\"labels\":[\"off\",\"on\"],\"unit\":\"\"}") &&
-              has(reply, "{\"key\":\"preview.scape.decay\",\"id\":10485793,\"name\":\"Scape decay\",\"min\":0.2,\"max\":12,\"default\":2.2,\"stepped\":false,\"unit\":\"s\"}"),
-          "a descriptor holds the key, the host id, name, min, max, default, stepped, labels where stepped, and the unit");
+    check(parsed && listed == published, "the hello reply's `preview` is JSON with the value rule and one descriptor per pre-B714 key, beside `slots`");
     check(!has(snapshot_json(without), "preview") && has(snapshot_json(without), "\"hello\":{\"build\":\"engine x, build 1\",\"manifest_hash\":\"abc\"}"),
-          "control: a reply without the test rows is the one it always was");
+          "control: a reply without the rack's keys is the one it always was");
   }
 
   // ---- the engine's own manifest --------------------------------------------------------------------------------
