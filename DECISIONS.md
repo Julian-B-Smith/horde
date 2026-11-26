@@ -12798,6 +12798,69 @@ Its controls: a load with no `hello.preview` draws none of it, and a drag on a l
 
 **FX device (ADR-254).** None: the strip and the filter card are the test plug-in's alone. When the rack hosts Scape for real, Scape's card binds to its rack rows as before.
 
+## GUI-75 — RULED by the human: FX routing as a ladder of separated wires beside a send matrix, both editing one wire model; drag between boxes to make a wire, a double-click sets 100 %, a wire that reaches 0 is gone (GB41; GB21; ADR-410 r3, ADR-411 r1; 2026-11-26)
+
+**The human, 2026-11-25** (relayed verbatim by the lead's brief for ADR-410): "I no longer like the routing interface and would like to see a version that keeps the wires tidy and rational and separated. It might help to also include the routing matrix view to see the percentages of the sends. And they should be real."
+
+**The lab.** `docs/design/fx-routing-lab.html`, on the 980 px FX page. It showed three wire styles (W1 ladder, W2 rounded tracks, W3 top-down column) and three layouts (L1 side by side, L2 tabs, L3 stacked), and redrew today's rack (GUI-41's FxRack geometry) as the control. On the busy mock patch at corner A:
+- today's rack shares 6 ports and crosses 21 times;
+- every new style gives each wire its own port and track, with 9 crossings, all from spans that genuinely interleave.
+
+**The human, 2026-11-26:** "I like W1. I'll need to be able to drag connections between modules. And in the matrix, let's have a double-click revert to the default. Also, when a wire hits 0, it ought to disappear". By poll: "L1 Side by side" and a send's default of "100 %".
+
+**Rulings.**
+1. **W1, the ladder.**
+   - Forward wires run above the row of boxes and return wires below it.
+   - Each wire has its own track: shorter wires sit nearer the row, and wires that don't overlap share a track.
+   - Each wire has its own port on its box's edge. Going forward, arrivals sit on the left half and departures on the right, with longer wires nearer the centre, so nested wires never cross. Returns mirror this.
+   - Tracks sit one level chip apart, so no two chips cover each other.
+   - A wire's width and strength show its level, and its colour is its source's cable colour (ADR-273). Its level is printed on a chip on its track.
+   - Supersedes GUI-41's rack drawing.
+2. **L1: the wires and the send matrix side by side** on the FX page.
+   - Rows are sources (the inputs and the modules), and columns are destinations (the modules and Out).
+   - Each cell shows its level, a bar, and pips for the corners that hold the wire.
+   - "Show" picks corner A to D or Heard. Heard is the pad's blend and is never edited.
+   - Both views read one wire model and edit it through one writer.
+3. **Drag from one box onto another to make a wire.** It lands at the default, 100 %, at the shown corner. A drop on nothing, on an input or on its own box makes none. An existing wire is selected and its level said.
+4. **A double-click on a matrix cell sets the default, 100 %,** on a live cell or an empty one, at the shown corner.
+5. **A wire that reaches 0 is gone** at that corner. A drag (or a key) taking it to 0 removes it there, and its other corners keep their levels. 0 % is never a wire's state, so "exists at a corner" and "level above 0 at that corner" are one fact.
+6. **Return wires are real (ADR-411 r1):** dashed and marked z⁻¹, one sample late, FX cables' own encoding. With Settings' Prevent feedback on, a loop's back edge is drawn dotted and reads "held 0 %". The lab's switch stands in for the Settings toggle. Its default waits on the human's listening.
+
+**Readings (this session's, open to the human).**
+- **The level drag** is vertical in both views: 150 px is 100 %, and Option makes it fine (a quarter).
+- **The matrix keys** match a knob's: arrows step 1 % (Shift 10 %), Delete removes, and Enter sets the default.
+- **Heard in the lab:** a wire exists where the dominant corner holds it (the quantum boundary, ADR-377), and its level blends by the pad's weights over the corners that hold it. The bridge's heard value replaces this (B715).
+- **The pick switch and the dead-end guard** from ADR-411 (the lead's reading: a corner's wire set that doesn't connect an input to Out is refused when written) are not drawn yet. They follow once the lead sends B714's message shape.
+
+**State (GUI-27).** In the lab, the wire model lives in the page. Under ADR-410 r2 and r3, the levels per corner live in the patch, morph with the pad, and are undone as one gesture per drag. All of this is the engine's (GN-61). A drag to 0 that removes a wire is one undo step, as any level drag is.
+
+**Engine impact.** GN-61 (the wire model on the bridge: each wire's level per corner and as heard, with edit messages for make, level and remove) and GN-62 (Prevent feedback as a Settings value: a back edge held at zero). GN-50's "no admitted graph has a loop at rest" is superseded by ADR-411 r1. GN-3 is the cable state this extends.
+
+**FX device (ADR-254).** The same views and gestures, with its own inputs in place of the sources.
+
+### GUI-75 A1 — in the master, vendored and in the shell (2026-11-26)
+
+The human, 2026-11-26: "Yes, start it", then "Yes, swap it".
+
+**The master** (`1795726426-0a41`) holds two pieces:
+- `FxWires`, the pure model. It has the one writer, Heard, held back edges, Randomize's `drawCorner` and `copyCorner`, and `ladder()`, everything the view draws.
+- `FxRouting`, the view.
+
+`tools/labharness/fx_routing_check.mjs` (`./verify fast`) holds the vendored copy to the lab's measures and to the model's laws.
+
+**The shell's FX page** mounts it in place of FxPatch, on GUI-41's house default: every input into the first module, the modules in order, the last to Out, 100 % at every corner. Every input is its own (MOCK, B528). Prevent feedback is off until GN-62's Settings value is drawn. Randomize's FX routing level draws and copies through the model.
+
+**Readings, open to the human:**
+- **A box's edge splits in proportion** to the wires arriving and leaving there. The split is the middle when the counts are equal, so the ruling's "halves" hold then. On the shell's default, six inputs into one module sat 2 px apart in their half, and their arrowheads merged.
+- **Arrowheads** shrink to the room beside their port, never under 1.5 px.
+- **Cords** are cased in `ink` (FX cables' rule). Inputs are drawn as lanes, `t2` or `hint`, not `src-engine`. Cords are 1 to 3.5 px wide.
+- **A ladder column** is at least 44 px. A narrower host scrolls the ladder sideways.
+- **The two views stack** below 760 px.
+
+**State (GUI-27):** unchanged from GUI-75. The routing lives in the page, and is not in a patch, a snapshot or undo, as FxPatch's was. A Randomize draw of FX routing is not undone with the draw's parameters, as before; GN-61 brings it into the engine's undo.
+
+**Engine impact:** GN-61, GN-62, unchanged. **FX device:** the same.
+
 ## ADR-365 — RULED by the human: the 8 Hz blocker for FM free in pitch FM; item 7.8's table remade; spec round 58 (B621, B623; 2026-11-04)
 
 **Context.** FM free in pitch FM runs an accumulator that never restarts, while each of C.16's readings starts it at 0, so the estimate cannot see its mean and BL-19 cannot hold by the law alone (Q-TA-71: engine-free, 95 of its 144 one-member cases over 0.003, up to 0.046). ADR-363 sent this to a scratch trial of C.16's existing blocker, with clips for the human. Separately, item 7.8's reference R2 places FM free's modulator half a cycle from round 56's start, and 7.8 plays before its settings settle (Q-TA-77).

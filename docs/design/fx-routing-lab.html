@@ -1,0 +1,717 @@
+<!doctype html>
+<!-- fx-routing-lab: tidy, separated FX wires and a matrix of real send levels, drawn from one wire model. horde, 2026-11-25, row GB21.
+     Origin: the human, 2026-11-25, relayed verbatim by the lead's brief (ADR-410, B713-B715): "I no longer like the routing interface and would like
+     to see a version that keeps the wires tidy and rational and separated. It might help to also include the routing matrix view to see the
+     percentages of the sends. And they should be real." ADR-410 ruling 3: each wire holds a 0-100 % send level at each corner, saved in the patch;
+     levels blend as the pad moves; a wire that exists at only some corners appears or disappears at the quantum boundary (ADR-377).
+
+     WHAT IT REPLACES. GUI-41's FX patching was a directed mock, never ruled (GB21). Its rack sends every wire in and out of a box at one shared point,
+     with equal spans at equal heights, so wires stack and cross by construction. "Today's rack" (B0) below redraws that geometry, so the self-check
+     can measure it against the new styles; it is the control that must read untidy.
+
+     ONE MODEL, EVERY VIEW. `model` holds the nodes and the wires, each wire with its level at A, B, C and D (null where it doesn't exist at that corner).
+     The wires and the matrix both read it, and both edit it through one writer (`setLevel`). "Heard" is computed from the pad and is never edited.
+     In the plug-in the bridge publishes this model (the lead's B715); the lab's stand-in has the shape the lead's brief names, so a view built here
+     reads the bridge unchanged.
+
+     THE TIDY LAW (W1-W3). Forward wires run in their own band above the row, return wires in their own band below it. Each wire gets its own track;
+     shorter wires sit nearer the row, and wires that don't overlap share a track. Every wire has its own port on the box edge: arrivals on the left
+     half, departures on the right half going forward (mirrored for returns), with longer wires nearer the box's centre, so nested wires never cross.
+     Two wires cross only where their spans genuinely interleave, and the self-check counts those crossings.
+
+     WHAT IS REAL. The tokens, the module cable colours (ADR-273), the corner colours and glyphs, the corner weight law (the bundle's Session.weights),
+     the plug-in window's width (980), and the shape of today's only real chain: engine -> Weir -> Scape -> out.
+     WHAT IS MOCK. Every level. The busy patches. Inputs per source (Osc 1, Osc 2, Sub, Noise): the engine gives the rack one stereo pair (RC-5), and
+     per-source inputs are open (B528). How "Heard" handles a wire absent at some corners is this lab's reading (the level blends over the corners that
+     hold the wire; the wire exists where the dominant corner holds it); the bridge's heard value replaces it.
+     FEEDBACK (ADR-411 ruling 1, the human, 2026-11-25): feedback is built, behind a Settings toggle that prevents it; with the toggle set, a loop's
+     back edge is held at zero. Its default waits on the human's listening. A return wire is dashed and carries z⁻¹ (one sample late, FX cables' own
+     encoding); "Prevent feedback" in the bar stands in for the Settings toggle, and with it on a back edge is drawn dotted and reads "held".
+
+     WHAT IT ASKED. Q1, the wire style (W1 ladder, W2 rounded tracks, W3 top-down column). Q2, how the wires and the matrix share the FX page
+     (side by side, tabs, stacked). Nothing here edits gui3*, arp-face/ or the master; a ruling goes through the chain (ADR-316).
+
+     RULED, GUI-75 (the human, 2026-11-26): "I like W1. I'll need to be able to drag connections between modules. And in the matrix, let's have a
+     double-click revert to the default. Also, when a wire hits 0, it ought to disappear". By poll: L1, side by side; a send's default is 100 %.
+     ROUND 2 builds those: a drag from one box onto another makes a wire at 100 % at the shown corner; a double-click on a matrix cell sets it to
+     100 % (an empty cell too); a level dragged to 0 removes the wire at that corner, so 0 % is never a wire's state. The lab opens on W1 and L1,
+     and keeps W2, W3 and B0 as the record of what was compared.
+
+     THE SELF-CHECK prints in #selfcheck. For every style and patch it measures the drawn geometry: ports shared by two wires, segments that overlap,
+     wires outside their band, crossings, and the closest two ports. Controls: today's rack (B0) must share ports; a real pointer drag on a matrix
+     cell must change the wire the wires view labels, and the same drag under Heard must change nothing; the pad at a corner must hear that corner.
+
+     HOUSE RULES. No Math.random. No clock: it redraws on change. No wheel listener (B301). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="lab-part" content="FX">
+<title>FX routing lab — tidy wires and a send matrix, one wire model (GB21, ADR-410)</title>
+<link rel="stylesheet" href="arp-face/tokens.css">
+<link rel="stylesheet" href="arp-face/bundle.css">
+<style>
+  html, body { background: var(--bg); }
+  body { margin: 0; padding: 20px 16px 60px; color: var(--ink); font: 13px/1.5 var(--font-sans); }
+  .col { max-width: 1012px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+  h1 { font: 800 19px/1.2 var(--font-sans); margin: 0 0 6px; }
+  h2 { font: 800 13px/1.2 var(--font-sans); margin: 0 0 8px; }
+  p { margin: 0 0 6px; max-width: 84ch; }
+  .tagline { color: var(--t2); }
+  .qs { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 8px; }
+  .q { border: 1px solid var(--div); border-radius: 6px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .q h3 { font: 800 12px/1.25 var(--font-sans); margin: 0; }
+  .q .opts { display: flex; flex-direction: column; gap: 4px; }
+  .opt { all: unset; box-sizing: border-box; cursor: pointer; display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 0 4px; padding: 4px 6px;
+         border: 1px solid var(--div); border-radius: 4px; min-height: 28px; font: 12px/1.35 var(--font-sans); }
+  .opt b { font: 800 11px/1.35 var(--font-mono); }
+  .opt[aria-pressed="true"] { border-color: var(--ink); background: var(--well); }
+  .opt:focus-visible { outline: var(--stroke-focus, 2px) solid var(--focus-ring); outline-offset: 1px; }
+  /* The FX page as the plug-in draws it: 980 wide. */
+  .frame { width: 980px; max-width: 100%; box-sizing: border-box; margin: 0 auto; background: var(--panel); border: 1.5px solid var(--ink);
+           border-radius: var(--radius-window, 10px); padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+  .bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .bar .ttl { font: 800 12px/1 var(--font-sans); letter-spacing: .06em; }
+  .seg { display: inline-flex; border: 1px solid var(--ink); border-radius: 4px; overflow: hidden; }
+  .seg button { all: unset; cursor: pointer; padding: 3px 9px; font: 700 11px/1.2 var(--font-mono); display: inline-flex; gap: 4px; align-items: center; }
+  .seg[hidden] { display: none; }
+  .seg button + button { border-left: 1px solid var(--ink); }
+  .seg button[aria-pressed="true"] { background: var(--ink); color: var(--panel); }
+  .seg button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+  .mock { font: 800 9px/1 var(--font-mono); letter-spacing: .08em; color: var(--caution-tx); background: var(--caution-bg); padding: 2px 4px; border-radius: 3px; }
+  .hint { color: var(--hint); font-size: 11px; }
+  .pad { touch-action: none; cursor: grab; }
+  .views { display: grid; gap: 12px; align-items: start; }
+  .views.l1 { grid-template-columns: minmax(0, 1fr) auto; }
+  .views.l3 { grid-template-columns: minmax(0, 1fr); }
+  .views.l2 { grid-template-columns: minmax(0, 1fr); }
+  .views.l2.tab-wires .mx-wrap, .views.l2.tab-matrix .wires-wrap { display: none; }
+  .wires-wrap, .mx-wrap { min-width: 0; }
+  .wires-wrap svg { display: block; width: 100%; height: auto; }
+  .chip { cursor: ns-resize; touch-action: none; }
+  .wire-hit { cursor: pointer; }
+  .node { cursor: crosshair; }
+  /* The matrix. */
+  .mx { display: grid; gap: 3px; font: 11px/1 var(--font-mono); }
+  .mx .hd { font: 800 10px/1.1 var(--font-sans); display: flex; align-items: center; gap: 4px; padding: 2px 4px; border: 1.5px solid var(--ink); border-radius: 3px;
+            background: var(--panel); min-height: 22px; box-sizing: border-box; white-space: nowrap; overflow: hidden; }
+  .mx .hd i { width: 8px; height: 8px; border-radius: 2px; flex: 0 0 auto; }
+  .mx .hd .mock { margin-left: auto; }
+  .mx .cell { position: relative; height: 30px; border: 1px solid var(--hair); border-radius: 3px; background: var(--well); box-sizing: border-box; cursor: ns-resize;
+              touch-action: none; user-select: none; }
+  .mx .cell.live { border-color: var(--ink); }
+  .mx .cell .fill { position: absolute; left: 0; bottom: 0; height: 6px; border-top-right-radius: 2px; }
+  .mx .cell .pct { position: absolute; left: 4px; top: 3px; font: 700 11px/1 var(--font-mono); white-space: nowrap; }
+  .mx .cell .pips { position: absolute; left: 4px; bottom: 8px; display: flex; gap: 2px; }
+  .mx .cell.self { background: var(--hair); border-color: var(--hair); cursor: default; }
+  .mx .cell.ret.live::after { content: "z⁻¹"; position: absolute; right: 4px; top: 3px; font: 700 8px/1 var(--font-mono); color: var(--hint); }
+  .mx .cell.held .pct { text-decoration: line-through; color: var(--t2); }
+  .mx .cell.held::before { content: "held"; position: absolute; right: 4px; bottom: 8px; font: 800 8px/1 var(--font-mono); color: var(--caution-tx); }
+  .mx .cell.sel { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+  .mx .cell:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+  .mx.heard .cell { cursor: not-allowed; }
+  .mx.heard .cell .pct { font-style: italic; }
+  .status { font: 11px/1.4 var(--font-mono); color: var(--t2); min-height: 16px; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11px; color: var(--t2); }
+  .legend span { display: inline-flex; gap: 5px; align-items: center; }
+  #selfcheck { font: 11px/1.45 var(--font-mono); white-space: pre-wrap; border: 1px solid var(--div); border-radius: 6px; padding: 8px 10px; }
+  #selfcheck.green { border-color: var(--ink); }
+  #selfcheck.red { border-color: var(--alarm); color: var(--alarm); }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="col">
+  <header>
+    <h1>FX routing lab — tidy wires and a send matrix, one wire model</h1>
+    <p class="tagline">GB21, ADR-410. Your ask: wires kept tidy, rational and separated, a routing matrix that shows each send's percentage, and real values. Every wire here holds a level at each corner; the pad blends them as Heard. Ruled (GUI-75): W1 and L1. Drag from one box onto another to make a wire (it lands at 100 %); drag a percentage up or down in either view, and to 0 to remove it; double-click a matrix cell for the default, 100 %. Both views read and write one model.</p>
+    <p class="hint">Every level here is MOCK, built to the shape the plug-in's bridge will publish (B715); in the plug-in the same views read the bridge. Inputs per source are open (B528) and marked MOCK. Return wires are dashed and carry z⁻¹: feedback is built, one sample late, and a Settings toggle can prevent it (ADR-411); "Prevent feedback" in the bar stands in for that toggle.</p>
+  </header>
+
+  <section class="qs" id="qs"></section>
+
+  <div class="frame" id="frame">
+    <div class="bar">
+      <span class="ttl">FX ROUTING</span>
+      <span class="hint">Show</span>
+      <span class="seg" id="show" role="group" aria-label="Show a corner or what you hear"></span>
+      <svg class="pad" id="pad" width="64" height="64" viewBox="0 0 64 64" role="slider" tabindex="0" aria-label="Morph pad (lab stand-in)"></svg>
+      <span class="seg" id="tabs" role="group" aria-label="View" hidden></span>
+      <span class="hint">Prevent feedback</span>
+      <span class="seg" id="prevent" role="group" aria-label="Prevent feedback (stands in for the Settings toggle, ADR-411)"></span>
+      <span class="mock">MOCK LEVELS</span>
+    </div>
+    <div class="views" id="views">
+      <div class="wires-wrap" id="wiresWrap"></div>
+      <div class="mx-wrap" id="mxWrap"></div>
+    </div>
+    <div class="status" id="status" role="status" aria-live="polite"></div>
+    <div class="legend" id="legend"></div>
+  </div>
+
+  <section>
+    <h2>Self-check</h2>
+    <div id="selfcheck">running…</div>
+  </section>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = (tag, attrs) => { const e = document.createElementNS(NS, tag); for (const k in attrs || {}) e.setAttribute(k, attrs[k]); return e; };
+  const el = (tag, attrs, kids) => { const e = document.createElement(tag); for (const k in attrs || {}) { if (k === 'text') e.textContent = attrs[k]; else e.setAttribute(k, attrs[k]); } (kids || []).forEach(c => e.append(c)); return e; };
+
+  // ---- the corners: the bundle's ids, glyphs and weight law (Session.weights) ----
+  const CORNERS = [
+    { id: 'A', glyph: 'M5 .5 9.5 5 5 9.5 .5 5Z' }, { id: 'B', glyph: 'M5 1 9.5 9H.5Z' },
+    { id: 'C', glyph: 'M5 .7a4.3 4.3 0 1 0 .001 0Z' }, { id: 'D', glyph: 'M1.2 1.2h7.6v7.6H1.2Z' }];
+  const weights = (x, y) => [(1 - x) * (1 - y), x * (1 - y), (1 - x) * y, x * y];
+  const HEARD = 4;
+
+  // ---- the patches: MOCK levels, in the shape the bridge will publish (B715) ----
+  // A wire is { u, v, lv: [A, B, C, D] }, a level 0..1 or null where it doesn't exist at that corner.
+  const MODS = {
+    bulwark: { name: 'Bulwark', short: 'BLWK', style: 'bulwark' }, weir: { name: 'Weir', short: 'WEIR', style: 'filter' },
+    sluice: { name: 'Sluice', short: 'SLCE', style: 'sluice' }, echo: { name: 'Echo', short: 'ECHO', style: 'echo' },
+    scape: { name: 'Scape', short: 'SCPE', style: 'scape' } };
+  const IN = {
+    engine: { name: 'Engine', short: 'ENG', real: true }, osc1: { name: 'Osc 1', short: 'OSC1' }, osc2: { name: 'Osc 2', short: 'OSC2' },
+    sub: { name: 'Sub', short: 'SUB' }, noise: { name: 'Noise', short: 'NOIS' } };
+  const all = v => [v, v, v, v];
+  const BUSY = [
+    { u: 'osc1', v: 'weir', lv: [1, .8, 1, .6] }, { u: 'osc2', v: 'weir', lv: [.7, .7, null, .5] }, { u: 'osc2', v: 'sluice', lv: [null, null, .6, .4] },
+    { u: 'sub', v: 'bulwark', lv: all(.8) }, { u: 'noise', v: 'echo', lv: [.35, .5, null, .2] },
+    { u: 'bulwark', v: 'out', lv: all(1) }, { u: 'weir', v: 'echo', lv: [.4, .25, .6, .3] }, { u: 'weir', v: 'scape', lv: [.5, .6, .3, .8] },
+    { u: 'weir', v: 'out', lv: [.8, .9, .7, .6] }, { u: 'sluice', v: 'scape', lv: [null, null, .5, .45] }, { u: 'sluice', v: 'out', lv: [null, null, .5, .5] },
+    { u: 'echo', v: 'scape', lv: [.5, .4, .3, .5] }, { u: 'echo', v: 'out', lv: all(.6) }, { u: 'scape', v: 'out', lv: all(1) }];
+  const PATCHES = {
+    today: { name: "Today's chain", note: 'The shape is real: engine → Weir → Scape → out. Its levels are MOCK.', inputs: ['engine'], mods: ['weir', 'scape'],
+      wires: [{ u: 'engine', v: 'weir', lv: all(1) }, { u: 'weir', v: 'scape', lv: all(1) }, { u: 'scape', v: 'out', lv: all(1) }] },
+    busy: { name: 'Busy patch', note: 'MOCK: four inputs per source (open, B528), five modules, wires that differ by corner.',
+      inputs: ['osc1', 'osc2', 'sub', 'noise'], mods: ['bulwark', 'weir', 'sluice', 'echo', 'scape'], wires: BUSY },
+    feedback: { name: 'With feedback', note: 'MOCK: the busy patch plus two return wires, each closing a loop one sample late (ADR-411).',
+      inputs: ['osc1', 'osc2', 'sub', 'noise'], mods: ['bulwark', 'weir', 'sluice', 'echo', 'scape'],
+      wires: BUSY.concat([{ u: 'echo', v: 'weir', lv: [null, null, .2, .15] }, { u: 'scape', v: 'echo', lv: [null, .15, null, null] }]) } };
+
+  // ---- the one model and its one writer ----
+  let model = null;
+  const load = id => {
+    const p = PATCHES[id];
+    const nodes = p.inputs.map(k => Object.assign({ id: k, kind: 'in' }, IN[k]))
+      .concat(p.mods.map(k => Object.assign({ id: k, kind: 'mod' }, MODS[k])), [{ id: 'out', kind: 'out', name: 'Out', short: 'OUT', real: true }]);
+    model = { patch: id, nodes, wires: p.wires.map(w => ({ u: w.u, v: w.v, lv: w.lv.slice() })) };
+  };
+  const st = { patch: 'busy', style: 'W1', arr: 'L1', tab: 'wires', show: 0, pad: { x: .3, y: .35 }, sel: null, prevent: false };
+  const key = w => w.u + '>' + w.v;
+  const idx = id => model.nodes.findIndex(n => n.id === id);
+  const isReturn = (u, v) => idx(v) <= idx(u);
+  const find = (u, v) => model.wires.find(w => w.u === u && w.v === v);
+  // The one writer: both views edit through it. A level of 0 or less (or null) removes the wire at that corner: "when a wire hits 0, it ought to
+  // disappear" (GUI-75 r4), so 0 % is never a wire's state. A wire absent at every corner leaves the model. DEFAULT is a send's default (r3).
+  const DEFAULT = 1;
+  function setLevel(u, v, c, L) {
+    if (c === HEARD) return false;
+    if (L !== null && L <= 0) L = null;
+    let w = find(u, v);
+    if (!w) { if (L === null) return false; w = { u, v, lv: [null, null, null, null] }; model.wires.push(w); }
+    w.lv[c] = L === null ? null : Math.min(1, L);
+    if (w.lv.every(x => x === null)) model.wires.splice(model.wires.indexOf(w), 1);
+    return true;
+  }
+  // Heard (this lab's reading, the bridge's heard value replaces it): the wire exists where the dominant corner holds it (the quantum boundary,
+  // ADR-377), and its level blends over the corners that hold it, by the pad's weights (ADR-410 ruling 3: as a gain blends).
+  function heardOf(w) {
+    const wt = weights(st.pad.x, st.pad.y);
+    let dom = 0; for (let i = 1; i < 4; i++) if (wt[i] > wt[dom]) dom = i;
+    if (w.lv[dom] === null) return null;
+    let s = 0, n = 0; for (let i = 0; i < 4; i++) if (w.lv[i] !== null) { s += wt[i] * w.lv[i]; n += wt[i]; }
+    return n > 0 ? s / n : null;
+  }
+  const levelAt = (w, c) => c === HEARD ? heardOf(w) : w.lv[c];
+  // A back edge: a return wire that closes a loop, i.e. its destination already reaches its source forward among the wires shown.
+  // With Prevent feedback on, it is held at zero (ADR-411 r1): drawn, so you see it waiting, but heard as nothing.
+  function backEdges(items) {
+    const held = new Set();
+    items.filter(x => isReturn(x.w.u, x.w.v)).forEach(x => {
+      const seen = new Set([x.w.v]), todo = [x.w.v];
+      while (todo.length) { const n = todo.pop(); items.forEach(y => { if (y !== x && y.w.u === n && !isReturn(y.w.u, y.w.v) && !seen.has(y.w.v)) { seen.add(y.w.v); todo.push(y.w.v); } }); }
+      if (seen.has(x.w.u)) held.add(x.w);
+    });
+    return held;
+  }
+  const shown = () => { const items = model.wires.map(w => ({ w, L: levelAt(w, st.show) })).filter(x => x.L !== null);
+    const be = st.prevent ? backEdges(items) : new Set(); items.forEach(x => { x.held = be.has(x.w); }); return items; };
+
+  // ---- colours ----
+  const cableOf = n => n.kind === 'mod' ? 'var(--fxs-' + n.style + '-cable)' : 'var(--src-engine)';
+  const groundOf = n => n.kind === 'mod' ? 'var(--fxs-' + n.style + '-ground)' : 'var(--well)';
+  const nodeOf = id => model.nodes[idx(id)];
+  const pctText = L => Math.round(L * 100) + ' %';
+
+  // ---- THE LAYOUT. Coordinates are (u along the flow, v across it); the style maps them to the screen. ----
+  // Returns { boxes, wires: [{ w, L, dir, track, pts }], uLen, vMin, vMax, hb }.
+  function layout(items, o) {
+    const n = model.nodes.length, col = o.uLen / n, hb = o.hb, bw = Math.min(o.boxMax, col * .84);
+    const boxes = model.nodes.map((nd, i) => ({ nd, i, uc: col * (i + .5), u0: col * (i + .5) - bw / 2, u1: col * (i + .5) + bw / 2 }));
+    const ws = items.map(x => { const a = idx(x.w.u), b = idx(x.w.v), dir = b > a ? 'f' : 'r';
+      // span in columns: leaves a quarter column off centre and lands a quarter column off centre, on the sides the tidy law gives
+      const s0 = dir === 'f' ? a + .25 : b + .25, s1 = dir === 'f' ? b - .25 : a - .25;
+      return { w: x.w, L: x.L, held: !!x.held, a, b, dir, s0, s1, track: 0 }; });
+    if (o.naive) return naive(ws, boxes, col, hb, o);
+    // Tracks: shortest first; each goes one above every placed wire it overlaps, so nested wires sit inside and disjoint ones share a track.
+    ['f', 'r'].forEach(dir => {
+      const list = ws.filter(x => x.dir === dir).sort((p, q) => (p.s1 - p.s0) - (q.s1 - q.s0) || p.a - q.a || p.b - q.b);
+      const placed = [];
+      list.forEach(x => { let t = 1; placed.forEach(y => { if (x.s0 < y.s1 && y.s0 < x.s1) t = Math.max(t, y.track + 1); }); x.track = t; placed.push(x); });
+    });
+    // Ports: each wire its own. Left half holds forward arrivals (top) and return departures (bottom); right half forward departures (top) and
+    // return arrivals (bottom). Longer wires (higher tracks) sit nearer the box centre. A half with no partner uses the whole edge.
+    const m = 6, g = 3;
+    boxes.forEach(bx => {
+      const at = (edge, half) => ws.filter(x => (edge === 'f' ? x.dir === 'f' : x.dir === 'r') &&
+        (half === 'L' ? (x.dir === 'f' ? x.b === bx.i : x.a === bx.i) : (x.dir === 'f' ? x.a === bx.i : x.b === bx.i)));
+      ['f', 'r'].forEach(edge => {
+        const L = at(edge, 'L'), R = at(edge, 'R');
+        const lo = bx.u0 + m, hi = bx.u1 - m, mid = bx.uc;
+        const spread = (arr, a, b, asc) => { arr.sort((p, q) => asc ? p.track - q.track || p.a - q.a : q.track - p.track || q.a - p.a);
+          arr.forEach((x, j) => { const pu = a + (b - a) * (j + .5) / arr.length; if (x.a === bx.i) x.pa = pu; else x.pb = pu; }); };
+        spread(L, lo, R.length ? mid - g : hi, true);
+        spread(R, L.length ? mid + g : lo, hi, false);
+      });
+    });
+    const base = o.base, pitch = o.pitch;
+    let vMin = -hb, vMax = hb;
+    ws.forEach(x => {
+      const s = x.dir === 'f' ? -1 : 1, edge = s * hb, vt = s * (hb + base + (x.track - 1) * pitch);
+      x.vt = vt; x.pts = [[x.pa, edge], [x.pa, vt], [x.pb, vt], [x.pb, edge]];
+      vMin = Math.min(vMin, vt); vMax = Math.max(vMax, vt);
+    });
+    return { boxes, wires: ws, uLen: o.uLen, vMin: vMin - 14, vMax: vMax + 14, hb, col };
+  }
+  // B0, today's rack (FxRack's geometry, for comparison and as the self-check's control): every wire leaves its box at one shared point 0.2 of a
+  // column right of centre and lands at one shared point 0.2 left of it; forward arcs above, returns below; height by the square root of the span.
+  function naive(ws, boxes, col, hb, o) {
+    let vMin = -hb, vMax = hb;
+    ws.forEach(x => {
+      const pa = boxes[x.a].uc + (x.dir === 'f' ? .2 : -.2) * col, pb = boxes[x.b].uc + (x.dir === 'f' ? -.2 : .2) * col;
+      const s = x.dir === 'f' ? -1 : 1, h = hb + o.base + 12 * Math.sqrt(Math.abs(x.b - x.a)) * o.pitch / 4;
+      x.pa = pa; x.pb = pb; x.pts = [];
+      for (let k = 0; k <= 16; k++) { const t = k / 16; x.pts.push([pa + (pb - pa) * t, s * (hb + (h - hb) * Math.sin(Math.PI * t))]); }
+      x.vt = s * h; if (s < 0) vMin = Math.min(vMin, -h); else vMax = Math.max(vMax, h);
+    });
+    return { boxes, wires: ws, uLen: o.uLen, vMin: vMin - 14, vMax: vMax + 14, hb, col };
+  }
+
+  const STYLES = {
+    W1: { name: 'Ladder', axis: 'x', round: 3 },
+    W2: { name: 'Rounded tracks', axis: 'x', round: 'big' },
+    W3: { name: 'Top-down column', axis: 'y', round: 3 },
+    B0: { name: "Today's rack (before)", axis: 'x', naive: true } };
+  function optsFor(style, width) {
+    const s = STYLES[style];
+    // Along x a track is one chip and 2 px apart, so chips on neighbouring tracks never cover each other however short the wire.
+    return s.axis === 'x' ? { uLen: width - 16, hb: 20, boxMax: 96, base: 12, pitch: CHIP_H + 2, naive: !!s.naive }
+                          : { uLen: model.nodes.length * 60, hb: 64, boxMax: 50, base: 12, pitch: 10 };
+  }
+  // (u, v) -> screen. Along x: u runs right and forward wires sit above. Along y: u runs down and forward wires sit on the right.
+  function mapper(style, lay, width) {
+    const s = STYLES[style];
+    if (s.axis === 'x') { const oy = -lay.vMin; return { w: width, h: lay.vMax - lay.vMin, p: (u, v) => [8 + u, oy + v] }; }
+    const ox = width / 2 - (lay.vMax + lay.vMin) / 2;
+    return { w: width, h: lay.uLen + 16, p: (u, v) => [ox - v, 8 + u] };
+  }
+
+  // ---- the level chips: one per wire, on its own track, slid along the track to a free spot so no two chips cover each other ----
+  const CHIP_H = 13, chipText = x => x.held ? 'held 0 %' : (x.dir === 'r' ? 'z⁻¹ ' : '') + pctText(x.L), chipW = t => t.length * 5.6 + 8;
+  function placeChips(lay, mp, naive) {
+    const placed = [], ts = [.5, .35, .65, .2, .8, .27, .73, .12, .88];
+    let clash = 0;
+    const hit = (r) => placed.some(q => r.x < q.x + q.w + 1 && q.x < r.x + r.w + 1 && r.y < q.y + q.h + 1 && q.y < r.y + r.h + 1);
+    lay.wires.forEach(x => {
+      const txt = chipText(x), cw = chipW(txt), A = mp.p(x.pa, x.vt), B = mp.p(x.pb, x.vt);
+      let best = null;
+      for (const t of (naive ? [.5] : ts)) { const c = [A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t], r = { x: c[0] - cw / 2, y: c[1] - CHIP_H / 2, w: cw, h: CHIP_H, c };
+        if (!hit(r)) { best = r; break; } }
+      if (!best) { clash++; const c = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2]; best = { x: c[0] - cw / 2, y: c[1] - CHIP_H / 2, w: cw, h: CHIP_H, c }; }
+      placed.push(best); x.chip = Object.assign({ txt }, best);
+    });
+    return clash;
+  }
+
+  // ---- geometry measures (the self-check's instruments) ----
+  function measure(style, width, over) {
+    const lay = layout(shown(), Object.assign(optsFor(style, width), over || {})), mp = mapper(style, lay, width);
+    const W = lay.wires.map(x => ({ x, P: x.pts.map(p => mp.p(p[0], p[1])) }));
+    const ports = new Map(); let shared = 0, minGap = Infinity;
+    W.forEach(({ P }, i) => [P[0], P[P.length - 1]].forEach(q => { const k = Math.round(q[0]) + ',' + Math.round(q[1]); ports.set(k, (ports.get(k) || 0) + 1); }));
+    ports.forEach(c => { if (c > 1) shared++; });
+    const pp = []; W.forEach(({ P }) => { pp.push(P[0], P[P.length - 1]); });
+    for (let i = 0; i < pp.length; i++) for (let j = i + 1; j < pp.length; j++) {
+      const d = Math.hypot(pp[i][0] - pp[j][0], pp[i][1] - pp[j][1]); if (d > .5) minGap = Math.min(minGap, d); }
+    const segs = []; W.forEach(({ P }, wi) => { for (let k = 0; k + 1 < P.length; k++) segs.push({ wi, a: P[k], b: P[k + 1] }); });
+    let overlap = 0, cross = 0;
+    const cr = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+    for (let i = 0; i < segs.length; i++) for (let j = i + 1; j < segs.length; j++) {
+      const s = segs[i], t = segs[j]; if (s.wi === t.wi) continue;
+      const d1 = cr(t.a, t.b, s.a), d2 = cr(t.a, t.b, s.b), d3 = cr(s.a, s.b, t.a), d4 = cr(s.a, s.b, t.b);
+      const ls = Math.hypot(s.b[0] - s.a[0], s.b[1] - s.a[1]) || 1, lt = Math.hypot(t.b[0] - t.a[0], t.b[1] - t.a[1]) || 1;
+      if (Math.abs(d1) / lt < .5 && Math.abs(d2) / lt < .5) {   // collinear: do they share a stretch?
+        const dx = (t.b[0] - t.a[0]) / lt, dy = (t.b[1] - t.a[1]) / lt, pr = q => (q[0] - t.a[0]) * dx + (q[1] - t.a[1]) * dy;
+        const lo = Math.max(Math.min(pr(s.a), pr(s.b)), 0), hi = Math.min(Math.max(pr(s.a), pr(s.b)), lt);
+        if (hi - lo > .5) overlap++;
+      } else if (d1 * d2 < 0 && d3 * d4 < 0 && Math.abs(d1) / lt > .5 && Math.abs(d2) / lt > .5 && Math.abs(d3) / ls > .5 && Math.abs(d4) / ls > .5) cross++;
+    }
+    let band = 0;   // every forward point on its band's side of the row, every return point on the other
+    lay.wires.forEach(x => x.pts.forEach(p => { if (x.dir === 'f' ? p[1] > -lay.hb + .01 : p[1] < lay.hb - .01) band++; }));
+    const chips = placeChips(lay, mp, !!STYLES[style].naive);
+    return { wires: W.length, shared, overlap, cross, band, chips, minGap: isFinite(minGap) ? minGap : 0, height: mp.h };
+  }
+
+  // ---- drawing the wires ----
+  function roundPath(P, r) {
+    if (P.length < 3) return 'M' + P.map(p => p.join(' ')).join('L');
+    let d = 'M' + P[0][0] + ' ' + P[0][1];
+    for (let k = 1; k + 1 < P.length; k++) {
+      const a = P[k - 1], b = P[k], c = P[k + 1];
+      const l1 = Math.hypot(b[0] - a[0], b[1] - a[1]), l2 = Math.hypot(c[0] - b[0], c[1] - b[1]);
+      const rr = Math.max(0, Math.min(r === 'big' ? Infinity : r, l1 / 2, l2 / 2) - .01);
+      const p1 = [b[0] - (b[0] - a[0]) * rr / l1, b[1] - (b[1] - a[1]) * rr / l1], p2 = [b[0] + (c[0] - b[0]) * rr / l2, b[1] + (c[1] - b[1]) * rr / l2];
+      d += 'L' + p1[0] + ' ' + p1[1] + 'Q' + b[0] + ' ' + b[1] + ' ' + p2[0] + ' ' + p2[1];
+    }
+    const z = P[P.length - 1]; return d + 'L' + z[0] + ' ' + z[1];
+  }
+  let lastWires = null;
+  function drawWires(host) {
+    const width = Math.max(320, host.clientWidth || 600);
+    const style = st.style, lay = layout(shown(), optsFor(style, width)), mp = mapper(style, lay, width), S = STYLES[style];
+    const root = svg('svg', { viewBox: '0 0 ' + mp.w + ' ' + Math.ceil(mp.h), role: 'figure',
+      'aria-label': 'FX wires, ' + (st.show === HEARD ? 'as heard' : 'corner ' + CORNERS[st.show].id) + ': ' + lay.wires.length + ' wires' });
+    const gW = svg('g'), gB = svg('g'), gC = svg('g');
+    const list = el('ul', { class: 'sr' });
+    // Boxes
+    lay.boxes.forEach(bx => {
+      let x0, y0, w, h;
+      if (S.axis === 'x') { const a = mp.p(bx.u0, -lay.hb), b = mp.p(bx.u1, lay.hb); x0 = a[0]; y0 = a[1]; w = b[0] - a[0]; h = b[1] - a[1]; }
+      else { const a = mp.p(bx.u0, lay.hb), b = mp.p(bx.u1, -lay.hb); x0 = a[0]; y0 = a[1]; w = b[0] - a[0]; h = b[1] - a[1]; }
+      const nd = bx.nd, g = svg('g', { class: 'node', 'data-node': nd.id });
+      connectFrom(g, nd, root, [x0 + w / 2, y0 + h / 2]);
+      g.append(svg('rect', { x: x0, y: y0, width: w, height: h, rx: 4, fill: 'var(--panel)', stroke: 'var(--ink)', 'stroke-width': 1.5 }));
+      if (nd.kind === 'mod') g.append(svg('rect', { x: x0 + 4, y: y0 + h - 9, width: w - 8, height: 5, rx: 1.5, fill: groundOf(nd), stroke: 'var(--ink)', 'stroke-width': .75 }));
+      const label = w > 64 ? nd.name : nd.short, t = svg('text', { x: x0 + w / 2, y: y0 + (nd.kind === 'mod' ? h / 2 - 1 : h / 2 + 3), 'text-anchor': 'middle',
+        'font-size': 10, 'font-weight': 800, fill: 'var(--ink)', 'font-family': 'var(--font-sans)' });
+      t.textContent = label; g.append(t);
+      if (nd.kind === 'in' && !nd.real) { const m = svg('text', { x: x0 + w / 2, y: y0 + h - 4, 'text-anchor': 'middle', 'font-size': 7, 'font-weight': 800,
+        fill: 'var(--caution-tx)', 'font-family': 'var(--font-mono)' }); m.textContent = 'MOCK'; g.append(m); }
+      gB.append(g);
+    });
+    // Wires: a panel-coloured casing under each, so where two genuinely cross one reads over the other.
+    placeChips(lay, mp, !!S.naive);
+    lay.wires.forEach(x => {
+      const P = x.pts.map(p => mp.p(p[0], p[1])), src = nodeOf(x.w.u), col = cableOf(src), L = x.L, k = key(x.w), ret = x.dir === 'r';
+      const d = S.naive ? 'M' + P.map(p => p[0] + ' ' + p[1]).join('L') : roundPath(P, S.round);
+      const sw = x.held ? 1.25 : 1.25 + 2.75 * L, sel = st.sel === k;
+      const g = svg('g', { class: 'wire-hit', 'data-k': k });
+      if (sel) g.append(svg('path', { d, fill: 'none', stroke: 'var(--focus-ring)', 'stroke-width': sw + 6, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', opacity: .55 }));
+      g.append(svg('path', { d, fill: 'none', stroke: 'var(--panel)', 'stroke-width': sw + 3, 'stroke-linejoin': 'round' }));
+      g.append(svg('path', { d, fill: 'none', stroke: col, 'stroke-width': sw, opacity: x.held ? .45 : .4 + .6 * L, 'stroke-linejoin': 'round',
+        'stroke-dasharray': x.held ? '1.5 3' : ret ? '5 3' : 'none' }));
+      g.append(svg('path', { d, fill: 'none', stroke: 'transparent', 'stroke-width': 10 }));
+      // the arrowhead, into the box, along the last segment
+      const a = P[P.length - 2], b = P[P.length - 1], len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, ux = (b[0] - a[0]) / len, uy = (b[1] - a[1]) / len, s = 3 + 2 * L;
+      g.append(svg('path', { d: 'M' + b[0] + ' ' + b[1] + 'L' + (b[0] - ux * s * 1.6 - uy * s) + ' ' + (b[1] - uy * s * 1.6 + ux * s) + 'L' + (b[0] - ux * s * 1.6 + uy * s) + ' ' + (b[1] - uy * s * 1.6 - ux * s) + 'Z',
+        fill: col, stroke: 'var(--ink)', 'stroke-width': .75 }));
+      g.addEventListener('click', () => { st.sel = k; render(); });
+      gW.append(g);
+      // the level chip, on the wire's track
+      const q1 = x.chip.c, txt = x.chip.txt, cw = x.chip.w;
+      const chip = svg('g', { class: 'chip', 'data-k': k, tabindex: 0, role: 'slider', 'aria-valuemin': 0, 'aria-valuemax': 100, 'aria-valuenow': Math.round(L * 100),
+        'aria-label': src.name + ' to ' + nodeOf(x.w.v).name + ' send' });
+      chip.append(svg('rect', { x: q1[0] - cw / 2, y: q1[1] - CHIP_H / 2, width: cw, height: CHIP_H, rx: 3, fill: 'var(--panel)', stroke: col, 'stroke-width': sel ? 2 : 1.25 }));
+      const tt = svg('text', { x: q1[0], y: q1[1] + 3.5, 'text-anchor': 'middle', 'font-size': 9, 'font-weight': 700, fill: 'var(--ink)', 'font-family': 'var(--font-mono)' });
+      tt.textContent = txt; chip.append(tt);
+      editable(chip, x.w.u, x.w.v);
+      gC.append(chip);
+      list.append(el('li', { text: src.name + ' to ' + nodeOf(x.w.v).name + ': ' + pctText(L) + (ret ? ', a return wire, one sample late' + (x.held ? ', held at zero: Prevent feedback is on' : '') : '') }));
+    });
+    // Hint for the bands
+    const hint = (txt, u, v, anchor) => { const p = mp.p(u, v), t = svg('text', { x: p[0], y: p[1], 'text-anchor': anchor, 'font-size': 8, fill: 'var(--hint)', 'font-family': 'var(--font-mono)' }); t.textContent = txt; root.append(t); };
+    if (S.axis === 'x') { hint('forward ↑', 2, lay.vMin + 10, 'start'); if (lay.wires.some(x => x.dir === 'r')) hint('return ↓ one sample late', 2, lay.vMax - 4, 'start'); }
+    else { hint('forward →', 0, -8, 'start'); }
+    root.append(gB, gW, gC);
+    host.replaceChildren(root, list);
+    lastWires = { style, lay };
+  }
+
+  // ---- making a wire: drag from one box onto another (GUI-75 r2). It lands at the default, 100 %, at the shown corner. ----
+  // The band follows the pointer in the SVG's own units; the drop target is whatever box is under the pointer on release.
+  function connectFrom(g, nd, root, c0) {
+    g.addEventListener('pointerdown', e => {
+      if (e.button !== 0) return;
+      if (nd.kind === 'out') { say('Out is the end of the chain: drag from a source or a module.'); return; }
+      const toSvg = ev => { const m = root.getScreenCTM(); if (!m) return c0; const pt = root.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY; const q = pt.matrixTransform(m.inverse()); return [q.x, q.y]; };
+      const band = svg('line', { x1: c0[0], y1: c0[1], x2: c0[0], y2: c0[1], stroke: 'var(--ink)', 'stroke-width': 1.5, 'stroke-dasharray': '4 3', 'pointer-events': 'none' });
+      root.append(band);
+      const mv = ev => { const q = toSvg(ev); band.setAttribute('x2', q[0]); band.setAttribute('y2', q[1]); };
+      const up = ev => {
+        window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); band.remove();
+        const hit = document.elementFromPoint(ev.clientX, ev.clientY), tg = hit && hit.closest && hit.closest('[data-node]'), v = tg && tg.getAttribute('data-node');
+        if (!v || v === nd.id) return;
+        const to = nodeOf(v);
+        if (to.kind === 'in') { say(to.name + ' is an input: a wire goes to a module or Out.'); return; }
+        if (st.show === HEARD) { refuseHeard(); return; }
+        const w = find(nd.id, v), k = nd.id + '>' + v;
+        st.sel = k;
+        if (w && w.lv[st.show] !== null) { say(nd.name + ' → ' + to.name + ' already sends ' + pctText(w.lv[st.show]) + ' at ' + CORNERS[st.show].id + '.'); render(); return; }
+        setLevel(nd.id, v, st.show, DEFAULT); render();
+        say(nd.name + ' → ' + to.name + ' made at ' + CORNERS[st.show].id + ', at its default, ' + pctText(DEFAULT) + (isReturn(nd.id, v) ? ': a return wire, one sample late' : ''));
+      };
+      window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
+      e.preventDefault();
+    });
+  }
+
+  // ---- the matrix ----
+  function drawMatrix(host) {
+    const rows = model.nodes.filter(n => n.kind !== 'out'), cols = model.nodes.filter(n => n.kind !== 'in');
+    const heard = st.show === HEARD, held = new Set(shown().filter(x => x.held).map(x => x.w));
+    const g = el('div', { class: 'mx' + (heard ? ' heard' : ''), role: 'grid', 'aria-label': 'Send matrix: rows send to columns' });
+    g.style.gridTemplateColumns = '84px repeat(' + cols.length + ', 58px)';
+    const hd = (n, extra) => { const d = el('div', { class: 'hd' + (extra || '') }); const sw = el('i'); sw.style.background = n.kind === 'mod' ? groundOf(n) : 'var(--src-engine)';
+      if (n.kind !== 'out') d.append(sw); d.append(document.createTextNode(n.kind === 'mod' || n.kind === 'out' ? n.short : n.name));
+      if (n.kind === 'in' && !n.real) d.append(el('span', { class: 'mock', text: 'MOCK', title: 'Inputs per source are open (B528)' }));
+      d.title = n.name; return d; };
+    g.append(el('div', { class: 'hint', text: 'from ↓  to →' }));
+    cols.forEach(c => g.append(hd(c)));
+    rows.forEach(r => {
+      g.append(hd(r));
+      cols.forEach(c => {
+        if (r.id === c.id) { g.append(el('div', { class: 'cell self', 'aria-hidden': 'true' })); return; }
+        const w = find(r.id, c.id), L = w ? levelAt(w, st.show) : null, k = r.id + '>' + c.id, ret = isReturn(r.id, c.id);
+        const cell = el('div', { class: 'cell' + (L !== null ? ' live' : '') + (ret ? ' ret' : '') + (w && held.has(w) ? ' held' : '') + (st.sel === k ? ' sel' : ''), 'data-k': k, tabindex: 0, role: 'slider',
+          'aria-valuemin': 0, 'aria-valuemax': 100, 'aria-label': r.name + ' to ' + c.name + (ret ? ' (a return wire, one sample late)' : '') });
+        if (L !== null) {
+          cell.setAttribute('aria-valuenow', Math.round(L * 100));
+          const f = el('div', { class: 'fill' }); f.style.width = (L * 100) + '%'; f.style.background = cableOf(r); cell.append(f);
+          cell.append(el('span', { class: 'pct', text: pctText(L) }));
+        } else cell.setAttribute('aria-valuetext', 'no wire');
+        // which corners hold this wire: the corner's glyph in its colour, a hairline glyph where it doesn't
+        const pips = el('span', { class: 'pips' });
+        CORNERS.forEach((cn, i) => { const s = svg('svg', { width: 6, height: 6, viewBox: '0 0 10 10' });
+          s.append(svg('path', { d: cn.glyph, fill: w && w.lv[i] !== null ? 'var(--c' + cn.id + ')' : 'none', stroke: w && w.lv[i] !== null ? 'var(--ink)' : 'var(--hair)', 'stroke-width': 1 }));
+          pips.append(s); });
+        cell.append(pips);
+        cell.title = CORNERS.map((cn, i) => cn.id + ' ' + (w && w.lv[i] !== null ? pctText(w.lv[i]) : '—')).join('  ') + (ret ? '\nA return wire, one sample late (ADR-411)' : '');
+        editable(cell, r.id, c.id);
+        g.append(cell);
+      });
+    });
+    host.replaceChildren(g);
+  }
+
+  // ---- editing: a vertical drag, keys, a double-click; through setLevel only ----
+  function say(t) { $('status').textContent = t; }
+  function refuseHeard() { say('Heard is the pad’s blend of the four corners and can’t be edited: pick A, B, C or D to edit that corner’s level.'); }
+  function editable(node, u, v) {
+    const k = u + '>' + v;
+    node.addEventListener('pointerdown', e => {
+      if (e.button !== 0) return;
+      st.sel = k;
+      if (st.show === HEARD) { refuseHeard(); render(); return; }
+      const w = find(u, v), start = w && w.lv[st.show] !== null ? w.lv[st.show] : 0, y0 = e.clientY, c = st.show;
+      // No pointer capture: render() replaces this node on the first move, so the drag listens on the window instead.
+      const mv = ev => { setLevel(u, v, c, start - (ev.clientY - y0) / (ev.altKey ? 600 : 150)); render(); const fw = find(u, v); say(nodeOf(u).name + ' → ' + nodeOf(v).name + ' at ' + CORNERS[c].id + ': ' + (fw && fw.lv[c] !== null ? pctText(fw.lv[c]) : 'no wire (0 removes it)')); };
+      const up = () => { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); };
+      window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
+      render(); e.preventDefault();
+    });
+    node.addEventListener('dblclick', () => {
+      if (st.show === HEARD) { refuseHeard(); return; }
+      const w = find(u, v), has = w && w.lv[st.show] !== null;
+      setLevel(u, v, st.show, DEFAULT); render();
+      say(nodeOf(u).name + ' → ' + nodeOf(v).name + (has ? ' back to its default, ' : ' added at its default, ') + pctText(DEFAULT) + ', at ' + CORNERS[st.show].id);
+    });
+    node.addEventListener('keydown', e => {
+      const step = e.shiftKey ? .1 : .01, w = find(u, v), cur = w ? w.lv[st.show] : null;
+      let L;
+      if (e.key === 'ArrowUp' || e.key === 'ArrowRight') L = (cur === null ? 0 : cur) + step;
+      else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') L = (cur === null ? 0 : cur) - step;
+      else if (e.key === 'Delete' || e.key === 'Backspace') L = null;
+      else if (e.key === 'Enter') L = DEFAULT;
+      else return;
+      e.preventDefault();
+      if (st.show === HEARD) { refuseHeard(); return; }
+      st.sel = k; setLevel(u, v, st.show, L); render(); focusKey(k, node.classList.contains('cell') ? '.cell' : '.chip');
+    });
+  }
+  const focusKey = (k, sel) => { const n = document.querySelector(sel + '[data-k="' + k + '"]'); if (n) n.focus(); };
+
+  // ---- the pad (a lab stand-in for the Morph page's) ----
+  function drawPad() {
+    const p = $('pad'); p.replaceChildren();
+    p.append(svg('rect', { x: 1, y: 1, width: 62, height: 62, rx: 4, fill: 'var(--well)', stroke: 'var(--ink)', 'stroke-width': 1.5 }));
+    [[4, 4], [52, 4], [4, 52], [52, 52]].forEach((q, i) => { const g = svg('g', { transform: 'translate(' + q[0] + ' ' + q[1] + ') scale(.8)' });
+      g.append(svg('path', { d: CORNERS[i].glyph, fill: 'var(--c' + CORNERS[i].id + ')', stroke: 'var(--ink)', 'stroke-width': 1 })); p.append(g); });
+    p.append(svg('circle', { cx: 8 + st.pad.x * 48, cy: 8 + st.pad.y * 48, r: 5, fill: 'var(--panel)', stroke: 'var(--ink)', 'stroke-width': 2 }));
+    p.setAttribute('aria-valuetext', 'x ' + st.pad.x.toFixed(2) + ', y ' + st.pad.y.toFixed(2));
+  }
+  (function padGesture() {
+    const p = $('pad');
+    const at = e => { const r = p.getBoundingClientRect(); st.pad.x = Math.max(0, Math.min(1, (e.clientX - r.left - 8) / 48)); st.pad.y = Math.max(0, Math.min(1, (e.clientY - r.top - 8) / 48)); render(); };
+    p.addEventListener('pointerdown', e => { at(e); try { p.setPointerCapture(e.pointerId); } catch (_) { /* a synthetic event has no live pointer */ }
+      const mv = ev => at(ev), up = () => { p.removeEventListener('pointermove', mv); p.removeEventListener('pointerup', up); };
+      p.addEventListener('pointermove', mv); p.addEventListener('pointerup', up); });
+    p.addEventListener('keydown', e => { const d = e.shiftKey ? .1 : .02;
+      if (e.key === 'ArrowLeft') st.pad.x = Math.max(0, st.pad.x - d); else if (e.key === 'ArrowRight') st.pad.x = Math.min(1, st.pad.x + d);
+      else if (e.key === 'ArrowUp') st.pad.y = Math.max(0, st.pad.y - d); else if (e.key === 'ArrowDown') st.pad.y = Math.min(1, st.pad.y + d); else return;
+      e.preventDefault(); render(); });
+  })();
+
+  // ---- the controls ----
+  function seg(host, items, cur, on) {
+    host.replaceChildren(...items.map(it => { const b = el('button', { type: 'button', 'aria-pressed': String(it.v === cur) });
+      if (it.glyph !== undefined) { const s = svg('svg', { width: 8, height: 8, viewBox: '0 0 10 10' }); s.append(svg('path', { d: CORNERS[it.glyph].glyph, fill: 'var(--c' + CORNERS[it.glyph].id + ')', stroke: 'currentColor', 'stroke-width': 1 })); b.append(s); }
+      b.append(document.createTextNode(it.t)); b.addEventListener('click', () => on(it.v)); return b; }));
+  }
+  const QS = [
+    { id: 'style', h: 'Q1 · Wire style — RULED W1 (GUI-75)', opts: [
+      ['W1', 'Ladder. Square corners, every wire on its own track: forward above the row, returns below. Longer wires ride higher.'],
+      ['W2', 'Rounded tracks. The same tracks and ports, with the corners rounded into arcs, closer to today’s look.'],
+      ['W3', 'Top-down column. The chain runs down the page; forward wires in the right gutter, returns in the left. Taller, and the names fit.'],
+      ['B0', 'Today’s rack, for comparison: one shared point per box, arcs by span. Not an option.']] },
+    { id: 'arr', h: 'Q2 · Wires and matrix on the FX page — RULED L1 (GUI-75)', opts: [
+      ['L1', 'Side by side: wires on the left, the matrix on the right. Both always visible; the wires get less width.'],
+      ['L2', 'Tabs: Wires or Matrix, one at a time, each at full width.'],
+      ['L3', 'Stacked: wires on top at full width, the matrix under them.']] },
+    { id: 'patch', h: 'Patch (not a question)', opts: Object.keys(PATCHES).map(k => [k, PATCHES[k].name + '. ' + PATCHES[k].note]) }];
+  function drawQs() {
+    $('qs').replaceChildren(...QS.map(q => el('div', { class: 'q' }, [el('h3', { text: q.h }), el('div', { class: 'opts' }, q.opts.map(([v, t]) => {
+      const b = el('button', { class: 'opt', type: 'button', 'aria-pressed': String(st[q.id] === v) }, [el('b', { text: q.id === 'patch' ? '' : v }), el('span', { text: t })]);
+      b.addEventListener('click', () => { if (q.id === 'patch') { st.patch = v; load(v); st.sel = null; } else st[q.id] = v; render(); });
+      return b; }))])));
+  }
+  function render() {
+    drawQs();
+    seg($('prevent'), [{ v: false, t: 'Off' }, { v: true, t: 'On' }], st.prevent, v => { st.prevent = v; render(); say(v ? 'Prevent feedback on: a loop’s back edge is held at zero (ADR-411). Its default waits on your listening.' : 'Prevent feedback off: return wires sound, one sample late.'); });
+    seg($('show'), [0, 1, 2, 3].map(i => ({ v: i, t: CORNERS[i].id, glyph: i })).concat([{ v: HEARD, t: 'Heard' }]), st.show, v => { st.show = v; render(); });
+    const views = $('views');
+    views.className = 'views ' + st.arr.toLowerCase() + (st.arr === 'L2' ? ' tab-' + st.tab : '');
+    $('tabs').hidden = st.arr !== 'L2';
+    if (st.arr === 'L2') seg($('tabs'), [{ v: 'wires', t: 'Wires' }, { v: 'matrix', t: 'Matrix' }], st.tab, v => { st.tab = v; render(); });
+    drawPad();
+    drawMatrix($('mxWrap'));
+    drawWires($('wiresWrap'));
+    const lg = $('legend'); lg.replaceChildren(
+      el('span', { text: 'Wire width and strength: its level. A wire’s colour is its source’s cable colour (ADR-273).' }),
+      el('span', { text: 'Dashed with z⁻¹: a return wire, one sample late. With Prevent feedback on, a loop’s back edge is dotted and held at zero (ADR-411).' }),
+      el('span', { text: 'Corner pips in a cell: which corners hold that wire.' }),
+      el('span', { text: PATCHES[st.patch].note }));
+  }
+
+  // ---- THE SELF-CHECK ----
+  function selfCheck() {
+    const out = [], bad = [], keep = { patch: st.patch, style: st.style, arr: st.arr, show: st.show, pad: Object.assign({}, st.pad), sel: st.sel };
+    const widths = { L1: 980 - 28 - 12 - 84 - 6 * 58 - 6 * 3, L3: 980 - 28 };
+    Object.keys(PATCHES).forEach(pid => {
+      load(pid);
+      [0, 1, 2, 3, HEARD].forEach(c => {
+        st.show = c;
+        ['W1', 'W2', 'W3'].forEach(sty => Object.keys(widths).forEach(wk => {
+          const m = measure(sty, widths[wk]);
+          if (m.shared || m.overlap || m.band || m.chips) bad.push(`${pid}/${c === HEARD ? 'Heard' : CORNERS[c].id}/${sty} at ${widths[wk]} px: ${m.shared} shared port(s), ${m.overlap} overlapping segment(s), ${m.band} point(s) outside its band, ${m.chips} level chip(s) on top of another`);
+          if (m.minGap < 3) bad.push(`${pid}/${sty} at ${widths[wk]} px: two ports ${m.minGap.toFixed(1)} px apart (under 3)`);
+          if (pid === 'today' && m.cross) bad.push(`today/${sty}: ${m.cross} crossing(s) in a plain chain`);
+        }));
+      });
+      const sc = pid === 'feedback' ? 2 : 0; st.show = sc;   // the return wires exist at C
+      const row = ['W1', 'W2', 'W3', 'B0'].map(sty => { const m = measure(sty, widths.L3); return `${sty} ${m.wires} wires, ${m.shared} shared ports, ${m.overlap} overlaps, ${m.cross} crossings, ${m.chips} chips covered, closest ports ${m.minGap.toFixed(1)} px, ${Math.round(m.height)} px tall`; });
+      out.push(`${PATCHES[pid].name}, corner ${CORNERS[sc].id}, at ${widths.L3} px:\n  ` + row.join('\n  '));
+      // CONTROL: today's rack must share ports wherever a box has two wires on one side.
+      if (pid !== 'today') { const b0 = measure('B0', widths.L3); if (!b0.shared) bad.push(`CONTROL: today’s rack (B0) shares no port on ${pid}, so “no shared ports” proves nothing`); }
+    });
+    // CONTROL: tracks squeezed to 6 px apart must put chips on top of each other, or "no chip on another" proves nothing.
+    load('busy'); st.show = 0;
+    const squeezed = measure('W1', widths.L1, { pitch: 6 });
+    if (!squeezed.chips) bad.push('CONTROL: W1 with tracks 6 px apart reports no covered chip');
+    else out.push(`Control: W1 with tracks squeezed to 6 px apart covers ${squeezed.chips} chip(s), as it must.`);
+    // The pad at a corner hears that corner.
+    load('busy'); st.show = HEARD;
+    [[0, 0, 0], [1, 0, 1], [0, 1, 2], [1, 1, 3]].forEach(([x, y, c]) => { st.pad = { x, y };
+      model.wires.forEach(w => { const h = heardOf(w), want = w.lv[c]; if (!((h === null && want === null) || (h !== null && want !== null && Math.abs(h - want) < 1e-9))) bad.push(`Heard at corner ${CORNERS[c].id}: ${key(w)} reads ${h}, the corner holds ${want}`); }); });
+    out.push('Heard at each corner equals that corner, wire for wire.');
+    Object.assign(st, keep); load(keep.patch);
+    return { out, bad };
+  }
+  // The live part: a real pointer drag on a matrix cell, then the same drag under Heard (control). Pointer events through the DOM, as a mouse sends them.
+  function dragCheck(bad, out) {
+    const keep = { patch: st.patch, show: st.show, style: st.style, arr: st.arr, sel: st.sel, prevent: st.prevent };
+    st.patch = 'busy'; load('busy'); st.style = 'W1'; st.arr = 'L1'; st.show = 0; render();
+    const drag = (k, dy) => { const c = document.querySelector('.mx .cell[data-k="' + k + '"]'); if (!c) return false;
+      const r = c.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+      c.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: x, clientY: y, button: 0, pointerId: 7 }));
+      window.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: x, clientY: y + dy, pointerId: 7 }));
+      window.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, clientX: x, clientY: y + dy, pointerId: 7 })); return true; };
+    const chipText = k => { const t = document.querySelector('.chip[data-k="' + k + '"] text'); return t ? t.textContent : null; };
+    const before = find('weir', 'scape').lv[0];
+    if (!drag('weir>scape', -30)) bad.push('no matrix cell for Weir → Scape');
+    const after = find('weir', 'scape').lv[0];
+    if (Math.abs(after - Math.min(1, before + .2)) > 1e-9) bad.push(`a 30 px drag up on Weir → Scape moved it from ${before} to ${after}, not by 20 %`);
+    if (chipText('weir>scape') !== pctText(after)) bad.push(`the wires view labels Weir → Scape ${chipText('weir>scape')}, the model holds ${pctText(after)}`);
+    else out.push(`A 30 px drag up on the matrix's Weir → Scape cell: ${pctText(before)} → ${pctText(after)} at A, and the wires view labels it ${chipText('weir>scape')}.`);
+    // CONTROL: under Heard the same drag changes nothing anywhere.
+    st.show = HEARD; render();
+    const snap = JSON.stringify(model.wires); drag('weir>scape', -30);
+    if (JSON.stringify(model.wires) !== snap) bad.push('CONTROL: a drag under Heard changed the model');
+    else out.push('Control: the same drag under Heard changed nothing, and said why.');
+    // A drag on an empty cell makes a wire at the shown corner only.
+    st.show = 2; render(); drag('sub>scape', -45);
+    const nw = find('sub', 'scape');
+    if (!nw || nw.lv[2] === null || nw.lv[0] !== null) bad.push('a drag on the empty Sub → Scape cell at C did not make a wire at C alone');
+    // GUI-75 r4: a drag to 0 removes the wire at that corner, and only there.
+    st.show = 0; render(); const keepB = find('weir', 'echo').lv[1];
+    drag('weir>echo', 200);
+    const gone = find('weir', 'echo');
+    if (!gone || gone.lv[0] !== null || gone.lv[1] !== keepB) bad.push('a drag to 0 on Weir → Echo at A did not remove it at A alone');
+    else if (chipText('weir>echo') !== null) bad.push('Weir → Echo still has a chip in the wires view at A after reaching 0');
+    else out.push('A drag to 0 on Weir → Echo at A removes it there: no chip in the wires view, and B keeps ' + pctText(keepB) + '.');
+    // GUI-75 r3: a double-click is the default, 100 %, on an empty cell as on a live one.
+    const dbl = k => { const c = document.querySelector('.mx .cell[data-k="' + k + '"]'); c && c.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); };
+    dbl('weir>echo'); dbl('weir>scape');
+    if (find('weir', 'echo').lv[0] !== 1 || find('weir', 'scape').lv[0] !== 1) bad.push('a double-click did not set Weir → Echo and Weir → Scape to 100 % at A');
+    else out.push('A double-click sets a send to its default, 100 %: the removed Weir → Echo and the live Weir → Scape both read 100 % at A.');
+    // GUI-75 r2: a drag from one box onto another makes a wire at 100 % at the shown corner. CONTROL: a drop on nothing makes none.
+    const boxAt = id => { const r = document.querySelector('[data-node="' + id + '"] rect').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; };
+    const connect = (a, to) => { const p = boxAt(a), q = to ? boxAt(to) : [p[0], p[1] + 400], g = document.querySelector('[data-node="' + a + '"]');
+      g.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: p[0], clientY: p[1], button: 0, pointerId: 8 }));
+      window.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: q[0], clientY: q[1], pointerId: 8 }));
+      window.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, clientX: q[0], clientY: q[1], pointerId: 8 })); };
+    const n0 = model.wires.length; connect('sub', null);
+    if (model.wires.length !== n0) bad.push('CONTROL: a drag from Sub dropped on nothing made a wire');
+    connect('sub', 'echo');
+    const made = find('sub', 'echo');
+    if (!made || made.lv[0] !== 1 || made.lv[1] !== null) bad.push('a drag from the Sub box onto the Echo box did not make Sub → Echo at 100 % at A alone');
+    else if (chipText('sub>echo') !== pctText(1)) bad.push('the new Sub → Echo wire has no 100 % chip in the wires view');
+    else out.push('A drag from the Sub box onto the Echo box makes Sub → Echo at 100 % at A, drawn with its chip; dropped on nothing it makes none (control).');
+    // ADR-411 r1: with Prevent feedback on, a loop's back edge reads held; off, it reads its level one sample late.
+    st.patch = 'feedback'; load('feedback'); st.show = 2; st.prevent = true; render();
+    const onTxt = chipText('echo>weir'); st.prevent = false; render(); const offTxt = chipText('echo>weir');
+    if (onTxt !== 'held 0 %' || offTxt !== 'z⁻¹ 20 %') bad.push(`Echo → Weir at C reads "${onTxt}" with Prevent feedback on and "${offTxt}" with it off`);
+    else out.push(`Echo → Weir at C, a loop's back edge: "${onTxt}" with Prevent feedback on, "${offTxt}" with it off.`);
+    Object.assign(st, keep); load(keep.patch); render();
+  }
+
+  load(st.patch);
+  render();
+  let result;
+  try { result = selfCheck(); dragCheck(result.bad, result.out); } catch (err) { result = { out: [], bad: ['the self-check threw: ' + (err && err.message)] }; }
+  const sc = $('selfcheck');
+  sc.className = result.bad.length ? 'red' : 'green';
+  sc.textContent = (result.bad.length ? 'RED — ' + result.bad.length + ' finding(s):\n' + result.bad.join('\n') + '\n\n' : 'GREEN — every wire style keeps its own ports, no shared segments, each band on its side, no level chip on another; today’s rack shares ports (control).\n\n') + result.out.join('\n');
+  document.documentElement.dataset.selfcheck = result.bad.length ? 'red' : 'green';
+  say('');
+  window.addEventListener('resize', () => render());
+})();
+</script>
+</body>
+</html>

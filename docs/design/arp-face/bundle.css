@@ -1,4 +1,4 @@
-/* vendored from the horde Design System artifact, version 1794163020-0651, 2026-11-08; do not edit, re-vendor */
+/* vendored from the horde Design System artifact, version 1795726426-0a41, 2026-11-26; do not edit, re-vendor */
 @import url("https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;800&family=Roboto+Mono:wght@400;500;600&display=swap");
 /* horde house components. Every colour is a token (tokens.json); nothing here is a hex.
    Sources: UI Spec §3-4 (values), gui2.html §4 skins, the SCALPEL lab (980×720 chassis),
@@ -1695,3 +1695,49 @@ canvas.hd-ring { outline:none; }
 .hd-splash { position:absolute; inset:0; z-index:1000; display:grid; place-items:center; background:var(--bg); opacity:1; transition:opacity 400ms ease; cursor:default; }
 .hd-splash.out { opacity:0; }
 .hd-splash-art { display:block; width:min(62%, 600px); height:auto; }
+/* ======== GUI-75: FX routing, the ladder beside the send matrix (FxRouting) ======== */
+.hd-fxroute { display:flex; flex-direction:column; gap:8px; min-width:0; width:100%; box-sizing:border-box; }
+.hd-fxroute .fr-head { display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px; }
+.hd-fxroute .fr-how { margin-left:auto; }
+.hd-fxroute .fr-views { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:12px; align-items:start; }
+.hd-fxroute .fr-views.stacked { grid-template-columns:minmax(0,1fr); }
+.hd-fxroute .fr-wires, .hd-fxroute .fr-mx { min-width:0; }
+.hd-fxroute .fr-wires { overflow-x:auto; overflow-y:hidden; }
+.hd-fxroute .fr-svg { display:block; max-width:none; }
+.hd-fxroute .fr-node { cursor:crosshair; }
+.hd-fxroute .fr-node .fx-node { pointer-events:all; }
+.fr-svg text.fr-mock { font:800 7px/1 var(--font-mono); fill:var(--caution-tx); }
+.fr-svg text.fr-band { font:400 8px/1 var(--font-mono); fill:var(--hint); text-anchor:start; }
+.fr-svg .fr-selring { fill:none; stroke:var(--focus-ring); opacity:.55; stroke-linecap:round; stroke-linejoin:round; }
+.fr-svg .fr-hit { cursor:pointer; }
+.fr-svg .fr-band-line { stroke:var(--ink); stroke-width:1.5; stroke-dasharray:4 3; pointer-events:none; }
+.fr-svg .fr-chip { cursor:ns-resize; touch-action:none; outline:none; }
+.fr-svg .fr-chip rect { fill:var(--panel); stroke:var(--ink); stroke-width:1; }
+.fr-svg .fr-chip text { font:700 9px/1 var(--font-mono); fill:var(--ink); }
+.fr-svg .fr-chip.ret rect { fill:var(--caution-bg); stroke:var(--caution-tx); }
+.fr-svg .fr-chip.ret text { fill:var(--caution-tx); }
+.fr-svg .fr-chip.held text { fill:var(--caution-tx); }
+.fr-svg .fr-chip.sel rect, .fr-svg .fr-chip:focus-visible rect { stroke:var(--focus-ring); stroke-width:2; }
+.hd-fxroute .fr-grid { display:grid; gap:3px; font:11px/1 var(--font-mono); }
+.hd-fxroute .fr-corner { align-self:center; white-space:nowrap; font-size:8px; }
+.hd-fxroute .fr-hd { font:800 10px/1.1 var(--font-sans); display:flex; align-items:center; gap:4px; padding:2px 4px; border:1.5px solid var(--ink); border-radius:3px;
+  background:var(--panel); color:var(--ink); min-height:22px; box-sizing:border-box; white-space:nowrap; overflow:hidden; }
+.hd-fxroute .fr-hd i { width:8px; height:8px; border-radius:2px; flex:0 0 auto; box-shadow:0 0 0 1px var(--ink); }
+.hd-fxroute .fr-mockt { margin-left:auto; font:800 7px/1 var(--font-mono); color:var(--caution-tx); background:var(--caution-bg); padding:1px 2px; border-radius:2px; }
+.hd-fxroute .fr-cell { position:relative; height:30px; border:1px solid var(--hair); border-radius:3px; background:var(--well); box-sizing:border-box; cursor:ns-resize;
+  touch-action:none; user-select:none; -webkit-user-select:none; outline:none; }
+.hd-fxroute .fr-cell.live { border-color:var(--ink); }
+.hd-fxroute .fr-cell .fr-fill { position:absolute; left:0; bottom:0; height:5px; border-top:1px solid var(--ink); border-right:1px solid var(--ink); border-top-right-radius:2px; box-sizing:border-box; }
+.hd-fxroute .fr-cell .fr-fill.plain { border-color:transparent; }
+.hd-fxroute .fr-cell .fr-pct { position:absolute; left:4px; top:3px; font:700 11px/1 var(--font-mono); white-space:nowrap; color:var(--ink); }
+.hd-fxroute .fr-cell .fr-pips { position:absolute; left:4px; bottom:7px; display:flex; gap:2px; }
+.hd-fxroute .fr-pip { display:inline-flex; width:6px; height:6px; }
+.hd-fxroute .fr-pip svg { overflow:visible; }
+.hd-fxroute .fr-cell.self { background:var(--hair); border-color:var(--hair); cursor:default; }
+.hd-fxroute .fr-cell.ret.live::after { content:"z⁻¹"; position:absolute; right:3px; top:3px; font:700 8px/1 var(--font-mono); color:var(--caution-tx); }
+.hd-fxroute .fr-cell.held .fr-pct { text-decoration:line-through; color:var(--t2); }
+.hd-fxroute .fr-cell.held::after { content:"held"; font-weight:800; }
+.hd-fxroute .fr-cell.sel, .hd-fxroute .fr-cell:focus-visible { outline:2px solid var(--focus-ring); outline-offset:1px; }
+.hd-fxroute .fr-grid.heard .fr-cell { cursor:not-allowed; }
+.hd-fxroute .fr-grid.heard .fr-pct { font-style:italic; }
+.hd-fxroute .fr-status { font:11px/1.4 var(--font-mono); color:var(--t2); min-height:16px; }
