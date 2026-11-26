@@ -12838,6 +12838,29 @@ Its controls: a load with no `hello.preview` draws none of it, and a drag on a l
 
 **FX device (ADR-254).** The same views and gestures, with its own inputs in place of the sources.
 
+### GUI-75 A1 — in the master, vendored and in the shell (2026-11-26)
+
+The human, 2026-11-26: "Yes, start it", then "Yes, swap it".
+
+**The master** (`1795726426-0a41`) holds two pieces:
+- `FxWires`, the pure model. It has the one writer, Heard, held back edges, Randomize's `drawCorner` and `copyCorner`, and `ladder()`, everything the view draws.
+- `FxRouting`, the view.
+
+`tools/labharness/fx_routing_check.mjs` (`./verify fast`) holds the vendored copy to the lab's measures and to the model's laws.
+
+**The shell's FX page** mounts it in place of FxPatch, on GUI-41's house default: every input into the first module, the modules in order, the last to Out, 100 % at every corner. Every input is its own (MOCK, B528). Prevent feedback is off until GN-62's Settings value is drawn. Randomize's FX routing level draws and copies through the model.
+
+**Readings, open to the human:**
+- **A box's edge splits in proportion** to the wires arriving and leaving there. The split is the middle when the counts are equal, so the ruling's "halves" hold then. On the shell's default, six inputs into one module sat 2 px apart in their half, and their arrowheads merged.
+- **Arrowheads** shrink to the room beside their port, never under 1.5 px.
+- **Cords** are cased in `ink` (FX cables' rule). Inputs are drawn as lanes, `t2` or `hint`, not `src-engine`. Cords are 1 to 3.5 px wide.
+- **A ladder column** is at least 44 px. A narrower host scrolls the ladder sideways.
+- **The two views stack** below 760 px.
+
+**State (GUI-27):** unchanged from GUI-75. The routing lives in the page, and is not in a patch, a snapshot or undo, as FxPatch's was. A Randomize draw of FX routing is not undone with the draw's parameters, as before; GN-61 brings it into the engine's undo.
+
+**Engine impact:** GN-61, GN-62, unchanged. **FX device:** the same.
+
 ## ADR-365 — RULED by the human: the 8 Hz blocker for FM free in pitch FM; item 7.8's table remade; spec round 58 (B621, B623; 2026-11-04)
 
 **Context.** FM free in pitch FM runs an accumulator that never restarts, while each of C.16's readings starts it at 0, so the estimate cannot see its mean and BL-19 cannot hold by the law alone (Q-TA-71: engine-free, 95 of its 144 one-member cases over 0.003, up to 0.046). ADR-363 sent this to a scratch trial of C.16's existing blocker, with clips for the human. Separately, item 7.8's reference R2 places FM free's modulator half a cycle from round 56's start, and 7.8 plays before its settings settle (Q-TA-77).

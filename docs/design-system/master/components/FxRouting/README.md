@@ -6,6 +6,7 @@ Routing on the FX page (GUI-75, the human's ruling of 2026-11-26, from `docs/des
 - `nodes`: `[{ id, kind: 'in' | 'mod' | 'out', name, short, style, mock? }]`, in the row's order: the inputs, the modules in house order, Out last. A module's `style` is its screen key (FX cables); an input's is `lane` (`t2`) or `lane2` (`hint`).
 - `wires`: `[{ u, v, lv: [A, B, C, D] }]`. Each corner's level is in (0, 1], or `null` where the wire doesn't exist there.
 - **The one writer** is `setLevel(u, v, corner, L)`. A level of 0 or less (or `null`) removes the wire at that corner, so **0 % is never a wire's state** (r5). A wire absent at every corner leaves the model. Heard is never written.
+- `drawCorner(c, rng, chaos)`: Randomize's FX routing level, carried over from FX patch. It replaces corner c's wires with a seeded draw, every wire at 100 %, forward only so a draw never closes a loop: each input feeds one destination and each module one later box, plus a second with probability chaos ÷ 2. `copyCorner(from, to)`: Randomize's copy. Both write through `setLevel`.
 - `can(u, v)` refuses a box feeding itself, anything from Out, and anything into an input, with the reason.
 - `heard(w, weights)`: the wire exists where the dominant corner holds it (the quantum boundary, ADR-377), and its level blends over the corners that hold it, by the pad's weights. This is GUI-75's reading until the bridge publishes its heard value (B715).
 - `shown(corner, weights, prevent)`: the wires drawn, each `{ w, L, held }`. With Prevent feedback on, a loop's **back edge** (a return wire whose destination already reaches its source forward) is held at zero (ADR-411 r1, GN-62).
@@ -16,7 +17,8 @@ Routing on the FX page (GUI-75, the human's ruling of 2026-11-26, from `docs/des
 - One row of boxes, Out last: a module is FX cables' cream card with its screen; an input or Out is the plain card. An input not yet real carries `MOCK`.
 - Forward wires run **above** the row, return wires **below** it.
 - **Tracks:** per direction, shortest span first; each wire goes one track above every placed wire it overlaps. Nested wires sit inside, and wires that don't overlap share a track.
-- **Ports, every wire its own:** a box's left half holds forward arrivals (top edge) and return departures (bottom); its right half holds forward departures and return arrivals. Higher tracks sit nearer the centre, so nested wires never cross at a box. A half with no partner uses the whole edge.
+- **Ports, every wire its own:** a box's left part holds forward arrivals (top edge) and return departures (bottom); its right part holds forward departures and return arrivals. The edge splits in proportion to their counts, the middle when they're equal. Higher tracks sit nearer the split, so nested wires never cross at a box. A part with no partner uses the whole edge. (The ruling says halves; the proportional split is a reading. Without it, six inputs into one module sat 2 px apart and their arrowheads merged.)
+- **Arrowheads** are 2.5 + 2·L px each side, shrunk to the room beside their port (never under 1.5 px), so no head covers a neighbouring head or cord (`FxWires.heads`).
 - Tracks sit one level chip apart (13 + 2 px), so no two chips cover each other. Each chip slides along its track to the first free spot.
 - **A wire** is a cord: the core in the source's cable colour (`fxs-<module>-cable`, ADR-273 A1), cased in `ink` 1 px each side; an input's core is `t2` or `hint` with no casing. Core width 1 + 2.5·L and opacity FX cables' 0.22 + 0.78·L, so its width and strength are its level. Corners are rounded at 3 px, and an arrowhead lands on the box edge.
 - **A return wire** is the same cord dashed 5 / 3, and its chip reads `z⁻¹ 20 %` in `caution-tx` on `caution-bg`: one sample late (r6).
@@ -66,6 +68,7 @@ Routing on the FX page (GUI-75, the human's ruling of 2026-11-26, from `docs/des
 - The 760 px threshold for stacking.
 - The 44 px minimum column.
 - The cord's width, 1 to 3.5 px: narrower than FX cables' 0.8 to 5.6 px, because every wire has its own port and the ports sit 3 px or more apart.
+- The proportional split of a box's edge, and arrowheads sized to their room.
 
 **Not drawn yet** the pick switch and the dead-end guard (ADR-411), which wait on B714's message shapes.
 

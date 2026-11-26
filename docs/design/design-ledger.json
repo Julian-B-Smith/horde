@@ -178,7 +178,7 @@
    "evidence": "docs/design/arp-face/README.md: the Mindlathe splash, its art decoded to a canvas, GUI-54, 2026-11-08"
   },
   {
-   "version": "1795724511-bd90",
+   "version": "1795726426-0a41",
    "evidence": "docs/design/arp-face/README.md: FX routing, a ladder of separated wires beside a send matrix over one wire model (FxWires), GUI-75, 2026-11-26"
   }
  ],
@@ -2972,11 +2972,11 @@
    "master_version": "1793374583-b6a5",
    "bundle": "FxRack",
    "via": null,
-   "shell": "docs/design/gui3.html: H.FxPatch(host,",
+   "shell": "docs/design/gui3.html: H.FxRouting(host,",
    "state": "in-shell",
    "superseded_by": null,
    "port_tab": "fx-modules",
-   "note": "screens.md documents each skin; the bundle's SCREENS/STYLES give shriek and sluice their real display style and the rest stand-ins, drawn by FxRack and the chain views. The shell mounts none of them (layout.json `screen` names a placeholder inset). B584 batch 1 (2026-10-30): the FX page's FxRack: each hosted module a cream card with its screen inset and cable colour, in a SERIAL STAND-IN (the stub publishes no cable state)."
+   "note": "screens.md documents each skin; the bundle's SCREENS/STYLES give shriek and sluice their real display style and the rest stand-ins, drawn by FxRack and the chain views. The shell mounts none of them (layout.json `screen` names a placeholder inset). B584 batch 1 (2026-10-30): the FX page's FxRack: each hosted module a cream card with its screen inset and cable colour, in a SERIAL STAND-IN (the stub publishes no cable state). GUI-75 (2026-11-26): the FX page now draws its module cards, screens and cable colours through FxRouting, which calls FxCables for every card."
   },
   {
    "id": "adr259-window",
@@ -3528,11 +3528,11 @@
    "master_version": "1793374583-b6a5",
    "bundle": "FxCables",
    "via": null,
-   "shell": "docs/design/gui3.html: H.FxPatch(host,",
+   "shell": "docs/design/gui3.html: H.FxRouting(host,",
    "state": "in-shell",
    "superseded_by": null,
    "port_tab": "fx-modules",
-   "note": "Master FxCables README and tokens.json fxs-*-cable rows (cased in ink, ADR-273 A1); bundle.js sets line: v('fxs-' + id + '-cable'). Master README: module chips and names stay ink on cream. The shell draws no cables or matrix. B584 batch 1 (2026-10-30): the FX page's FxRack: each hosted module a cream card with its screen inset and cable colour, in a SERIAL STAND-IN (the stub publishes no cable state)."
+   "note": "Master FxCables README and tokens.json fxs-*-cable rows (cased in ink, ADR-273 A1); bundle.js sets line: v('fxs-' + id + '-cable'). Master README: module chips and names stay ink on cream. The shell draws no cables or matrix. B584 batch 1 (2026-10-30): the FX page's FxRack: each hosted module a cream card with its screen inset and cable colour, in a SERIAL STAND-IN (the stub publishes no cable state). GUI-75 (2026-11-26): the FX page now draws its module cards, screens and cable colours through FxRouting, which calls FxCables for every card."
   },
   {
    "id": "adr273-cream-card-screen-inset",
@@ -3573,11 +3573,11 @@
    "master_version": "1793374583-b6a5",
    "bundle": "FxCables",
    "via": null,
-   "shell": "docs/design/gui3.html: H.FxPatch(host,",
+   "shell": "docs/design/gui3.html: H.FxRouting(host,",
    "state": "in-shell",
    "superseded_by": null,
    "port_tab": "fx-modules",
-   "note": "Master README: 'the other six are labelled stand-ins until their skins are chosen', grounds at least 5 L* apart; docs/design/arp-face/tokens.css defines the 32 fxs- tokens (eight modules, four each). The shell uses none (no fxs- in gui3.html). Each stand-in is replaced when its module's skin is chosen (Bulwark, Echo, Scape by their mailboxes). B584 batch 1 (2026-10-30): the FX page's FxRack: each hosted module a cream card with its screen inset and cable colour, in a SERIAL STAND-IN (the stub publishes no cable state)."
+   "note": "Master README: 'the other six are labelled stand-ins until their skins are chosen', grounds at least 5 L* apart; docs/design/arp-face/tokens.css defines the 32 fxs- tokens (eight modules, four each). The shell uses none (no fxs- in gui3.html). Each stand-in is replaced when its module's skin is chosen (Bulwark, Echo, Scape by their mailboxes). B584 batch 1 (2026-10-30): the FX page's FxRack: each hosted module a cream card with its screen inset and cable colour, in a SERIAL STAND-IN (the stub publishes no cable state). GUI-75 (2026-11-26): the FX page now draws its module cards, screens and cable colours through FxRouting, which calls FxCables for every card."
   },
   {
    "id": "adr277-corner-pin-session",
@@ -6367,7 +6367,7 @@
    "note": "MOCK: its state lives in the view. Replaces the serial stand-in. FX device: same, with its own modules.",
    "component": "FxChains",
    "bundle": "FxChains",
-   "shell": "docs/design/gui3.html: H.FxPatch(host,"
+   "shell": null
   },
   {
    "lab": null,
@@ -6494,14 +6494,14 @@
    "adr": "GUI-41",
    "clause": "FX patching: per-corner wires dragged both ways, every source its own input, no loop at rest",
    "port_tab": "fx-modules",
-   "note": "MOCK: its state lives in the view. Supersedes GUI-36. FX device: the same with its own inputs.",
+   "note": "MOCK: its state lives in the view. Supersedes GUI-36. FX device: the same with its own inputs. Superseded by GUI-75 (2026-11-26): the FX page mounts FxRouting; FxPatch stays in the bundle until the next consolidation.",
    "component": "FxPatch",
    "bundle": "FxPatch",
-   "shell": "docs/design/gui3.html: H.FxPatch(host,",
+   "shell": null,
    "lab": "docs/design/fx-chain-morph-lab-r3.html",
    "via": null,
-   "superseded_by": null,
-   "state": "in-shell",
+   "superseded_by": "GUI-75",
+   "state": "vendored",
    "master_version": "1793907040-0c9c"
   },
   {
@@ -7679,15 +7679,15 @@
    "adr": "GUI-75",
    "clause": "FX routing: forward wires above the row and returns below, each on its own track and its own port, beside a send matrix; both views edit one wire model; drag between boxes makes a wire at 100 %, a matrix double-click sets 100 %, a wire at 0 is removed at that corner; return wires are real, one sample late, held when Prevent feedback is on",
    "port_tab": null,
-   "note": "Master: FxRouting (the ladder and the send matrix) over FxWires (the pure model, its one writer setLevel, Heard, back edges, the ladder's layout and the lab's instruments), with FxCables' cards, cable colours and waiting line; FxPatch marked superseded. Measured on the preview's sample at every corner: 0 shared ports, 0 overlaps, 0 band violations, 0 chip clashes; a 44 px minimum column keeps ports 3 px apart on a narrow host (the ladder scrolls). The shell's FX page still mounts FxPatch: the next hop. Engine: GN-61, GN-62. FX device: the same, with its own inputs.",
+   "note": "Master: FxRouting (the ladder and the send matrix) over FxWires (the pure model, its one writer setLevel, Heard, back edges, the ladder's layout and the lab's instruments), with FxCables' cards, cable colours and waiting line; FxPatch marked superseded. Measured on the preview's sample at every corner: 0 shared ports, 0 overlaps, 0 band violations, 0 chip clashes; a 44 px minimum column keeps ports 3 px apart on a narrow host (the ladder scrolls). In the shell: the FX page mounts FxRouting on GUI-41's house default, every input its own (MOCK), with Prevent feedback off until GN-62's Settings value; Randomize's FX routing level draws and copies through FxWires.drawCorner and copyCorner. Held by gui3_browser_check's FX routing line (tidy ladder, side by side, matrix drag, drag to 0, double-click, Heard refuses with a control, box drag with a control). Engine: GN-61, GN-62. FX device: the same, with its own inputs.",
    "component": "FxRouting",
    "bundle": "FxRouting",
-   "shell": null,
+   "shell": "docs/design/gui3.html: H.FxRouting(host,",
    "lab": "docs/design/fx-routing-lab.html",
    "via": null,
    "superseded_by": null,
-   "state": "vendored",
-   "master_version": "1795724511-bd90"
+   "state": "in-shell",
+   "master_version": "1795726426-0a41"
   }
  ],
  "not_design": [

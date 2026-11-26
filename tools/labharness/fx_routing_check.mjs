@@ -14,18 +14,20 @@ import './sandbox_guard.mjs';
  *
  * WHAT IS ASSERTED, on the master preview's sample patch (ten boxes, sixteen wires, two of them return wires), at every
  * corner and at Heard for three pad positions, with Prevent feedback off and on, at host widths 333, 600, 693 and 960:
- *   geometry  no port shared by two wires; no stretch two wires run along together; every forward point above the row
- *             and every return point below it; no level chip on another; distinct ports at least 3 px apart
+ *   geometry  (and on the shell's crowded house default: six inputs into one module, then seeded Randomize draws)
+ *             no port shared by two wires; no stretch two wires run along together; every forward point above the row
+ *             and every return point below it; no level chip on another; distinct ports at least 3 px apart; no arrowhead over a neighbouring head or cord
  *   model     the one writer: a level of 0 (or less, or null) removes the wire at that corner only and keeps its other
  *             corners; a wire absent at every corner leaves the model; Heard is never written; a level over 1 is held at
  *             1; can() refuses a self wire, a wire from Out and a wire into an input
  *   heard     the wire exists where the dominant corner holds it, and its level blends over the corners that hold it
  *   feedback  with Prevent feedback on, a loop's back edge (echo -> weir at C) is held and a return wire that closes no
  *             loop is not; off, nothing is held
+ *   randomize a seeded draw is repeatable, forward only, at 100 %, and leaves the other corners alone; a copy matches
  * Must-fail controls, each run every time (a control that reads clean means the instrument is blind, and the check is red):
  *   a pitch squeezed to 6 px must clash chips; every wire forced to one start port must count shared ports; a wire moved
  *   to the wrong side of the row must count band points; a duplicated segment must count an overlap; a level of 0.001
- *   must keep the wire (the removal is about 0, not about small).
+ *   must keep the wire (the removal is about 0, not about small); two seeds must draw different corners.
  */
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -57,25 +59,35 @@ const WIRES = [{ u: 'osc1', v: 'weir', lv: [1, .8, 1, .6] }, { u: 'osc2', v: 'we
   { u: 'echo', v: 'weir', lv: [null, null, .2, .15] }, { u: 'scape', v: 'echo', lv: [null, .15, null, null] }];
 const fresh = () => new W({ nodes: NODES, wires: WIRES });
 
+// ---- the crowded patch: the shell's house default (six inputs into the first module, the modules in order, the last to Out), then seeded Randomize draws at B to D ----
+const mulberry = seed => () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+const crowded = () => { const ins = ['osc1', 'osc2', 'sub', 'noise', 'flt1', 'flt2'], mods = ['echo', 'scape', 'shriek', 'bulwark'], ids = mods.concat(['out']);
+  const m = new W({ nodes: ins.map(id => ({ id, kind: 'in', name: id, short: id, style: 'lane' })).concat(mods.map(id => M(id, id, id, id)), [{ id: 'out', kind: 'out', name: 'Out', short: 'Out' }]),
+    wires: ins.map(u => ({ u, v: 'echo', lv: all(1) })).concat(mods.map((u, i) => ({ u, v: ids[i + 1], lv: all(1) }))) });
+  [1, 2, 3].forEach(c => m.drawCorner(c, mulberry(40 + c), c / 3)); return m; };
+
 // ---- geometry, as drawn ----
 const PADS = [[.3, .35], [.8, .2], [.5, .9]];
 let views = 0, worstGap = Infinity, maxCross = 0;
-const model = fresh();
-for (const width of [333, 600, 693, 960]) for (const prevent of [false, true]) {
+for (const [pname, model] of [['sample', fresh()], ['crowded', crowded()]]) for (const width of [333, 600, 693, 960]) for (const prevent of [false, true]) {
   const shows = [0, 1, 2, 3].map(c => ({ c, wt: W.weights(.3, .35), tag: 'ABCD'[c] })).concat(PADS.map(p => ({ c: W.HEARD, wt: W.weights(p[0], p[1]), tag: 'Heard@' + p })));
   for (const s of shows) {
-    const L = W.ladder(model, model.shown(s.c, s.wt, prevent), width), m = W.measure(L.lay, L.P), where = `${s.tag} at ${width} px, prevent ${prevent ? 'on' : 'off'}`;
+    const L = W.ladder(model, model.shown(s.c, s.wt, prevent), width), m = W.measure(L.lay, L.P), where = `${pname} ${s.tag} at ${width} px, prevent ${prevent ? 'on' : 'off'}`;
     views++; worstGap = Math.min(worstGap, m.minGap); maxCross = Math.max(maxCross, m.cross);
     ok(m.shared === 0, `${where}: ${m.shared} shared port(s)`);
     ok(m.overlap === 0, `${where}: ${m.overlap} overlapping stretch(es)`);
     ok(m.band === 0, `${where}: ${m.band} point(s) on the wrong side of the row`);
     ok(L.clash === 0, `${where}: ${L.clash} level chip(s) on another`);
     ok(m.minGap >= 3, `${where}: two ports ${m.minGap.toFixed(2)} px apart (< 3)`);
+    ok(W.heads(L.lay) === 0, `${where}: ${W.heads(L.lay)} arrowhead(s) cover a neighbouring head or cord`);
     ok(L.width >= NODES.length * W.MIN_COL + 16, `${where}: the ladder is ${L.width} px, under its minimum`);
   }
 }
 
 // ---- controls on the instruments (each must read dirty) ----
+const model = fresh();
+{ const m = crowded(), L = W.ladder(m, m.shown(0, W.weights(.3, .35), false), 600); L.lay.wires.forEach(x => { x.head = 2.5 + 2 * x.L; });
+  ok(W.heads(L.lay) > 0, 'CONTROL: full-size arrowheads on the crowded patch covered nothing (the head instrument is blind)'); }
 { const L = W.ladder(model, model.shown(3, W.weights(.3, .35), false), 600, { pitch: 6 });
   ok(L.clash > 0, 'CONTROL: a 6 px pitch placed every chip clear (the clash instrument is blind)'); }
 { const L = W.ladder(model, model.shown(0, W.weights(.3, .35), false), 600), P = L.P.map(Q => [L.P[0][0]].concat(Q.slice(1)));
@@ -109,5 +121,17 @@ for (const width of [333, 600, 693, 960]) for (const prevent of [false, true]) {
   m.setLevel('echo', 'scape', 1, null);   // the loop's forward half is gone at B, so the return closes nothing
   ok(held(1, true) === '', 'CONTROL: a return wire that closes no loop was held'); }
 
+// ---- Randomize's draw and copy (carried over from FxPatch) ----
+{ const rng = seed => () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };   // mulberry32
+  const snap = (m, c) => m.wires.filter(w => w.lv[c] !== null).map(w => w.u + '>' + w.v + ':' + w.lv[c]).sort().join(',');
+  const a = fresh(), b = fresh(), d = fresh(), keepB = snap(a, 1);
+  const n = a.drawCorner(0, rng(7), .6); b.drawCorner(0, rng(7), .6); d.drawCorner(0, rng(8), .6);
+  ok(n > 0 && snap(a, 0) === snap(b, 0), 'a seeded draw is not repeatable');
+  ok(snap(a, 0) !== snap(d, 0), 'CONTROL: two seeds drew the same corner (the draw ignores its generator)');
+  ok(a.wires.filter(w => w.lv[0] !== null).every(w => !a.isReturn(w.u, w.v) && w.lv[0] === 1), 'a draw made a return wire or a level other than 100 %');
+  ok(snap(a, 1) === keepB, 'a draw at A changed corner B');
+  ok(a.copyCorner(0, 2) > 0 && snap(a, 2) === snap(a, 0), 'a copy from A to C does not match A');
+  ok(a.copyCorner(1, 1) === 0, 'a copy onto its own corner changed something'); }
+
 if (bad.length) { console.error('fx_routing_check: RED\n  ' + bad.join('\n  ')); process.exit(1); }
-console.log(`fx_routing_check: GREEN — ${views} ladder views (4 corners and Heard at 3 pads × prevent off/on × 4 widths): 0 shared ports, 0 overlaps, 0 band points, 0 chip clashes, closest ports ${worstGap.toFixed(2)} px, crossings up to ${maxCross} (interleaving spans); the one writer, Heard and held back edges hold; 6 controls fired`);
+console.log(`fx_routing_check: GREEN — ${views} ladder views (2 patches × 4 corners and Heard at 3 pads × prevent off/on × 4 widths): 0 shared ports, 0 overlaps, 0 band points, 0 chip clashes, closest ports ${worstGap.toFixed(2)} px, crossings up to ${maxCross} (interleaving spans); the one writer, Heard, held back edges, Randomize's draw and copy hold; 8 controls fired`);

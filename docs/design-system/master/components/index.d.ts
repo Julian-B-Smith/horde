@@ -266,6 +266,10 @@ export declare class FxWires {
   can(u: string, v: string): string;
   /** L null or <= 0 removes the wire at that corner; true when the model changed */
   setLevel(u: string, v: string, corner: CornerIndex, L: number | null): boolean;
+  /** Randomize: corner c's wires replaced by a seeded forward-only draw at 100 %; returns the wire count */
+  drawCorner(corner: CornerIndex, rng: () => number, chaos: number): number;
+  /** corner `to` takes corner `from`'s wires and levels; returns how many changed */
+  copyCorner(from: CornerIndex, to: CornerIndex): number;
   heard(w: FxWire, weights: number[]): number | null;
   levelAt(w: FxWire, corner: CornerIndex | 4, weights: number[]): number | null;
   /** the wires drawn; with prevent, a loop's back edge is held at zero */
@@ -275,6 +279,8 @@ export declare class FxWires {
   /** everything the view draws, pure: the layout, the frame, each wire's screen points (P) and the level chips; a column is never under MIN_COL px */
   static ladder(model: FxWires, items: { w: FxWire; L: number; held: boolean }[], hostWidth: number, o?: { pitch?: number }): { lay: unknown; map(u: number, v: number): [number, number]; width: number; height: number; clash: number; P: [number, number][][] };
   static placeChips(layout: unknown, map: (u: number, v: number) => [number, number]): number;
+  /** pairs of ports on one box edge where an arrowhead covers a neighbouring head or cord */
+  static heads(layout: unknown): number;
   static chipText(wire: { held: boolean; dir: 'f' | 'r'; L: number }): string;
   static MIN_COL: 44; static CHIP_H: 13;
 }

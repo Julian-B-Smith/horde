@@ -1,4 +1,4 @@
-/* vendored from the horde Design System artifact, version 1795724511-bd90, 2026-11-26; do not edit, re-vendor */
+/* vendored from the horde Design System artifact, version 1795726426-0a41, 2026-11-26; do not edit, re-vendor */
 /* @ds-bundle: {"format":4,"namespace":"Horde","components":[{"name":"Knob"},{"name":"Slider"},{"name":"MapControl"},{"name":"XYPad"},{"name":"CornerChip"},{"name":"ScreenScheme"},{"name":"SourceStrip"},{"name":"ModMatrixGrid"},{"name":"RouteRow"},{"name":"ModLedger"},{"name":"TraceLanes"},{"name":"CompactWires"},{"name":"HostedMacroRows"},{"name":"ModCardHeader"},{"name":"LfoShapeEditor"},{"name":"EnvelopeEditor"},{"name":"TempoDivisions"},{"name":"CurvePlot"},{"name":"OrbitalCard"},{"name":"MidiTrackers"},{"name":"GateLanes"},{"name":"EventLanes"},{"name":"SmoothingLanes"},{"name":"ShClockCard"},{"name":"OwnershipTier"},{"name":"QuantumPad"},{"name":"PadBars"},{"name":"CrossSection"},{"name":"MorphGrid"},{"name":"FindPane"},{"name":"MorphInspector"},{"name":"KindLegend"},{"name":"MorphMode"},{"name":"NameField"},{"name":"SteppedControl"},{"name":"Stepper"},{"name":"Cohesion"},{"name":"FxRack"},{"name":"FxMatrix"},{"name":"FxPanel"},{"name":"FxCables"},{"name":"GainStaging"},{"name":"ChainLine"},{"name":"BlendMaps"},{"name":"PageNav"},{"name":"SectionHeader"},{"name":"ChannelStrip"},{"name":"Companion"},{"name":"SourceChip"},{"name":"SourceRows"},{"name":"RoutesBySource"},{"name":"Cluster"},{"name":"Lens"},{"name":"Fold"},{"name":"PageView"},{"name":"ModTiers"},{"name":"MacroRow"},{"name":"ModBank"},{"name":"ModPage"},{"name":"UndoLine"},{"name":"MacroFace"},{"name":"PresetBar"},{"name":"Deck"},{"name":"MacroCard"},{"name":"ParamPicker"},{"name":"HistoryRail"},{"name":"PicturePicker"},{"name":"AssignXY"},{"name":"Specimen"},{"name":"Splash"}]} */
 /* horde house reference behaviours (vanilla JS, no React, no network).
    The morph knob and slider follow the human's HORDE Morph Knob Spec and HORDE Map Mode Spec
@@ -9521,6 +9521,20 @@ window.Horde.MainStage = {
     w.lv[c] = L;
     if (w.lv.every(function (x) { return x === null; })) this.wires.splice(this.wires.indexOf(w), 1);
     return true; };
+  /* Randomize's FX routing level (GUI-55, carried over from FxGraph.draw): corner c's wires are replaced by a seeded draw, every wire at the default, 100 %. Only
+     forward wires (in the row's order), so a draw never closes a loop: each input feeds one destination, chosen among the first 1 + chaos·n, and each module feeds one
+     later box, plus a second with probability chaos / 2. r is a seeded generator (mulberry32), never Math.random. Returns how many wires the corner holds. */
+  FxWires.prototype.drawCorner = function (c, r, chaos) { var me = this, dest = me.nodes.filter(function (n) { return n.kind !== 'in'; }), k = 0;
+    me.wires.slice().forEach(function (w) { me.setLevel(w.u, w.v, c, null); });
+    me.nodes.forEach(function (n) {
+      if (n.kind === 'in') { var to = dest[Math.floor(r() * Math.min(dest.length, 1 + chaos * dest.length))]; if (me.setLevel(n.id, to.id, c, DEFAULT)) k++; }
+      else if (n.kind === 'mod') { var later = dest.filter(function (d) { return me.rank[d.id] > me.rank[n.id]; });
+        if (me.setLevel(n.id, later[Math.floor(r() * later.length)].id, c, DEFAULT)) k++;
+        if (r() < chaos * .5 && later.length > 1 && me.setLevel(n.id, later[Math.floor(r() * later.length)].id, c, DEFAULT)) k++; } });
+    return k; };
+  /* corner `to` takes corner `from`'s wires and levels, through the one writer; returns how many wires changed */
+  FxWires.prototype.copyCorner = function (from, to) { var me = this, n = 0; if (from === to) return 0;
+    me.wires.slice().forEach(function (w) { if (me.setLevel(w.u, w.v, to, w.lv[from])) n++; }); return n; };
   /* Heard (GUI-75's reading until the bridge's heard value replaces it, B715): the wire exists where the dominant corner holds it (the quantum boundary,
      ADR-377), and its level blends over the corners that hold it, by the pad's weights (ADR-410 r3: as a gain blends). Ties go to the earlier corner. */
   FxWires.prototype.heard = function (w, W) { var dom = 0, i, s = 0, n = 0;
@@ -9542,8 +9556,9 @@ window.Horde.MainStage = {
   /* THE LADDER'S LAYOUT (W1), pure geometry in (u along the row, v across it, negative above); the view maps u to x and v to y.
      o: { uLen, hb (half a box's height), boxMax, base (the first track's gap from the box edge), pitch (track to track) }.
      - Tracks: per direction, shortest span first; each wire goes one track above every placed wire it overlaps, so nested wires sit inside and disjoint ones share.
-     - Ports: every wire its own. A box's LEFT half holds forward arrivals (top edge) and return departures (bottom); its RIGHT half forward departures and return
-       arrivals. Higher tracks sit nearer the centre, so nested wires never cross at a box. A half with no partner uses the whole edge.
+     - Ports: every wire its own. A box's LEFT part holds forward arrivals (top edge) and return departures (bottom); its RIGHT part forward departures and return
+       arrivals; the edge splits in proportion to their counts (the middle when equal). Higher tracks sit nearer the split, so nested wires never cross at a box.
+       A part with no partner uses the whole edge.
      Returns { boxes: [{ nd, i, uc, u0, u1 }], wires: [{ w, L, held, a, b, dir: 'f' | 'r', track, pa, pb, vt, pts }], vMin, vMax, hb, col }. */
   FxWires.layout = function (model, items, o) {
     var n = model.nodes.length, col = o.uLen / n, hb = o.hb, bw = Math.min(o.boxMax, col * .84);
@@ -9560,8 +9575,11 @@ window.Horde.MainStage = {
             R = ws.filter(function (x) { return x.dir === dir && (dir === 'f' ? x.a === bx.i : x.b === bx.i); });
         function spread(arr, lo, hi, asc) { arr.sort(function (p, q) { return asc ? p.track - q.track || p.a - q.a : q.track - p.track || q.a - p.a; });
           arr.forEach(function (x, j) { var pu = lo + (hi - lo) * (j + .5) / arr.length; if (x.a === bx.i) x.pa = pu; else x.pb = pu; }); }
-        spread(L, bx.u0 + m, R.length ? bx.uc - g : bx.u1 - m, true);
-        spread(R, L.length ? bx.uc + g : bx.u0 + m, bx.u1 - m, false);
+        /* the edge splits in proportion to the wires arriving and leaving there (the middle when they're equal): six arrivals and one departure on a 42 px box would
+           otherwise sit 2 px apart in their half and their arrowheads merge (the shell's house default, GUI-75 in the shell) */
+        var lo = bx.u0 + m, hi = bx.u1 - m, split = lo + (hi - lo) * L.length / ((L.length + R.length) || 1);
+        spread(L, lo, R.length ? split - g : hi, true);
+        spread(R, L.length ? split + g : lo, hi, false);
       });
     });
     var vMin = -hb, vMax = hb;
@@ -9604,6 +9622,13 @@ window.Horde.MainStage = {
       best.txt = t0; placed.push(best); x.chip = best; });
     return clash; };
 
+  /* the arrowheads' own instrument: pairs of ports on one box edge where a head covers a neighbouring head or cord (0 when every head found room) */
+  FxWires.heads = function (lay) { var n = 0, ends = [];
+    lay.wires.forEach(function (x) { var s = x.dir === 'f' ? -1 : 1; ends.push({ x: x, box: x.a, v: s, u: x.pa, arr: false }, { x: x, box: x.b, v: s, u: x.pb, arr: true }); });
+    for (var i = 0; i < ends.length; i++) for (var j = i + 1; j < ends.length; j++) { var e = ends[i], o = ends[j]; if (e.box !== o.box || e.v !== o.v || (!e.arr && !o.arr)) continue;
+      var need = (e.arr ? e.x.head : (1 + 2.5 * e.x.L) / 2 + 1) + (o.arr ? o.x.head : (1 + 2.5 * o.x.L) / 2 + 1); if (Math.abs(e.u - o.u) < need - .01) n++; }
+    return n; };
+
   /* THE LADDER AS DRAWN, pure: everything the view puts on screen for these items at this host width, so a check holds exactly what is drawn.
      A column is never narrower than MIN_COL: below that a box's ports would sit closer than 3 px and the wires would merge again, so a narrow host scrolls the
      ladder sideways. The box holds two tracks each way before it grows, so a first wire doesn't move the page. o: { pitch } overrides the track pitch (the check's
@@ -9616,6 +9641,12 @@ window.Horde.MainStage = {
     var vMin = Math.min(lay.vMin, -(HB + BASE + pitch)) - 14, vMax = Math.max(lay.vMax, HB + BASE + pitch) + 14;
     function map(u, v) { return [8 + u, -vMin + v]; }
     var P = lay.wires.map(function (x) { x.screen = x.pts.map(function (p) { return map(p[0], p[1]); }); return x.screen; });
+    /* arrowheads: 2.5 + 2·L px each side, shrunk to the room beside the port, so a head never covers a neighbouring head (half the gap each) or a neighbouring
+       cord (the gap less that cord's half width and casing), floored at 1.5 px. x.head is the half width; FxWires.heads() measures the result */
+    var ends = []; lay.wires.forEach(function (x) { var s = x.dir === 'f' ? -1 : 1; ends.push({ x: x, box: x.a, v: s, u: x.pa, arr: false }, { x: x, box: x.b, v: s, u: x.pb, arr: true }); });
+    ends.forEach(function (e) { if (!e.arr) return; var cap = 2.5 + 2 * e.x.L;
+      ends.forEach(function (o) { if (o === e || o.box !== e.box || o.v !== e.v) return; var d = Math.abs(o.u - e.u); cap = Math.min(cap, o.arr ? d / 2 - .25 : d - (1 + 2.5 * o.x.L) / 2 - 1.25); });
+      e.x.head = Math.max(1.5, cap); });
     return { lay: lay, map: map, width: width, height: Math.ceil(vMax - vMin), clash: FxWires.placeChips(lay, map), P: P }; };
 
   /* THE VIEW. o: { nodes, wires } (or model: an FxWires), weights() the pad's four, prevent() Settings' Prevent feedback (GN-62), keys() keyboard mode,
@@ -9663,7 +9694,7 @@ window.Horde.MainStage = {
         else { var pg = sv('g', { opacity: op.toFixed(3) }, g), da = ret ? '5 3' : null;
           if (!sty.plain) sv('path', { d: d, fill: 'none', stroke: 'var(--ink)', 'stroke-width': (core + 2).toFixed(2), 'stroke-dasharray': da, 'stroke-linejoin': 'round' }, pg);
           sv('path', { d: d, fill: 'none', stroke: sty.line, 'stroke-width': core.toFixed(2), 'stroke-dasharray': da, 'stroke-linejoin': 'round', 'class': 'fx-core' }, pg);
-          var a = Q[Q.length - 2], b = Q[Q.length - 1], len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, ux = (b[0] - a[0]) / len, uy = (b[1] - a[1]) / len, s = 2.5 + 2 * x.L;
+          var a = Q[Q.length - 2], b = Q[Q.length - 1], len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, ux = (b[0] - a[0]) / len, uy = (b[1] - a[1]) / len, s = x.head;
           sv('path', { d: 'M' + b[0] + ' ' + b[1] + 'L' + (b[0] - ux * s * 1.6 - uy * s) + ' ' + (b[1] - uy * s * 1.6 + ux * s) + 'L' + (b[0] - ux * s * 1.6 + uy * s) + ' ' + (b[1] - uy * s * 1.6 - ux * s) + 'Z',
             fill: sty.line, stroke: 'var(--ink)', 'stroke-width': .75 }, pg); }
         sv('path', { d: d, fill: 'none', stroke: 'transparent', 'stroke-width': 10, 'class': 'fr-hit' }, g).addEventListener('click', function () { st.sel = k; render(); say(sentence(x.w, x.L, x.held)); });
