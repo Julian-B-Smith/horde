@@ -1,4 +1,4 @@
-/* vendored from the horde Design System artifact, version 1794163020-0651, 2026-11-08; do not edit, re-vendor */
+/* vendored from the horde Design System artifact, version 1795724511-bd90, 2026-11-26; do not edit, re-vendor */
 /* @ds-bundle: {"format":4,"namespace":"Horde","components":[{"name":"Knob"},{"name":"Slider"},{"name":"MapControl"},{"name":"XYPad"},{"name":"CornerChip"},{"name":"ScreenScheme"},{"name":"SourceStrip"},{"name":"ModMatrixGrid"},{"name":"RouteRow"},{"name":"ModLedger"},{"name":"TraceLanes"},{"name":"CompactWires"},{"name":"HostedMacroRows"},{"name":"ModCardHeader"},{"name":"LfoShapeEditor"},{"name":"EnvelopeEditor"},{"name":"TempoDivisions"},{"name":"CurvePlot"},{"name":"OrbitalCard"},{"name":"MidiTrackers"},{"name":"GateLanes"},{"name":"EventLanes"},{"name":"SmoothingLanes"},{"name":"ShClockCard"},{"name":"OwnershipTier"},{"name":"QuantumPad"},{"name":"PadBars"},{"name":"CrossSection"},{"name":"MorphGrid"},{"name":"FindPane"},{"name":"MorphInspector"},{"name":"KindLegend"},{"name":"MorphMode"},{"name":"NameField"},{"name":"SteppedControl"},{"name":"Stepper"},{"name":"Cohesion"},{"name":"FxRack"},{"name":"FxMatrix"},{"name":"FxPanel"},{"name":"FxCables"},{"name":"GainStaging"},{"name":"ChainLine"},{"name":"BlendMaps"},{"name":"PageNav"},{"name":"SectionHeader"},{"name":"ChannelStrip"},{"name":"Companion"},{"name":"SourceChip"},{"name":"SourceRows"},{"name":"RoutesBySource"},{"name":"Cluster"},{"name":"Lens"},{"name":"Fold"},{"name":"PageView"},{"name":"ModTiers"},{"name":"MacroRow"},{"name":"ModBank"},{"name":"ModPage"},{"name":"UndoLine"},{"name":"MacroFace"},{"name":"PresetBar"},{"name":"Deck"},{"name":"MacroCard"},{"name":"ParamPicker"},{"name":"HistoryRail"},{"name":"PicturePicker"},{"name":"AssignXY"},{"name":"Specimen"},{"name":"Splash"}]} */
 /* horde house reference behaviours (vanilla JS, no React, no network).
    The morph knob and slider follow the human's HORDE Morph Knob Spec and HORDE Map Mode Spec
@@ -9476,4 +9476,308 @@ window.Horde.MainStage = {
     return { el: el, ready: ready, dismiss: function () { go(true); }, gone: function () { return gone; } };
   }
   H.Splash = Splash; H.decodePng = decodePng;
+})();
+
+/* ======== GUI-75: FX routing, a ladder of separated wires beside a send matrix, both over one wire model (GB41; ADR-410 r3, ADR-411 r1). The human, 2026-11-25:
+   "I no longer like the routing interface and would like to see a version that keeps the wires tidy and rational and separated. It might help to also include the
+   routing matrix view to see the percentages of the sends. And they should be real." Ruled 2026-11-26 from docs/design/fx-routing-lab.html: W1 (the ladder), L1
+   (side by side), drag between boxes to make a wire at 100 %, a double-click on a cell sets 100 %, a wire that reaches 0 is gone. Supersedes GUI-41's drawing (FxPatch
+   on FxRack) and its law (FxGraph: no loop at rest), which ADR-411 r1 replaced: return wires are real, one sample late, and Settings' Prevent feedback holds a loop's
+   back edge at zero. MOCK until the bridge publishes the wire model (GN-61) and the Settings value (GN-62). ======== */
+(function () {
+  'use strict';
+  var H = window.Horde, NS = 'http://www.w3.org/2000/svg', HEARD = 4, DEFAULT = 1, LETTERS = ['A', 'B', 'C', 'D'];
+  function sv(t, a, p) { var e = document.createElementNS(NS, t); for (var k in a) if (a[k] !== null && a[k] !== undefined) e.setAttribute(k, a[k]); if (p) p.appendChild(e); return e; }
+  function tag(t, cls, txt) { var e = document.createElement(t); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; }
+  function keysOn(o) { return typeof o.keys === 'function' ? !!o.keys() : !!o.keys; }
+  function pct(L) { return Math.round(L * 100) + ' %'; }
+  function wts(x, y) { return [(1 - x) * (1 - y), x * (1 - y), (1 - x) * y, x * y]; }
+
+  /* THE MODEL, pure: no DOM, no clock. nodes [{ id, kind: 'in' | 'mod' | 'out', name, short, style, mock? }] in the row's order (inputs, modules in house order,
+     Out last); wires [{ u, v, lv: [A, B, C, D] }], each corner's level in (0, 1] or null where the wire doesn't exist there. 0 % is never a wire's state
+     (GUI-75 r5): "exists at a corner" and "level above 0 at that corner" are one fact, so setLevel's one writer turns a level of 0 or less into absence. */
+  function FxWires(o) {
+    var me = this; me.nodes = o.nodes.slice(); me.rank = {};
+    me.nodes.forEach(function (n, i) { me.rank[n.id] = i; });
+    me.wires = (o.wires || []).map(function (w) { return { u: w.u, v: w.v, lv: w.lv.slice() }; });
+  }
+  FxWires.HEARD = HEARD; FxWires.DEFAULT = DEFAULT; FxWires.weights = wts;
+  FxWires.prototype.node = function (id) { return this.nodes[this.rank[id]]; };
+  FxWires.prototype.find = function (u, v) { for (var i = 0; i < this.wires.length; i++) if (this.wires[i].u === u && this.wires[i].v === v) return this.wires[i]; return null; };
+  /* a return wire runs against the row's order (or to itself, which can() refuses): drawn below, dashed, one sample late */
+  FxWires.prototype.isReturn = function (u, v) { return this.rank[v] <= this.rank[u]; };
+  /* '' when u -> v may exist, else why not (said to the player) */
+  FxWires.prototype.can = function (u, v) { var a = this.node(u), b = this.node(v);
+    if (!a || !b) return 'no such box'; if (u === v) return 'a box can’t feed itself'; if (a.kind === 'out') return 'Out is the end of the chain: drag from a source or a module';
+    if (b.kind === 'in') return b.name + ' is an input: a wire goes to a module or Out'; return ''; };
+  /* THE ONE WRITER. c is a corner 0..3 (Heard is never written). L null or <= 0 removes the wire there; a wire absent at every corner leaves the model.
+     Returns true when the model changed. */
+  FxWires.prototype.setLevel = function (u, v, c, L) {
+    if (c === HEARD || c < 0 || c > 3 || this.can(u, v)) return false;
+    if (L !== null && !(L > 0)) L = null; if (L !== null) L = Math.min(1, L);
+    var w = this.find(u, v);
+    if (!w) { if (L === null) return false; w = { u: u, v: v, lv: [null, null, null, null] }; this.wires.push(w); }
+    if (w.lv[c] === L) return false;
+    w.lv[c] = L;
+    if (w.lv.every(function (x) { return x === null; })) this.wires.splice(this.wires.indexOf(w), 1);
+    return true; };
+  /* Heard (GUI-75's reading until the bridge's heard value replaces it, B715): the wire exists where the dominant corner holds it (the quantum boundary,
+     ADR-377), and its level blends over the corners that hold it, by the pad's weights (ADR-410 r3: as a gain blends). Ties go to the earlier corner. */
+  FxWires.prototype.heard = function (w, W) { var dom = 0, i, s = 0, n = 0;
+    for (i = 1; i < 4; i++) if (W[i] > W[dom]) dom = i;
+    if (w.lv[dom] === null) return null;
+    for (i = 0; i < 4; i++) if (w.lv[i] !== null) { s += W[i] * w.lv[i]; n += W[i]; }
+    return n > 0 ? s / n : null; };
+  FxWires.prototype.levelAt = function (w, c, W) { return c === HEARD ? this.heard(w, W) : w.lv[c]; };
+  /* the wires drawn at corner c (or Heard), each { w, L, held }. With Prevent feedback on (ADR-411 r1, GN-62), a loop's BACK EDGE is held at zero: a return wire whose
+     destination already reaches its source forward among the wires shown. It is drawn dotted, reading "held 0 %", and heard as nothing. */
+  FxWires.prototype.shown = function (c, W, prevent) { var me = this, items = [];
+    me.wires.forEach(function (w) { var L = me.levelAt(w, c, W); if (L !== null) items.push({ w: w, L: L, held: false }); });
+    if (prevent) items.forEach(function (x) { if (!me.isReturn(x.w.u, x.w.v)) return;
+      var seen = {}, todo = [x.w.v]; seen[x.w.v] = 1;
+      while (todo.length) { var n = todo.pop(); items.forEach(function (y) { if (y !== x && y.w.u === n && !me.isReturn(y.w.u, y.w.v) && !seen[y.w.v]) { seen[y.w.v] = 1; todo.push(y.w.v); } }); }
+      x.held = !!seen[x.w.u]; });
+    return items; };
+
+  /* THE LADDER'S LAYOUT (W1), pure geometry in (u along the row, v across it, negative above); the view maps u to x and v to y.
+     o: { uLen, hb (half a box's height), boxMax, base (the first track's gap from the box edge), pitch (track to track) }.
+     - Tracks: per direction, shortest span first; each wire goes one track above every placed wire it overlaps, so nested wires sit inside and disjoint ones share.
+     - Ports: every wire its own. A box's LEFT half holds forward arrivals (top edge) and return departures (bottom); its RIGHT half forward departures and return
+       arrivals. Higher tracks sit nearer the centre, so nested wires never cross at a box. A half with no partner uses the whole edge.
+     Returns { boxes: [{ nd, i, uc, u0, u1 }], wires: [{ w, L, held, a, b, dir: 'f' | 'r', track, pa, pb, vt, pts }], vMin, vMax, hb, col }. */
+  FxWires.layout = function (model, items, o) {
+    var n = model.nodes.length, col = o.uLen / n, hb = o.hb, bw = Math.min(o.boxMax, col * .84);
+    var boxes = model.nodes.map(function (nd, i) { var c = col * (i + .5); return { nd: nd, i: i, uc: c, u0: c - bw / 2, u1: c + bw / 2 }; });
+    var ws = items.map(function (x) { var a = model.rank[x.w.u], b = model.rank[x.w.v], dir = b > a ? 'f' : 'r';
+      return { w: x.w, L: x.L, held: !!x.held, a: a, b: b, dir: dir, s0: (dir === 'f' ? a : b) + .25, s1: (dir === 'f' ? b : a) - .25, track: 0 }; });
+    ['f', 'r'].forEach(function (dir) { var placed = [];
+      ws.filter(function (x) { return x.dir === dir; }).sort(function (p, q) { return (p.s1 - p.s0) - (q.s1 - q.s0) || p.a - q.a || p.b - q.b; })
+        .forEach(function (x) { var t = 1; placed.forEach(function (y) { if (x.s0 < y.s1 && y.s0 < x.s1) t = Math.max(t, y.track + 1); }); x.track = t; placed.push(x); }); });
+    var m = 6, g = 3;
+    boxes.forEach(function (bx) {
+      ['f', 'r'].forEach(function (dir) {
+        var L = ws.filter(function (x) { return x.dir === dir && (dir === 'f' ? x.b === bx.i : x.a === bx.i); }),
+            R = ws.filter(function (x) { return x.dir === dir && (dir === 'f' ? x.a === bx.i : x.b === bx.i); });
+        function spread(arr, lo, hi, asc) { arr.sort(function (p, q) { return asc ? p.track - q.track || p.a - q.a : q.track - p.track || q.a - p.a; });
+          arr.forEach(function (x, j) { var pu = lo + (hi - lo) * (j + .5) / arr.length; if (x.a === bx.i) x.pa = pu; else x.pb = pu; }); }
+        spread(L, bx.u0 + m, R.length ? bx.uc - g : bx.u1 - m, true);
+        spread(R, L.length ? bx.uc + g : bx.u0 + m, bx.u1 - m, false);
+      });
+    });
+    var vMin = -hb, vMax = hb;
+    ws.forEach(function (x) { var s = x.dir === 'f' ? -1 : 1, edge = s * hb, vt = s * (hb + o.base + (x.track - 1) * o.pitch);
+      x.vt = vt; x.pts = [[x.pa, edge], [x.pa, vt], [x.pb, vt], [x.pb, edge]]; vMin = Math.min(vMin, vt); vMax = Math.max(vMax, vt); });
+    return { boxes: boxes, wires: ws, vMin: vMin, vMax: vMax, hb: hb, col: col };
+  };
+  /* THE INSTRUMENTS (pure; the lab's self-check measures, kept so a shell check can hold the drawing to the law). P: each wire's points in screen px.
+     shared: port points used by two wires; overlap: collinear stretches two wires share; cross: proper crossings; band: points on the wrong side of the row;
+     minGap: the closest two distinct ports. */
+  FxWires.measure = function (lay, P) {
+    var ports = {}, shared = 0, pp = [], minGap = Infinity, segs = [], overlap = 0, cross = 0, band = 0, i, j;
+    P.forEach(function (Q) { [Q[0], Q[Q.length - 1]].forEach(function (q) { var k = Math.round(q[0]) + ',' + Math.round(q[1]); ports[k] = (ports[k] || 0) + 1; pp.push(q); }); });
+    Object.keys(ports).forEach(function (k) { if (ports[k] > 1) shared++; });
+    for (i = 0; i < pp.length; i++) for (j = i + 1; j < pp.length; j++) { var d = Math.hypot(pp[i][0] - pp[j][0], pp[i][1] - pp[j][1]); if (d > .5) minGap = Math.min(minGap, d); }
+    P.forEach(function (Q, wi) { for (var k = 0; k + 1 < Q.length; k++) segs.push({ wi: wi, a: Q[k], b: Q[k + 1] }); });
+    function cr(o, a, b) { return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]); }
+    for (i = 0; i < segs.length; i++) for (j = i + 1; j < segs.length; j++) {
+      var s = segs[i], t = segs[j]; if (s.wi === t.wi) continue;
+      var d1 = cr(t.a, t.b, s.a), d2 = cr(t.a, t.b, s.b), d3 = cr(s.a, s.b, t.a), d4 = cr(s.a, s.b, t.b);
+      var ls = Math.hypot(s.b[0] - s.a[0], s.b[1] - s.a[1]) || 1, lt = Math.hypot(t.b[0] - t.a[0], t.b[1] - t.a[1]) || 1;
+      if (Math.abs(d1) / lt < .5 && Math.abs(d2) / lt < .5) { var dx = (t.b[0] - t.a[0]) / lt, dy = (t.b[1] - t.a[1]) / lt, pr = function (q) { return (q[0] - t.a[0]) * dx + (q[1] - t.a[1]) * dy; };
+        if (Math.min(Math.max(pr(s.a), pr(s.b)), lt) - Math.max(Math.min(pr(s.a), pr(s.b)), 0) > .5) overlap++; }
+      else if (d1 * d2 < 0 && d3 * d4 < 0 && Math.abs(d1) / lt > .5 && Math.abs(d2) / lt > .5 && Math.abs(d3) / ls > .5 && Math.abs(d4) / ls > .5) cross++;
+    }
+    lay.wires.forEach(function (x) { x.pts.forEach(function (p) { if (x.dir === 'f' ? p[1] > -lay.hb + .01 : p[1] < lay.hb - .01) band++; }); });
+    return { wires: P.length, shared: shared, overlap: overlap, cross: cross, band: band, minGap: isFinite(minGap) ? minGap : 0 };
+  };
+
+  /* THE LEVEL CHIPS, pure: one per wire on its own track, slid along it (TS, in order) to the first spot clear of every chip placed; map(u, v) gives
+     screen px. Returns how many found no clear spot (a clash; 0 at the house pitch, CHIP_H + 2). */
+  var CHIP_H = 13, TS = [.5, .35, .65, .2, .8, .27, .73, .12, .88];
+  FxWires.CHIP_H = CHIP_H;
+  FxWires.chipText = function (x) { return x.held ? 'held 0 %' : (x.dir === 'r' ? 'z⁻¹ ' : '') + pct(x.L); };
+  FxWires.placeChips = function (lay, map) { var placed = [], clash = 0;
+    function hit(r) { return placed.some(function (q) { return r.x < q.x + q.w + 1 && q.x < r.x + r.w + 1 && r.y < q.y + q.h + 1 && q.y < r.y + r.h + 1; }); }
+    lay.wires.forEach(function (x) { var t0 = FxWires.chipText(x), cw = t0.length * 5.6 + 8, A = map(x.pa, x.vt), B = map(x.pb, x.vt), best = null;
+      for (var k = 0; k < TS.length && !best; k++) { var c = [A[0] + (B[0] - A[0]) * TS[k], A[1]], r = { x: c[0] - cw / 2, y: c[1] - CHIP_H / 2, w: cw, h: CHIP_H, c: c }; if (!hit(r)) best = r; }
+      if (!best) { clash++; var c2 = [(A[0] + B[0]) / 2, A[1]]; best = { x: c2[0] - cw / 2, y: c2[1] - CHIP_H / 2, w: cw, h: CHIP_H, c: c2 }; }
+      best.txt = t0; placed.push(best); x.chip = best; });
+    return clash; };
+
+  /* THE LADDER AS DRAWN, pure: everything the view puts on screen for these items at this host width, so a check holds exactly what is drawn.
+     A column is never narrower than MIN_COL: below that a box's ports would sit closer than 3 px and the wires would merge again, so a narrow host scrolls the
+     ladder sideways. The box holds two tracks each way before it grows, so a first wire doesn't move the page. o: { pitch } overrides the track pitch (the check's
+     must-fail control squeezes it). Returns { lay, map, width, height, clash, P }, with each wire's screen points as x.screen and in P. */
+  var MIN_COL = 44, HB = 22, BASE = 12;
+  FxWires.MIN_COL = MIN_COL;
+  FxWires.ladder = function (model, items, hostWidth, o) {
+    var pitch = o && o.pitch || CHIP_H + 2, width = Math.max(hostWidth, model.nodes.length * MIN_COL + 16);
+    var lay = FxWires.layout(model, items, { uLen: width - 16, hb: HB, boxMax: 96, base: BASE, pitch: pitch });
+    var vMin = Math.min(lay.vMin, -(HB + BASE + pitch)) - 14, vMax = Math.max(lay.vMax, HB + BASE + pitch) + 14;
+    function map(u, v) { return [8 + u, -vMin + v]; }
+    var P = lay.wires.map(function (x) { x.screen = x.pts.map(function (p) { return map(p[0], p[1]); }); return x.screen; });
+    return { lay: lay, map: map, width: width, height: Math.ceil(vMax - vMin), clash: FxWires.placeChips(lay, map), P: P }; };
+
+  /* THE VIEW. o: { nodes, wires } (or model: an FxWires), weights() the pad's four, prevent() Settings' Prevent feedback (GN-62), keys() keyboard mode,
+     start (the corner shown first), onChange(label) once per finished gesture (one undo step), say(text). Returns { el, model, show(i), redraw(), step(), select(k), lastLayout }. */
+  var ROW_W = 760;
+  function FxRouting(el, o) {
+    var C = H.FxCables, model = o.model || new FxWires(o), st = { show: o.start === undefined ? 0 : o.start, sel: null }, lastW = '', me = {};
+    el.classList.add('hd-fxroute'); el.innerHTML = '';
+    var head = tag('div', 'fr-head'); el.appendChild(head);
+    head.appendChild(tag('span', 'hd-label', 'Show')); var sw = tag('div'); head.appendChild(sw);
+    head.appendChild(tag('span', 'hd-hint fr-how', 'Drag box to box to make a wire · drag a level, 0 removes it · double-click a cell: 100 %'));
+    var views = tag('div', 'fr-views'), wv = tag('div', 'fr-wires'), mv = tag('div', 'fr-mx'); views.appendChild(wv); views.appendChild(mv); el.appendChild(views);
+    var status = tag('div', 'fr-status'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite'); el.appendChild(status);
+    var pills = H.pillGroup(sw, LETTERS.concat(['Heard']), st.show, 'Which corner’s wires to show and edit, or what you hear', function (i) { st.show = i; render(); }, { keys: o.keys });
+    function W() { return o.weights ? o.weights() : [1, 0, 0, 0]; }
+    function prevent() { return !!(o.prevent && o.prevent()); }
+    function say(t) { status.textContent = t; if (o.say) o.say(t); }
+    function name(id) { return model.node(id).name; }
+    function refuseHeard() { say('Heard is the pad’s blend of the four corners and can’t be edited: pick A, B, C or D to edit that corner.'); }
+    function styleOf(n) { return C.styleOf(n.kind === 'mod' ? n.style : n.kind === 'out' ? 'out' : (n.style === 'lane2' ? 'lane2' : 'lane')); }
+    function changed(label) { if (o.onChange) o.onChange(label); }
+
+    /* ---- the ladder ---- */
+    function path(P) { var d = 'M' + P[0][0] + ' ' + P[0][1];
+      for (var k = 1; k + 1 < P.length; k++) { var a = P[k - 1], b = P[k], c = P[k + 1], l1 = Math.hypot(b[0] - a[0], b[1] - a[1]), l2 = Math.hypot(c[0] - b[0], c[1] - b[1]), r = Math.max(0, Math.min(3, l1 / 2, l2 / 2) - .01);
+        d += 'L' + (b[0] - (b[0] - a[0]) * r / l1) + ' ' + (b[1] - (b[1] - a[1]) * r / l1) + 'Q' + b[0] + ' ' + b[1] + ' ' + (b[0] + (c[0] - b[0]) * r / l2) + ' ' + (b[1] + (c[1] - b[1]) * r / l2); }
+      var z = P[P.length - 1]; return d + 'L' + z[0] + ' ' + z[1]; }
+    function drawWires(items) {
+      var L0 = FxWires.ladder(model, items, wv.clientWidth || 600), lay = L0.lay, map = L0.map, width = L0.width, h = L0.height;
+      var root = sv('svg', { viewBox: '0 0 ' + width + ' ' + h, width: width, height: h, role: 'figure', 'class': 'fx-svg fr-svg',
+        'aria-label': 'FX wires, ' + (st.show === HEARD ? 'as heard' : 'corner ' + LETTERS[st.show]) + ': ' + lay.wires.length + ' wires' });
+      var gB = sv('g', {}, root), gW = sv('g', {}, root), gC = sv('g', {}, root), list = tag('ul', 'hd-sr');
+      sv('line', { x1: 8, x2: width - 8, y1: map(0, 0)[1], y2: map(0, 0)[1], stroke: 'var(--hair)', 'stroke-width': 1 }, gB);
+      lay.boxes.forEach(function (bx) { var a = map(bx.u0, -lay.hb), w = bx.u1 - bx.u0, nd = bx.nd, g = sv('g', { 'class': 'fr-node', 'data-node': nd.id }, gB);
+        var full = nd.name, lbl = w >= full.length * 5.6 + 8 ? full : nd.short;
+        C.chip(g, a[0] + w / 2, a[1] + lay.hb, w, lay.hb * 2, { id: nd.id, style: styleOf(nd).plain ? (nd.kind === 'out' ? 'out' : nd.style === 'lane2' ? 'lane2' : 'lane') : nd.style }, lbl, 'box');
+        if (nd.mock) { var mt = sv('text', { x: a[0] + w / 2, y: a[1] + lay.hb * 2 - 6, 'class': 'fr-mock' }, g); mt.textContent = 'MOCK'; }
+        connectFrom(g, nd, root, [a[0] + w / 2, a[1] + lay.hb]); });
+      var clash = L0.clash, P = L0.P;
+      lay.wires.forEach(function (x) {
+        var Q = x.screen, src = model.node(x.w.u), sty = styleOf(src), k = x.w.u + '>' + x.w.v, ret = x.dir === 'r', d = path(Q);
+        var core = 1 + 2.5 * x.L, op = x.held ? 1 : C.alpha(x.L), g = sv('g', { 'class': 'fr-wire' + (st.sel === k ? ' sel' : ''), 'data-k': k }, gW);
+        if (st.sel === k) sv('path', { d: d, 'class': 'fr-selring', 'stroke-width': core + 7 }, g);
+        if (x.held) sv('path', { d: d, 'class': 'fx-wait' }, g);
+        else { var pg = sv('g', { opacity: op.toFixed(3) }, g), da = ret ? '5 3' : null;
+          if (!sty.plain) sv('path', { d: d, fill: 'none', stroke: 'var(--ink)', 'stroke-width': (core + 2).toFixed(2), 'stroke-dasharray': da, 'stroke-linejoin': 'round' }, pg);
+          sv('path', { d: d, fill: 'none', stroke: sty.line, 'stroke-width': core.toFixed(2), 'stroke-dasharray': da, 'stroke-linejoin': 'round', 'class': 'fx-core' }, pg);
+          var a = Q[Q.length - 2], b = Q[Q.length - 1], len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, ux = (b[0] - a[0]) / len, uy = (b[1] - a[1]) / len, s = 2.5 + 2 * x.L;
+          sv('path', { d: 'M' + b[0] + ' ' + b[1] + 'L' + (b[0] - ux * s * 1.6 - uy * s) + ' ' + (b[1] - uy * s * 1.6 + ux * s) + 'L' + (b[0] - ux * s * 1.6 + uy * s) + ' ' + (b[1] - uy * s * 1.6 - ux * s) + 'Z',
+            fill: sty.line, stroke: 'var(--ink)', 'stroke-width': .75 }, pg); }
+        sv('path', { d: d, fill: 'none', stroke: 'transparent', 'stroke-width': 10, 'class': 'fr-hit' }, g).addEventListener('click', function () { st.sel = k; render(); say(sentence(x.w, x.L, x.held)); });
+        var q = x.chip, ch = sv('g', { 'class': 'fr-chip' + (ret ? ' ret' : '') + (x.held ? ' held' : '') + (st.sel === k ? ' sel' : ''), 'data-k': k, tabindex: keysOn(o) ? 0 : -1, role: 'slider',
+          'aria-valuemin': 0, 'aria-valuemax': 100, 'aria-valuenow': Math.round(x.L * 100), 'aria-label': src.name + ' to ' + name(x.w.v) + ' send' }, gC);
+        sv('rect', { x: q.x, y: q.y, width: q.w, height: CHIP_H, rx: 3 }, ch);
+        var tt = sv('text', { x: q.c[0], y: q.c[1] + .5 }, ch); tt.textContent = q.txt;
+        editable(ch, x.w.u, x.w.v);
+        var li = tag('li', null, sentence(x.w, x.L, x.held)); list.appendChild(li); });
+      function hint(t, y) { var e = sv('text', { x: 10, y: y, 'class': 'fr-band' }, root); e.textContent = t; }
+      hint('forward ↑', 10); if (lay.wires.some(function (x) { return x.dir === 'r'; })) hint('return ↓ one sample late', h - 4);
+      wv.replaceChildren(root, list);
+      me.lastLayout = { lay: lay, P: P, clash: clash, width: width, height: h };
+    }
+    function sentence(w, L, held) { var ret = model.isReturn(w.u, w.v);
+      return name(w.u) + ' → ' + name(w.v) + (st.show === HEARD ? ' as heard: ' : ' at ' + LETTERS[st.show] + ': ') + pct(L) + (ret ? ', a return wire, one sample late' + (held ? ', held at zero: Prevent feedback is on' : '') : ''); }
+
+    /* ---- making a wire (GUI-75 r3): drag from a box onto another; it lands at 100 % at the shown corner. The band follows the pointer in the svg's own units, so a
+       scaled window still lands; the target is the box under the pointer on release. ---- */
+    function connectFrom(g, nd, root, c0) {
+      g.addEventListener('pointerdown', function (e) {
+        if (e.button !== 0) return; e.preventDefault();
+        if (nd.kind === 'out') { say('Out is the end of the chain: drag from a source or a module.'); return; }
+        function toSvg(ev) { var m = root.getScreenCTM(); if (!m) return c0; var pt = root.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY; var q = pt.matrixTransform(m.inverse()); return [q.x, q.y]; }
+        var band = sv('line', { x1: c0[0], y1: c0[1], x2: c0[0], y2: c0[1], 'class': 'fr-band-line' }, root);
+        function mvf(ev) { var q = toSvg(ev); band.setAttribute('x2', q[0]); band.setAttribute('y2', q[1]); }
+        function up(ev) { window.removeEventListener('pointermove', mvf); window.removeEventListener('pointerup', up); band.remove();
+          var hit = document.elementFromPoint(ev.clientX, ev.clientY), tg = hit && hit.closest && hit.closest('[data-node]'), v = tg && tg.getAttribute('data-node');
+          if (!v || v === nd.id) return;
+          var why = model.can(nd.id, v); if (why) { say(why[0].toUpperCase() + why.slice(1) + '.'); return; }
+          if (st.show === HEARD) { refuseHeard(); return; }
+          var w = model.find(nd.id, v), k = nd.id + '>' + v; st.sel = k;
+          if (w && w.lv[st.show] !== null) { render(); say(name(nd.id) + ' → ' + name(v) + ' already sends ' + pct(w.lv[st.show]) + ' at ' + LETTERS[st.show] + '.'); return; }
+          model.setLevel(nd.id, v, st.show, DEFAULT); render();
+          say(name(nd.id) + ' → ' + name(v) + ' made at ' + LETTERS[st.show] + ', at its default, ' + pct(DEFAULT) + (model.isReturn(nd.id, v) ? ': a return wire, one sample late' : ''));
+          changed('Wire ' + name(nd.id) + ' → ' + name(v) + ' made'); }
+        window.addEventListener('pointermove', mvf); window.addEventListener('pointerup', up);
+      });
+    }
+
+    /* ---- the send matrix (GUI-75 r2): rows send, columns receive; each cell its level, a bar in the source's cable colour, and pips for the corners that hold it ---- */
+    function drawMatrix(items) {
+      var rows = model.nodes.filter(function (n) { return n.kind !== 'out'; }), cols = model.nodes.filter(function (n) { return n.kind !== 'in'; }), held = {};
+      items.forEach(function (x) { if (x.held) held[x.w.u + '>' + x.w.v] = 1; });
+      var g = tag('div', 'fr-grid' + (st.show === HEARD ? ' heard' : '')); g.setAttribute('role', 'grid'); g.setAttribute('aria-label', 'Send matrix: rows send to columns');
+      g.style.gridTemplateColumns = 'minmax(48px, 76px) repeat(' + cols.length + ', minmax(34px, 56px))';
+      function hd(n, row) { var d = tag('div', 'fr-hd'), sty = styleOf(n); d.title = n.name;
+        if (!sty.plain) { var i = tag('i'); i.style.background = sty.screen.ground; d.appendChild(i); }
+        d.appendChild(document.createTextNode(row ? n.name : n.short)); if (n.mock) d.appendChild(tag('span', 'fr-mockt', 'MOCK')); return d; }
+      g.appendChild(tag('div', 'hd-hint fr-corner', 'from ↓ to →'));
+      cols.forEach(function (c) { g.appendChild(hd(c)); });
+      rows.forEach(function (r) { g.appendChild(hd(r, true));
+        cols.forEach(function (c) {
+          if (r.id === c.id) { var s0 = tag('div', 'fr-cell self'); s0.setAttribute('aria-hidden', 'true'); g.appendChild(s0); return; }
+          var w = model.find(r.id, c.id), L = w ? model.levelAt(w, st.show, W()) : null, k = r.id + '>' + c.id, ret = model.isReturn(r.id, c.id), sty = styleOf(r);
+          var cell = tag('div', 'fr-cell' + (L !== null ? ' live' : '') + (ret ? ' ret' : '') + (held[k] ? ' held' : '') + (st.sel === k ? ' sel' : ''));
+          cell.setAttribute('data-k', k); cell.setAttribute('role', 'slider'); cell.tabIndex = keysOn(o) ? 0 : -1;
+          cell.setAttribute('aria-valuemin', 0); cell.setAttribute('aria-valuemax', 100); cell.setAttribute('aria-label', r.name + ' to ' + c.name + (ret ? ' (a return wire, one sample late)' : ''));
+          if (L !== null) { cell.setAttribute('aria-valuenow', Math.round(L * 100));
+            var f = tag('div', 'fr-fill'); f.style.width = (L * 100) + '%'; f.style.background = sty.line; if (sty.plain) f.classList.add('plain'); cell.appendChild(f);
+            cell.appendChild(tag('span', 'fr-pct', pct(L))); }
+          else cell.setAttribute('aria-valuetext', 'no wire');
+          var pips = tag('span', 'fr-pips');
+          for (var i = 0; i < 4; i++) { var on = w && w.lv[i] !== null, p = tag('span', 'fr-pip' + (on ? ' on' : '')); p.innerHTML = '<svg viewBox="0 0 10 10" width="6" height="6" aria-hidden="true"><path d="' + H.CORNERS[i].glyph + '" fill="' + (on ? 'var(--c' + LETTERS[i] + ')' : 'none') + '" stroke="var(--' + (on ? 'ink' : 'hair') + ')" stroke-width="1"/></svg>'; pips.appendChild(p); }
+          cell.appendChild(pips);
+          cell.title = LETTERS.map(function (l, i) { return l + ' ' + (w && w.lv[i] !== null ? pct(w.lv[i]) : '—'); }).join('  ') + (ret ? '\nA return wire, one sample late' : '');
+          editable(cell, r.id, c.id); g.appendChild(cell); }); });
+      mv.replaceChildren(g);
+    }
+
+    /* ---- editing, in both views, through setLevel only: a vertical drag (150 px is 100 %, Option a quarter as fine), a double-click (100 %), keys in keyboard mode
+       (arrows 1 %, Shift 10 %; Delete removes; Enter 100 %). A drag is one gesture, one onChange. No pointer capture: render() replaces the node as it moves. ---- */
+    function editable(node, u, v) { var k = u + '>' + v;
+      node.addEventListener('pointerdown', function (e) {
+        if (e.button !== 0) return; e.preventDefault(); st.sel = k;
+        if (st.show === HEARD) { refuseHeard(); render(); return; }
+        var c = st.show, w0 = model.find(u, v), start = w0 && w0.lv[c] !== null ? w0.lv[c] : 0, y0 = e.clientY, moved = false;
+        function mvf(ev) { var L = start - (ev.clientY - y0) / (ev.altKey ? 600 : 150); L = Math.round(L * 1000) / 1000;
+          if (model.setLevel(u, v, c, L)) moved = true; render(); var fw = model.find(u, v);
+          say(name(u) + ' → ' + name(v) + ' at ' + LETTERS[c] + ': ' + (fw && fw.lv[c] !== null ? pct(fw.lv[c]) : 'no wire (0 removes it)')); }
+        function up() { window.removeEventListener('pointermove', mvf); window.removeEventListener('pointerup', up); if (moved) changed(name(u) + ' → ' + name(v) + ' level'); }
+        window.addEventListener('pointermove', mvf); window.addEventListener('pointerup', up); render(); });
+      node.addEventListener('dblclick', function () {
+        if (st.show === HEARD) { refuseHeard(); return; }
+        var w = model.find(u, v), has = w && w.lv[st.show] !== null, why = model.can(u, v); if (why) { say(why); return; }
+        st.sel = k; var ch = model.setLevel(u, v, st.show, DEFAULT); render();
+        say(name(u) + ' → ' + name(v) + (has ? ' back to its default, ' : ' made at its default, ') + pct(DEFAULT) + ', at ' + LETTERS[st.show]);
+        if (ch) changed(name(u) + ' → ' + name(v) + ' to 100 %'); });
+      node.addEventListener('keydown', function (e) { if (!keysOn(o)) return;
+        var step = e.shiftKey ? .1 : .01, w = model.find(u, v), cur = w && st.show !== HEARD ? w.lv[st.show] : null, L;
+        if (e.key === 'ArrowUp' || e.key === 'ArrowRight') L = Math.round(((cur === null ? 0 : cur) + step) * 100) / 100;
+        else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') L = Math.round(((cur === null ? 0 : cur) - step) * 100) / 100;
+        else if (e.key === 'Delete' || e.key === 'Backspace') L = null;
+        else if (e.key === 'Enter') L = DEFAULT;
+        else return;
+        e.preventDefault(); if (st.show === HEARD) { refuseHeard(); return; }
+        st.sel = k; var ch = model.setLevel(u, v, st.show, L); render();
+        var n = el.querySelector((node.classList.contains('fr-cell') ? '.fr-cell' : '.fr-chip') + '[data-k="' + k + '"]') || el.querySelector('.fr-cell[data-k="' + k + '"]'); if (n) n.focus();
+        if (ch) changed(name(u) + ' → ' + name(v) + ' level'); });
+    }
+
+    function render() {
+      var Wn = W(), items = model.shown(st.show, Wn, prevent());
+      views.classList.toggle('stacked', (el.clientWidth || 980) < ROW_W);
+      drawMatrix(items); drawWires(items); lastW = Wn.map(function (x) { return x.toFixed(4); }).join(',');
+    }
+    if (typeof ResizeObserver === 'function') { var lastWidth = -1; new ResizeObserver(function () { var wd = el.clientWidth; if (wd !== lastWidth) { lastWidth = wd; render(); } }).observe(el); }
+    render();
+    me.el = el; me.model = model; me.redraw = render;
+    me.show = function (i) { st.show = i; pills.set(i); render(); };
+    me.select = function (k) { st.sel = k; render(); };
+    /* call from the frame loop: Heard follows the pad, and redraws only when the pad has moved */
+    me.step = function () { if (st.show !== HEARD) return; var k = W().map(function (x) { return x.toFixed(4); }).join(','); if (k !== lastW) render(); };
+    return me;
+  }
+  H.FxWires = FxWires; H.FxRouting = FxRouting;
 })();

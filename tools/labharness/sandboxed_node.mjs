@@ -101,6 +101,8 @@ const PROFILES = {
   'tools/labharness/gui_history_check.mjs': { read: ['src/param_presentation.tsv'] },
   // B584: GUI 3's stub engine and adapter (docs/design/gui3/*.js, under BASE_READ), evaluated with planted copies. Reads only.
   'tools/labharness/gui3_seam_check.mjs': {},
+  // GUI-75, GB41: the vendored bundle's FX routing block (docs/design/arp-face/bundle.js, under BASE_READ), evaluated alone. Reads only.
+  'tools/labharness/fx_routing_check.mjs': {},
   // Both judge planted labs in a worker thread (a runaway lab is terminated).
   'tools/labharness/morph_editor_check.mjs': { worker: true },
   'tools/labharness/lab_wheel_scroll_check.mjs': { worker: true },

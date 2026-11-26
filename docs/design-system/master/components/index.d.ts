@@ -251,6 +251,36 @@ export interface FxState { lanes: { id: string; name: string; short: string; sty
   out: { id: string; name: string; short: string }; cables: { u: string; v: string; wf: number; wb: number; loop: boolean; held: boolean }[]; rules?: Record<string, 'banned' | string> }
 export declare function FxRack(el: HTMLElement, get: () => FxState | null, session?: Session): { render(force?: boolean): void; renders: number };
 export declare function FxMatrix(el: HTMLElement, get: () => FxState | null, session?: Session): { render(force?: boolean): void; renders: number };
+
+/** GUI-75: FX routing. A wire holds a level per corner, in (0, 1], or null where it doesn't exist there; 0 % is never a wire's state. */
+export interface FxNode { id: string; kind: 'in' | 'mod' | 'out'; name: string; short: string; /** a module's screen key, or 'lane' | 'lane2' for an input */ style?: string; mock?: boolean }
+export interface FxWire { u: string; v: string; lv: [number | null, number | null, number | null, number | null] }
+/** The pure wire model: one writer, setLevel; corner 4 is Heard and is never written. */
+export declare class FxWires {
+  constructor(o: { nodes: FxNode[]; wires?: FxWire[] });
+  static HEARD: 4; static DEFAULT: 1;
+  static weights(x: number, y: number): [number, number, number, number];
+  nodes: FxNode[]; wires: FxWire[];
+  node(id: string): FxNode; find(u: string, v: string): FxWire | null; isReturn(u: string, v: string): boolean;
+  /** '' when u -> v may exist, else why not */
+  can(u: string, v: string): string;
+  /** L null or <= 0 removes the wire at that corner; true when the model changed */
+  setLevel(u: string, v: string, corner: CornerIndex, L: number | null): boolean;
+  heard(w: FxWire, weights: number[]): number | null;
+  levelAt(w: FxWire, corner: CornerIndex | 4, weights: number[]): number | null;
+  /** the wires drawn; with prevent, a loop's back edge is held at zero */
+  shown(corner: CornerIndex | 4, weights: number[], prevent: boolean): { w: FxWire; L: number; held: boolean }[];
+  static layout(model: FxWires, items: { w: FxWire; L: number; held: boolean }[], o: { uLen: number; hb: number; boxMax: number; base: number; pitch: number }): unknown;
+  static measure(layout: unknown, points: [number, number][][]): { wires: number; shared: number; overlap: number; cross: number; band: number; minGap: number };
+  /** everything the view draws, pure: the layout, the frame, each wire's screen points (P) and the level chips; a column is never under MIN_COL px */
+  static ladder(model: FxWires, items: { w: FxWire; L: number; held: boolean }[], hostWidth: number, o?: { pitch?: number }): { lay: unknown; map(u: number, v: number): [number, number]; width: number; height: number; clash: number; P: [number, number][][] };
+  static placeChips(layout: unknown, map: (u: number, v: number) => [number, number]): number;
+  static chipText(wire: { held: boolean; dir: 'f' | 'r'; L: number }): string;
+  static MIN_COL: 44; static CHIP_H: 13;
+}
+export interface FxRoutingOptions { nodes?: FxNode[]; wires?: FxWire[]; model?: FxWires; weights?: () => number[]; prevent?: () => boolean; keys?: boolean | (() => boolean);
+  start?: CornerIndex | 4; /** once per finished gesture: one undo step */ onChange?: (label: string) => void; say?: (text: string) => void }
+export declare function FxRouting(el: HTMLElement, o: FxRoutingOptions): { el: HTMLElement; model: FxWires; show(i: CornerIndex | 4): void; redraw(): void; step(): void; select(key: string): void; lastLayout: unknown };
 export declare function FxPanel(el: HTMLElement, get: () => FxState | null, session?: Session): { render(force?: boolean): void; renders: number };
 /** The cable encoding shared by the three views: weight, the dashed one-sample-late backward cable, the loop halo, wait dots; module styles (a cream card plus a screen and a cable colour: fxs-<module>-ground|ink|mid|cable, ADR-273). */
 export declare const FxCables: { MIN: number; STYLES: Record<string, unknown>; /** each module's display style and whether it is still a stand-in (ADR-273) */ SCREENS: Record<string, { name: string; standIn: boolean }>; styleOf(id: string): unknown; width(w: number): number; alpha(w: number): number; legend(el: HTMLElement, props: object): void; [k: string]: unknown };

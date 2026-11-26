@@ -343,6 +343,11 @@ fast() {
   # GUI-54's splash art (added under ADR-180 §1): the base64 the bundle carries is the master's PNG, byte for byte, with no metadata chunk.
   python3 tools/splash_art_check.py || ok=1
 
+  # GUI-75's FX routing (GB41; added under ADR-180 §1): the vendored bundle's ladder keeps every wire on its own port and track, no stretch shared, each band on
+  # its side, no chip on another, ports at least 3 px apart, at every corner and Heard, Prevent feedback off and on, four widths; and the wire model's one writer
+  # (0 removes at that corner), Heard and held back edges keep their laws. Six must-fail controls run each time. Sandboxed (sandbox_guard), under 1 s.
+  node tools/labharness/fx_routing_check.mjs || ok=1
+
   # ONE UNIFIED ENGINE (GUI-1; added under ADR-180 §1): nothing in the design master, the shell or a lab offers swarm and SCALPEL as
   # engines to choose between, because samples get copied and that is how the notion comes back. Python only, well under 1 s.
   python3 tools/engine_words_check.py || ok=1

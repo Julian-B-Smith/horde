@@ -176,6 +176,10 @@
   {
    "version": "1794163020-0651",
    "evidence": "docs/design/arp-face/README.md: the Mindlathe splash, its art decoded to a canvas, GUI-54, 2026-11-08"
+  },
+  {
+   "version": "1795724511-bd90",
+   "evidence": "docs/design/arp-face/README.md: FX routing, a ladder of separated wires beside a send matrix over one wire model (FxWires), GUI-75, 2026-11-26"
   }
  ],
  "vendoring": {
@@ -7675,15 +7679,15 @@
    "adr": "GUI-75",
    "clause": "FX routing: forward wires above the row and returns below, each on its own track and its own port, beside a send matrix; both views edit one wire model; drag between boxes makes a wire at 100 %, a matrix double-click sets 100 %, a wire at 0 is removed at that corner; return wires are real, one sample late, held when Prevent feedback is on",
    "port_tab": null,
-   "note": "Ruled from the lab; the master gets a routing component next (it replaces FxRack, FxMatrix and FxPatch's drawing; FxCables' encoding stays). Engine: GN-61, GN-62. FX device: the same, with its own inputs.",
-   "component": null,
-   "bundle": null,
+   "note": "Master: FxRouting (the ladder and the send matrix) over FxWires (the pure model, its one writer setLevel, Heard, back edges, the ladder's layout and the lab's instruments), with FxCables' cards, cable colours and waiting line; FxPatch marked superseded. Measured on the preview's sample at every corner: 0 shared ports, 0 overlaps, 0 band violations, 0 chip clashes; a 44 px minimum column keeps ports 3 px apart on a narrow host (the ladder scrolls). The shell's FX page still mounts FxPatch: the next hop. Engine: GN-61, GN-62. FX device: the same, with its own inputs.",
+   "component": "FxRouting",
+   "bundle": "FxRouting",
    "shell": null,
    "lab": "docs/design/fx-routing-lab.html",
    "via": null,
    "superseded_by": null,
-   "state": "ruled",
-   "master_version": null
+   "state": "vendored",
+   "master_version": "1795724511-bd90"
   }
  ],
  "not_design": [

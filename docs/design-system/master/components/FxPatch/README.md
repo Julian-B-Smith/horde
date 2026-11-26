@@ -1,5 +1,7 @@
 # FX patch
 
+**Superseded by `FxRouting` (GUI-75, 2026-11-26).** Its drawing (FX rack's arcs) gave way to the ladder and the send matrix, and its law (no loop at rest) to ADR-411 r1: return wires are real, one sample late, and Settings' Prevent feedback holds a loop's back edge at zero. It stays in the bundle until the shell moves to FX routing, then until the next consolidation.
+
 Routing on the FX page (GUI-41, a MOCK-UP the human directed): each corner is its own patch of wires between the sources and the hosted modules, and the pad blends the corners. It supersedes GUI-36's chains.
 
 **Every source is its own input.** Osc 1, Osc 2, the sub, the noise and both filter slots each feed modules on their own (the human: "all the oscs and filters need to be individually exposed on the interface because they can each independently feed into modules").

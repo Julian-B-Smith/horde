@@ -1,0 +1,44 @@
+<!-- @dsCard group="FX chain" height=560 subtitle="GUI-75: a ladder of separated wires beside the send matrix, one wire model; drag box to box to make a wire at 100 %, drag a level (0 removes it), double-click a cell for 100 %; return wires dashed, z⁻¹, one sample late" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>FX routing</title></head>
+<body>
+<div style="padding:14px 16px 10px">
+  <div class="hd-fit" style="gap:12px 18px; background:var(--panel); border:var(--stroke-ink) solid var(--ink); border-radius:var(--radius); padding:12px">
+    <div class="hd-col" style="gap:6px; flex:0 0 auto">
+      <span class="hd-cluster">Morph</span>
+      <div id="pad"></div>
+      <div class="hd-row"><span class="hd-label">Prevent feedback</span><button class="hd-toggle hd-focus" role="switch" aria-checked="false" aria-label="Prevent feedback (Settings, ADR-411)" id="prev"></button></div>
+    </div>
+    <div class="hd-col" style="gap:6px; flex:1 1 100%; min-width:0">
+      <div class="hd-row"><span class="hd-cluster">FX routing</span><span class="vtag">SAMPLE</span></div>
+      <div id="view"></div>
+    </div>
+  </div>
+  <p class="hd-hint" style="margin:6px 0 0">Forward wires run above the row, each on its own track and port; return wires run below, dashed, z⁻¹, one sample late. A wire's width and strength are its level, its colour its source's. Show picks a corner to edit, or Heard, the pad's blend, which isn't edited. Prevent feedback stands in for the Settings value: a loop's back edge is held at zero. SAMPLE data, made in this preview; never the engine.</p>
+</div>
+<script>
+(function () {
+  var H = window.Horde, S = new H.Session({ x: .3, y: .35 }), prevent = false;
+  var M = function (id, name, short, style) { return { id: id, kind: 'mod', name: name, short: short, style: style }; };
+  var nodes = [{ id: 'osc1', kind: 'in', name: 'Osc 1', short: 'O1', style: 'lane', mock: true }, { id: 'osc2', kind: 'in', name: 'Osc 2', short: 'O2', style: 'lane', mock: true },
+    { id: 'sub', kind: 'in', name: 'Sub', short: 'Su', style: 'lane2', mock: true }, { id: 'noise', kind: 'in', name: 'Noise', short: 'Nz', style: 'lane2', mock: true },
+    M('bulwark', 'Bulwark', 'Bw', 'bulwark'), M('weir', 'Weir', 'Wr', 'filter'), M('sluice', 'Sluice', 'Sl', 'sluice'), M('echo', 'Echo', 'Ec', 'echo'), M('scape', 'Scape', 'Sc', 'scape'),
+    { id: 'out', kind: 'out', name: 'Out', short: 'Out' }];
+  var all = function (v) { return [v, v, v, v]; };
+  var wires = [{ u: 'osc1', v: 'weir', lv: [1, .8, 1, .6] }, { u: 'osc2', v: 'weir', lv: [.7, .7, null, .5] }, { u: 'osc2', v: 'sluice', lv: [null, null, .6, .4] },
+    { u: 'sub', v: 'bulwark', lv: all(.8) }, { u: 'noise', v: 'echo', lv: [.35, .5, null, .2] }, { u: 'bulwark', v: 'out', lv: all(1) }, { u: 'weir', v: 'echo', lv: [.4, .25, .6, .3] },
+    { u: 'weir', v: 'scape', lv: [.5, .6, .3, .8] }, { u: 'weir', v: 'out', lv: [.8, .9, .7, .6] }, { u: 'sluice', v: 'scape', lv: [null, null, .5, .45] }, { u: 'sluice', v: 'out', lv: [null, null, .5, .5] },
+    { u: 'echo', v: 'scape', lv: [.5, .4, .3, .5] }, { u: 'echo', v: 'out', lv: all(.6) }, { u: 'scape', v: 'out', lv: all(1) },
+    { u: 'echo', v: 'weir', lv: [null, null, .2, .15] }, { u: 'scape', v: 'echo', lv: [null, .15, null, null] }];
+  H.XYPad(document.getElementById('pad'), S, { size: 132 });
+  var R = H.FxRouting(document.getElementById('view'), { nodes: nodes, wires: wires, weights: function () { return S.weights(); }, prevent: function () { return prevent; },
+    keys: function () { return S.keys; }, start: 0 });
+  var pv = document.getElementById('prev');
+  pv.addEventListener('click', function () { prevent = !prevent; pv.setAttribute('aria-checked', String(prevent)); R.redraw(); });
+  S.add({ render: function () { R.step(); } });
+  S.start();
+})();
+</script>
+</body>
+</html>
