@@ -13842,3 +13842,59 @@ One correction: ADR-359's lead reading ("They wait for B603 with Mangle and Echo
 
 **FX device (ADR-254):** the FX device will host Scape through the rack after 1.0; this test-only stage is the instrument's test build and fixes nothing the FX device inherits.
 
+
+## ADR-409 — RULED by the human: a retro screen for every FX module, the most complex on the freest; each module designs its own glass as Sluice does (ADR-400), under B591; the Master limiter has no glass (B591, B712; 2026-11-25)
+
+**Context.** The human, 2026-11-25: "recommend a screen type for each FX module from the retro designs, with the most complex modules getting the least restrictive designs … pass the interface design challenge to each respective agent so we can get the functionality right before passing them each back to the gui agent." The eleven glasses are GUI-58's. Before this, only three pairings were ruled (ADR-259 r5: Shriek on the 80s workstation, Sluice on the Game Boy Color, a plain Drive on the house screen). Scape, Bulwark and Echo were auditioning (ADR-259 r5). ADR-273 left their choice to them, and Filter, EQ and Drive to horde. ADR-313 then moved the EQ and Drive to Kiln and the filter to Weir, which left no ruling on who picks theirs.
+
+The lead ran a fan-out (2026-11-25, Opus throughout):
+- A screens reader ranked the glasses by what each lab can draw.
+- A modules reader ranked the modules by complexity, counting keys in each repo's manifest.
+- A synthesis proposed a map.
+- Two critics tried to refute the map. They overturned two of its moves:
+  - Bulwark stays on nixie. Nixie's compressor renderer already draws the transfer curve on its 22 x 16 lamp grid (`docs/design/fx-screens-workshop.html:3707-3716`), and Bulwark's spec has no OTT face (Bulwark SPEC-BULWARK.md:521).
+  - Scape goes to CAD. CAD was first drawn for a reverb, Room, whose FDN lines are reflection paths in a plan sized by Size (workshop :2889, :2959-2966).
+
+**Restrictiveness** (1 = freest), as ranked from the labs: house screen 1, 80s workstation 2, CAD blueprint 3, sonar scope 4, vector monitor 5, Game Boy Color 6, Phosphor CRT terminal 7, Teletext 8, Nixie and neon 9, Dot-matrix character LCD 10, segment glass 11.
+
+**Rulings** (the human, 2026-11-25, by poll: "Take it (Recommended)", "ADR-400 model, under B591 (Recommended)", "No, master or mixer page (Recommended)"):
+
+1. **The map.**
+
+| Module (most complex first) | Keys | Glass | Restrictiveness | Was |
+|---|---|---|---|---|
+| Sluice | a patch: 12 node types | Game Boy Color | 6 | ruled (ADR-259 r5), kept |
+| Shriek | 90 | 80s workstation | 2 | ruled (ADR-259 r5), kept |
+| Kiln EQ | 38 | Vector monitor | 5 | unassigned |
+| Echo | 29 | Sonar scope | 4 | audition, now ruled |
+| Scape | 29 | CAD blueprint | 3 | moved from the segment-glass audition |
+| Bulwark compressor | 21; 48 with the CONDITIONAL multiband | Nixie tubes and neon bargraphs | 9 | audition, now ruled |
+| Mangle | 7, five modes | Phosphor CRT terminal | 7 | unassigned (aims for 1.0, ADR-331, outside the frozen roster) |
+| Kiln Drive | 8 | House screen | 1 | ruled (ADR-259 r5), kept |
+| Weir FX filter | 6 | House screen, shared with Drive | 1 | unassigned |
+
+The character LCD and the segment glass have no module. The LCD can't draw a module's picture while GUI-58's marks fill its eight custom characters (DECISIONS GUI-58, "The character LCD's budget is full").
+
+2. **Each module designs its own glass under ADR-400's model.** As Sluice has since ADR-400:
+   - The module's agent designs its glass and pages, for horde's slot, the FX device and its own standalone.
+   - horde keeps the chassis rules (the screen frame, whole-number scales, the soft keys, the keyboard model, GUI-21) and each glass's GUI-58 marks. Corners go above a track and modulation below it, and each glass keeps its own grammar (GUI-58 A1).
+   - horde builds the accessible house-style DOM view, which is also the backup UI (ADR-235 r1).
+   - horde's GUI session reviews each revision against a written rules list and doesn't redraw it.
+   - The briefs go out under B591. Its acceptance already asks for "questions for each module's owner filed by brief".
+3. **The Master limiter has no glass.** Bulwark's limiter, horde's Master, lives on horde's master or mixer page.
+
+**The lead's readings, open to overrule.**
+- **The map settles ADR-273's open choice.** Bulwark, Echo and Scape now design on their assigned glass rather than choosing one. If a module's own work shows the glass can't carry something essential, it says so on its glass thread (`fx-glass`; Shriek's is `shriek-gui-lab`), in its own mailbox, and the human rules. ADR-313's open question (who picks Kiln's and Weir's glass) is answered by the same ruling.
+- **The two departures from the principle are deliberate, and the human took them knowing.**
+  - Sluice (most complex) stays on the sixth-freest glass. Its design pass since D-212 is on that glass, and the critics found everything it needs fits once the graph, spectrogram, XY and library are separate pages.
+  - Bulwark stays on nixie at 9. Without multiband it has 21 keys, and nixie draws its curve and meters. If multiband is ruled in and nixie can't hold its view, that comes back to the human.
+- **Shriek's GUI lab stays parked** (GB14, the human's "Defer both", 2026-11-05). Shriek's brief says the challenge is there when its session takes it up. It continues the `shriek-gui-lab` thread: horde's seq 41 to 44, and Shriek's answers seq 43 and 44 (2026-11-06, ball none; horde `integrations/maw/response-gui-lab*.md`). The two repos share one counter, last at 47 (on `maw-fxc-consumer`), so the brief is seq 48. GB14's "unanswered" is stale, and the GUI session has been told.
+- **Sluice gets a notice, not a new brief.** Its design continues as it is.
+- **The rules lists are the GUI session's.** It writes one per glass from GUI-58, the master's screens section and the chassis rules. Until a glass's list exists, the brief's draft list stands, pending the GUI session's confirmation, as seq 88's did for Sluice.
+- **Bezel lamps (GB33) are still open,** so the line between a glass's rows and the chassis may move. Module agents shouldn't treat their row layout as final.
+
+**Rejected** (the poll's other options): "Take it; Mangle on Teletext"; "Strict principle instead" (Sluice to CAD, Scape to CRT, Bulwark to vector, EQ to Game Boy Color); "Not yet"; "Recommend, they choose"; "Skip Shriek for now"; "Yes, segment glass" for the Master.
+
+**FX device (ADR-254):** the FX device hosts the same modules on the same glasses, and each module's standalone uses its glass too (ruling 2). Nothing here is instrument-only.
+
+**Engine impact:** none. Every glass draws the module's own parameters through the module's writers, and corner ownership is GN-18's, already listed.
