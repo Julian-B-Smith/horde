@@ -13842,3 +13842,65 @@ One correction: ADR-359's lead reading ("They wait for B603 with Mangle and Echo
 
 **FX device (ADR-254):** the FX device will host Scape through the rack after 1.0; this test-only stage is the instrument's test build and fixes nothing the FX device inherits.
 
+
+## ADR-410 — RULED by the human: FX modules morph per corner like the engine, live in patches (old patches load dry), and route by real send levels per corner; heard in the test plug-in first through one generic module slot (B713, B714, B715; 2026-11-25)
+
+**Context.** The human, 2026-11-25, after hearing Scape in build 14:
+> "We need to work some things out in the contract so we don't have to rebuild the whole system from scratch every time a module is reintroduced. First of all, FX modules get wired into morph just like everything else. Second, they are part of patches, so if I change patches, it shouldn't keep the same FX active. Third, I no longer like the routing interface and would like to see a version that keeps the wires tidy and rational and separated. It might help to also include the routing matrix view to see the percentages of the sends. And they should be real."
+
+Also: "I think scape sounds great" (an ears note on B710).
+
+The lead surveyed the contract, the test plug-in, the routing page and the engine's sends (2026-11-25, Opus, read-only: four readers, a synthesis and an adversarial critic). The findings:
+- **In the test plug-in:**
+  - Scape and Weir's filter are host parameters outside the patch. A preset change never touches them (`tools/engine-preview/preview_plugin.cpp:1770-1784`), and bank entries carry no FX (`bank.h:16-18`).
+  - FX edits bypass the morph (`:787-801`), whose corners cover engine rows only (`:774`).
+  - Each module needed its own host-id block, adapter, page bindings and tests.
+- **In the contract** (`docs/proposals/rack-slot-contract.md`, ADR-201 and its amendments):
+  - It already rules the morph, flip and Device classes, per-corner module patches (RS-6.1 to 6.3), and static nodes (ADR-201 Q2).
+  - Nothing makes module keys morph keys. MS-27 does this for modulators only.
+  - The shell's patch document has no `fx` member (B616's open preset seam).
+  - Manifests lack the normalised law ADR-203 asks for.
+  - No horde 2 wire has a send level.
+- **On the routing page:** GUI-41's FX routing is a directed mock, never ruled (GB21). Its wires share one port point per box, so they stack and cross by construction.
+- **In the engine:**
+  - The only real chain today is engine → Weir → Scape → out.
+  - ADR-088's crosspoint coefficient (`src/routing_core.h`, "FX-agnostic by construction") is horde's own and is reused, not reinvented.
+  - RC-5 gives the rack one stereo pair (per-source inputs are B528's open item).
+
+**Rulings** (the human, 2026-11-25, by poll):
+1. **"Per corner, like engine".** Every FX module setting can differ at each corner and morphs with the pad, as engine rows do.
+   - FX on/off is per corner and follows MO-26's on-switch law: it fades by level under Blend and Stepped, switches at its quantum boundary under Quantum, and a module that comes back on lands.
+   - Stepped (flip-class) settings switch at the morph's quantum boundary, by the module's own `switch` (RS-4.3, ADR-309).
+   - This amends ADR-169 A1's default: one locked module preset across the corners becomes the opt-in.
+2. **"Dry: FX off".** FX are part of patches: loading a patch replaces every module's state, slot by slot. A patch saved without FX, which today is the whole bank, loads with every module off at its defaults.
+3. **"Real levels per corner".** Each wire holds a 0-100 % send level at each corner, saved in the patch.
+   - Levels blend as the pad moves, as a gain does (ADR-377's "a parameter, not a mix of renders").
+   - A wire that exists at only some corners appears or disappears at the quantum boundary, so no two chain topologies sound together across the pad (ADR-377).
+   - The level is ADR-088's continuous crosspoint coefficient, carried into horde 2.
+4. **"Test plug-in first".** One generic module slot is built as a library that both the test plug-in and S8's shell link. Scape and Weir move onto it, so the human hears FX morphing and FX in patches before S8. The morph is the clean room's (IF-12), so module keys enter it through a SPEC-ENGINE round that the clean-room builder implements, delivered to both clean-room repos the same turn.
+
+**The lead's readings, open to overrule.**
+- **The aim is a module arriving by its manifest alone.**
+  - The slot library is built over FOUNDATIONS' FX-operator ABI (ADR-201 Q1), with `admission::Module` kept as its test wrapper.
+  - Host ids, the page's house-style controls (from the bridge's hello) and the module-neutral tests are generated from each module's manifest.
+  - A module then needs a pin, a manifest that passes admission, and a state-budget row. An adapter is needed only where it lacks the interface.
+- **The schema is FOUNDATIONS', and the modules own their manifests.** New manifest fields (a normalised `law` per key, a `mod` flag for keys modulation may reach) go to FOUNDATIONS by brief, and to each module as a notice of the new MUSTs (ADR-309's precedent).
+- **The patch's `fx` member** sits beside MS-36's `mod` member, outside IF-4. ADR-254's checklist (the lead's, under the human's ruling 2) asks for a separable FX section with its own version. Device keys and the user's tail spill-over setting survive a load (RS-4.5, ADR-188 item 6).
+- **Loop legality is checked where edges are consumed** (ADR-088), whatever the GUI refuses.
+- **The routing views are the GUI session's** (ADR-336, GB21): tidy, separated wires and a matrix of send percentages, both drawn from one wire model with real values from the bridge, master first (ADR-316). The bridge side (publishing wires, levels and module I/O meters) is the lead's (B714, B715).
+- **Still open, for the human at the contract round (B713):**
+  - feedback in 1.0: RS-3.5's one-sample feedback cables against GUI-41's "block feedback in 1.0";
+  - per-source rack inputs (B528's open item);
+  - bypass: RS-4.8's slot gain staging against GUI-18, and GN-2's open points;
+  - whether the test plug-in's FX keep host ids once they morph and live in patches (GUI-74 and B711, against RS-5.6);
+  - whether a corner-preset load replaces that corner's FX (GN-9, GN-52, B528);
+  - the whole-chunk size ceiling (INTEGRATION Decision 16).
+
+**Rejected** (the poll's other options): "Locked unless unlocked"; "A house default chain" and "Keep what's playing"; "Levels blend everywhere" and "On/off wires only"; "With the wavetable plug-in (S8)".
+
+**FX device (ADR-254):** the same. The FX device morphs its modules' settings per corner, keeps its chain in its patches, and routes by the same per-corner send levels; the slot library is shared.
+
+**Engine impact:**
+- a SPEC-ENGINE round (module keys in the resolver; the patch's `fx` member);
+- the slot library and its crosspoint, from `routing_core.h`'s form;
+- bridge messages for wires, levels and module meters.

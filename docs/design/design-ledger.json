@@ -8811,6 +8811,10 @@
   {
    "adr": "ADR-408",
    "reason": "Scape plays after the engine in the test plug-in, test-only (B710): a build and audio-path ruling with nothing in the design master; its rows appear as host parameters only, and a Scape panel on the page is the GUI session's to design if wanted (the hand-over on B710)."
+  },
+  {
+   "adr": "ADR-410",
+   "reason": "FX modules morph per corner, live in patches (old patches load dry) and route by real per-corner send levels, through one generic module slot (B713-B715): a contract, engine and bridge ruling. Its design consequence, the routing views (tidy wires and a send matrix with real values), is the GUI session's to rule as a GUI-n with its own ledger rows (GB21); nothing here enters the design master."
   }
  ],
  "engine_impact": {
