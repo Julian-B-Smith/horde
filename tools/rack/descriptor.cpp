@@ -7,6 +7,13 @@
 
 namespace rack {
 
+std::string param_name(const SlotRow& row, int key) {
+  if (key < 0) return row.on_host_name.empty() ? row.name + " on" : row.on_host_name;
+  const KeyRow& k = row.keys[std::size_t(key)];
+  return k.host_name.empty() ? row.name + " " + k.label : k.host_name;
+}
+const std::vector<std::string>& host_labels(const KeyRow& key) { return key.host_labels.empty() ? key.labels : key.host_labels; }
+
 std::string key_name(int n, const std::string& address) { return "fx/" + std::to_string(n) + "/" + address; }
 std::string switch_name(int n) { return "fx/" + std::to_string(n) + ".on"; }
 
@@ -62,7 +69,7 @@ std::string slots_json(const Rack& rack) {
     for (std::size_t k = 0; k < row.keys.size(); ++k) {
       const KeyRow& key = row.keys[k];
       out += std::string(k ? "," : "") + "{\"key\":" + json_quoted(key_name(row.n, key.address)) + ",\"id\":" + std::to_string(key.host_id) +
-             ",\"name\":" + json_quoted(row.name + " " + key.label) + ",\"cls\":\"" + cls_name(key.cls) + "\",\"law\":" + json_quoted(key.law_name) +
+             ",\"name\":" + json_quoted(param_name(row, int(k))) + ",\"cls\":\"" + cls_name(key.cls) + "\",\"law\":" + json_quoted(key.law_name) +
              ",\"mod\":" + (key.mod ? "true" : "false") + ",\"min\":";
       json_number(out, key.law.lo);
       out += ",\"max\":";
@@ -87,9 +94,9 @@ std::string slot_meters_json(const Rack& rack) {
   for (int s = 0; t && s < rack.slots(); ++s) {
     const SlotMeters m = rack.meters(s);
     char b[200];
-    std::snprintf(b, sizeof b, "%s{\"slot\":%d,\"in\":{\"peak\":%.7g,\"clip\":%s},\"out\":{\"peak\":%.7g,\"clip\":%s},\"nonfinite\":%llu}", s ? "," : "",
-                  t->slots[std::size_t(s)].n, double(m.in_peak), m.in_clip ? "true" : "false", double(m.out_peak), m.out_clip ? "true" : "false",
-                  (unsigned long long)m.nonfinite);
+    std::snprintf(b, sizeof b, "%s{\"slot\":%d,\"in\":{\"peak\":%.7g,\"clip\":%s},\"out\":{\"peak\":%.7g,\"clip\":%s},\"nonfinite\":%llu,\"tailLost\":%s}",
+                  s ? "," : "", t->slots[std::size_t(s)].n, double(m.in_peak), m.in_clip ? "true" : "false", double(m.out_peak), m.out_clip ? "true" : "false",
+                  (unsigned long long)m.nonfinite, m.tail_lost ? "true" : "false");
     out += b;
   }
   return out + "]";

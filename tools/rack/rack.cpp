@@ -13,12 +13,12 @@ namespace rack {
 
 namespace {
 constexpr std::uint64_t kRungOut = std::numeric_limits<std::uint64_t>::max() / 2;   // nothing in it: cleared
-// 0 dBFS. A clip is a sample past full scale: a definition of the meter, not a tolerance.
-constexpr float kFullScale = 1.0f;
+// 0 dBFS. A clip is a sample past full scale: the meter's threshold.
+constexpr float kClipThreshold = 1.0f;
 #ifdef HORDE_RACK_PLANT_LEVEL_CUT
 // The pre-B714 shell's stop for its first module (a tail() under 1e-7: a level, not exact zero), as the
 // must-fail control that the idle check tells "quiet" from "exactly silent".
-constexpr double kOldLevelStop = 1e-7;
+constexpr double kOldLevelThreshold = 1e-7;
 #endif
 double gain_of_db(double db) { return std::pow(10.0, db / 20.0); }
 }  // namespace
@@ -50,6 +50,8 @@ struct Rack::Slot {
   std::atomic<float> in_peak{0}, out_peak{0};
   std::atomic<bool> in_clip{false}, out_clip{false};
   std::atomic<std::uint64_t> nonfinite{0};
+  std::atomic<bool> tail_lost{false};    // its properties() lost the tail it declared at prepare: latched, reported
+  std::atomic<std::uint64_t> starts{0};  // times the slot started cleared (switched on, or the host's reset)
   float acc_in = 0, acc_out = 0;
   double last_out = 0;                   // the last block's output peak (the level-cut plant reads it)
   bool acc_in_clip = false, acc_out_clip = false;
@@ -110,6 +112,7 @@ bool Rack::prepare(double sample_rate) {
     }
     for (const KeyRow& c : row.constants) {
       if (!resolved) break;
+      if (sl.n_const >= kMaxKeys) { fail("more constants than kMaxKeys"); resolved = false; break; }   // the table refuses it first
       sl.const_handle[sl.n_const] = sl.mod->resolve(c.address);
       sl.const_value[sl.n_const] = c.def;
       if (sl.const_handle[sl.n_const++] < 0) { fail("its module does not resolve " + c.address); resolved = false; }
@@ -262,6 +265,7 @@ bool Rack::process(float* left, float* right, std::uint32_t frames, bool idle) {
         // Every value, then the reset, which snaps each to its target: the module starts cleared and lands at once.
         send_values(sl, s, true);
         sl.mod->reset();
+        sl.starts.fetch_add(1, std::memory_order_relaxed);
         sl.quiet = kRungOut;
         for (int side = 0; side < 2; ++side) {   // RS-4.6: a supplied gain opens at its saved value, unglided
           if (sl.io[side] < 0) continue;
@@ -279,11 +283,18 @@ bool Rack::process(float* left, float* right, std::uint32_t frames, bool idle) {
         for (std::uint32_t i = 0; i < n && zeros; ++i) zeros = l[i] == 0 && r[i] == 0;
       if (zeros && !never_cut) {
 #ifdef HORDE_RACK_PLANT_LEVEL_CUT   // must-fail: the slot stops once its last block was quiet, not when its tail is over
-        if (sl.last_out < kOldLevelStop) continue;
+        if (sl.last_out < kOldLevelThreshold) continue;
 #else
         const foundations::OperatorProperties props = sl.mod->properties();   // re-queried: a tail may change
-        const std::uint64_t tail = props.tail ? std::uint64_t(props.tail->samples) : 0;
-        if (sl.quiet >= tail) continue;   // its tail has passed: its output would be the zeros already there
+        // kInfiniteTail is FOUNDATIONS' sentinel for "never decays to silence", never a count of samples, so a slot
+        // that declares it is never cut. A tail the module stops declaring after prepare is not read as 0 either
+        // (RS-2.3): the slot runs on, and the loss is latched and reported in its meters.
+        bool infinite = props.tail && props.tail->samples == foundations::kInfiniteTail;
+#ifdef HORDE_RACK_PLANT_INFINITE_AS_FINITE   // must-fail: the sentinel read as 2^32 - 1 samples
+        infinite = false;
+#endif
+        if (!props.tail) sl.tail_lost.store(true, std::memory_order_relaxed);
+        else if (!infinite && sl.quiet >= std::uint64_t(props.tail->samples)) continue;   // its tail has passed: its output would be the zeros already there
 #endif
       }
       if (!converted) {
@@ -292,14 +303,14 @@ bool Rack::process(float* left, float* right, std::uint32_t frames, bool idle) {
       }
       float pk = sl.acc_in;
       for (std::uint32_t i = 0; i < n; ++i) pk = std::max({pk, float(std::fabs(x[0][i])), float(std::fabs(x[1][i]))});
-      sl.acc_in_clip = sl.acc_in_clip || pk > kFullScale;
+      sl.acc_in_clip = sl.acc_in_clip || pk > kClipThreshold;
       sl.acc_in = pk;
       // The slot's own I/O gains, where the module declares none (RS-4.7): in before the module, out after it.
       for (int side = 0; side < 2; ++side) {
         if (sl.io[side] < 0) continue;
         const double target = gain_of_db(sl.value[sl.io[side]].load(std::memory_order_relaxed));
         if (target != sl.g_target[side]) {
-          const double glide = std::max(1.0, std::round(kGainGlideSeconds * sample_rate_));
+          const double glide = std::max(1.0, std::round(kGainGlideBoundS * sample_rate_));
           sl.g_target[side] = target;
           sl.g_step[side] = (target - sl.g_cur[side]) / glide;
           sl.g_left[side] = std::uint32_t(glide);
@@ -323,12 +334,17 @@ bool Rack::process(float* left, float* right, std::uint32_t frames, bool idle) {
       double block_peak = 0;
       for (std::uint32_t i = 0; i < n; ++i) {
         for (int c = 0; c < 2; ++c)
-          if (!std::isfinite(y[c][i])) { y[c][i] = 0; ++bad; }
+          if (!std::isfinite(y[c][i])) {
+            y[c][i] = 0;
+#ifndef HORDE_RACK_PLANT_GUARD_NO_LATCH   // must-fail: the guard zeroes the sample and says nothing
+            ++bad;
+#endif
+          }
         block_peak = std::max({block_peak, std::fabs(y[0][i]), std::fabs(y[1][i])});
       }
       po = std::max(po, float(block_peak));
       sl.last_out = block_peak;
-      sl.acc_out_clip = sl.acc_out_clip || po > kFullScale;
+      sl.acc_out_clip = sl.acc_out_clip || po > kClipThreshold;
       sl.acc_out = po;
       if (bad) sl.nonfinite.fetch_add(bad, std::memory_order_relaxed);
       std::swap(x[0], y[0]);
@@ -360,8 +376,13 @@ SlotMeters Rack::meters(int slot) const {
   m.in_clip = sl.in_clip.load(std::memory_order_relaxed);
   m.out_clip = sl.out_clip.load(std::memory_order_relaxed);
   m.nonfinite = sl.nonfinite.load(std::memory_order_relaxed);
+  m.tail_lost = sl.tail_lost.load(std::memory_order_relaxed);
+  m.starts = sl.starts.load(std::memory_order_relaxed);
   return m;
 }
 void Rack::clear_meters() { meter_reset_.store(true, std::memory_order_relaxed); }
+void Rack::test_set_quiet(int slot, std::uint64_t samples) {
+  if (slot >= 0 && slot < slots()) slot_[std::size_t(slot)].quiet = samples;
+}
 
 }  // namespace rack

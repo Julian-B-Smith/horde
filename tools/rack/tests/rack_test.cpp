@@ -13,10 +13,12 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <limits>
 #include <memory>
 #include <string>
 #include <vector>
 
+#include "flush_to_zero.h"
 #include "module.h"
 #include "rack/chunk.h"
 #include "rack/descriptor.h"
@@ -34,6 +36,9 @@ void check(bool ok, const std::string& what) {
 constexpr double kRate = 44100;
 constexpr std::uint32_t kBlock = 512;
 constexpr double kPi = 3.14159265358979323846;
+// How long after its input stops a declared tail must have ended for the idle check below to see the cut (Scape's
+// default tail is preDelay + 1 + 11 x decay, about 25 s).
+constexpr double kIdleTailBoundS = 40;
 
 std::uint32_t mulberry32(std::uint32_t& a) {
   std::uint32_t t = a += 0x6D2B79F5u;
@@ -178,10 +183,135 @@ void table_rules() {
   }
 }
 
+// ---- test modules of this file's own, for the guard, the tail sentinel and a tail lost at run time -----------------
+// Each passes its input, one key (t.gain, unused), and does one thing on top: emits a NaN once; or declares
+// kInfiniteTail; or stops declaring a tail once `lose` is set; or records whether its input ever held a non-finite.
+struct Probe final : admission::Module {
+  enum Kind { kNanOnce, kInfinite, kLosesTail, kRecorder } kind;
+  explicit Probe(Kind k) : kind(k) {}
+  bool lose = false, saw_nonfinite = false, emitted = false;
+  std::uint64_t calls = 0;
+  std::vector<admission::ParamSpec> manifest() const override { return {}; }
+  std::string manifestJson() const override { return ""; }
+  admission::Declared declared() const override { return {}; }
+  bool prepare(double, std::uint32_t) override { prepared = true; return true; }
+  void reset() override {}
+  foundations::OperatorProperties properties() const override {
+    foundations::OperatorProperties p;
+    if (!prepared) return p;
+    p.latency = foundations::LatencyDecl{0, 0.0, foundations::ResidualSign::kNone};
+    if (!(kind == kLosesTail && lose)) p.tail = foundations::TailDecl{kind == kInfinite || kind == kLosesTail ? foundations::kInfiniteTail : 0u, true};
+    p.min_block = 1;
+    return p;
+  }
+  int resolve(std::string_view a) const override { return a == "t.gain" ? 0 : -1; }
+  bool setParam(int, double) override { return true; }
+  double getParam(int) const override { return 0; }
+  void process(const admission::Sample* il, const admission::Sample* ir, admission::Sample* ol, admission::Sample* orr, std::uint32_t n) override {
+    ++calls;
+    for (std::uint32_t i = 0; i < n; ++i) {
+      saw_nonfinite = saw_nonfinite || !std::isfinite(il[i]) || !std::isfinite(ir[i]);
+      ol[i] = il[i], orr[i] = ir[i];
+    }
+    if (kind == kNanOnce && !emitted && n > 10) ol[10] = std::numeric_limits<double>::quiet_NaN(), emitted = true;
+  }
+  std::size_t stateBudget() const override { return 64; }
+  std::size_t saveState(char*, std::size_t) const override { return 0; }
+  bool stageState(std::string_view) override { return true; }
+  bool adoptStaged() override { return true; }
+  bool parsePatch(std::string_view, admission::Patch&, std::string*) const override { return true; }
+  std::string writePatch(const admission::Patch&) const override { return ""; }
+  bool stagePatch(const admission::Patch&) override { return true; }
+  double macroValue(const admission::Bind&, double v) const override { return v; }
+  admission::Meters meters() const override { return {}; }
+  void clearMeters() override {}
+  std::uint64_t nonFiniteCount() const override { return 0; }
+  bool nonFiniteLatched() const override { return false; }
+  void clearNonFiniteLatch() override {}
+  bool plantNonFiniteState() override { return false; }
+  admission::Settings dryProbe() const override { return {}; }
+  bool dryExact() const override { return true; }
+  admission::Settings stressProbe() const override { return {}; }
+  bool prepared = false;
+};
+// A table of Probe modules, one per kind given, slot i named "probe<i>", their instances kept in `made`.
+rack::SlotTable probe_table(const std::vector<Probe::Kind>& kinds, std::vector<Probe*>& made) {
+  std::vector<rack::ModuleSource> m;
+  std::string ids;
+  int next = 0xF10000;
+  made.assign(kinds.size(), nullptr);
+  for (std::size_t i = 0; i < kinds.size(); ++i) {
+    const std::string name = "probe" + std::to_string(i);
+    rack::ModuleSource s;
+    s.key = s.name = name;
+    s.manifest = "{\"module\":\"" + name + "\",\"params\":[{\"address\":\"t.gain\",\"class\":\"morph\",\"min\":0,\"max\":1,\"default\":0,\"unit\":\"\"}]}";
+    s.overlay = "{\"module\":\"" + name + "\",\"keys\":{\"t.gain\":{\"law\":\"lin\",\"mod\":false}}}";
+    s.budgets = "{\"modules\":{\"" + name + "\":{\"bytes\":64,\"status\":\"test\"}}}";
+    s.budget_key = name;
+    const Probe::Kind k = kinds[i];
+    Probe** slot = &made[i];
+    s.make = [k, slot] { auto p = std::make_unique<Probe>(k); *slot = p.get(); return std::unique_ptr<admission::Module>(std::move(p)); };
+    m.push_back(s);
+    char b[400];
+    std::snprintf(b, sizeof b, "%s{\"id\":\"0x%06X\",\"module\":\"%s\",\"switch\":true},{\"id\":\"0x%06X\",\"module\":\"%s\",\"key\":\"t.gain\"},"
+                  "{\"id\":\"0x%06X\",\"module\":\"%s\",\"key\":\"io.inGain\",\"slot_io\":true},{\"id\":\"0x%06X\",\"module\":\"%s\",\"key\":\"io.outGain\",\"slot_io\":true}",
+                  i ? "," : "", next, name.c_str(), next + 1, name.c_str(), next + 2, name.c_str(), next + 3, name.c_str());
+    ids += b;
+    next += 4;
+  }
+  return rack::build_slot_table(m, {"{\"ids\":[" + ids + "]}"});
+}
+
+void guard_and_tail_rules() {
+  {  // RS-7.9: a NaN out of a module is zeroed before the next slot hears it, counted, and the count stays (latched)
+    std::vector<Probe*> made;
+    const rack::SlotTable t = probe_table({Probe::kNanOnce, Probe::kRecorder}, made);
+    auto r = make_rack(t);
+    r->set_on(0, true);
+    r->set_on(1, true);
+    const std::vector<float> y = render(*r, burst(4 * kBlock, 0, 5));
+    bool finite = true;
+    for (float x : y) finite = finite && std::isfinite(x);
+    const std::uint64_t first = r->meters(0).nonfinite;
+    render(*r, burst(4 * kBlock, 0, 6));
+    const std::uint64_t later = r->meters(0).nonfinite;
+    check(t.refused.empty() && made[0] && made[0]->emitted && finite && made[1] && !made[1]->saw_nonfinite,
+          "guard: a NaN out of a module never reaches the next slot or the output");
+    check(first == 1 && later == 1, "guard: it is counted (" + std::to_string(first) + ") and the count is latched, not cleared by later blocks (" + std::to_string(later) + ")");
+    check(rack::slot_meters_json(*r).find("\"nonfinite\":1") != std::string::npos, "guard: the frame's slot meters report it");
+  }
+  {  // kInfiniteTail is never read as 2^32 - 1 samples
+    std::vector<Probe*> made;
+    const rack::SlotTable t = probe_table({Probe::kInfinite}, made);
+    auto r = make_rack(t);
+    r->set_on(0, true);
+    render(*r, burst(kBlock, 0, 7));
+    r->test_set_quiet(0, 0xFFFFFFFFull - 600);
+    const std::uint64_t before = made[0]->calls;
+    bool ran = false;
+    render(*r, burst(0, 4 * kBlock), &ran);
+    check(made[0]->calls == before + 4 && ran, "tail: a slot declaring kInfiniteTail still runs after 2^32 - 600 silent samples (" +
+                                                   std::to_string(made[0]->calls - before) + " of 4 blocks)");
+  }
+  {  // a tail the module stops declaring after prepare is neither read as 0 nor hidden
+    std::vector<Probe*> made;
+    const rack::SlotTable t = probe_table({Probe::kLosesTail}, made);
+    auto r = make_rack(t);
+    r->set_on(0, true);
+    render(*r, burst(kBlock, 0, 8));
+    made[0]->lose = true;
+    const std::uint64_t before = made[0]->calls;
+    render(*r, burst(0, 2 * kBlock));
+    check(made[0]->calls == before + 2 && r->meters(0).tail_lost && rack::slot_meters_json(*r).find("\"tailLost\":true") != std::string::npos,
+          "tail: a tail lost at run time does not cut the slot, and is latched and reported");
+  }
+}
+
 }  // namespace
 
 int main() {
   table_rules();
+  guard_and_tail_rules();
   const rack::SlotTable& table = rack::registered_table();
   for (const std::string& r : table.refused) std::printf("     table refused: %s\n", r.c_str());
   check(table.refused.empty() && !table.slots.empty(), "the registry's table builds every module it names (" + std::to_string(table.slots.size()) + " slots)");
@@ -276,7 +406,7 @@ int main() {
   }
   // ---- (5) idle cut: one rule, against the same rack that never cuts ----
   {
-    const std::vector<float> tail_in = burst(std::uint32_t(kRate / 4), std::uint32_t(40 * kRate));
+    const std::vector<float> tail_in = burst(std::uint32_t(kRate / 4), std::uint32_t(kIdleTailBoundS * kRate));
     for (int s = 0; s < full->slots(); ++s) {
       const rack::SlotRow& row = table.slots[std::size_t(s)];
       auto cut = make_rack(table), never = make_rack(table);
@@ -332,6 +462,87 @@ int main() {
     rack::write_fx(rack::capture(*b), again);
     check(again == text, "round trip: save, load, save is byte-identical (%.17g)");
     check(render(*a, in) == render(*b, in), "round trip: the loaded rack plays what the saved one played, bit for bit");
+  }
+  // ---- every value of every stepped key, every other key at its minimum and then its maximum: finite, and no
+  // subnormal under flush-to-zero through a long silent tail with subnormal samples in its input (B660's corner sweep,
+  // generated from the table). The control is the same runs without flush-to-zero, which must reach subnormals. ----
+  {
+    std::vector<float> corner_in(2 * 60 * 2048, 0.0f);
+    {
+      const std::vector<float> b = burst(4 * 2048, 0, 11);
+      std::copy(b.begin(), b.end(), corner_in.begin());
+      for (std::size_t i = 2 * 4 * 2048; i < corner_in.size(); i += 97) corner_in[i] = 1e-40f;   // subnormal input, here and there
+    }
+    std::size_t flushed = 0, unflushed = 0, runs = 0;
+    bool finite = true;
+    for (int s = 0; s < full->slots(); ++s) {
+      const rack::SlotRow& row = table.slots[std::size_t(s)];
+      std::vector<int> stepped_keys;
+      for (std::size_t k = 0; k < row.keys.size(); ++k)
+        if (rack::stepped(row.keys[k].law)) stepped_keys.push_back(int(k));
+      std::size_t combos = 1;
+      for (int k : stepped_keys) combos *= std::size_t(row.keys[std::size_t(k)].law.n);
+      for (std::size_t c = 0; c < combos; ++c)
+        for (bool high : {false, true})
+          for (bool flush : {true, false}) {
+            auto r = make_rack(table);
+            r->set_on(s, true);
+            std::size_t rest = c;
+            for (std::size_t k = 0; k < row.keys.size(); ++k) {
+              const rack::KeyLaw& law = row.keys[k].law;
+              if (rack::stepped(law)) {
+                r->set_units(s, int(k), rack::units_of_host(law, double(rest % std::size_t(law.n))));
+                rest /= std::size_t(law.n);
+              } else {
+                r->set_units(s, int(k), high ? law.hi : law.lo);
+              }
+            }
+            std::vector<float> y;
+            if (flush) horde2::underFlushToZero([&] { y = render(*r, corner_in, nullptr, true, 2048); });
+            else y = render(*r, corner_in, nullptr, true, 2048);
+            // A subnormal the slot MADE: one that is not its input handed on untouched (a slot skipped for its tail
+            // passes its input as it came, as a bypassed one does, and under flush-to-zero a subnormal input reads as
+            // zero to that test).
+            for (std::size_t i = 0; i < y.size(); ++i) {
+              finite = finite && std::isfinite(y[i]);
+              (flush ? flushed : unflushed) += std::fpclassify(y[i]) == FP_SUBNORMAL && y[i] != corner_in[i] ? 1 : 0;
+            }
+            runs += flush;
+          }
+    }
+    check(finite && flushed == 0, "every slot, every value of every stepped key, the rest at their minima and maxima (" + std::to_string(runs) +
+                                      " runs): finite, and no subnormal made under flush-to-zero, its long silent tail and subnormal input included");
+    check(unflushed > 0, "control: the same runs without flush-to-zero do make subnormals (" + std::to_string(unflushed) + "), so the check can see one");
+  }
+  // ---- a load while the audio thread runs never passes through a dry state: a slot it keeps on is never restarted ----
+  {
+    auto r = make_rack(table);
+    for (int s = 0; s < r->slots(); ++s) r->set_on(s, true);
+    render(*r, in);
+    rack::FxState keep = rack::capture(*r);   // every slot on; and a value that moves, so the load changes something
+    for (auto& rec : keep.slots)
+      for (const auto& row : table.slots)
+        if (row.module == rec.module)
+          for (const auto& k : row.keys)
+            if (k.cls != rack::Cls::Device && !rack::stepped(k.law)) {
+              for (auto& corner : rec.keys) corner.push_back({k.address, other_units(k), NAN});
+              break;
+            }
+    std::vector<std::uint64_t> before;
+    for (int s = 0; s < r->slots(); ++s) before.push_back(r->meters(s).starts);
+    std::vector<float> l(kBlock), rr(kBlock);
+    std::uint32_t seed = 21;
+    int blocks = 0;
+    std::vector<std::string> report;
+    rack::apply(*r, keep, report, [&] {
+      for (std::uint32_t i = 0; i < kBlock; ++i) l[i] = float(double(mulberry32(seed)) / 4294967296.0 - 0.5), rr[i] = l[i];
+      r->process(l.data(), rr.data(), kBlock, false);
+      ++blocks;
+    });
+    bool kept = true;
+    for (int s = 0; s < r->slots(); ++s) kept = kept && r->meters(s).starts == before[std::size_t(s)] && r->on(s);
+    check(kept && blocks > 0, "a load that keeps every slot on, with an audio block after every store (" + std::to_string(blocks) +
+                                  "), never switches one off or restarts it");
   }
   // ---- (6) the frozen legacy lines migrate (a), and a reader that drops them is caught (d) ----
   {

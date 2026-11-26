@@ -1050,7 +1050,7 @@ void follow_voices(Plugin& s, horde::Engine& engine) {
         default: break;
       }
     }
-    if (n < 64) break;   // bounded: the engine's own queue is finite, and each pass empties up to 64 of it
+    if (n < 64) break;   // bounded: the engine's own queue is finite, and each round empties up to 64 of it
   }
 }
 
@@ -1932,12 +1932,16 @@ bool params_value_to_text(const clap_plugin_t*, clap_id id, double value, char* 
     const double units = rack::units_of_host(key.law, value);
     if (rack::stepped(key.law)) {
       const long index = std::lround(std::clamp(value, 0.0, rack::host_max(key.law)));
-      if (index >= 0 && std::size_t(index) < key.labels.size()) std::snprintf(out, size, "%s", key.labels[std::size_t(index)].c_str());
+      const std::vector<std::string>& labels = rack::host_labels(key);
+      if (index >= 0 && std::size_t(index) < labels.size()) std::snprintf(out, size, "%s", labels[std::size_t(index)].c_str());
       else std::snprintf(out, size, "%ld", index);
       return true;
     }
-    // Nine places first (no -2e-15 on a panel); four digits, so a frequency reads 1000 Hz, not 1e+03 Hz.
-    std::snprintf(out, size, key.unit.empty() ? "%.4g" : "%.4g %s", std::round(units * 1e9) / 1e9 + 0.0, key.unit.c_str());
+    // Nine places first (no -2e-15 on a panel). From 1000 up, whole units ("12000 Hz", as the pre-B714 build read),
+    // never %g's exponent form ("1.2e+04"); below it, four significant digits.
+    const double shown = std::round(units * 1e9) / 1e9 + 0.0;
+    const char* form = std::fabs(shown) >= 1000 ? (key.unit.empty() ? "%.0f" : "%.0f %s") : (key.unit.empty() ? "%.4g" : "%.4g %s");
+    std::snprintf(out, size, form, shown, key.unit.c_str());
     return true;
   }
   const int m = manifest_index(id);

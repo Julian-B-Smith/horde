@@ -213,9 +213,12 @@ class WeirModule final : public Module {
 
   Settings dryProbe() const override { return {{"fxfilter.mix", 0}}; }   // mix 0: the input exactly
   bool dryExact() const override { return true; }
-  // Every stage engaged: a resonant high-pass with Ring, fully wet.
+  // Every stage engaged: a resonant high-pass with Ring, fully wet. The values decide what the slot's "values reach
+  // the module" check exercises, so they are named for the tolerance inventory to list.
+  static constexpr double kStressCutoffThresholdHz = 2000, kStressResonanceThreshold = 0.9, kStressRingThreshold = 0.5;
   Settings stressProbe() const override {
-    return {{"fxfilter.mode", 2}, {"fxfilter.cutoff", 2000}, {"fxfilter.resonance", 0.9}, {"fxfilter.morph", 0.5}, {"fxfilter.mix", 1}};
+    return {{"fxfilter.mode", 2}, {"fxfilter.cutoff", kStressCutoffThresholdHz}, {"fxfilter.resonance", kStressResonanceThreshold},
+            {"fxfilter.morph", kStressRingThreshold}, {"fxfilter.mix", 1}};
   }
 
  private:

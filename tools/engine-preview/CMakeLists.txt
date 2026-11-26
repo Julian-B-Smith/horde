@@ -68,7 +68,7 @@ endif()
 # The rack (B714): the generic module slot, tools/rack, and every module tools/rack/modules.json hands the default
 # plug-in (its non-test entries), each from its pin: a tree at exactly its .pin's commit with its clean paths as that
 # commit has them, or the configure stops (the module played is the module admitted), and FOUNDATIONS pinned by tree
-# (foundations.pin), its fx_operator.h byte-identical to every copy a module vendors. tools/rack/CMakeLists.txt says
+# (tools/rack/pins/foundations.pin), its fx_operator.h byte-identical to every copy a module vendors. tools/rack/CMakeLists.txt says
 # how. Nothing here names a module.
 set(HORDE_RACK_CHOC_DIR ${PREVIEW_CHOC_DIR})
 add_subdirectory(${HORDE_REPO_ROOT}/tools/rack ${CMAKE_BINARY_DIR}/rack)
@@ -231,6 +231,7 @@ target_link_libraries(preview-gui-shot PRIVATE clap "-framework AppKit" "-framew
 add_executable(preview-bridge-test bridge_test.cpp bridge_core.cpp morph_core.cpp)
 target_include_directories(preview-bridge-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${HORDE_REPO_ROOT}/h2 ${PREVIEW_CHOC_DIR})
 target_link_libraries(preview-bridge-test PRIVATE horde_engine2 preview_rack_modules)
+target_compile_definitions(preview-bridge-test PRIVATE "HORDE_PREVIEW_FIXTURES=\"${CMAKE_CURRENT_SOURCE_DIR}/fixtures\"")
 
 # The recorded frames GUI 3's ReplayTransport plays (section 7): a fixed chord through the built plug-in's bridge.
 add_executable(preview-frames-dump frames_dump.cpp)

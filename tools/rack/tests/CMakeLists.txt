@@ -49,6 +49,7 @@ horde_rack_library(rack_clean)
 horde_rack_registry(reg_clean RACK rack_clean MODULES ${HORDE_RACK_TEST_MODULES} LEDGERS ${HORDE_RACK_LEDGERS})
 add_executable(rack_test rack_test.cpp)
 target_link_libraries(rack_test PRIVATE reg_clean)
+target_include_directories(rack_test PRIVATE ${HORDE_RACK_ROOT}/h2)
 
 # The must-fail builds, one fault each (rack.cpp, chunk.cpp):
 #   off-keeps-gains  an off slot keeps its I/O gains in the path (RS-4.8 as it stood; the +-6 dB checks)
@@ -58,11 +59,15 @@ target_link_libraries(rack_test PRIVATE reg_clean)
 #   level-cut        a slot stops once its output is quiet (under 1e-7, the old filter's rung_out), not exactly silent
 #   drop-slot-state  a save forgets the first slot's record (the round trip)
 #   ignore-legacy    the legacy reader consumes version 5 and 6 lines and drops what they say (the migration)
-foreach(plant OFF_KEEPS_GAINS DEAF NO_VALUES IDLE_CUT LEVEL_CUT DROP_SLOT_STATE IGNORE_LEGACY)
+#   guard-no-latch   the non-finite guard zeroes a sample and counts nothing (RS-7.9: latch and report)
+#   infinite-as-finite  kInfiniteTail read as 2^32 - 1 samples
+#   apply-via-dry    a load passes through the dry state (the first S1 build), so a slot it keeps on restarts
+foreach(plant OFF_KEEPS_GAINS DEAF NO_VALUES IDLE_CUT LEVEL_CUT DROP_SLOT_STATE IGNORE_LEGACY GUARD_NO_LATCH INFINITE_AS_FINITE APPLY_VIA_DRY)
   string(TOLOWER ${plant} name)
   string(REPLACE "_" "-" name ${name})
   horde_rack_library(rack_${name} DEFINES HORDE_RACK_PLANT_${plant})
   horde_rack_registry(reg_${name} RACK rack_${name} MODULES ${HORDE_RACK_TEST_MODULES} LEDGERS ${HORDE_RACK_LEDGERS})
   add_executable(rack_test_${name} rack_test.cpp)
   target_link_libraries(rack_test_${name} PRIVATE reg_${name})
+  target_include_directories(rack_test_${name} PRIVATE ${HORDE_RACK_ROOT}/h2)
 endforeach()

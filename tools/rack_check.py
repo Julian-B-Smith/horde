@@ -22,11 +22,15 @@ THREE PARTS, each printed, none silently passed:
                rack whose process() allocates (HORDE_RACK_PLANT_ALLOC) must be reported; then the clean schedule must
                read zero.
   C  PREVIEW   the test plug-in's own smoke and bridge test (tools/engine-preview/build.sh: the rack through a host,
-               the whole bank, the page's keys, the migration and the loud refusal). It needs the clean-room engine's
-               export, so it runs only when $HORDE_PREVIEW_ENGINE names an engine commit (build.sh's argument, from
-               $HORDE_ENGINE2_REPO); otherwise it is SKIPPED with that reason. Minutes of builds.
+               the whole bank, the page's keys, the third module by data alone and its planted-branch control, the
+               migration and its goldens, the loud refusal and its silent plant). It needs the clean-room engine's
+               export: it builds on the engine the migration goldens were made on (fixtures/migration-goldens.json
+               `engine`), or the one $HORDE_PREVIEW_ENGINE names, from build.sh's default repo ($HORDE_ENGINE2_REPO,
+               else ~/Documents/Claude/cleanroom-engine). SKIPPED only when that repo or commit is absent. Minutes of
+               builds.
 A part that cannot run (a tree, the compiler or the engine missing) is SKIPPED with its reason, and the last line and
-the `KIT-GATE skipped:` receipt line name it: a green run beside a skip is a partial measurement and says so.
+the `KIT-GATE skipped:` receipt line name it. The verdict word is GREEN only when every part ran whole; PARTIAL when
+some part, or some of the smoke, did not run; SKIPPED when nothing ran; RED on any failure.
 
 Builds go to build-rack/ under the repo root (never into a sibling tree). choc's JSON header comes from
 $HORDE_LIBS_DIR/choc, the repo's libs/choc, or the main checkout's (a worktree has no submodules checked out).
@@ -42,7 +46,9 @@ sys.path.insert(0, str(ROOT / "tools"))
 import rtsan_check  # the compiler rule, one copy (imported after the path it lives on is added)
 
 BUILD = ROOT / "build-rack"
-PLANTS = ["off-keeps-gains", "deaf", "no-values", "idle-cut", "level-cut", "drop-slot-state", "ignore-legacy"]
+PLANTS = ["off-keeps-gains", "deaf", "no-values", "idle-cut", "level-cut", "drop-slot-state", "ignore-legacy", "guard-no-latch",
+          "infinite-as-finite", "apply-via-dry"]
+GOLDENS = ROOT / "tools/engine-preview/fixtures/migration-goldens.json"
 LEDGERS = [ROOT / "tools/engine-preview/host_ids.lock.json"] + sorted((ROOT / "tools/rack/test").glob("host_ids*.json"))
 
 
@@ -65,23 +71,29 @@ def choc_dir():
     return None
 
 
-def missing_trees():
-    out = []
+def trees():
+    """{variable: path} for every module tree modules.json names and FOUNDATIONS, resolved as the CMake resolves them
+    (the variable from the environment, else its ~-relative default), and passed to every configure as -D, so a cached
+    build never keeps a tree the environment no longer names."""
+    out = {}
     for m in json.loads((ROOT / "tools/rack/modules.json").read_text(encoding="utf-8"))["modules"]:
         t = m.get("tree")
-        if t and not Path(os.environ.get(t["var"]) or os.path.expanduser(t["default"])).is_dir():
-            out.append(f"{m['key']} (no tree at {t['var']})")
-    f = os.environ.get("HORDE_FOUNDATIONS_DIR") or os.path.expanduser("~/Documents/Claude/synthetic-worlds/FOUNDATIONS")
-    if not Path(f).is_dir():
-        out.append("FOUNDATIONS (no tree at HORDE_FOUNDATIONS_DIR)")
+        if t:
+            out[t["var"]] = os.environ.get(t["var"]) or os.path.expanduser(t["default"])
+    out["HORDE_FOUNDATIONS_DIR"] = os.environ.get("HORDE_FOUNDATIONS_DIR") or os.path.expanduser("~/Documents/Claude/synthetic-worlds/FOUNDATIONS")
     return out
+
+
+def missing_trees():
+    return [f"{var} (no tree at {path})" for var, path in trees().items() if not Path(path).is_dir()]
 
 
 def configure(build, choc, extra, log):
     build.mkdir(parents=True, exist_ok=True)
     # No build type here: tools/rack/tests/CMakeLists.txt defaults to Release itself, as tools/admission's does.
     cmd = ["cmake", "-S", str(ROOT / "tools/rack/tests"), "-B", str(build), "-G", "Unix Makefiles",
-           f"-DHORDE_RACK_CHOC_DIR={choc}", "-DHORDE_RACK_LEDGERS=" + ";".join(str(l) for l in LEDGERS)] + extra
+           f"-DHORDE_RACK_CHOC_DIR={choc}", "-DHORDE_RACK_LEDGERS=" + ";".join(str(l) for l in LEDGERS)] + \
+          [f"-D{var}={path}" for var, path in trees().items()] + extra
     return run(cmd, log)
 
 
@@ -163,22 +175,47 @@ def part_b(choc):
     return green, None
 
 
-def part_c():
+def main_checkout():
+    """The checkout that holds libs/ and build-release/ (a worktree has neither): the git common dir's parent."""
+    r = subprocess.run(["git", "-C", str(ROOT), "rev-parse", "--git-common-dir"], capture_output=True, text=True)
+    return (ROOT / r.stdout.strip()).resolve().parent if r.returncode == 0 else ROOT
+
+
+def part_c(choc):
+    """The preview's smoke and bridge test, on the engine the migration goldens were made on (their `engine`, a full
+    commit) unless $HORDE_PREVIEW_ENGINE names another, from build.sh's own default repo. SKIPPED only when that repo
+    or commit is not there. Returns (verdict, why): True, False, "partial" (some of it not run), or None (skipped)."""
     engine = os.environ.get("HORDE_PREVIEW_ENGINE")
     if not engine:
-        return None, "no engine commit named (set HORDE_PREVIEW_ENGINE to run tools/engine-preview/build.sh <commit>)"
+        try:
+            engine = json.loads(GOLDENS.read_text(encoding="utf-8"))["engine"]
+        except (OSError, ValueError, KeyError):
+            return None, f"no engine commit named and none in {GOLDENS.relative_to(ROOT)}"
+    repo = os.environ.get("HORDE_ENGINE2_REPO") or os.path.expanduser("~/Documents/Claude/cleanroom-engine")
+    if subprocess.run(["git", "-C", repo, "cat-file", "-e", f"{engine}^{{commit}}"], capture_output=True).returncode != 0:
+        return None, f"the engine repo ({repo}) is absent or lacks commit {engine[:10]}"
+    if choc is None:
+        return None, "no libs/ with clap, clap-wrapper and choc (HORDE_LIBS_DIR)"
     out = BUILD / "preview"
     out.mkdir(parents=True, exist_ok=True)
-    env = dict(os.environ, HORDE_PREVIEW_OUT=str(out))
+    env = dict(os.environ, HORDE_PREVIEW_OUT=str(out), HORDE_ENGINE2_REPO=repo, HORDE_LIBS_DIR=os.environ.get("HORDE_LIBS_DIR") or str(choc.parent))
+    cache = main_checkout() / "build-release/_deps"
+    if "HORDE_SDK_CACHE" not in env and (cache / "horde_vst3sdk-src").is_dir():
+        env["HORDE_SDK_CACHE"] = str(cache)
+    env.update({var: path for var, path in trees().items()})
     log = BUILD / "preview.log"
     rc = run(["bash", str(ROOT / "tools/engine-preview/build.sh"), engine], log, env=env)
     text = log.read_text(encoding="utf-8", errors="replace")
     for l in text.splitlines():
-        if l.startswith("FAIL") or ": GREEN" in l or ": RED" in l or l.startswith("     migration") or "CPU" in l:
+        if l.startswith(("FAIL", "NOT RUN", "KIT-GATE skipped:")) or ": GREEN" in l or ": RED" in l or ": PARTIAL" in l or l.startswith("     migration") or "CPU" in l:
             print("   " + l)
-    green = rc == 0 and "engine-preview smoke: GREEN" in text and "bridge_test: GREEN" in text
-    print(f"C  the preview's smoke and bridge test on engine {engine}: {'GREEN' if green else 'RED'} ({log})")
-    return green, None
+    smoke_green, smoke_partial = "engine-preview smoke: GREEN" in text, "engine-preview smoke: PARTIAL" in text
+    ok = rc == 0 and "bridge_test: GREEN" in text and (smoke_green or smoke_partial)
+    word = "RED" if not ok else "PARTIAL" if smoke_partial else "GREEN"
+    print(f"C  the preview's smoke and bridge test on engine {engine[:10]}: {word} ({log})")
+    if not ok:
+        return False, None
+    return ("partial", "the smoke ran with parts NOT RUN (its KIT-GATE line above)") if smoke_partial else (True, None)
 
 
 def main():
@@ -198,15 +235,19 @@ def main():
             skipped.append(f"B real time ({why})")
         else:
             red = red or not got
-    got, why = part_c()
+    got, why = part_c(choc)
     if got is None:
         print(f"C  SKIPPED: {why}; nothing was measured, and this is NOT a pass")
         skipped.append(f"C preview ({why})")
+    elif got == "partial":
+        skipped.append(f"C preview, in part ({why})")
     else:
         red = red or not got
     if skipped:
         print("KIT-GATE skipped: " + "; ".join(skipped))
-    print(f"rack_check: {'RED' if red else 'GREEN'}{' (partial: ' + str(len(skipped)) + ' part(s) skipped)' if skipped else ''}")
+    # GREEN only when every part ran whole. PARTIAL when some ran green and some did not run; SKIPPED when none ran.
+    word = "RED" if red else "GREEN" if not skipped else "SKIPPED" if len(skipped) == 3 and not any("in part" in s for s in skipped) else "PARTIAL"
+    print(f"rack_check: {word}{' (' + str(len(skipped)) + ' not run: ' + '; '.join(skipped) + ')' if skipped else ''}")
     return 1 if red else 0
 
 

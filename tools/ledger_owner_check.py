@@ -54,6 +54,7 @@ LEDGERS = [
     "docs/armor/acceptances.json",
     "docs/armor/engines.json",
     "tools/param_id_lock.json",
+    "tools/engine-preview/host_ids.lock.json",
     "tools/build_flags_pin.json",
     "tools/license_allowlist.json",
     "h2/engine/selfdigest.*",
@@ -68,6 +69,7 @@ GUARDS = [
     "tools/weakening_check.py",
     "tools/tolerance_registry_check.py",
     "tools/param_id_lock_check.py",
+    "tools/host_id_ledger_check.py",
     "tools/build_flags_check.py",
     "tools/license_audit_check.py",
 ]
@@ -78,7 +80,6 @@ KNOWN_UNLISTED = {
     "docs/port/divergences.json": "ratified-divergence record; whether it is an approval ledger is the human's ruling",
     "h2/cores/swarm/lift-ledger.json": "lift record; whether it is an approval ledger is the human's ruling",
     "docs/design/design-ledger.json": "the design chain's record (ADR-336, B595), updated by the GUI session with each hop; its vendoring.known_drift entries pin a drift for the human to rule on, so whether it needs code-owner review is the human's ruling",
-    "tools/engine-preview/host_ids.lock.json": "the test plug-in's host-id ledger for module keys (B714): append-only, held by tools/host_id_ledger_check.py, with no approval step (a new key takes next_free); whether it needs code-owner review is the human's ruling",
 }
 
 PINISH = re.compile(r"(^|[-_.])(pin|lock|baseline|allowlist|tolerances|ledger|divergences|acceptances)([-_.]|$)")

@@ -255,6 +255,7 @@ SlotTable build_slot_table(const std::vector<ModuleSource>& modules, const std::
       if (row.keys[k].address == "io.outGain") row.io_out = int(k);
     }
     if (int(row.keys.size()) > kMaxKeys) { refuse(std::to_string(row.keys.size()) + " keys, past kMaxKeys (" + std::to_string(kMaxKeys) + ")"); continue; }
+    if (int(row.constants.size()) > kMaxKeys) { refuse(std::to_string(row.constants.size()) + " constant keys, past kMaxKeys (" + std::to_string(kMaxKeys) + ")"); continue; }
     if (man.hasObjectMember("fixedControls") && man["fixedControls"].isArray())
       for (std::uint32_t i = 0; i < man["fixedControls"].size() && i < 4; ++i) {
         const auto f = man["fixedControls"][i];
@@ -267,6 +268,9 @@ SlotTable build_slot_table(const std::vector<ModuleSource>& modules, const std::
     Alias al;
     al.preview = text(a, "preview");
     al.plain = text(a, "form") == "plain";
+    al.name = text(a, "name");
+    if (a.hasObjectMember("labels") && a["labels"].isArray())
+      for (std::uint32_t i = 0; i < a["labels"].size(); ++i) al.labels.emplace_back(a["labels"][i].getString());
     bool found = false;
     for (std::size_t s = 0; s < t.slots.size() && !found; ++s) {
       if (t.slots[s].module != text(a, "module")) continue;
@@ -275,7 +279,16 @@ SlotTable build_slot_table(const std::vector<ModuleSource>& modules, const std::
       for (std::size_t k = 0; k < t.slots[s].keys.size() && !found; ++k)
         if (t.slots[s].keys[k].address == text(a, "key")) { al.key = int(k); found = true; }
     }
-    if (found && !al.preview.empty()) t.aliases.push_back(al);   // a module this build doesn't host has no alias here
+    if (!found || al.preview.empty()) continue;   // a module this build doesn't host has no alias here
+    SlotRow& row = t.slots[std::size_t(al.slot)];
+    if (al.key < 0) {
+      if (!al.name.empty()) row.on_host_name = al.name;
+    } else {
+      KeyRow& k = row.keys[std::size_t(al.key)];
+      if (!al.name.empty()) k.host_name = al.name;
+      if (al.labels.size() == k.labels.size()) k.host_labels = al.labels;   // an alias can rename options, never add one
+    }
+    t.aliases.push_back(al);
   }
   return t;
 }

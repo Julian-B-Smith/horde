@@ -49,6 +49,10 @@ struct KeyRow {
   std::vector<std::string> labels;   // a stepped key's options, from the manifest's `values`
   std::uint32_t host_id = 0;   // the ledger's
   bool slot_io = false;        // the slot supplies it (the module declares no io pair, RS-4.7); not a module parameter
+  // The host's name and option texts where a shell's ledger freezes earlier ones (its aliases): what a DAW showed
+  // before stays what it shows. Empty: the generic name ("<module name> <label>") and the manifest's values.
+  std::string host_name;
+  std::vector<std::string> host_labels;
 };
 
 struct FixedControl { std::string label, address; };   // RS-5.8: at most four, the manifest's fixedControls
@@ -60,6 +64,7 @@ struct SlotRow {
   std::uint32_t budget_row = 0;        // the table's per-corner bytes
   std::string budget_status;           // ruled | provisional, as the table says
   std::uint32_t on_id = 0;             // fx/N.on's host id
+  std::string on_host_name;            // as KeyRow::host_name, for the switch
   bool owns_io = false;                // the manifest declares io.inGain and io.outGain itself
   int io_in = -1, io_out = -1;         // indices into keys of the slot's I/O pair (owned or supplied)
   std::vector<KeyRow> keys;            // morph and flip keys in manifest order, then Device keys, then a supplied io pair
@@ -74,6 +79,8 @@ struct Alias {
   int key = -1;                // index into that slot's keys; -1 is its switch
   std::string preview;         // the old page key
   bool plain = false;          // published in module units (lin over [min, max]), else in the host value's own form
+  std::string name;            // the old published name ("" none)
+  std::vector<std::string> labels;   // the old option texts (empty: the manifest's)
 };
 
 // A frozen legacy chunk line (versions 5 and 6), translated by ids, never by module code.

@@ -53,7 +53,7 @@ def names():
     """(case-insensitive names, exact addresses), each with where it came from."""
     words, addresses = {}, {}
     for m in json.loads((ROOT / MODULES).read_text(encoding="utf-8"))["modules"]:
-        for field in ("key", "module", "factory"):
+        for field in ("key", "module", "factory", "name"):
             if m.get(field):
                 words[m[field].lower()] = f"modules.json {m['key']}.{field}"
         over = ROOT / m["overlay"]
@@ -70,6 +70,18 @@ def names():
     return words, addresses
 
 
+CAMEL = re.compile(r"[A-Z]+(?=[A-Z][a-z])|[A-Z]?[a-z]+|[A-Z]+|\d+")
+
+
+def parts(tok):
+    """A token's words: split on '.', '_' and camelCase boundaries, so `scape_on`, `kScapeOnId` and `scapeGain` each
+    hold the word `scape`, while `escape` stays one word that is no module's."""
+    out = []
+    for piece in re.split(r"[._]", tok):
+        out += [w.lower() for w in CAMEL.findall(piece)]
+    return out
+
+
 def hits(text, words, addresses):
     out = []
     for n, line in enumerate(text.splitlines(), 1):
@@ -82,9 +94,9 @@ def hits(text, words, addresses):
             elif tok.lower() in words:
                 out.append((n, tok, words[tok.lower()]))
             else:
-                for part in tok.split("."):
-                    if part.lower() in words:
-                        out.append((n, tok, words[part.lower()]))
+                for part in parts(tok):
+                    if part in words:
+                        out.append((n, tok, words[part]))
                         break
     return out
 
@@ -100,13 +112,23 @@ def main():
     plugin = (ROOT / SOURCES[0]).read_text(encoding="utf-8")
     some_name = sorted(words)[0]
     some_address = sorted(addresses)[0] if addresses else None
+    word = next((w for w in sorted(words) if w.isalpha() and len(w) > 3), some_name)
+    camel = word[0].upper() + word[1:]
+    display = next((json.loads((ROOT / MODULES).read_text(encoding="utf-8"))["modules"][i]["name"]
+                    for i in range(len(json.loads((ROOT / MODULES).read_text(encoding="utf-8"))["modules"]))), "x")
     plants = [(f"a module's name in a comment (\"{some_name}\")", plugin + f"\n// the {some_name} slot\n", True),
+              (f"a name inside a camelCase identifier (\"{word}Gain\")", plugin + f"\nconst double {word}Gain = 1;\n", True),
+              (f"a name inside a k-constant (\"k{camel}OnId\")", plugin + f"\nconstexpr int k{camel}OnId = 1;\n", True),
+              (f"a name inside a snake_case identifier (\"{word}_on\")", plugin + f"\nconst bool {word}_on = true;\n", True),
+              (f"a branch on a display name (\"{display}\")", plugin + f"\nif (row.name == \"{display}\") return;\n", True),
               ("an if (module == ...) branch", plugin + f"\nif (row.module == \"{some_name}\") return;\n", True),
+              ] + [(f"every module word inside a camelCase identifier (\"{w}Gain\")", plugin + f"\nconst double {w}Gain = 1;\n", True)
+                   for w in sorted(words) if w.isalnum()] + [
               ("\"escape\", a word holding a name inside it", plugin + "\n// escape the loop\n", False)]
     if some_address:
         plants.append((f"an address (\"{some_address}\")", plugin + f"\nresolve(\"{some_address}\");\n", True))
     for label, text, should in plants:
-        red = bool(hits(text, words, addresses)) != bool(hits(plugin, words, addresses))
+        red = len(hits(text, words, addresses)) > len(hits(plugin, words, addresses))
         ok = red == should
         print(f"{'PASS' if ok else 'FAIL'}  control: {label}: {'red' if red else 'green'}")
         if not ok:

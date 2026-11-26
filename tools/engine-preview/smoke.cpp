@@ -21,6 +21,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <ctime>
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -44,6 +45,21 @@ int failures = 0;
 // judged on the failures its plant ADDS, not on ones it shares with the clean build.
 bool controlling = false;
 std::vector<std::string> failed_checks;
+// What could not be measured on this run (B714: a skip is never a pass). The verdict is PARTIAL while any is here.
+std::vector<std::string> not_run;
+void note_not_run(const std::string& what) {
+  std::printf("NOT RUN %s\n", what.c_str());
+  not_run.push_back(what);
+}
+int verdict(const char* name) {
+  if (failures) std::printf("%s: RED (%d failed)\n", name, failures);
+  else if (!not_run.empty()) {
+    std::string list;
+    for (const auto& n : not_run) list += (list.empty() ? "" : "; ") + n;
+    std::printf("KIT-GATE skipped: %s\n%s: PARTIAL (0 failed; %zu not run: %s)\n", list.c_str(), name, not_run.size(), list.c_str());
+  } else std::printf("%s: GREEN (0 failed)\n", name);
+  return failures ? 1 : 0;
+}
 void check(bool ok, const std::string& what) {
   std::printf("%s %s\n", controlling ? (ok ? "ctl+" : "ctl-") : ok ? "ok  " : "FAIL", what.c_str());
   if (!ok) ++failures, failed_checks.push_back(what);
@@ -1248,10 +1264,21 @@ std::string descriptor_miss(Loaded& p, const RackHello& h, int engine_rows) {
     const bool stepped = (info.flags & CLAP_PARAM_IS_STEPPED) != 0;
     if (d.name != info.name || info.min_value != 0 || d.max != info.max_value || d.def != info.default_value || d.stepped != stepped)
       return d.key + ": its name, host range, default or stepping differs from the host's " + info.name;
-    for (std::size_t k = 0; stepped && k < d.labels.size(); ++k) {
+    // The host's option texts are the pre-B714 ones where the ledger freezes them (the alias of the same id), else
+    // the manifest's that hello.slots lists.
+    const std::vector<std::string>* labels = &d.labels;
+    for (const Descriptor& a : h.aliases)
+      if (a.id == d.id && a.stepped && a.labels.size() == d.labels.size()) labels = &a.labels;
+    for (std::size_t k = 0; stepped && k < labels->size(); ++k) {
       char text[64] = "";
       p.params->value_to_text(p.plugin, d.id, double(k), text, sizeof text);
-      if (d.labels[k] != text) return d.key + ": label " + d.labels[k] + " where the host reads " + text;
+      if ((*labels)[k] != text) return d.key + ": label " + (*labels)[k] + " where the host reads " + text;
+    }
+    // A continuous key's text at the top of its range is plain digits, never %g's exponent ("2e+04 Hz").
+    if (!stepped) {
+      char text[64] = "";
+      p.params->value_to_text(p.plugin, d.id, d.max, text, sizeof text);
+      if (std::string(text).find("e+") != std::string::npos) return d.key + ": the host reads its maximum as " + text;
     }
   }
   for (const Descriptor& a : h.aliases) {
@@ -1339,6 +1366,11 @@ void only_on(Loaded& p, const RackHello& h, const std::vector<int>& on) {
 // whose output sounds while the frame after them reads the output peak as 0 (the idle path skipped a block's guard and
 // meter although a slot wrote it).
 constexpr std::uint32_t kTailFrames = 44100 * 4, kTailOff = 44100 * 3 / 10;
+// The window a tail is judged in: from well after the note's own sound has ended (the smoke presets chosen fall
+// silent within 1.2 s of their note-off at 0.3 s) to the end of the render.
+constexpr double kTailFromBoundS = 1.5, kTailToBoundS = 4;
+// "Most of them make sound": the share of the bank an off-is-bit-identical pass must hear, so two dead builds can't pass.
+constexpr int kLoudPresetsThreshold = kBankSize / 2;
 std::vector<float> play_tail(Loaded& p, int preset, const std::vector<clap_id>& on = {}, const std::vector<clap_id>& off = {}, int* unmetered = nullptr) {
   std::vector<std::pair<clap_id, double>> offs;
   for (clap_id id : off) offs.emplace_back(id, 0);
@@ -1506,7 +1538,7 @@ void rack_checks(const char* clap, const char* norack, const char* rack_idle, co
                   std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count());
       check(identical == kBankSize, tag + "every slot off" + (pass ? " (after each has run)" : "") + ": every preset (" + std::to_string(kBankSize) +
                                         ") is bit-identical to the build with no rack module" + (first_bad >= 0 ? " (first difference: " + std::string(kBank[first_bad].name) + ")" : ""));
-      check(loud >= kBankSize / 2, tag + "control: most of them make sound, so identical is not the silence of two dead builds (" + std::to_string(loud) + ")");
+      check(loud >= kLoudPresetsThreshold, tag + "control: most of them make sound, so identical is not the silence of two dead builds (" + std::to_string(loud) + ")");
     }
     // Reported, never gating (ADR-347): what the slots cost here, on this machine under its load now.
     {
@@ -1534,7 +1566,7 @@ void rack_checks(const char* clap, const char* norack, const char* rack_idle, co
         const int i = find_preset(name);
         if (i < 0) continue;
         const std::vector<float> a = play_tail(ref, i);
-        if (peak(a) > 0 && energy_between(a, 1.5, 4) == 0) { quick = i; break; }
+        if (peak(a) > 0 && energy_between(a, kTailFromBoundS, kTailToBoundS) == 0) { quick = i; break; }
       }
       check(quick >= 0, tag + "a smoke preset that falls silent within 1.2 s of its note-off, to hear a tail after");
       std::vector<clap_id> every;
@@ -1556,13 +1588,13 @@ void rack_checks(const char* clap, const char* norack, const char* rack_idle, co
         close_instance(cut);
         close_instance(never);
         close_instance(planted);
-        const bool rings = energy_between(yn, 1.5, 4) > 0;
+        const bool rings = energy_between(yn, kTailFromBoundS, kTailToBoundS) > 0;
         ringing += rings;
         std::printf("     %s: %s after the engine falls silent\n", name.c_str(), rings ? "rings" : "is silent");
         check(!yc.empty() && yc == yn, tag + name + " idle: bit-identical to an instance that never cuts it (its tail ends in exact zero)");
-        check(!rings || energy_between(yc, 1.5, 4) > 0, tag + name + " idle: it rings on the idle path while it has a tail");
+        check(!rings || energy_between(yc, kTailFromBoundS, kTailToBoundS) > 0, tag + name + " idle: it rings on the idle path while it has a tail");
         check(unmetered == 0, tag + name + ": every block it writes, on the idle path too, is guarded and metered (" + std::to_string(unmetered) + " blocks not)");
-        if (cut_given) check(!yp.empty() && (!rings || energy_between(yp, 1.5, 4) == 0), tag + "control: " + name + " in the build whose idle skip cuts the rack is silent there");
+        if (cut_given) check(!yp.empty() && (!rings || energy_between(yp, kTailFromBoundS, kTailToBoundS) == 0), tag + "control: " + name + " in the build whose idle skip cuts the rack is silent there");
       }
       check(ringing > 0, tag + "control: at least one slot rings after the engine falls silent, so the idle checks above heard something");
       if (!cut_given) check(false, tag + "the idle-cut plant was not given, so its control did not run");
@@ -1608,6 +1640,184 @@ void rack_checks(const char* clap, const char* norack, const char* rack_idle, co
     close_instance(q);
   }
   close_instance(p);
+}
+
+// ---- What each module does, through the plug-in (B660's and B710's checks, kept) -------------------------------------
+// Acceptance (1) bans a per-module branch in the HOSTING code (preview_plugin.cpp, bridge_core.*, the page bindings);
+// a test may know what a module is for. Each module below is found by its manifest name in hello.slots and set by its
+// keys' host ids, in the host form hello.slots states (v by law, an option's index). The thresholds are the ones the
+// human approved for these checks before B714 (the filter's 20 dB, B660; the reverb's tail at -40 dB, the poll on
+// B710), and each check keeps its no-op control: the build with no rack module at all, which must fail it.
+const SlotKey* key_of(const RackHello& h, const char* module, const char* address) {
+  for (const SlotDesc& s : h.slots)
+    if (s.module == module)
+      for (const SlotKey& k : s.keys)
+        if (k.key.size() > std::strlen(address) && k.key.compare(k.key.size() - std::strlen(address), std::string::npos, address) == 0) return &k;
+  return nullptr;
+}
+const SlotDesc* slot_named(const RackHello& h, const char* module) {
+  for (const SlotDesc& s : h.slots)
+    if (s.module == module) return &s;
+  return nullptr;
+}
+// The high band: the second difference's energy, a crude high-pass; the left channel of `play`'s interleaved output.
+double high_band(const std::vector<float>& x) {
+  double e = 0;
+  for (std::size_t i = 2; i < x.size() / 2; ++i) {
+    const double d = double(x[2 * i]) - 2.0 * double(x[2 * i - 2]) + double(x[2 * i - 4]);
+    e += d * d;
+  }
+  return e;
+}
+double rms_of(const std::vector<float>& x) {
+  double e = 0;
+  for (float v : x) e += double(v) * double(v);
+  return std::sqrt(e / double(x.size()));
+}
+void module_behaviour_checks(const char* clap, const char* norack, const char* rack_idle) {
+  Loaded p, ref;
+  const preview_bridge_ext* bridge = p.open(clap) ? bridge_of(p) : nullptr;
+  if (!bridge || !norack || !ref.open(norack)) {
+    check(false, "module behaviour: the plug-in or the build with no rack module was not given, so these checks did not run");
+    close_instance(p);
+    close_instance(ref);
+    return;
+  }
+  long long seq = 0;
+  const RackHello h = rack_hello(p, bridge, seq);
+  const auto set_units = [&](Loaded& l, const SlotKey* k, double units) { if (k) set_hosts(l, {{k->id, host_form(*k, units)}}); };
+
+  // The filter (Weir's SVF 12, fxfilter): LP at 200 Hz through the brightest smoke preset.
+  if (const SlotDesc* filter = slot_named(h, "fxfilter")) {
+    int bright = -1;
+    double best = 0;
+    for (const char* name : {"Trance jitter", "Glass horde pad", "Crunch horde", "Wobble jaw"}) {
+      const int i = find_preset(name);
+      if (i < 0) continue;
+      const std::vector<float> a = play(ref, i, {128});
+      const double ratio = high_band(a) / (rms_of(a) * rms_of(a) + 1e-30);
+      if (ratio > best) { best = ratio; bright = i; }
+    }
+    check(bright >= 0, "module behaviour: a bright preset to filter");
+    if (bright >= 0) {
+      const std::vector<float> dry = play(ref, bright, {128});
+      const auto lp = [&](Loaded& l, double mix) {
+        set_hosts(l, {{filter->on.id, 1}});
+        set_units(l, key_of(h, "fxfilter", "fxfilter.mode"), 0);
+        set_units(l, key_of(h, "fxfilter", "fxfilter.cutoff"), 200);
+        set_units(l, key_of(h, "fxfilter", "fxfilter.resonance"), 0);
+        set_units(l, key_of(h, "fxfilter", "fxfilter.morph"), 0);
+        set_units(l, key_of(h, "fxfilter", "fxfilter.mix"), mix);
+      };
+      lp(p, 1);
+      lp(ref, 1);   // the build with no rack module has no such parameter: what a no-op filter does with it
+      const std::vector<float> wet = play(p, bright, {128}), noop = play(ref, bright, {128});
+      const double drop = high_band(wet) / high_band(dry), noop_drop = high_band(noop) / high_band(dry);
+      std::printf("     %s through the filter's LP at 200 Hz: high band x%.5f, level x%.3f; the no-op build: high band x%.3f\n", kBank[bright].name, drop,
+                  rms_of(wet) / rms_of(dry), noop_drop);
+      check(drop < 0.01 && rms_of(wet) > 1e-3 * rms_of(dry), std::string("the filter's LP at 200 Hz takes ") + kBank[bright].name + "'s high band down by more than 20 dB and is not a mute");
+      check(noop_drop > 0.9 && !(noop_drop < 0.01), "control: a no-op filter (the build with no rack module) reads the same drop as 1, so the check above fails it");
+      lp(p, 0);
+      check(play(p, bright, {128}) == dry, "control: the filter on with mix 0 is bit-identical to the dry render");
+      set_hosts(p, {{filter->on.id, 0}});
+    }
+  } else {
+    check(false, "module behaviour: this build hosts no filter module (fxfilter)");
+  }
+
+  // The reverb (Scape): a hall, and its tail after the engine has fallen silent.
+  if (const SlotDesc* reverb = slot_named(h, "scape")) {
+    int quick = -1;
+    for (const char* name : {"Blade pluck", "Crunch horde", "Trance jitter", "Wobble jaw", "Glass horde pad"}) {
+      const int i = find_preset(name);
+      if (i < 0) continue;
+      const std::vector<float> a = play_tail(ref, i);
+      if (peak(a) > 0 && energy_between(a, kTailFromBoundS, kTailToBoundS) == 0) { quick = i; break; }
+    }
+    check(quick >= 0, "module behaviour: a smoke preset that falls silent within 1.2 s of its note-off, to hear a tail after");
+    if (quick >= 0) {
+      const std::vector<float> dry = play_tail(ref, quick);
+      const double note = energy_between(dry, 0, kTailFromBoundS);
+      set_units(p, key_of(h, "scape", "verb.mix"), 0.5);
+      set_units(p, key_of(h, "scape", "verb.decay"), 6);
+      std::vector<clap_id> every;
+      for (const SlotDesc& s : h.slots) every.push_back(s.on.id);
+      const std::vector<float> wet = play_tail(p, quick, {reverb->on.id}, every);
+      double on = 0;
+      check(p.params->get_value(p.plugin, reverb->on.id, &on) && on >= 0.5, "the reverb reads on");
+      Loaded cut;
+      std::vector<float> cut_wet;
+      if (rack_idle && cut.open(rack_idle)) {
+        set_units(cut, key_of(h, "scape", "verb.mix"), 0.5);
+        set_units(cut, key_of(h, "scape", "verb.decay"), 6);
+        cut_wet = play_tail(cut, quick, {reverb->on.id}, every);
+      }
+      close_instance(cut);
+      const double tail = energy_between(wet, kTailFromBoundS, kTailToBoundS), cut_tail = energy_between(cut_wet, kTailFromBoundS, kTailToBoundS);
+      std::printf("     %s, note-off at 0.3 s: energy 1.5 to 4 s with the reverb %.4g, the note itself (dry, 0 to 1.5 s) %.4g; the idle-cut build %.4g\n",
+                  kBank[quick].name, tail, note, cut_tail);
+      // -40 dB of the note's energy (the human, 2026-11-24, by poll on B710: "Approve, smoke at -40 dB").
+      check(tail > 1e-4 * note && peak(wet) > 0, std::string("the reverb on: ") + kBank[quick].name + "'s tail rings on for seconds after the engine has fallen silent");
+      check(energy_between(play_tail(ref, quick), kTailFromBoundS, kTailToBoundS) == 0, "control: the build with no rack module, a no-op, is silent there, so it fails the bound");
+      check(!cut_wet.empty() && cut_tail == 0, "control: the build whose idle skip cuts the rack is silent there, so the tail above is the idle loop's");
+      set_hosts(p, {{reverb->on.id, 0}});
+    }
+  } else {
+    check(false, "module behaviour: this build hosts no reverb module (scape)");
+  }
+  close_instance(p);
+  close_instance(ref);
+}
+
+// ---- The idle path's cost (B714 review item 9), measured, never gated ------------------------------------------------
+// Weir now runs on the idle path until its state is exactly zero (its declared tail), where the pre-B714 shell stopped
+// it at a level of 1e-7, and the rack keeps double between slots, so Scape after it hears a non-zero input for as long.
+// This drives either build through the same host ids (the pre-B714 numbers, whose host forms the two builds share:
+// Weir's on, mode, cutoff position, resonance, ring and mix, and Scape's on): Weir's own audition setting (LP at
+// 600 Hz, resonance 1, Ring 1, fully wet) and Scape at its defaults, a note held 0.3 s, then silence for three
+// minutes. It prints the thread CPU per window of audio, and the last moment a block cost more than four times the
+// final ten seconds' median block (when the slots stopped running). Configurations: both, Weir alone, Scape alone.
+void idle_cost(const char* clap) {
+  struct Config { const char* name; bool weir, scape; };
+  const double cutoff_x = std::log(600.0 / 20.0) / std::log(1000.0);
+  for (const Config& c : {Config{"Weir and Scape", true, true}, Config{"Weir alone", true, false}, Config{"Scape alone", false, true}}) {
+    Loaded p;
+    if (!p.open(clap)) { std::printf("idle cost: %s does not load\n", clap); return; }
+    set_hosts(p, {{0xA00010, c.weir ? 1.0 : 0.0}, {0xA00011, 0}, {0xA00012, cutoff_x}, {0xA00013, 1}, {0xA00014, 1}, {0xA00015, 1},
+                  {0xA00016, c.scape ? 1.0 : 0.0}});
+    fresh(p, find_preset("Blade pluck") >= 0 ? find_preset("Blade pluck") : 0);
+    constexpr std::uint32_t kBlockFrames = 512;
+    constexpr double kSeconds = 180;
+    const std::uint32_t blocks = std::uint32_t(kSeconds * 44100 / kBlockFrames);
+    std::vector<double> cost(blocks);
+    float l[kBlockFrames], r[kBlockFrames];
+    for (std::uint32_t b = 0; b < blocks; ++b) {
+      Events e;
+      if (b == 0) e.note(true, 0, 1, 60, kVelocity);
+      if (b == std::uint32_t(0.3 * 44100 / kBlockFrames)) e.note(false, 0, 1, 60, 0);
+      timespec t0{}, t1{};
+      clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t0);
+      process(p.plugin, e, l, r, kBlockFrames);
+      clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t1);
+      cost[b] = double(t1.tv_sec - t0.tv_sec) + 1e-9 * double(t1.tv_nsec - t0.tv_nsec);
+      if (callback_requested) { callback_requested = false; p.plugin->on_main_thread(p.plugin); }
+    }
+    close_instance(p);
+    const auto block_of = [&](double s) { return std::min<std::uint32_t>(blocks, std::uint32_t(s * 44100 / kBlockFrames)); };
+    std::vector<double> tail(cost.begin() + block_of(kSeconds - 10), cost.end());
+    std::sort(tail.begin(), tail.end());
+    const double floor = tail[tail.size() / 2];
+    double last = 0;
+    for (std::uint32_t b = 0; b < blocks; ++b)
+      if (cost[b] > 4 * floor) last = double(b + 1) * kBlockFrames / 44100;
+    std::printf("     idle cost, %s on %s: CPU per second of audio", c.name, clap);
+    for (const auto& [from, to] : {std::pair<double, double>{0, 2}, {2, 10}, {10, 30}, {30, 60}, {60, 120}, {120, 180}}) {
+      double sum = 0;
+      for (std::uint32_t b = block_of(from); b < block_of(to); ++b) sum += cost[b];
+      std::printf(" | %g-%g s: %.2f ms", from, to, 1e3 * sum / (to - from));
+    }
+    std::printf(" | the slots ran until %.1f s (block median after: %.1f us)\n", last, 1e6 * floor);
+  }
 }
 
 // A chunk made by a pre-B714 build (version 5's filter line, version 6's Scape lines), as a build of main reads it: the
@@ -1694,8 +1904,14 @@ void migration_checks(const char* clap, const char* reference, const std::string
     std::stringstream ss;
     ss << f.rdbuf();
     const std::string goldens = ss.str();
-    if (goldens.empty() || !has(goldens, "\"engine\": \"" + engine + "\"")) {
-      std::printf("     migration %s: NOT RUN against the pre-B714 build (fixtures/migration-goldens.json is not from engine %s)\n", m.name, engine.c_str());
+    // Keyed on the engine's full commit; the build names it by a short hash, which must be its prefix.
+    const std::size_t at = goldens.find("\"engine\": \"");
+    const std::string golden_engine = at == std::string::npos ? "" : goldens.substr(at + 11, goldens.find('"', at + 11) - at - 11);
+    const bool same_engine = !engine.empty() && !golden_engine.empty() && golden_engine.rfind(engine, 0) == 0;
+    if (!same_engine) {
+      if (m.one_module)
+        note_not_run(std::string("migration ") + m.name + " against the pre-B714 build (engine " + engine + " != golden engine " +
+                     (golden_engine.empty() ? std::string("(no goldens file)") : golden_engine.substr(0, 7)) + ")");
       continue;
     }
     if (m.one_module) check(has(goldens, "\"" + std::string(m.name) + "\": \"" + hash + "\""), std::string("migration ") + m.name + ": one module on, bit-identical to the pre-B714 build's committed golden");
@@ -1746,6 +1962,15 @@ int main(int argc, char** argv) {
     close_instance(p);
     return frame.empty() ? 1 : 0;
   }
+  if (!std::strcmp(argv[1], "--idle-cost")) {   // B714 review item 9: what the idle path costs, and for how long, measured
+    if (argc < 3) return 2;
+    char home[] = "/tmp/engine-preview-idle-XXXXXX";
+    if (!mkdtemp(home)) return 2;
+    setenv("HOME", home, 1);
+    mkdir((std::string(home) + "/Library").c_str(), 0755);
+    idle_cost(argv[2]);
+    return 0;
+  }
   if (!std::strcmp(argv[1], "--rack")) {   // B714: the rack's generated checks alone, on one build (a quicker loop)
     if (argc < 3) return 2;
     char home[] = "/tmp/engine-preview-rack-XXXXXX";
@@ -1755,8 +1980,7 @@ int main(int argc, char** argv) {
     int engine_rows = 0;
     for (std::size_t i = 0; i < horde::manifest_size(); ++i) engine_rows += horde::manifest_param(i).reserved ? 0 : 1;
     rack_checks(argv[2], argc > 3 ? argv[3] : nullptr, argc > 4 ? argv[4] : nullptr, nullptr, nullptr, "default", engine_rows);
-    std::printf("%s (%d failed)\n", failures ? "engine-preview rack: RED" : "engine-preview rack: GREEN", failures);
-    return failures ? 1 : 0;
+    return verdict("engine-preview rack");
   }
   if (!std::strcmp(argv[1], "--migration")) {   // B714: the old chunks against a build of main, measured (critic finding 1)
     if (argc < 4) return 2;
@@ -1765,8 +1989,7 @@ int main(int argc, char** argv) {
     setenv("HOME", home, 1);
     mkdir((std::string(home) + "/Library").c_str(), 0755);
     migration_checks(argv[2], argv[3], std::getenv("HORDE_PREVIEW_ENGINE") ? std::getenv("HORDE_PREVIEW_ENGINE") : "?");
-    std::printf("%s (%d failed)\n", failures ? "engine-preview migration: RED" : "engine-preview migration: GREEN", failures);
-    return failures ? 1 : 0;
+    return verdict("engine-preview migration");
   }
   // The session log goes under $HOME, so point it at a scratch folder: a test mustn't write to the human's Logs.
   char home[] = "/tmp/engine-preview-smoke-XXXXXX";
@@ -2541,6 +2764,7 @@ int main(int argc, char** argv) {
   const char* norack = argc > 5 ? argv[5] : nullptr;
   rack_checks(argv[1], norack, argc > 6 ? argv[6] : nullptr, argc > 3 ? argv[3] : nullptr, argc > 8 ? argv[8] : nullptr, "default", engine_rows);
   refusal_checks(argv[1], argc > 7 ? argv[7] : nullptr);
+  module_behaviour_checks(argv[1], norack, argc > 6 ? argv[6] : nullptr);
   migration_checks(argv[1], nullptr, std::getenv("HORDE_PREVIEW_ENGINE") ? std::getenv("HORDE_PREVIEW_ENGINE") : "?");
   std::vector<std::string> clean_failed;
   if (argc > 9) {
@@ -2572,6 +2796,5 @@ int main(int argc, char** argv) {
     check(false, "the planted-branch build was not given, so acceptance (1)'s must-fail control did not run");
   }
 
-  std::printf("%s (%d failed)\n", failures ? "engine-preview smoke: RED" : "engine-preview smoke: GREEN", failures);
-  return failures ? 1 : 0;
+  return verdict("engine-preview smoke");
 }

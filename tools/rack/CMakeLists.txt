@@ -5,8 +5,10 @@
 # A consumer sets, before add_subdirectory(<repo>/tools/rack <binary dir>):
 #   HORDE_RACK_CHOC_DIR    a directory holding choc/ (its header-only JSON reader)
 # and may set HORDE_FOUNDATIONS_DIR and each module's tree variable (modules.json `tree.var`); unset, each defaults to
-# the ~-relative path modules.json names, expanded from $HOME here. HORDE_RACK_FOUNDATIONS_PIN_FILE names the shell's
-# FOUNDATIONS pin (default: the test plug-in's, tools/engine-preview/foundations.pin; a second shell passes its own).
+# the ~-relative path modules.json names, expanded from $HOME here. The pins are the library's own, tools/rack/pins/
+# (each module's <key>.pin, named in modules.json, and foundations.pin); a shell that pins its modules elsewhere sets
+# HORDE_RACK_PIN_DIR to a directory of its own <key>.pin and foundations.pin files, which win where present
+# (HORDE_RACK_FOUNDATIONS_PIN_FILE names one FOUNDATIONS pin file directly).
 #
 # Then it calls:
 #   horde_rack_library(<name> [DEFINES <plant defines>...])   a STATIC rack (a plant build passes its one fault)
@@ -18,7 +20,7 @@
 #
 # THE PINS. Each module tree must be at its .pin's commit with its `clean` paths as that commit has them, or the
 # configure stops: the module played is the module admitted. FOUNDATIONS is pinned the same way
-# (tools/engine-preview/foundations.pin), by its tree rather than its HEAD: the checkout's core/include must be
+# (tools/rack/pins/foundations.pin), by its tree rather than its HEAD: the checkout's core/include must be
 # byte-for-byte the pin's, tracked and untracked. And every module that vendors foundations/fx_operator.h must hold a
 # copy byte-identical to the pinned one, or the configure stops: two definitions of one header in one binary are an
 # ODR hazard, and a module built against another ABI draft than the rack's is not the module the rack speaks to.
@@ -46,7 +48,11 @@ if(NOT DEFINED HORDE_FOUNDATIONS_DIR)
   endif()
 endif()
 if(NOT HORDE_RACK_FOUNDATIONS_PIN_FILE)
-  set(HORDE_RACK_FOUNDATIONS_PIN_FILE "${HORDE_RACK_ROOT}/tools/engine-preview/foundations.pin")
+  if(HORDE_RACK_PIN_DIR AND EXISTS "${HORDE_RACK_PIN_DIR}/foundations.pin")
+    set(HORDE_RACK_FOUNDATIONS_PIN_FILE "${HORDE_RACK_PIN_DIR}/foundations.pin")
+  else()
+    set(HORDE_RACK_FOUNDATIONS_PIN_FILE "${HORDE_RACK_DIR}/pins/foundations.pin")
+  endif()
 endif()
 file(STRINGS "${HORDE_RACK_FOUNDATIONS_PIN_FILE}" HORDE_RACK_FOUNDATIONS_PIN LIMIT_COUNT 1)
 execute_process(COMMAND git -C "${HORDE_FOUNDATIONS_DIR}" cat-file -e "${HORDE_RACK_FOUNDATIONS_PIN}^{commit}" RESULT_VARIABLE rack_f_rc ERROR_QUIET)
@@ -98,7 +104,7 @@ foreach(i RANGE ${HORDE_RACK_LAST})
 endforeach()
 # The functions below run in the CALLER's scope (CMake functions see the variables where they are called, not where
 # they are defined), so what they read is handed up to the directory that added this one.
-foreach(v HORDE_RACK_DEFAULT_MODULES HORDE_RACK_ROOT HORDE_RACK_DIR HORDE_RACK_MODULES_JSON HORDE_RACK_LAST HORDE_RACK_SOURCES
+foreach(v HORDE_RACK_DEFAULT_MODULES HORDE_RACK_ROOT HORDE_RACK_DIR HORDE_RACK_MODULES_JSON HORDE_RACK_LAST HORDE_RACK_SOURCES HORDE_RACK_PIN_DIR
           HORDE_RACK_CHOC_DIR HORDE_RACK_FOUNDATIONS_PIN HORDE_RACK_FX_OPERATOR_SHA HORDE_RACK_FOUNDATIONS_INCLUDE)
   set(${v} "${${v}}" PARENT_SCOPE)
 endforeach()
@@ -151,7 +157,12 @@ function(horde_rack_module KEY)
       endif()
     endif()
     set(dir "${${var}}")
-    file(STRINGS "${HORDE_RACK_ROOT}/${pin_file}" pin LIMIT_COUNT 1)
+    set(pin_path "${HORDE_RACK_ROOT}/${pin_file}")
+    if(HORDE_RACK_PIN_DIR AND EXISTS "${HORDE_RACK_PIN_DIR}/${KEY}.pin")
+      set(pin_path "${HORDE_RACK_PIN_DIR}/${KEY}.pin")   # the consumer's own pin for this module
+      set(pin_file "${pin_path}")
+    endif()
+    file(STRINGS "${pin_path}" pin LIMIT_COUNT 1)
     execute_process(COMMAND git -C "${dir}" rev-parse HEAD OUTPUT_VARIABLE head RESULT_VARIABLE rc OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
     if(NOT rc EQUAL 0 OR NOT head STREQUAL pin)
       message(FATAL_ERROR "${name} at ${dir} is at '${head}', but ${pin_file} pins ${pin}. Set ${var} to a checkout at that commit "

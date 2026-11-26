@@ -424,6 +424,15 @@
    "evidence": "B714 (ROADMAP.md); tools/engine-preview/smoke.cpp:1658 (migration_checks); measured 2026-11-26 by `preview-smoke --migration <new clap> <main clap>` against a build of main 3159a196 (engine 6cd98b5, Weir 078f1436, Scape 8350fb8): both renders bit-identical, max |difference| 0; held only on the engine commit they were made on ; traces/2026-11-26-b714-s1-slot-library.md",
    "independent": false,
    "note": "Not credited: the reference is the pre-B714 build of the same two modules, independent of the slot library's code but not of the modules. Runs in ./verify full only when HORDE_PREVIEW_ENGINE names an engine commit (rack_check part C); otherwise build.sh runs it."
+  },
+  {
+   "path": "tools/engine-preview/fixtures/hello-preview-main.json",
+   "pins": "the hello reply's `preview` member as a build of main 3159a196 published it (36 rows: the filter's six and Scape's thirty), which the B714 build's ledger aliases must reproduce byte for byte but for the ruled cutoff default",
+   "check": "rack_check",
+   "kind": "measurement",
+   "evidence": "B714 (ROADMAP.md); tools/engine-preview/bridge_test.cpp:548; captured 2026-11-26 by `preview-smoke --hello` from a build of main 3159a196 (engine 6cd98b5); traces/2026-11-26-b714-s1-slot-library.md",
+   "independent": false,
+   "note": "Not credited: it is the earlier build's own output, held byte for byte. It keeps GUI 3's page reading what it read before B714 until the page moves to hello.slots (S6 retires it with the aliases). bridge_test runs in ./verify full through rack_check part C."
   }
  ]
 }

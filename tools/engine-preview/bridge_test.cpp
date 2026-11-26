@@ -10,6 +10,8 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <fstream>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -524,6 +526,124 @@ int main() {
     check(parsed && listed == published, "the hello reply's `preview` is JSON with the value rule and one descriptor per pre-B714 key, beside `slots`");
     check(!has(snapshot_json(without), "preview") && has(snapshot_json(without), "\"hello\":{\"build\":\"engine x, build 1\",\"manifest_hash\":\"abc\"}"),
           "control: a reply without the rack's keys is the one it always was");
+
+    // hello.preview is main's, byte for byte (fixtures/hello-preview-main.json: the `preview` member a build of main
+    // 3159a196 published), but for the ONE ruled difference: the filter cutoff's default is the module's own 1000 Hz
+    // (Weir's manifest), not State{}'s 0.56628 (999.70 Hz). It is put back here before the comparison, and only there.
+    {
+      std::ifstream f(std::string(HORDE_PREVIEW_FIXTURES) + "/hello-preview-main.json");
+      std::stringstream ss;
+      ss << f.rdbuf();
+      const std::string main_preview = ss.str();
+      std::string ours = test_rows_json(tests);
+      const std::size_t row = ours.find("\"key\":\"preview.filter.cutoff\"");
+      const std::size_t at = row == std::string::npos ? row : ours.find("\"default\":", row);
+      bool moved = false;
+      if (at != std::string::npos) {
+        const std::size_t from = at + 10, to = ours.find(',', from);
+        moved = ours.substr(from, to - from) != "0.56628";
+        ours.replace(from, to - from, "0.56628");
+      }
+      check(!main_preview.empty() && ours == main_preview && moved,
+            "hello.preview is byte for byte main's (names, labels, ranges, units, order), the cutoff's ruled default apart (" + std::to_string(main_preview.size()) + " bytes)");
+    }
+  }
+
+  // ---- what each module does, through the rack (B660's and B710's DSP checks, kept) ----------------------------------
+  // Acceptance (1) bans a per-module branch in the HOSTING code; a test may know what a module is for. A small table per
+  // module, each value set on its slot by address: the filter's LP at 200 Hz takes the high band down by more than 30 dB
+  // and is not a mute, LP at 20 kHz leaves it (its no-op control: the slot off reads no drop at all); Scape at its
+  // defaults rings on after a burst (-50 dB of the burst, measured -37 dB at 8350fb8; its no-op control: the slot off
+  // reads exact silence there). The thresholds are the ones registered for these checks before B714.
+  {
+    constexpr double kRate = 44100;
+    const auto slot_of_module = [&](const char* module) {
+      for (std::size_t s = 0; s < table.slots.size(); ++s)
+        if (table.slots[s].module == module) return int(s);
+      return -1;
+    };
+    const auto key_index = [&](int s, const char* address) {
+      for (std::size_t k = 0; k < table.slots[std::size_t(s)].keys.size(); ++k)
+        if (table.slots[std::size_t(s)].keys[k].address == address) return int(k);
+      return -1;
+    };
+    using Setting = std::pair<const char*, double>;   // address, units
+    // A fresh rack with one slot on (or none, `on` false) at these settings, the input run through it in blocks of
+    // `block`, under flush-to-zero as the plug-in runs it. Mono in, both channels out.
+    const auto run = [&](int s, bool on, const std::vector<Setting>& settings, const std::vector<float>& in, std::size_t block,
+                         std::vector<float>* right = nullptr) {
+      rack::Rack r;
+      r.attach(table);
+      r.prepare(kRate);
+      r.set_on(s, on);
+      for (const auto& [address, units] : settings) r.set_units(s, key_index(s, address), units);
+      std::vector<float> l = in, rr = in;
+      horde2::underFlushToZero([&] {
+        for (std::size_t at = 0; at < l.size(); at += block) r.process(l.data() + at, rr.data() + at, std::uint32_t(std::min(block, l.size() - at)), false);
+      });
+      if (right) *right = rr;
+      return l;
+    };
+    const auto high_band = [](const std::vector<float>& x) {   // second difference: a crude high-pass, +12 dB/oct
+      double e = 0;
+      for (std::size_t i = 2; i < x.size(); ++i) { const double d = double(x[i]) - 2.0 * double(x[i - 1]) + double(x[i - 2]); e += d * d; }
+      return e;
+    };
+    const auto rms = [](const std::vector<float>& x) {
+      double e = 0;
+      for (float v : x) e += double(v) * double(v);
+      return std::sqrt(e / double(x.size()));
+    };
+    const int weir = slot_of_module("fxfilter");
+    if (weir < 0) check(false, "this build hosts no filter module, so the filter's behaviour checks did not run");
+    else {
+      std::vector<float> noise(44100);   // one second at kRate
+      std::uint32_t lcg = 12345;
+      for (auto& x : noise) { lcg = lcg * 1664525u + 1013904223u; x = float(double(lcg >> 8) / double(1 << 24) - 0.5); }
+      const std::vector<Setting> lp = {{"fxfilter.mode", 0}, {"fxfilter.cutoff", 200}, {"fxfilter.resonance", 0}, {"fxfilter.morph", 0}, {"fxfilter.mix", 1}};
+      std::vector<float> right;
+      const std::vector<float> filtered = run(weir, true, lp, noise, 512, &right);
+      const double drop = high_band(filtered) / high_band(noise);
+      check(drop < 1e-3 && rms(filtered) > 1e-3, "the filter's LP at 200 Hz takes the high band down by more than 30 dB and is not a mute (drop " + std::to_string(drop) + ")");
+      std::vector<Setting> open = lp;
+      open[1].second = 20000;
+      const double wide = high_band(run(weir, true, open, noise, 512)) / high_band(noise);
+      check(wide > 0.1, "control: LP at 20 kHz leaves the high band (a filter that always cuts would fail here)");
+      check(run(weir, false, lp, noise, 512) == noise, "control: the slot off, a no-op, reads no drop at all: the input bit for bit (the drop above is the filter's)");
+      std::vector<Setting> dry = lp;
+      dry[4].second = 0;
+      check(run(weir, true, dry, noise, 512) == noise, "control: mix 0 hands the dry signal back bit for bit");
+      check(filtered == right, "both channels get the same filter (a mono input stays mono)");
+      check(run(weir, true, lp, noise, 64) == filtered && run(weir, true, lp, noise, 4096) == filtered && run(weir, true, lp, noise, 100) == filtered,
+            "the filter's output doesn't depend on how the host cuts the blocks (64, 100, 512, 4096)");
+    }
+    const int scape = slot_of_module("scape");
+    if (scape < 0) check(false, "this build hosts no reverb module, so the reverb's behaviour checks did not run");
+    else {
+      constexpr std::size_t kN = 44100 * 4, kBurst = 44100 / 4;
+      std::vector<float> burst(kN, 0.0f);
+      std::uint32_t lcg = 777;
+      for (std::size_t i = 0; i < kBurst; ++i) { lcg = lcg * 1664525u + 1013904223u; burst[i] = float(double(lcg >> 8) / double(1 << 24) - 0.5); }
+      const auto energy = [&](const std::vector<float>& x, double from_s, double to_s) {
+        double e = 0;
+        for (std::size_t i = std::size_t(from_s * kRate); i < std::size_t(to_s * kRate) && i < x.size(); ++i) e += double(x[i]) * double(x[i]);
+        return e;
+      };
+      std::vector<float> right;
+      const std::vector<float> wet = run(scape, true, {}, burst, 512, &right);
+      bool finite = true;
+      for (std::size_t i = 0; i < kN; ++i) finite = finite && std::isfinite(wet[i]) && std::isfinite(right[i]);
+      const double tail = energy(wet, 0.5, 1.5);
+      std::printf("     the reverb at its defaults: tail energy 0.25 s to 1.25 s after the burst %.4g (the burst itself %.4g)\n", tail, energy(burst, 0, 0.25));
+      check(finite && tail > 1e-5 * energy(burst, 0, 0.25), "at the reverb's defaults the burst rings on after its input stops (a tail), and every sample is finite");
+      check(energy(burst, 0.5, 1.5) == 0 && energy(run(scape, false, {}, burst, 512), 0.5, 1.5) == 0,
+            "control: the input itself is silent there, and the slot off, a no-op, reads exact silence: the energy is the reverb's");
+      check(run(scape, true, {{"verb.mix", 0}}, burst, 512) == burst, "control: mix 0 hands the input back bit for bit (its exact dry)");
+      const double long_tail = energy(run(scape, true, {{"verb.decay", 8}}, burst, 512), 2, 3), short_tail = energy(run(scape, true, {{"verb.decay", 0.2}}, burst, 512), 2, 3);
+      std::printf("     tail energy 1.75 s to 2.75 s after the burst: decay 8 s %.4g, decay 0.2 s %.4g\n", long_tail, short_tail);
+      check(long_tail > 1000 * short_tail && long_tail > 0, "the values reach the reverb: decay 8 s rings far longer than decay 0.2 s");
+      check(wet != right, "a mono input comes out wide (the reverb decorrelates its tail: changes_image, declared)");
+    }
   }
 
   // ---- the engine's own manifest --------------------------------------------------------------------------------

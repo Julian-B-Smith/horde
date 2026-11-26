@@ -13,7 +13,7 @@
 #   each hosted module's tree (read only): the variable tools/rack/modules.json names for it (tree.var, with its ~-relative
 #                        default there). Its HEAD must be its .pin's commit and its clean paths clean, or the configure stops.
 #                        Run tools/admission_check.py on that commit first (ADR-408): the module played is the one admitted.
-#   HORDE_FOUNDATIONS_DIR  a FOUNDATIONS checkout (read only) whose core/include is foundations.pin's (B714)
+#   HORDE_FOUNDATIONS_DIR  a FOUNDATIONS checkout (read only) whose core/include is tools/rack/pins/foundations.pin's (B714)
 set -euo pipefail
 commit="${1:?usage: build.sh <engine commit> [--install]}"
 install="${2:-}"

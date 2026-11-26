@@ -20,6 +20,7 @@
 // A slot at MO-31's dry state (off at every corner, every key at its default) writes no record, so a chunk with no
 // record writes no `fx` at all and keeps the version it always had. Until S5 the four corners are written identical
 // (the rack holds one value per key) and the reader takes corner A. Never saved: tails, glides, meters, latches.
+#include <functional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -61,9 +62,10 @@ bool read_fx_line(std::string_view line, FxState& fx);
 // A version 5 or 6 chunk's module line, through the table's frozen legacy entries (data, never module code). True
 // when the line was one (consumed, whether it held a usable value or not).
 bool read_legacy_line(const SlotTable& table, int version, std::string_view line, FxState& fx);
-// Loads `fx` into the rack: the dry state first, then each record whose module the rack hosts, from corner A. A
+// Loads `fx` into the rack: every slot as the record says, or dry where there is none, from corner A. A
 // record over its slot's budget (RS-6.12) or for a module this build does not host is refused, its slot left dry, and
 // a line says so in `report`.
-void apply(Rack& rack, const FxState& fx, std::vector<std::string>& report);
+// The stores never go through a dry state the audio thread could see (see chunk.cpp); `between` is a test seam.
+void apply(Rack& rack, const FxState& fx, std::vector<std::string>& report, const std::function<void()>& between = {});
 
 }  // namespace rack

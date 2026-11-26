@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <functional>
 #include <sstream>
 
 #include "rack/rack.h"
@@ -192,10 +193,20 @@ bool read_legacy_line(const SlotTable& t, int version, std::string_view line_in,
   return false;
 }
 
-void apply(Rack& rack, const FxState& fx, std::vector<std::string>& report) {
-  rack.set_dry();
+void apply(Rack& rack, const FxState& fx, std::vector<std::string>& report, const std::function<void()>& between) {
   const SlotTable* t = rack.table();
   if (!t) return;
+  // The final state first, then one store per value. Never through a transient dry state: the audio thread reads the
+  // switches and values while this runs (a host may restore state during playback), and a slot it saw off for one
+  // block would restart cleared on the next, cutting the tail of a slot the load keeps on. So: a slot the load leaves
+  // on takes its values first and its switch last; a slot it turns off takes its switch first. `between` is a test
+  // seam, called after every store, where a test runs the audio thread.
+  struct Final { bool on = false; std::vector<double> units, host; };
+  std::vector<Final> fin(std::size_t(rack.slots()));
+  for (int s = 0; s < rack.slots(); ++s) {
+    const SlotRow& row = t->slots[std::size_t(s)];
+    for (const KeyRow& k : row.keys) fin[std::size_t(s)].units.push_back(k.def), fin[std::size_t(s)].host.push_back(NAN);
+  }
   for (const FxRecord& r : fx.slots) {
     int slot = -1;
     for (int s = 0; s < rack.slots() && slot < 0; ++s)
@@ -214,6 +225,7 @@ void apply(Rack& rack, const FxState& fx, std::vector<std::string>& report) {
       report.push_back("fx[" + r.module + "]: saved by manifest " + r.version.substr(0, 12) + ", loaded by " +
                        t->slots[std::size_t(slot)].module_version.substr(0, 12) + "; its keys load by address");
     const SlotRow& row = t->slots[std::size_t(slot)];
+    Final& f = fin[std::size_t(slot)];
     const auto key_of = [&](const std::string& address) {
       for (std::size_t k = 0; k < row.keys.size(); ++k)
         if (row.keys[k].address == address) return int(k);
@@ -221,19 +233,35 @@ void apply(Rack& rack, const FxState& fx, std::vector<std::string>& report) {
     };
     // The units are what the module hears; the v, where the record has one, is the host value it read (a v the
     // reader could not read is NaN, and the rack derives one from the units).
-    const auto host_of = [&](int k, double v) {
+    const auto take = [&](const FxKey& key, bool device) {
+      const int k = key_of(key.address);
+      if (k < 0 || (row.keys[std::size_t(k)].cls == Cls::Device) != device) return;
       const KeyLaw& law = row.keys[std::size_t(k)].law;
-      return stepped(law) ? v * double(law.n - 1) : v;
+      f.units[std::size_t(k)] = key.units;
+      f.host[std::size_t(k)] = stepped(law) ? key.v * double(law.n - 1) : key.v;
     };
-    for (const FxKey& key : r.keys[0]) {
-      const int k = key_of(key.address);
-      if (k >= 0 && row.keys[std::size_t(k)].cls != Cls::Device) rack.set_units(slot, k, key.units, host_of(k, key.v));
+    for (const FxKey& key : r.keys[0]) take(key, false);
+    for (const FxKey& key : r.device) take(key, true);
+    f.on = r.on[0];
+  }
+#ifdef HORDE_RACK_PLANT_APPLY_VIA_DRY   // must-fail: the load passes through the dry state, as the first S1 build did
+  rack.set_dry();
+  if (between) between();
+#endif
+  for (int s = 0; s < rack.slots(); ++s) {
+    const Final& f = fin[std::size_t(s)];
+    if (!f.on) {
+      rack.set_on(s, false);
+      if (between) between();
     }
-    for (const FxKey& key : r.device) {
-      const int k = key_of(key.address);
-      if (k >= 0 && row.keys[std::size_t(k)].cls == Cls::Device) rack.set_units(slot, k, key.units, host_of(k, key.v));
+    for (std::size_t k = 0; k < f.units.size(); ++k) {
+      rack.set_units(s, int(k), f.units[k], f.host[k]);
+      if (between) between();
     }
-    rack.set_on(slot, r.on[0]);
+    if (f.on) {
+      rack.set_on(s, true);
+      if (between) between();
+    }
   }
 }
 

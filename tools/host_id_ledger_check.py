@@ -19,7 +19,8 @@ ROWS (each red on its own):
             Scape's switch and 0xA00017 + k Scape's manifest id k (FROZEN below). Renumbering any is red.
   APPEND    against the ledger at the merge base with origin/main (or HEAD's parent): every entry there is here,
             unchanged; next_free never goes down; an entry new since then takes an id at or above the base's next_free.
-            A ledger the base lacks is new, and this row reports that it had nothing to compare.
+            A ledger the base lacks is new, and this row reports that it had nothing to compare. With no base at all (a
+            shallow checkout) the row is SKIPPED, named on the `KIT-GATE skipped:` line, never read as new.
   COMPLETE  where a module's pinned manifest is readable (its tree at its pin, `git show <pin>:<manifest>`, or the
             repo's own file), every address it declares, but a flip key with fewer than two values, has an id; so do
             its switch and, for a module that declares no io pair, the slot's io.inGain and io.outGain. A tree that is
@@ -133,9 +134,10 @@ def git(*args):
 
 
 def base_ledger(rel):
+    """-> (the ledger at the base or None, where: a short hash, or None when no base could be read at all)."""
     base = (git("merge-base", "HEAD", "origin/main") or "").strip() or (git("rev-parse", "HEAD~1") or "").strip()
     if not base:
-        return None, "no merge base"
+        return None, None   # a shallow checkout (CI's default fetch-depth 1) or one with no origin/main
     text = git("show", f"{base}:{rel}")
     return (json.loads(text) if text else None), base[:10]
 
@@ -233,10 +235,16 @@ def main():
             return 1
         docs[rel] = json.loads(p.read_text(encoding="utf-8"))
     bases, base_notes = {}, []
+    shallow = (git("rev-parse", "--is-shallow-repository") or "").strip() == "true"
     for rel in LEDGERS:
         b, at = base_ledger(rel)
         bases[rel] = b
-        base_notes.append(f"APPEND {rel}: {'held against ' + at if b is not None else 'new since ' + at + ', nothing to compare'}")
+        if at is None:
+            # No base: nothing was compared, and that is a skip, never "new" (the review of B714 S1). A CI job that
+            # wants this row runs with the history (fetch-depth 0, or origin/main fetched).
+            base_notes.append(f"APPEND {rel}: SKIPPED ({'shallow history' if shallow else 'no merge base with origin/main and no parent'}, APPEND not checked)")
+        else:
+            base_notes.append(f"APPEND {rel}: {'held against ' + at if b is not None else 'new since ' + at + ' (the base has no such file), nothing to compare'}")
     fails = judge(docs, bases)
     more, notes = complete(docs)
     fails += more
@@ -250,7 +258,7 @@ def main():
     for f in fails:
         print("FAIL  " + f)
     n_ids = sum(len(d.get("ids", [])) for d in docs.values())
-    skipped = [n for n in notes if "SKIPPED" in n]
+    skipped = [n for n in base_notes + notes if "SKIPPED" in n]
     if skipped:
         print("KIT-GATE skipped: " + "; ".join(skipped))
     print(f"host_id_ledger_check: {'RED' if fails else 'GREEN'} ({n_ids} ids in {len(docs)} ledgers, {len(FROZEN)} frozen, "

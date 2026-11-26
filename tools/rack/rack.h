@@ -7,7 +7,7 @@
 // - TRUE BYPASS (RC-5.2, ADR-411 r2). A slot whose switch is off is not touched at all: not its module, not its I/O
 //   gains, not even a read of the buffers. Settled off is bit-identical to no module.
 // - I/O GAINS (RS-4.6, RS-4.7). A module that declares io.inGain and io.outGain owns them (they are its parameters);
-//   for any other the slot applies an identical pair, +-24 dB, gliding linearly over kGainGlideSeconds and opening at
+//   for any other the slot applies an identical pair, +-24 dB, gliding linearly over kGainGlideBoundS and opening at
 //   the saved gain. Never both.
 // - SWITCH ON. A slot turned on sends every value, then resets its module, so it starts cleared with every value
 //   landed (nothing stale rings out, nothing ramps in). S5 replaces this with MO-29's fade.
@@ -36,12 +36,14 @@ namespace admission { class Module; }
 namespace rack {
 
 constexpr std::uint32_t kMaxBlock = 4096;          // the engine's (DT-2): process() runs longer blocks in pieces
-constexpr double kGainGlideSeconds = 0.020;        // RS-4.6's slot gain ramp, in seconds (ADR-009)
+constexpr double kGainGlideBoundS = 0.020;         // RS-4.6's slot gain ramp, in seconds (ADR-009)
 
 struct SlotMeters {
   float in_peak = 0, out_peak = 0;
   bool in_clip = false, out_clip = false;
   std::uint64_t nonfinite = 0;   // samples zeroed since the slot was prepared: the latch is "not zero"
+  bool tail_lost = false;        // properties() stopped declaring a tail after prepare (latched): the slot was not cut
+  std::uint64_t starts = 0;      // times the slot started cleared
 };
 
 class Rack {
@@ -94,6 +96,8 @@ class Rack {
 
   // Tests only: never skip a slot for its tail, so a render can be held against one that does.
   void set_never_cut(bool on) { never_cut_.store(on, std::memory_order_relaxed); }
+  // Tests only, between process calls: the slot's count of silent samples since its input last sounded.
+  void test_set_quiet(int slot, std::uint64_t samples);
 
  private:
   struct Slot;

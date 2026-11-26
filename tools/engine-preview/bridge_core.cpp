@@ -194,7 +194,7 @@ std::string test_rows_json(const std::vector<TestRow>& rows) {
   return out + "]}";
 }
 
-std::string rack_param_name(const rack::SlotRow& row, int key) { return row.name + " " + (key < 0 ? std::string("on") : row.keys[std::size_t(key)].label); }
+std::string rack_param_name(const rack::SlotRow& row, int key) { return rack::param_name(row, key); }
 
 bool is_rack_key(std::string_view key) { return key.substr(0, kTestPrefix.size()) == kTestPrefix || key.substr(0, kRackPrefix.size()) == kRackPrefix; }
 
@@ -217,7 +217,7 @@ std::vector<TestRow> test_rows(const rack::SlotTable& table) {
     r.max = rack::host_max(key.law);
     r.def = rack::host_of_units(key.law, key.def);
     r.stepped = rack::stepped(key.law);
-    r.labels = key.labels;
+    r.labels = rack::host_labels(key);
     return r;
   };
   for (std::size_t s = 0; s < table.slots.size(); ++s) {
