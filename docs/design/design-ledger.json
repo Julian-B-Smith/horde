@@ -314,7 +314,11 @@
    "status": "retired",
    "note": "Superseded by fx-design-lab.html (its lab-superseded-by tag). History, never a source."
   },
-  "fx-routing-lab.html": {"status": "exploring", "note": "GB21 under ADR-410 ruling 3: tidy, separated wires and a send matrix with levels per corner, drawn from one wire model; replaces GUI-41's unruled FX patching. W1-W3 and L1-L3 await the human's poll. Levels are MOCK in the bridge's planned shape (B715)."},
+  "fx-routing-lab.html": {
+   "status": "ruled",
+   "adr": "GUI-75",
+   "note": "Ruled W1 (the ladder) and L1 (wires beside the send matrix), with drag-to-connect, a double-click to 100 % and 0 removing a wire (GUI-75). It keeps W2, W3 and today's rack (B0) as the record of what was compared. Levels are MOCK in the bridge's planned shape (B715). Next: the master."
+  },
   "fx-screen-marks-lab.html": {
    "status": "ruled",
    "adr": "GUI-58",
@@ -7665,6 +7669,21 @@
    "component": null,
    "state": "ruled",
    "note": "The master's screens section takes the map, and each glass's rules list is written there; both are the GUI session's (ADR-336). The glasses' marks are GUI-58's. Engine: none. FX device: the same glasses."
+  },
+  {
+   "id": "gui75-fx-routing-ladder",
+   "adr": "GUI-75",
+   "clause": "FX routing: forward wires above the row and returns below, each on its own track and its own port, beside a send matrix; both views edit one wire model; drag between boxes makes a wire at 100 %, a matrix double-click sets 100 %, a wire at 0 is removed at that corner; return wires are real, one sample late, held when Prevent feedback is on",
+   "port_tab": null,
+   "note": "Ruled from the lab; the master gets a routing component next (it replaces FxRack, FxMatrix and FxPatch's drawing; FxCables' encoding stays). Engine: GN-61, GN-62. FX device: the same, with its own inputs.",
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "lab": "fx-routing-lab.html",
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null
   }
  ],
  "not_design": [
@@ -9057,7 +9076,11 @@
   "GUI-71": "none: both marks read GN-60 (GUI-69) and the frame row; keeping both asks nothing more",
   "GUI-72": "none: which key and direction reach which wt. row is the GUI's alone (CONTRACT 2.1); the views draw what GN-58 to GN-60 already ask for",
   "GUI-73": "none: the window stays 980 x 720 with no host resize, and no row or message changes; the note is text the shell places",
-  "GUI-74": "none: the preview keys are the test plug-in's bridge (B711, the lead's), not engine rows; the page sends and reads what #1525's message shape defines"
+  "GUI-74": "none: the preview keys are the test plug-in's bridge (B711, the lead's), not engine rows; the page sends and reads what #1525's message shape defines",
+  "GUI-75": [
+   "GN-61",
+   "GN-62"
+  ]
  },
  "audit_notes": [
   "[A] Counts: 33 design ADRs with 56 rows (ruled 31, of which 6 superseded and 7 legacy-only; wired 9; in-shell 7; vendored 4; in-master 4; unknown 1); 79 not_design. Every primary heading ADR-001..ADR-112 appears exactly once. Headings out of numeric order (ADR-052, ADR-053 before ADR-051; ADR-095, 094, 093, 092; ADR-091 A1-A4 after ADR-112 A3) were all covered. One non-ADR heading sits in range: 'NOTICE · Library standby (plugin-skeleton FOUNDATIONS)', line 661, not design and not listed.",
