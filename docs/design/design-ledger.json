@@ -7679,7 +7679,7 @@
    "component": null,
    "bundle": null,
    "shell": null,
-   "lab": "fx-routing-lab.html",
+   "lab": "docs/design/fx-routing-lab.html",
    "via": null,
    "superseded_by": null,
    "state": "ruled",
