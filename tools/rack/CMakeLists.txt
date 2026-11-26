@@ -5,7 +5,8 @@
 # A consumer sets, before add_subdirectory(<repo>/tools/rack <binary dir>):
 #   HORDE_RACK_CHOC_DIR    a directory holding choc/ (its header-only JSON reader)
 # and may set HORDE_FOUNDATIONS_DIR and each module's tree variable (modules.json `tree.var`); unset, each defaults to
-# the ~-relative path modules.json names, expanded from $HOME here.
+# the ~-relative path modules.json names, expanded from $HOME here. HORDE_RACK_FOUNDATIONS_PIN_FILE names the shell's
+# FOUNDATIONS pin (default: the test plug-in's, tools/engine-preview/foundations.pin; a second shell passes its own).
 #
 # Then it calls:
 #   horde_rack_library(<name> [DEFINES <plant defines>...])   a STATIC rack (a plant build passes its one fault)
@@ -44,10 +45,13 @@ if(NOT DEFINED HORDE_FOUNDATIONS_DIR)
     set(HORDE_FOUNDATIONS_DIR "$ENV{HOME}/Documents/Claude/synthetic-worlds/FOUNDATIONS" CACHE PATH "FOUNDATIONS checkout (read only)")
   endif()
 endif()
-file(STRINGS "${HORDE_RACK_ROOT}/tools/engine-preview/foundations.pin" HORDE_RACK_FOUNDATIONS_PIN LIMIT_COUNT 1)
+if(NOT HORDE_RACK_FOUNDATIONS_PIN_FILE)
+  set(HORDE_RACK_FOUNDATIONS_PIN_FILE "${HORDE_RACK_ROOT}/tools/engine-preview/foundations.pin")
+endif()
+file(STRINGS "${HORDE_RACK_FOUNDATIONS_PIN_FILE}" HORDE_RACK_FOUNDATIONS_PIN LIMIT_COUNT 1)
 execute_process(COMMAND git -C "${HORDE_FOUNDATIONS_DIR}" cat-file -e "${HORDE_RACK_FOUNDATIONS_PIN}^{commit}" RESULT_VARIABLE rack_f_rc ERROR_QUIET)
 if(NOT rack_f_rc EQUAL 0)
-  message(FATAL_ERROR "FOUNDATIONS at ${HORDE_FOUNDATIONS_DIR} has no commit ${HORDE_RACK_FOUNDATIONS_PIN} (tools/engine-preview/foundations.pin). "
+  message(FATAL_ERROR "FOUNDATIONS at ${HORDE_FOUNDATIONS_DIR} has no commit ${HORDE_RACK_FOUNDATIONS_PIN} (${HORDE_RACK_FOUNDATIONS_PIN_FILE}). "
                       "Set HORDE_FOUNDATIONS_DIR to a FOUNDATIONS checkout that holds it (read only).")
 endif()
 # Tracked: the working tree's core/include against the pin's. Untracked: --untracked-files=all is load-bearing, a

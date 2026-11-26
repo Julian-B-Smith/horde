@@ -39,7 +39,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
-import rtsan_check  # noqa: E402  (the compiler rule, one copy)
+import rtsan_check  # the compiler rule, one copy (imported after the path it lives on is added)
 
 BUILD = ROOT / "build-rack"
 PLANTS = ["off-keeps-gains", "deaf", "no-values", "idle-cut", "level-cut", "drop-slot-state", "ignore-legacy"]
@@ -79,7 +79,8 @@ def missing_trees():
 
 def configure(build, choc, extra, log):
     build.mkdir(parents=True, exist_ok=True)
-    cmd = ["cmake", "-S", str(ROOT / "tools/rack/tests"), "-B", str(build), "-G", "Unix Makefiles", "-DCMAKE_BUILD_TYPE=Release",
+    # No build type here: tools/rack/tests/CMakeLists.txt defaults to Release itself, as tools/admission's does.
+    cmd = ["cmake", "-S", str(ROOT / "tools/rack/tests"), "-B", str(build), "-G", "Unix Makefiles",
            f"-DHORDE_RACK_CHOC_DIR={choc}", "-DHORDE_RACK_LEDGERS=" + ";".join(str(l) for l in LEDGERS)] + extra
     return run(cmd, log)
 
