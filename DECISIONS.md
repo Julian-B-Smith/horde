@@ -13960,3 +13960,72 @@ The lead surveyed the contract, the test plug-in, the routing page and the engin
 - a SPEC-ENGINE round (module keys in the resolver; the patch's `fx` member);
 - the slot library and its crosspoint, from `routing_core.h`'s form;
 - bridge messages for wires, levels and module meters.
+
+## ADR-411 — RULED by the human: B713's questions. Feedback is built behind a settings toggle and tested before its default; off is true bypass; FX slot picks are tested before ruling; Device settings are stored, with an approval screen on load; the other twelve as recommended (B713, spec round 67; 2026-11-25)
+
+**Context.** B713 drafted ADR-410 into contract text (`docs/proposals/rack-slot-contract.md` §12.10, §10 Q14 to Q22) and spec round 67 (`specs/SPEC-ENGINE.md` D.9, X101 to X124). It was reviewed by:
+- two critics, one on rulings and one on blind testability;
+- a fresh recheck on each lens;
+- a fix pass.
+
+Sixteen points were left for the human. The lead published them on a decision page (a private claude.ai artifact) and asked about four by poll. The other twelve were asked as one.
+
+**Rulings** (the human, 2026-11-25):
+1. **Feedback (Q14, X109).** The human asked: "What would we need to test feedback? It would make some things easier and other things harder so I think in either case there should at least be a toggle to prevent it in settings."
+   - Feedback is built: one-sample back edges (RS-3.5), in `src/routing_core.h`'s form (ADR-128's `edgeForward` and `zPrev`).
+   - It sits behind a settings toggle that prevents it. With the toggle set, a loop's back edge is held at zero, the mechanism B265 round 3 strategy (b) gives the crossfade exception.
+   - The toggle's default and the 1.0 policy are decided after the human listens in the test plug-in (B714).
+   - For that test, B714 also:
+     - measures the CPU of a cycle run sample by sample;
+     - adds a runaway guard that latches and reports (Blind-Spot Armor: guards never clamp silently);
+     - puts a feedback wire on the routing matrix.
+2. **Bypass (Q16, X111): "Off is true bypass".** A module that is off takes its own I/O gains out of the signal too, the same for every module (GUI-18). RS-4.8 is amended. The host-parameter rules stand: RS-5.6 for the product, Q17 for the test plug-in.
+3. **FX slot picks under Quantum (Q22, X103).** The human: "I would like to test this when more things are wired up. I suspect I'll want each slot to pick alone, but we may need to come up with some kind of optimization algorithm to keep the signal passing through the chain at every position without dead ends."
+   - The ruling is deferred to listening. B714 builds it switchable: each slot alone (the human's lean), or following the wire set's pick.
+4. **Device-class settings (Q21, X120):** "Let's store them and give an approval screen when they load if the device-only settings are different."
+   - A patch stores its modules' Device-class settings.
+   - On a patch load where they differ from the running ones, the rest of the patch loads, and an approval screen asks before the device settings are applied. Declining keeps the running ones.
+   - This amends RS-4.5, and it settles §6.2's `device[<module>]` block (ADR-201 Q7) as stored.
+   - The screen is the GUI session's.
+5. **The other twelve: "Take all 12 picks".**
+   - Q15 (a): one engine input in 1.0. Per-source taps come once their CPU is measured.
+   - Q17 (b): the test plug-in keeps host ids generated from each manifest. This is for the test plug-in only.
+   - Q18 (a): a corner-preset load replaces that corner's FX.
+   - Q19 (b): the whole-state ceiling is ruled after B612's host save test, before S6.
+   - Q20 (a): one pick for each corner's whole wire set.
+   - X114 (b): modulation on an FX setting is summed in the rack, and its route follows the key's own pick.
+   - X115 (a): the fade levels reset at a load.
+   - X116 (a): an appearing wire's level lands.
+   - X121 (a): a save during a fade stores the resolved switch and settings.
+   - X122 (a): a brief equal-gain crossfade at a wire-set change, with tails ringing out.
+   - X123 (a): one `law` field.
+   - X124 (a): a slot fades by crossfading the module's output against its bypassed input.
+
+**The lead's readings, open to overrule.**
+- **No dead ends under each-slot-alone.** With true bypass, an off slot passes its input, so a slot is never a dead end. The only dead end would be a corner whose wire set doesn't connect the input to the output.
+  - Ruling that out needs a write-time check that the input reaches the output by present wires, counting only forward edges while feedback is prevented. No row states that check yet, and the fidelity critic found the gap.
+  - It is put to B714 as a candidate, not as a rule. If it holds, each-slot-alone needs no play-time optimisation.
+- **Restoring a DAW project** is the plug-in restoring its own state, not a patch load, so it applies the stored device settings without the approval screen.
+
+**Consequences.**
+- **The text.** The contract (§10's cells, the body rows, §12.11) and spec round 67 (rows ruled, the X items resolved) carry these rulings. `docs/proposals/round-67-notes.md` records the round.
+- **The clean room.** Round 67 goes to both clean-room repos the same turn, as a spec-only commit each.
+- **FOUNDATIONS** gets a brief on the manifest schema: `law`, `mod` and the name rule. The modules get a notice of the new MUSTs once FOUNDATIONS answers on the field names.
+- **The GUI session gets three items:**
+  - the device-settings approval screen;
+  - the feedback toggle in settings;
+  - feedback wires and the each-slot-alone switch, in the routing lab (GB21).
+
+**Rejected** (the poll's other options):
+- on bypass: "Keep the slot's gains" and "Two controls";
+- on Device settings: "Never in the patch" and "Stored, ignored on load";
+- on the rest: "Take them; I'll name changes" and "Hold for later".
+- The feedback and FX-pick questions were answered in the human's own words rather than by an option.
+
+**FX device (ADR-254):** the same. The FX device carries the feedback toggle, true bypass, stored device settings with the approval screen, and the same slot picks.
+
+**Engine impact:**
+- spec round 67, delivered to the clean room;
+- the resolver's slot-pick call (SPEC-ENGINE IF-12, MO-29 (3)), which B714 exposes as the switch;
+- the slot library (B714): the back edges, the toggle (`device.fxFeedback`, X127) and the runaway guard;
+- the approval flow on the bridge: the load reports a difference and applies the device settings only on approval.

@@ -8830,6 +8830,10 @@
   {
    "adr": "ADR-410",
    "reason": "FX modules morph per corner, live in patches (old patches load dry) and route by real per-corner send levels, through one generic module slot (B713-B715): a contract, engine and bridge ruling. Its design consequence, the routing views (tidy wires and a send matrix with real values), is the GUI session's to rule as a GUI-n with its own ledger rows (GB21); nothing here enters the design master."
+  },
+  {
+   "adr": "ADR-411",
+   "reason": "The human's rulings on B713's questions (feedback behind a settings toggle, true bypass, FX slot picks tested before ruling, Device settings stored with an approval screen on load, the other twelve as recommended): contract and engine rulings. Their design consequences (the approval screen, the feedback toggle, the routing lab's feedback wires and pick switch) are the GUI session's to rule as GUI-n with their own ledger rows."
   }
  ],
  "engine_impact": {

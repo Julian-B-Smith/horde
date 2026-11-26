@@ -1,4 +1,4 @@
-# 2026-11-26 — B713: the contract text and spec round 67 (PROPOSED), for the human's ruling
+# 2026-11-25 — B713: the contract text and spec round 67 (PROPOSED), for the human's ruling
 
 **What changed** (drafts for the human; nothing here is ruled, built or delivered):
 - **`docs/proposals/rack-slot-contract.md`:** §12.10, ADR-410. It also changes:
@@ -16,7 +16,7 @@
 - **`engine2/structure/engine-structure.json`:** `spec.blob` re-pinned to the draft (`2115c76…`). The declaration was reviewed, and its check is green.
 - **`ROADMAP.md`:** B713 IN PROGRESS.
 
-**Why.** ADR-410's rulings (the human, 2026-11-25) need contract and spec text before the generic module slot (B714) and the routing data (B715) can be built. The human asked for this text on 2026-11-26: "start on B713's contract text".
+**Why.** ADR-410's rulings (the human, 2026-11-25) need contract and spec text before the generic module slot (B714) and the routing data (B715) can be built. The human asked for this text on 2026-11-25: "start on B713's contract text".
 
 **Evidence.**
 - **Two Opus drafters,** one per file, after two readers: one on conventions (the amendment style, the round format, clean-room delivery) and one on FOUNDATIONS' schema and each module's manifest.
@@ -46,3 +46,27 @@
 - **The lead's notes for the ruling:**
   - `routing_core.h`'s `edgeLive()` passes every edge today (ADR-128), so blocking loops in 1.0 means narrowing it again.
   - A parity class needs `glides(a,b)` to be an equivalence relation, and nobody has checked Sluice's.
+
+## The rulings, the same evening (ADR-411)
+- **The decision page.** The lead published the 16 open points on a private claude.ai decision page.
+- **The human answered by two polls:**
+  - **Feedback:** built behind a settings toggle (`device.fxFeedback`, X127). Its default waits on listening (X109).
+  - **Bypass:** off is true bypass.
+  - **FX slot picks:** wait on listening and are built switchable (X103).
+  - **Device settings:** stored in the patch, with an approval screen on load.
+  - **The other twelve:** taken as recommended.
+- **The rulings written in:**
+  - the contract: §10's cells, the body rows and §12.11;
+  - the spec: round 67 ruled, with 89 open X items;
+  - `docs/proposals/round-67-notes.md`.
+- **A fidelity critic** found 11 defects. All were applied, and the two in ADR-411 were applied by the lead:
+  - the pick switch is the resolver's call;
+  - the no-dead-ends reading depends on a write-time check that no row states yet.
+  - What Prevent holds is now the static rule, and it is identical in the contract and the spec: every back edge is held, including GUI-41's crossfade overlap. That is the lead's reading under X109.
+- **The FOUNDATIONS brief is filed** in its mailbox: thread `engine-manifest`, seq 6, respond-by 2026-12-09. It asks for:
+  - `law` (and whether its value set is closed);
+  - `mod`;
+  - the name rule;
+  - Device keys in patches.
+- **Round 67 is delivered** to both clean-room repos as a spec-only commit each.
+- **A date correction.** The ruling stamps first read 2026-11-26, the UTC date at the time. The repo dates records by local time, so they are 2026-11-25 throughout, and the trace was renamed to match.
