@@ -1,0 +1,4 @@
+{"module": "passthrough", "manifest": 1, "status": "horde test module (ROADMAP B714, acceptance (1)'s behavioural oracle): a unity-gain passthrough, built only in the test configuration, never in the plug-in", "stateBudget": 1024, "params": [
+  {"address": "pass.gain", "class": "morph", "rate": "continuous", "min": -12, "max": 12, "default": 0, "unit": "dB", "steps": 0, "transition_s": 0},
+  {"address": "pass.mode", "class": "flip", "rate": "latched", "min": 0, "max": 1, "default": 0, "unit": "", "steps": 2, "transition_s": 0, "switch": {"method": "silent", "length_s": 0}, "values": ["a", "b"]}
+], "changes_image": false, "changes_level": true}

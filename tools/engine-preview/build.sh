@@ -10,11 +10,10 @@
 #   HORDE_PREVIEW_PAGE   the page the window shows (default: the stand-in, standin_page.html); GUI 3's comes from
 #                        tools/gui3_inline.py, one self-contained file
 #   HORDE_PREVIEW_WEBVIEW=OFF   the AppKit window instead of the page
-#   HORDE_WEIR_DIR       a Weir checkout (read only) for the test-only filter (B660; default: ~/Documents/Claude/synthetic-worlds/Weir).
-#                        Its HEAD must be the commit in tools/engine-preview/weir.pin, or the configure stops.
-#   HORDE_SCAPE_DIR      a Scape checkout (read only) for the test-only reverb (B710; default: ~/Documents/Claude/synthetic-worlds/Scape).
-#                        Its HEAD must be the commit in tools/engine-preview/scape.pin and its core/ clean, or the configure
-#                        stops. Run tools/admission_check.py on that commit first (ADR-408): the module played is the one admitted.
+#   each hosted module's tree (read only): the variable tools/rack/modules.json names for it (tree.var, with its ~-relative
+#                        default there). Its HEAD must be its .pin's commit and its clean paths clean, or the configure stops.
+#                        Run tools/admission_check.py on that commit first (ADR-408): the module played is the one admitted.
+#   HORDE_FOUNDATIONS_DIR  a FOUNDATIONS checkout (read only) whose core/include is tools/rack/pins/foundations.pin's (B714)
 set -euo pipefail
 commit="${1:?usage: build.sh <engine commit> [--install]}"
 install="${2:-}"
@@ -38,16 +37,19 @@ label="engine $full, build $build_no"
 args=(-S "$here" -B "$build_dir" -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release "-DHORDE_ENGINE2_DIR=$export_dir/engine2" "-DHORDE_PREVIEW_BUILD_LABEL=$label")
 [ -n "${HORDE_LIBS_DIR:-}" ] && args+=("-DHORDE_LIBS_DIR=$HORDE_LIBS_DIR")
 [ -n "${HORDE_PREVIEW_PAGE:-}" ] && args+=("-DHORDE_PREVIEW_PAGE=$HORDE_PREVIEW_PAGE")
-[ -n "${HORDE_WEIR_DIR:-}" ] && args+=("-DHORDE_WEIR_DIR=$HORDE_WEIR_DIR")
-[ -n "${HORDE_SCAPE_DIR:-}" ] && args+=("-DHORDE_SCAPE_DIR=$HORDE_SCAPE_DIR")
+# Each module tree's variable, read from modules.json, never named here: passed on when it is set.
+for var in $(python3 -c 'import json,sys; print(" ".join(m["tree"]["var"] for m in json.load(open(sys.argv[1]))["modules"] if m["tree"]))' "$here/../rack/modules.json") HORDE_FOUNDATIONS_DIR; do
+  [ -n "${!var:-}" ] && args+=("-D$var=${!var}")
+done
 [ -n "${HORDE_PREVIEW_WEBVIEW:-}" ] && args+=("-DHORDE_PREVIEW_WEBVIEW=$HORDE_PREVIEW_WEBVIEW")
 if [ -n "${HORDE_SDK_CACHE:-}" ]; then
   args+=("-DFETCHCONTENT_SOURCE_DIR_HORDE_VST3SDK=$HORDE_SDK_CACHE/horde_vst3sdk-src" "-DFETCHCONTENT_SOURCE_DIR_HORDE_AUDIOUNITSDK=$HORDE_SDK_CACHE/horde_audiounitsdk-src")
 fi
 cmake "${args[@]}"
 # At most 4 threads, niced: the clean-room sessions share this machine (see the CPU throttle rule).
-nice -n 10 cmake --build "$build_dir" -j4 --target horde-engine-preview_all preview-plant preview-plant-map preview-plant-morph preview-plant-nofilter \
-  preview-plant-noreverb preview-plant-reverb-deaf preview-plant-reverb-idle preview-plant-droptest preview-smoke preview-gui-shot preview-bridge-test preview-frames-dump
+nice -n 10 cmake --build "$build_dir" -j4 --target horde-engine-preview_all preview-plant preview-plant-map preview-plant-morph preview-plant-norack \
+  preview-plant-rack-idle preview-plant-silent-refusal preview-plant-droptest preview-testmods preview-plant-module-branch preview-plant-rack-noftz \
+  preview-plant-rack-novalues preview-smoke preview-gui-shot preview-bridge-test preview-frames-dump
 
 # Every configure rewrites the AU bundle's Info.plist from CMake's template, and only a relink copies the wrapper's real
 # one back. So a second run with nothing to relink leaves an AU with no identity, and auval "didn't find the component".
@@ -60,14 +62,23 @@ clap="$(find "$build_dir" -name 'horde-engine-preview.clap' -maxdepth 3 | head -
 plant="$(find "$build_dir" -name 'preview-plant.clap' -maxdepth 3 | head -1)"
 plant_map="$(find "$build_dir" -name 'preview-plant-map.clap' -maxdepth 3 | head -1)"
 plant_morph="$(find "$build_dir" -name 'preview-plant-morph.clap' -maxdepth 3 | head -1)"
-plant_nofilter="$(find "$build_dir" -name 'preview-plant-nofilter.clap' -maxdepth 3 | head -1)"
-plant_noreverb="$(find "$build_dir" -name 'preview-plant-noreverb.clap' -maxdepth 3 | head -1)"
-plant_reverb_deaf="$(find "$build_dir" -name 'preview-plant-reverb-deaf.clap' -maxdepth 3 | head -1)"
-plant_reverb_idle="$(find "$build_dir" -name 'preview-plant-reverb-idle.clap' -maxdepth 3 | head -1)"
+plant_norack="$(find "$build_dir" -name 'preview-plant-norack.clap' -maxdepth 3 | head -1)"
+plant_rack_idle="$(find "$build_dir" -name 'preview-plant-rack-idle.clap' -maxdepth 3 | head -1)"
+plant_silent_refusal="$(find "$build_dir" -name 'preview-plant-silent-refusal.clap' -maxdepth 3 | head -1)"
 plant_droptest="$(find "$build_dir" -name 'preview-plant-droptest.clap' -maxdepth 3 | head -1)"
+testmods="$(find "$build_dir" -name 'preview-testmods.clap' -maxdepth 3 | head -1)"
+plant_module_branch="$(find "$build_dir" -name 'preview-plant-module-branch.clap' -maxdepth 3 | head -1)"
+plant_rack_noftz="$(find "$build_dir" -name 'preview-plant-rack-noftz.clap' -maxdepth 3 | head -1)"
+plant_rack_novalues="$(find "$build_dir" -name 'preview-plant-rack-novalues.clap' -maxdepth 3 | head -1)"
 smoke="$(find "$build_dir" -name 'preview-smoke' -type f -maxdepth 3 | head -1)"
 "$(dirname "$smoke")/preview-bridge-test"
-"$smoke" "$clap" "$plant" "$plant_map" "$plant_morph" "$plant_nofilter" "$plant_noreverb" "$plant_reverb_deaf" "$plant_reverb_idle" "$plant_droptest"
+# B714: the migration goldens (fixtures/migration-goldens.json) are held only where they were made on this engine commit.
+HORDE_PREVIEW_ENGINE="$full" HORDE_PREVIEW_GOLDENS="$here/fixtures/migration-goldens.json" \
+  "$smoke" "$clap" "$plant" "$plant_map" "$plant_morph" "$plant_norack" "$plant_rack_idle" "$plant_silent_refusal" "$plant_droptest" "$testmods" "$plant_module_branch" \
+  "$plant_rack_noftz" "$plant_rack_novalues"
+# B714: what the idle path costs, and for how long, on this machine under its load now: printed (and kept in $out) after
+# every smoke, reported, never gating (ADR-347), so a change to a slot's tail shows up in the next build's output.
+"$smoke" --idle-cost "$clap" | tee "$out/idle-cost.txt"
 "$(dirname "$smoke")/preview-gui-shot" "$clap" "$out/window.png"
 
 # The recorded frames GUI 3's ReplayTransport plays (B628), where gui3_browser_check reads them. A fresh dump is held

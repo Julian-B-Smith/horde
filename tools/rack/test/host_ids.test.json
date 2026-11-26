@@ -1,0 +1,12 @@
+{
+ "_about": "Host ids for the test module only (ROADMAP B714), in a block of its own far from the test plug-in's ledger (tools/engine-preview/host_ids.lock.json), so a test build never takes an id the product's ledger could hand out. Read only by the test configuration and tools/rack_check.py. tools/host_id_ledger_check.py holds it append-only too.",
+ "version": 1,
+ "next_free": "0xA0F005",
+ "ids": [
+  {"id": "0xA0F000", "module": "passthrough", "switch": true},
+  {"id": "0xA0F001", "module": "passthrough", "key": "pass.gain"},
+  {"id": "0xA0F002", "module": "passthrough", "key": "pass.mode"},
+  {"id": "0xA0F003", "module": "passthrough", "key": "io.inGain", "slot_io": true},
+  {"id": "0xA0F004", "module": "passthrough", "key": "io.outGain", "slot_io": true}
+ ]
+}

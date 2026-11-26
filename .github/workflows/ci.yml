@@ -121,9 +121,13 @@ jobs:
     steps:
       # submodules: the license-audit and choc-patch rows read libs/ and print
       # "DID NOT RUN" without it (audit 2026-11-10 finding 8).
+      # fetch-depth 0: host_id_ledger_check's APPEND row diffs the ledger against
+      # its merge base with origin/main, which a depth-1 checkout doesn't hold,
+      # so it would print SKIPPED there on every PR (B714).
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           submodules: recursive
+          fetch-depth: 0
           persist-credentials: false
       - name: verify fast
         run: ./verify fast

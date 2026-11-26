@@ -1,0 +1,494 @@
+{
+ "_about": "The test plug-in's host-id ledger for module keys (ROADMAP B714; ADR-411 Q17 (b); ADR-412 r2; RS-5.6). APPEND-ONLY: an id, once here, keeps its number and its (module, key) forever; tools/host_id_ledger_check.py in ./verify fast is red on a renumbered or removed entry, and on an id at or above next_free. Ids are generated from each manifest AS MORPH ROWS (ADR-412 r2): a key's host value is its v in [0, 1] by its law (tools/rack/law/), a stepped key's its option index, as the engine rows' are. `module` is the manifest's own module name, `key` a manifest address (or, with slot_io, the I/O pair a slot supplies to a module that declares none, RS-4.7), and `switch` the slot's on switch (fx/N.on). The seed is the pre-B714 numbering, kept: 0xA00010 Weir's on and 0xA00011-15 its keys in manifest order, leaving out the one-value fxfilter.type (a constant, never a host parameter); 0xA00016 Scape's on and 0xA00017 + k Scape's manifest id k. A new key takes next_free. `aliases` is DATA for the bridge and the host until GUI 3's page moves to hello.slots (critic finding 2, retired in S6): each maps a (module, key) to the pre-B714 page key and the form that row was published in (host: the host value itself, the filter rows; plain: module units, Scape's). `legacy` is the frozen table the chunk reader translates version 5 and 6 lines through (prefix -> an id list or an id base), so no module code reads them. Each alias also freezes the pre-B714 published name, and labels where they differed from the manifest's, so hello.preview and the host's parameter names and option texts read as main's did (filter_core.h param_name and mode_name, reverb_core.h param_name, as they were); the one difference is the cutoff's default, now the manifest's default (ADR-413, the lead's reading), 1000 Hz.",
+ "version": 1,
+ "next_free": "0xA00036",
+ "ids": [
+  {
+   "id": "0xA00010",
+   "module": "fxfilter",
+   "switch": true
+  },
+  {
+   "id": "0xA00011",
+   "module": "fxfilter",
+   "key": "fxfilter.mode"
+  },
+  {
+   "id": "0xA00012",
+   "module": "fxfilter",
+   "key": "fxfilter.cutoff"
+  },
+  {
+   "id": "0xA00013",
+   "module": "fxfilter",
+   "key": "fxfilter.resonance"
+  },
+  {
+   "id": "0xA00014",
+   "module": "fxfilter",
+   "key": "fxfilter.morph"
+  },
+  {
+   "id": "0xA00015",
+   "module": "fxfilter",
+   "key": "fxfilter.mix"
+  },
+  {
+   "id": "0xA00016",
+   "module": "scape",
+   "switch": true
+  },
+  {
+   "id": "0xA00017",
+   "module": "scape",
+   "key": "verb.mix"
+  },
+  {
+   "id": "0xA00018",
+   "module": "scape",
+   "key": "verb.preDelay"
+  },
+  {
+   "id": "0xA00019",
+   "module": "scape",
+   "key": "verb.erSend"
+  },
+  {
+   "id": "0xA0001A",
+   "module": "scape",
+   "key": "verb.erSize"
+  },
+  {
+   "id": "0xA0001B",
+   "module": "scape",
+   "key": "verb.erDecay"
+  },
+  {
+   "id": "0xA0001C",
+   "module": "scape",
+   "key": "verb.envelop"
+  },
+  {
+   "id": "0xA0001D",
+   "module": "scape",
+   "key": "verb.tailDecorr"
+  },
+  {
+   "id": "0xA0001E",
+   "module": "scape",
+   "key": "verb.mixTimeMs"
+  },
+  {
+   "id": "0xA0001F",
+   "module": "scape",
+   "key": "verb.diffuse"
+  },
+  {
+   "id": "0xA00020",
+   "module": "scape",
+   "key": "verb.size"
+  },
+  {
+   "id": "0xA00021",
+   "module": "scape",
+   "key": "verb.decay"
+  },
+  {
+   "id": "0xA00022",
+   "module": "scape",
+   "key": "verb.damp"
+  },
+  {
+   "id": "0xA00023",
+   "module": "scape",
+   "key": "verb.lowCut"
+  },
+  {
+   "id": "0xA00024",
+   "module": "scape",
+   "key": "verb.modDepth"
+  },
+  {
+   "id": "0xA00025",
+   "module": "scape",
+   "key": "verb.modRate"
+  },
+  {
+   "id": "0xA00026",
+   "module": "scape",
+   "key": "verb.width"
+  },
+  {
+   "id": "0xA00027",
+   "module": "scape",
+   "key": "verb.bassMono"
+  },
+  {
+   "id": "0xA00028",
+   "module": "scape",
+   "key": "verb.inHP"
+  },
+  {
+   "id": "0xA00029",
+   "module": "scape",
+   "key": "verb.inLP"
+  },
+  {
+   "id": "0xA0002A",
+   "module": "scape",
+   "key": "verb.spinDepth"
+  },
+  {
+   "id": "0xA0002B",
+   "module": "scape",
+   "key": "verb.spinRate"
+  },
+  {
+   "id": "0xA0002C",
+   "module": "scape",
+   "key": "verb.preGain"
+  },
+  {
+   "id": "0xA0002D",
+   "module": "scape",
+   "key": "verb.postGain"
+  },
+  {
+   "id": "0xA0002E",
+   "module": "scape",
+   "key": "io.outGain"
+  },
+  {
+   "id": "0xA0002F",
+   "module": "scape",
+   "key": "verb.era"
+  },
+  {
+   "id": "0xA00030",
+   "module": "scape",
+   "key": "verb.delayMotion"
+  },
+  {
+   "id": "0xA00031",
+   "module": "scape",
+   "key": "verb.glideTime"
+  },
+  {
+   "id": "0xA00032",
+   "module": "scape",
+   "key": "io.inGain"
+  },
+  {
+   "id": "0xA00033",
+   "module": "scape",
+   "key": "verb.image"
+  },
+  {
+   "id": "0xA00034",
+   "module": "fxfilter",
+   "key": "io.inGain",
+   "slot_io": true
+  },
+  {
+   "id": "0xA00035",
+   "module": "fxfilter",
+   "key": "io.outGain",
+   "slot_io": true
+  }
+ ],
+ "aliases": [
+  {
+   "module": "fxfilter",
+   "switch": true,
+   "preview": "preview.filter.on",
+   "form": "host",
+   "name": "Filter on",
+   "labels": [
+    "off",
+    "on"
+   ]
+  },
+  {
+   "module": "fxfilter",
+   "key": "fxfilter.mode",
+   "preview": "preview.filter.mode",
+   "form": "host",
+   "name": "Filter mode",
+   "labels": [
+    "LP",
+    "BP",
+    "HP",
+    "Notch",
+    "Peak"
+   ]
+  },
+  {
+   "module": "fxfilter",
+   "key": "fxfilter.cutoff",
+   "preview": "preview.filter.cutoff",
+   "form": "host",
+   "name": "Filter cutoff"
+  },
+  {
+   "module": "fxfilter",
+   "key": "fxfilter.resonance",
+   "preview": "preview.filter.resonance",
+   "form": "host",
+   "name": "Filter resonance"
+  },
+  {
+   "module": "fxfilter",
+   "key": "fxfilter.morph",
+   "preview": "preview.filter.ring",
+   "form": "host",
+   "name": "Filter ring"
+  },
+  {
+   "module": "fxfilter",
+   "key": "fxfilter.mix",
+   "preview": "preview.filter.mix",
+   "form": "host",
+   "name": "Filter mix"
+  },
+  {
+   "module": "scape",
+   "switch": true,
+   "preview": "preview.scape.on",
+   "form": "host",
+   "name": "Scape on",
+   "labels": [
+    "off",
+    "on"
+   ]
+  },
+  {
+   "module": "scape",
+   "key": "verb.mix",
+   "preview": "preview.scape.mix",
+   "form": "plain",
+   "name": "Scape mix"
+  },
+  {
+   "module": "scape",
+   "key": "verb.preDelay",
+   "preview": "preview.scape.preDelay",
+   "form": "plain",
+   "name": "Scape preDelay"
+  },
+  {
+   "module": "scape",
+   "key": "verb.erSend",
+   "preview": "preview.scape.erSend",
+   "form": "plain",
+   "name": "Scape erSend"
+  },
+  {
+   "module": "scape",
+   "key": "verb.erSize",
+   "preview": "preview.scape.erSize",
+   "form": "plain",
+   "name": "Scape erSize"
+  },
+  {
+   "module": "scape",
+   "key": "verb.erDecay",
+   "preview": "preview.scape.erDecay",
+   "form": "plain",
+   "name": "Scape erDecay"
+  },
+  {
+   "module": "scape",
+   "key": "verb.envelop",
+   "preview": "preview.scape.envelop",
+   "form": "plain",
+   "name": "Scape envelop"
+  },
+  {
+   "module": "scape",
+   "key": "verb.tailDecorr",
+   "preview": "preview.scape.tailDecorr",
+   "form": "plain",
+   "name": "Scape tailDecorr"
+  },
+  {
+   "module": "scape",
+   "key": "verb.mixTimeMs",
+   "preview": "preview.scape.mixTimeMs",
+   "form": "plain",
+   "name": "Scape mixTimeMs"
+  },
+  {
+   "module": "scape",
+   "key": "verb.diffuse",
+   "preview": "preview.scape.diffuse",
+   "form": "plain",
+   "name": "Scape diffuse"
+  },
+  {
+   "module": "scape",
+   "key": "verb.size",
+   "preview": "preview.scape.size",
+   "form": "plain",
+   "name": "Scape size"
+  },
+  {
+   "module": "scape",
+   "key": "verb.decay",
+   "preview": "preview.scape.decay",
+   "form": "plain",
+   "name": "Scape decay"
+  },
+  {
+   "module": "scape",
+   "key": "verb.damp",
+   "preview": "preview.scape.damp",
+   "form": "plain",
+   "name": "Scape damp"
+  },
+  {
+   "module": "scape",
+   "key": "verb.lowCut",
+   "preview": "preview.scape.lowCut",
+   "form": "plain",
+   "name": "Scape lowCut"
+  },
+  {
+   "module": "scape",
+   "key": "verb.modDepth",
+   "preview": "preview.scape.modDepth",
+   "form": "plain",
+   "name": "Scape modDepth"
+  },
+  {
+   "module": "scape",
+   "key": "verb.modRate",
+   "preview": "preview.scape.modRate",
+   "form": "plain",
+   "name": "Scape modRate"
+  },
+  {
+   "module": "scape",
+   "key": "verb.width",
+   "preview": "preview.scape.width",
+   "form": "plain",
+   "name": "Scape width"
+  },
+  {
+   "module": "scape",
+   "key": "verb.bassMono",
+   "preview": "preview.scape.bassMono",
+   "form": "plain",
+   "name": "Scape bassMono"
+  },
+  {
+   "module": "scape",
+   "key": "verb.inHP",
+   "preview": "preview.scape.inHP",
+   "form": "plain",
+   "name": "Scape inHP"
+  },
+  {
+   "module": "scape",
+   "key": "verb.inLP",
+   "preview": "preview.scape.inLP",
+   "form": "plain",
+   "name": "Scape inLP"
+  },
+  {
+   "module": "scape",
+   "key": "verb.spinDepth",
+   "preview": "preview.scape.spinDepth",
+   "form": "plain",
+   "name": "Scape spinDepth"
+  },
+  {
+   "module": "scape",
+   "key": "verb.spinRate",
+   "preview": "preview.scape.spinRate",
+   "form": "plain",
+   "name": "Scape spinRate"
+  },
+  {
+   "module": "scape",
+   "key": "verb.preGain",
+   "preview": "preview.scape.preGain",
+   "form": "plain",
+   "name": "Scape preGain"
+  },
+  {
+   "module": "scape",
+   "key": "verb.postGain",
+   "preview": "preview.scape.postGain",
+   "form": "plain",
+   "name": "Scape postGain"
+  },
+  {
+   "module": "scape",
+   "key": "io.outGain",
+   "preview": "preview.scape.outGain",
+   "form": "plain",
+   "name": "Scape outGain"
+  },
+  {
+   "module": "scape",
+   "key": "verb.era",
+   "preview": "preview.scape.era",
+   "form": "plain",
+   "name": "Scape era"
+  },
+  {
+   "module": "scape",
+   "key": "verb.delayMotion",
+   "preview": "preview.scape.delayMotion",
+   "form": "plain",
+   "name": "Scape delayMotion"
+  },
+  {
+   "module": "scape",
+   "key": "verb.glideTime",
+   "preview": "preview.scape.glideTime",
+   "form": "plain",
+   "name": "Scape glideTime"
+  },
+  {
+   "module": "scape",
+   "key": "io.inGain",
+   "preview": "preview.scape.inGain",
+   "form": "plain",
+   "name": "Scape inGain"
+  },
+  {
+   "module": "scape",
+   "key": "verb.image",
+   "preview": "preview.scape.image",
+   "form": "plain",
+   "name": "Scape image"
+  }
+ ],
+ "legacy": [
+  {
+   "version": 5,
+   "prefix": "filter",
+   "ids": [
+    "0xA00010",
+    "0xA00011",
+    "0xA00012",
+    "0xA00013",
+    "0xA00014",
+    "0xA00015"
+   ],
+   "form": "host",
+   "_about": "B660: one line 'filter <on> <mode> <cutoff x> <res> <ring> <mix>', host values in order; a line that does not hold six finite numbers is no line"
+  },
+  {
+   "version": 6,
+   "prefix": "scape",
+   "on_word": "on",
+   "on_id": "0xA00016",
+   "id_base": "0xA00017",
+   "count": 29,
+   "form": "plain",
+   "_about": "B710: 'scape on 1', and 'scape <k> <value>' for Scape's manifest id k in Scape's units; an id outside [0, count) or a non-finite value is no line; a later line for an id replaces an earlier one"
+  }
+ ]
+}

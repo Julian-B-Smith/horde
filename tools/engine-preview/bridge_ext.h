@@ -21,4 +21,7 @@ struct preview_bridge_ext {
   // Tests only (B642): a sounding block counts as an overrun once it takes `fraction` of its time (1 by default), so the
   // session log's per-overrun lines can be checked without a block that really overruns. 0 counts every sounding block.
   void (*overrun_at)(const clap_plugin_t* plugin, double fraction);
+  // Tests only (B714): the rack never skips a slot for its tail (rack.h set_never_cut), so a render can be held
+  // against the same instance's that does.
+  void (*rack_never_cut)(const clap_plugin_t* plugin, bool on);
 };

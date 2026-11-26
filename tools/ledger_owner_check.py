@@ -54,6 +54,7 @@ LEDGERS = [
     "docs/armor/acceptances.json",
     "docs/armor/engines.json",
     "tools/param_id_lock.json",
+    "tools/engine-preview/host_ids.lock.json",
     "tools/build_flags_pin.json",
     "tools/license_allowlist.json",
     "h2/engine/selfdigest.*",
@@ -68,6 +69,7 @@ GUARDS = [
     "tools/weakening_check.py",
     "tools/tolerance_registry_check.py",
     "tools/param_id_lock_check.py",
+    "tools/host_id_ledger_check.py",
     "tools/build_flags_check.py",
     "tools/license_audit_check.py",
 ]
