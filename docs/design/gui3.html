@@ -564,6 +564,17 @@ function live(c) {
   const o = optLabel(r, v);
   return c.is ? c.is.includes(o) : !c.not.includes(o);
 }
+/* What's DRAWN (GUI-77 A1, the human, 2026-11-27: "Right: stay drawn"). Only a stepped gate (a switch, a mode, a choice) hides a
+   control. A comparison on a continuous value (`gt`, `ne`: Drift rate while Drift depth is 0, Character while Sub drive is 0)
+   still decides whether it can ACT, which live() answers and the info box reports as "Inert now", but it never hides the control,
+   so a morph or macro sweeping a depth through 0 doesn't make rows blink. Before A1 these hid as GUI-21's readings had it. */
+function drawn(c) {
+  if (!c) return true;
+  if (c.all) return c.all.every(drawn);
+  if (c.any) return c.any.some(drawn);
+  if ((c.gt !== undefined || c.ne !== undefined) && !(ROW[c.key] && ROW[c.key].options)) return true;
+  return live(c);
+}
 function says(c) {
   if (c.all) return c.all.map(says).join(' and ');
   if (c.any) return '(' + c.any.map(says).join(' or ') + ')';
@@ -631,7 +642,7 @@ function mountControl(ctl, pageId, path, opts) {
       p => { face = p; return ctl.widget === 'knob' ? H.Knob(host, p, S) : H.Slider(host, p, S); });
     PROPS[row.key + '@' + pageId] = face;
     const r0 = view.render;                 // a knob draws only while its page shows: 300-odd views would redraw every frame otherwise
-    view.render = function () { if (page === pageId || pageId === '*') { r0(); host.classList.toggle('idle', !live(ctl.live)); } };
+    view.render = function () { if (page === pageId || pageId === '*') { r0(); host.classList.toggle('idle', !drawn(ctl.live)); } };
     return host;
   }
   let set;                                     // set(idx): repaint the control to the heard option
@@ -684,7 +695,7 @@ function mountControl(ctl, pageId, path, opts) {
   views.push({ page: pageId, update() {
     const i = idxOf(row, dev.shown(row.key)), k = i + '|' + dev.rev();
     if (k !== last) { last = k; set(i); }
-    host.classList.toggle('idle', !live(ctl.live));
+    host.classList.toggle('idle', !drawn(ctl.live));
   } });
   return host;
 }
@@ -1294,7 +1305,7 @@ function sectionOf(pg, g, opts) {
   opts = opts || {};
   const path = pg.label + ' · ' + g.title + (g.num ? ' ' + g.num : '');
   const sec = h('section', { class: 'hd-sec', 'aria-label': path, 'data-section': g.id }), head = h('div');
-  views.push({ page: pg.id, update() { sec.classList.toggle('idle', !g.controls.some(c => live(c.live))); } });   // GUI-21, as in gridSection
+  views.push({ page: pg.id, update() { sec.classList.toggle('idle', !g.controls.some(c => drawn(c.live))); } });   // GUI-21 and GUI-77 A1, as in gridSection
   const power = g.controls.find(c => c.role === 'power'), modes = g.controls.find(c => c.role === 'modes');
   const plain = g.controls.filter(c => !c.role && !c.advanced), adv = g.controls.filter(c => !c.role && c.advanced);
   const body = h('div', { class: 'hd-sgroups' }), size = opts.size || null;
@@ -1358,7 +1369,7 @@ function gridSection(pg, g) {
   const sec = h('section', { 'aria-label': path, 'data-section': g.id });
   // GUI-21: a section with nothing it can do is its header and its power switch: no tier pills for rows that aren't there, no readout of settings that don't act.
   // And one where nothing can act, its own switch included (a Resonator while the noise is off), goes altogether.
-  views.push({ page: pg.id, update() { sec.classList.toggle('hd-sec-off', !g.controls.some(c => c.role !== 'power' && live(c.live))); sec.classList.toggle('idle', !g.controls.some(c => live(c.live))); } });
+  views.push({ page: pg.id, update() { sec.classList.toggle('hd-sec-off', !g.controls.some(c => c.role !== 'power' && drawn(c.live))); sec.classList.toggle('idle', !g.controls.some(c => drawn(c.live))); } });
   const power = g.controls.find(c => c.role === 'power'), modes = g.controls.find(c => c.role === 'modes');
   const plain = g.controls.filter(c => !c.role && !c.advanced), adv = g.controls.filter(c => !c.role && c.advanced);
   const mk = (c, o) => mountControl(c, pg.id, path + ' · ' + ROW[c.key].label, Object.assign({ tiny: true }, o));
@@ -1453,7 +1464,7 @@ function syncTable(pg, el) {
   const by = Object.fromEntries(pg.groups.flatMap(g => g.controls.map(c => [c.key, c])));
   el.querySelectorAll('.hd-pt .pt-row').forEach(rw => {
     const c = by[rw.dataset.key], row = ROW[rw.dataset.key], i = idxOf(row, dev.shown(row.key));
-    rw.classList.toggle('idle', !live(c.live));
+    rw.classList.toggle('idle', !drawn(c.live));
     const tg = rw.querySelector('.hd-toggle'), se = rw.querySelector('select'), sp = rw.querySelector('.hd-stepper');
     if (tg) tg.setAttribute('aria-checked', String(row.options[i] === 'on'));
     else if (se) { if (se.value !== String(i)) se.value = String(i); }
@@ -1866,7 +1877,7 @@ DATA.pages.forEach(pg => {
   else if (pg.panel === 'console') { consolePage(pg, el);
     // GUI-21: a strip's own controls obey the same table as any other. The console mounts them itself, so the shell's control builder never sees them.
     const conds = Object.fromEntries(pg.groups.flatMap(g => g.controls).map(c => [c.key, c.live]));
-    views.push({ page: pg.id, update() { el.querySelectorAll('[data-key]').forEach(e => { if (e.dataset.key in conds) e.classList.toggle('idle', !live(conds[e.dataset.key])); }); } }); }
+    views.push({ page: pg.id, update() { el.querySelectorAll('[data-key]').forEach(e => { if (e.dataset.key in conds) e.classList.toggle('idle', !drawn(conds[e.dataset.key])); }); } }); }
   else if (pg.panel === 'ledger') ledgerPage(pg, el);
   else if (pg.panel === 'random') el.append(h('div', { class: 'cards' }, randomizePanel()));
   else if (pg.panel === 'history') historyPage(pg, el);
@@ -2915,12 +2926,25 @@ CLOCK.checking = true;
     const flows = matchMedia('(max-width: 830px)').matches;   // in a narrow view the rows flow, so the control's top and right can't move them
     line(!hits.length && (control || flows), 'Top bar (GUI-22): the page tabs, preset bar, colours and the Morph, Pad and Bank switches meet nowhere on ' + DATA.pages.length + ' pages at ' + widths.join(', ') + ' px' + (hits.length ? ' (HIT: ' + hits.slice(0, 5).join('; ') + ')' : '') + '. Control: with the switches back on the top row they collide' + (control ? '' : flows ? ' (not measurable in a view this narrow, where the rows flow)' : ' (THEY DIDN’T)') + '.'); }
   // GUI-21: a control that can't act isn't drawn, on every page, and it comes back with its setting. Controls: a condition that holds draws it, and one row reads the same on every page that shows it.
-  { const pg0 = page, tick = () => { for (const v of views) if (v.page === page || v.page === '*') v.update(); for (const v of S.views) v.render(); }; let shownInert = [], blanks = [], drawn = 0; const keep = dev.history().past.length;
-    DATA.pages.forEach(pg => { selectPage(pg.id); tick(); (pg.groups || []).forEach(g => (g.controls || []).forEach(c => { if (c.role === 'power' || c.follow) return; const el = pageEls[pg.id].querySelector('[data-key="' + c.key + '"]'); if (!el || !el.offsetWidth) return; drawn++; if (!live(c.live)) shownInert.push(pg.id + ' ' + c.key); })); pageEls[pg.id].querySelectorAll('section[data-section]').forEach(sec => { if (sec.offsetWidth && !sec.querySelector('.ctl') && !sec.querySelector('canvas')) blanks.push(sec.dataset.section); }); });
+  { const pg0 = page, tick = () => { for (const v of views) if (v.page === page || v.page === '*') v.update(); for (const v of S.views) v.render(); }; let shownInert = [], blanks = [], nDrawn = 0; const keep = dev.history().past.length;
+    DATA.pages.forEach(pg => { selectPage(pg.id); tick(); (pg.groups || []).forEach(g => (g.controls || []).forEach(c => { if (c.role === 'power' || c.follow) return; const el = pageEls[pg.id].querySelector('[data-key="' + c.key + '"]'); if (!el || !el.offsetWidth) return; nDrawn++; if (!drawn(c.live)) shownInert.push(pg.id + ' ' + c.key); })); pageEls[pg.id].querySelectorAll('section[data-section]').forEach(sec => { if (sec.offsetWidth && !sec.querySelector('.ctl') && !sec.querySelector('canvas')) blanks.push(sec.dataset.section); }); });
     const swaps = [], trial = PG.noise;
     withSourceOn('noise', () => { selectPage('noise'); tick(); trial.groups.flatMap(g => g.controls).filter(c => c.role === 'modes').forEach(m => { const r = ROW[m.key]; const dep = trial.groups.flatMap(g => g.controls).filter(c => JSON.stringify(c.live || '').includes('"' + m.key + '"')); if (!dep.length) return; r.options.forEach((o, i) => { dev.set(r.key, i / (r.n - 1), { label: 'self-check' }); tick(); swaps.push(o + ':' + dep.filter(c => { const e = pageEls.noise.querySelector('[data-key="' + c.key + '"]'); return e && e.offsetWidth; }).map(c => c.key).join(',')); }); }); });
     selectPage(pg0); tick(); const differ = new Set(swaps.map(x => x.split(':')[1])).size >= 3;
-    line(!shownInert.length && !blanks.length && differ && drawn > 100 && dev.history().past.length === keep, 'Hidden when inert (GUI-21): ' + drawn + ' controls drawn across the pages, none of them inert' + (shownInert.length ? ' (DRAWN: ' + shownInert.slice(0, 6).join(', ') + ')' : '') + ', and no section left blank' + (blanks.length ? ' (BLANK: ' + blanks.join(', ') + ')' : '') + '. Control: the noise’s source draws a different set of controls for each of its ' + swaps.length + ' settings' + (differ ? '' : ' (IT DIDN’T)') + '.'); }
+    line(!shownInert.length && !blanks.length && differ && nDrawn > 100 && dev.history().past.length === keep, 'Hidden when inert (GUI-21, GUI-77 A1): ' + nDrawn + ' controls drawn across the pages, none behind a stepped gate that is shut' + (shownInert.length ? ' (DRAWN: ' + shownInert.slice(0, 6).join(', ') + ')' : '') + ', and no section left blank' + (blanks.length ? ' (BLANK: ' + blanks.join(', ') + ')' : '') + '. Control: the noise’s source draws a different set of controls for each of its ' + swaps.length + ' settings' + (differ ? '' : ' (IT DIDN’T)') + '.'); }
+  // GUI-77 A1: a control behind a CONTINUOUS gate stays drawn at the gate's dead value and is still known to be inert; one behind a
+  // STEPPED gate still hides. Sub's Character (live while Sub drive is above 0) against its Pulse width (live while the wave is pulse).
+  { const tick = () => { for (const v of views) if (v.page === page || v.page === '*') v.update(); for (const v of S.views) v.render(); };
+    const pg0 = page, keep = dev.history().past.length, K = (...a) => a.join('.');
+    const drive = ROW[K('sub', 'drive')], wave = ROW[K('sub', 'wave')], ch = K('sub', 'character'), pw = K('sub', 'pulseWidth');
+    const cOf = k => PG.sub.groups.flatMap(g => g.controls).find(c => c.key === k);
+    const vis = k => { const e = pageEls.sub.querySelector('[data-key="' + k + '"]'); return !!e && e.offsetWidth > 0; };
+    const notPulse = wave.options.findIndex(o => o !== 'pulse');
+    dev.begin('self-check'); dev.set(drive.key, 0); dev.set(wave.key, notPulse / (wave.n - 1)); dev.end();
+    selectPage('sub'); tick();
+    const chShown = vis(ch), chInert = !live(cOf(ch).live), pwHidden = !vis(pw);
+    dev.undo(); selectPage(pg0); tick();
+    line(chShown && chInert && pwHidden && dev.history().past.length === keep, 'Slider gates stay drawn (GUI-77 A1): with Sub drive at 0 its Character is ' + (chShown ? 'drawn' : 'HIDDEN') + ' and still known inert' + (chInert ? '' : ' (READ LIVE)') + '. Control: with the wave not pulse, Pulse width, behind a switch-like gate, is ' + (pwHidden ? 'hidden' : 'DRAWN') + '.'); }
   // 14. ADR-333: an oscillator page shows the envelope its env row selects; an edit there is the Mod page's key, and an edit
   // on the Mod page reads back there. Control: the value differed before.
   const oscPg = DATA.pages.find(p => p.id === 'osc1'), fg = oscPg.groups.find(g => g.follow), fsel = ROW[fg.follow.selector];
