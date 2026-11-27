@@ -6571,6 +6571,7 @@
   var flow = {
     make: function () { return { filters: 'serial', route: { osc1: 'f1', osc2: 'f1', sub: 'f1', noise: 'f1' }, fx: 'serial', byp: {}, tap: null }; },
     edges: function (F) {
+      if (typeof F.graph === 'function') return F.graph();   // GUI-76 r7: the picture draws the routing graph (flow.fromGraph); X13's selects don't apply
       var E = [], add = function (u, v) { E.push({ u: u, v: v }); };
       CC_SOURCES.forEach(function (s) {
         var r = F.route[s];
@@ -6591,7 +6592,7 @@
     },
     // what a bypassed module's strips read: the level going past it, from whatever feeds it
     feeds: function (F) {
-      var out = {};
+      var out = {}; if (typeof F.graph === 'function') return out;
       CC_SHAPES[F.fx].forEach(function (branch) { var from = 'mk'; branch.forEach(function (k) { if (F.byp[k]) out[k] = from; else from = 'x' + k + 'o'; }); });
       return out;
     },
@@ -6611,6 +6612,19 @@
       // the solo tap: that stage's output goes straight to the limiter, so a solo is never past the device's protection
       if (F.tap && F.tap !== 'lim') { lv.lim = lv[F.tap]; lv.vol = Math.min(lv.lim, -1) + gainOf('vol'); }
       return lv;
+    },
+    /* GUI-76 r7: the routing graph (an FxWires) as the console's edges, as heard at the pad's weights W. io(id) gives a node's [in, out] stages: by default an
+       input is its own stage, a node with `io` uses it (a filter: ['f1i', 'f1o']; a module: its slot's ['x1i', 'x1o']), and Out is LIM IN. A fed filter or module
+       gets its own in -> out edge; LIM IN -> OUT closes the chain. Late returns are left out (they stay on the ladder, one sample late). Filter 2 into Filter 1 is
+       drawn (F2 OUT -> F1 IN, ADR-414's either order), but levels() runs in chain order, so its model reads that wire's level as silent: a picture, not a
+       measurement. A wire from an input straight to Out is the dry path (GUI-76 r4). */
+    fromGraph: function (model, W, io) {
+      io = io || function (id) { var n = model.node(id); return n.kind === 'out' ? ['lim', 'lim'] : n.io ? n.io : [id, id]; };
+      var E = [], seen = {}, fed = {}, add = function (u, v) { var k = u + '>' + v; if (!seen[k]) { seen[k] = 1; E.push({ u: u, v: v }); } };
+      model.shown(4, W, false).forEach(function (x) { if (model.late(x.w.u, x.w.v)) return; add(io(x.w.u)[1], io(x.w.v)[0]); fed[x.w.v] = 1; });
+      model.nodes.forEach(function (n) { var q = io(n.id); if (fed[n.id] && q[0] !== q[1]) add(q[0], q[1]); });
+      add('lim', 'vol');
+      return E;
     },
     // what you hear while a stage is soloed: that stage and whatever feeds it. Everything else dims.
     heard: function (F) {
@@ -9505,14 +9519,34 @@ window.Horde.MainStage = {
   FxWires.prototype.find = function (u, v) { for (var i = 0; i < this.wires.length; i++) if (this.wires[i].u === u && this.wires[i].v === v) return this.wires[i]; return null; };
   /* a return wire runs against the row's order (or to itself, which can() refuses): drawn below, dashed, one sample late */
   FxWires.prototype.isReturn = function (u, v) { return this.rank[v] <= this.rank[u]; };
+  /* a LATE wire is a return on the summed side: one sample late, dashed, z⁻¹ (ADR-411 r1). A backwards wire between two per-voice nodes (Filter 2 into Filter 1)
+     is not late, only the other order (ADR-414: "either order, no loop"): it runs below the row, solid, with no z⁻¹. */
+  FxWires.prototype.late = function (u, v) { return this.isReturn(u, v) && !(this.perVoice(u) && this.perVoice(v)); };
+  /* can(), and at corner c the per-voice no-loop rule (ADR-414, the human: "Either order, no loop"): per-voice nodes have no sample of delay to break a loop,
+     so a wire between two of them that would close one through that corner's per-voice wires is refused. Heard (c = 4) checks can() alone. */
+  FxWires.prototype.canAt = function (u, v, c) { var why = this.can(u, v); if (why || !(c >= 0 && c <= 3) || !(this.perVoice(u) && this.perVoice(v))) return why;
+    var me = this, seen = {}, todo = [v]; seen[v] = 1;
+    while (todo.length) { var n = todo.pop(); if (n === u) return 'it would close a loop between ' + me.node(u).name + ' and ' + me.node(v).name + ' at corner ' + LETTERS[c] + ': either order, never both';
+      me.wires.forEach(function (w) { if (w.u === n && w.lv[c] !== null && me.perVoice(w.v) && !seen[w.v]) { seen[w.v] = 1; todo.push(w.v); } }); }
+    return ''; };
   /* '' when u -> v may exist, else why not (said to the player) */
   FxWires.prototype.can = function (u, v) { var a = this.node(u), b = this.node(v);
     if (!a || !b) return 'no such box'; if (u === v) return 'a box can’t feed itself'; if (a.kind === 'out') return 'Out is the end of the chain: drag from a source or a module';
-    if (b.kind === 'in') return b.name + ' is an input: a wire goes to a module or Out'; return ''; };
+    if (b.kind === 'in') return b.name + ' is an input: a wire goes to a module or Out';
+    if (this.perVoice(v) && !this.perVoice(u)) return b.name + ' runs per voice and ' + a.name + ' on the voices summed: nothing crosses that line backwards';
+    return ''; };
+  /* THE VOICE BOUNDARY (GUI-76 r2): the inputs, and any node marked `voice` (the filters), run per voice; the modules run once, on the voices summed. So
+     nothing on the summed side feeds a per-voice node, and the row puts every per-voice node before the summed ones (the view draws the line between). */
+  FxWires.prototype.perVoice = function (id) { var n = this.node(id); return !!n && (n.kind === 'in' || !!n.voice); };
+  /* the boundary's place: the index of the last per-voice node in the row, or -1 when there's no line to draw (no node marked `voice`, or the row interleaves) */
+  FxWires.prototype.boundary = function () { var me = this, last = -1, ok = true, any = me.nodes.some(function (n) { return n.voice; });
+    me.nodes.forEach(function (n, i) { if (me.perVoice(n.id)) { if (i !== last + 1) ok = false; last = i; } });
+    return any && ok ? last : -1; };
   /* THE ONE WRITER. c is a corner 0..3 (Heard is never written). L null or <= 0 removes the wire there; a wire absent at every corner leaves the model.
      Returns true when the model changed. */
   FxWires.prototype.setLevel = function (u, v, c, L) {
     if (c === HEARD || c < 0 || c > 3 || this.can(u, v)) return false;
+    if (L !== null && L > 0 && !(this.find(u, v) && this.find(u, v).lv[c] !== null) && this.canAt(u, v, c)) return false;   // a new wire at c that closes a per-voice loop
     if (L !== null && !(L > 0)) L = null; if (L !== null) L = Math.min(1, L);
     var w = this.find(u, v);
     if (!w) { if (L === null) return false; w = { u: u, v: v, lv: [null, null, null, null] }; this.wires.push(w); }
@@ -9546,7 +9580,7 @@ window.Horde.MainStage = {
      destination already reaches its source forward among the wires shown. It is drawn dotted, reading "held 0 %", and heard as nothing. */
   FxWires.prototype.shown = function (c, W, prevent) { var me = this, items = [];
     me.wires.forEach(function (w) { var L = me.levelAt(w, c, W); if (L !== null) items.push({ w: w, L: L, held: false }); });
-    if (prevent) items.forEach(function (x) { if (!me.isReturn(x.w.u, x.w.v)) return;
+    if (prevent) items.forEach(function (x) { if (!me.late(x.w.u, x.w.v)) return;
       var seen = {}, todo = [x.w.v]; seen[x.w.v] = 1;
       while (todo.length) { var n = todo.pop(); items.forEach(function (y) { if (y !== x && y.w.u === n && !me.isReturn(y.w.u, y.w.v) && !seen[y.w.v]) { seen[y.w.v] = 1; todo.push(y.w.v); } }); }
       x.held = !!seen[x.w.u]; });
@@ -9563,7 +9597,7 @@ window.Horde.MainStage = {
     var n = model.nodes.length, col = o.uLen / n, hb = o.hb, bw = Math.min(o.boxMax, col * .84);
     var boxes = model.nodes.map(function (nd, i) { var c = col * (i + .5); return { nd: nd, i: i, uc: c, u0: c - bw / 2, u1: c + bw / 2 }; });
     var ws = items.map(function (x) { var a = model.rank[x.w.u], b = model.rank[x.w.v], dir = b > a ? 'f' : 'r';
-      return { w: x.w, L: x.L, held: !!x.held, a: a, b: b, dir: dir, s0: (dir === 'f' ? a : b) + .25, s1: (dir === 'f' ? b : a) - .25, track: 0 }; });
+      return { w: x.w, L: x.L, held: !!x.held, a: a, b: b, dir: dir, late: dir === 'r' && model.late(x.w.u, x.w.v), s0: (dir === 'f' ? a : b) + .25, s1: (dir === 'f' ? b : a) - .25, track: 0 }; });
     ['f', 'r'].forEach(function (dir) { var placed = [];
       ws.filter(function (x) { return x.dir === dir; }).sort(function (p, q) { return (p.s1 - p.s0) - (q.s1 - q.s0) || p.a - q.a || p.b - q.b; })
         .forEach(function (x) { var t = 1; placed.forEach(function (y) { if (x.s0 < y.s1 && y.s0 < x.s1) t = Math.max(t, y.track + 1); }); x.track = t; placed.push(x); }); });
@@ -9612,7 +9646,7 @@ window.Horde.MainStage = {
      screen px. Returns how many found no clear spot (a clash; 0 at the house pitch, CHIP_H + 2). */
   var CHIP_H = 13, TS = [.5, .35, .65, .2, .8, .27, .73, .12, .88];
   FxWires.CHIP_H = CHIP_H;
-  FxWires.chipText = function (x) { return x.held ? 'held 0 %' : (x.dir === 'r' ? 'z⁻¹ ' : '') + pct(x.L); };
+  FxWires.chipText = function (x) { return x.held ? 'held 0 %' : (x.late ? 'z⁻¹ ' : '') + pct(x.L); };
   FxWires.placeChips = function (lay, map) { var placed = [], clash = 0;
     function hit(r) { return placed.some(function (q) { return r.x < q.x + q.w + 1 && q.x < r.x + r.w + 1 && r.y < q.y + q.h + 1 && q.y < r.y + r.h + 1; }); }
     lay.wires.forEach(function (x) { var t0 = FxWires.chipText(x), cw = t0.length * 5.6 + 8, A = map(x.pa, x.vt), B = map(x.pb, x.vt), best = null;
@@ -9651,6 +9685,8 @@ window.Horde.MainStage = {
   /* THE VIEW. o: { nodes, wires } (or model: an FxWires), weights() the pad's four, prevent() Settings' Prevent feedback (GN-62), keys() keyboard mode,
      start (the corner shown first), onChange(label) once per finished gesture (one undo step), say(text). Returns { el, model, show(i), redraw(), step(), select(k), lastLayout }. */
   var ROW_W = 760;
+  /* o.layout: 'stack' (the default, GUI-76 r6: the ladder at full width over the matrix, because with the filters in the row side by side scrolls at 980 px)
+     or 'side' (GUI-75 r2: side by side from ROW_W px of host, stacked under it) */
   function FxRouting(el, o) {
     var C = H.FxCables, model = o.model || new FxWires(o), st = { show: o.start === undefined ? 0 : o.start, sel: null }, lastW = '', me = {};
     el.classList.add('hd-fxroute'); el.innerHTML = '';
@@ -9682,11 +9718,13 @@ window.Horde.MainStage = {
       lay.boxes.forEach(function (bx) { var a = map(bx.u0, -lay.hb), w = bx.u1 - bx.u0, nd = bx.nd, g = sv('g', { 'class': 'fr-node', 'data-node': nd.id }, gB);
         var full = nd.name, lbl = w >= full.length * 5.6 + 8 ? full : nd.short;
         C.chip(g, a[0] + w / 2, a[1] + lay.hb, w, lay.hb * 2, { id: nd.id, style: styleOf(nd).plain ? (nd.kind === 'out' ? 'out' : nd.style === 'lane2' ? 'lane2' : 'lane') : nd.style }, lbl, 'box');
-        if (nd.mock) { var mt = sv('text', { x: a[0] + w / 2, y: a[1] + lay.hb * 2 - 6, 'class': 'fr-mock' }, g); mt.textContent = 'MOCK'; }
+        /* MOCK on a plain card sits under its name; on a card with a screen it is a small caution badge over the screen's foot, so it never reads as part of the picture */
+        if (nd.mock) { var my = a[1] + lay.hb * 2 - 6; if (!styleOf(nd).plain) sv('rect', { x: a[0] + w / 2 - 14, y: my - 5, width: 28, height: 10, rx: 2, 'class': 'fr-mockbg' }, g);
+          var mt = sv('text', { x: a[0] + w / 2, y: my, 'class': 'fr-mock' }, g); mt.textContent = 'MOCK'; }
         connectFrom(g, nd, root, [a[0] + w / 2, a[1] + lay.hb]); });
       var clash = L0.clash, P = L0.P;
       lay.wires.forEach(function (x) {
-        var Q = x.screen, src = model.node(x.w.u), sty = styleOf(src), k = x.w.u + '>' + x.w.v, ret = x.dir === 'r', d = path(Q);
+        var Q = x.screen, src = model.node(x.w.u), sty = styleOf(src), k = x.w.u + '>' + x.w.v, ret = !!x.late, d = path(Q);
         var core = 1 + 2.5 * x.L, op = x.held ? 1 : C.alpha(x.L), g = sv('g', { 'class': 'fr-wire' + (st.sel === k ? ' sel' : ''), 'data-k': k }, gW);
         if (st.sel === k) sv('path', { d: d, 'class': 'fr-selring', 'stroke-width': core + 7 }, g);
         if (x.held) sv('path', { d: d, 'class': 'fx-wait' }, g);
@@ -9704,11 +9742,17 @@ window.Horde.MainStage = {
         editable(ch, x.w.u, x.w.v);
         var li = tag('li', null, sentence(x.w, x.L, x.held)); list.appendChild(li); });
       function hint(t, y) { var e = sv('text', { x: 10, y: y, 'class': 'fr-band' }, root); e.textContent = t; }
-      hint('forward ↑', 10); if (lay.wires.some(function (x) { return x.dir === 'r'; })) hint('return ↓ one sample late', h - 4);
+      hint('forward ↑', 10); if (lay.wires.some(function (x) { return x.late; })) hint('return ↓ one sample late', h - 4); else if (lay.wires.some(function (x) { return x.dir === 'r'; })) hint('right to left ↓', h - 4);
+      /* the voice boundary (GUI-76 r2): a dashed line between the last per-voice box and the first summed one, named on both sides */
+      var bi = model.boundary();
+      if (bi >= 0 && bi + 1 < lay.boxes.length) { var bxp = 8 + (lay.boxes[bi].u1 + lay.boxes[bi + 1].u0) / 2;
+        root.insertBefore(sv('line', { x1: bxp, x2: bxp, y1: 4, y2: h - 4, 'class': 'fr-boundary' }), root.firstChild);
+        var tl = sv('text', { x: bxp - 4, y: h - 6, 'class': 'fr-bnd l' }, root); tl.textContent = 'PER VOICE';
+        var tr = sv('text', { x: bxp + 4, y: h - 6, 'class': 'fr-bnd r' }, root); tr.textContent = 'VOICES SUMMED'; }
       wv.replaceChildren(root, list);
       me.lastLayout = { lay: lay, P: P, clash: clash, width: width, height: h };
     }
-    function sentence(w, L, held) { var ret = model.isReturn(w.u, w.v);
+    function sentence(w, L, held) { var ret = model.late(w.u, w.v);
       return name(w.u) + ' → ' + name(w.v) + (st.show === HEARD ? ' as heard: ' : ' at ' + LETTERS[st.show] + ': ') + pct(L) + (ret ? ', a return wire, one sample late' + (held ? ', held at zero: Prevent feedback is on' : '') : ''); }
 
     /* ---- making a wire (GUI-75 r3): drag from a box onto another; it lands at 100 % at the shown corner. The band follows the pointer in the svg's own units, so a
@@ -9723,12 +9767,12 @@ window.Horde.MainStage = {
         function up(ev) { window.removeEventListener('pointermove', mvf); window.removeEventListener('pointerup', up); band.remove();
           var hit = document.elementFromPoint(ev.clientX, ev.clientY), tg = hit && hit.closest && hit.closest('[data-node]'), v = tg && tg.getAttribute('data-node');
           if (!v || v === nd.id) return;
-          var why = model.can(nd.id, v); if (why) { say(why[0].toUpperCase() + why.slice(1) + '.'); return; }
+          var why = model.canAt(nd.id, v, st.show); if (why) { say(why[0].toUpperCase() + why.slice(1) + '.'); return; }
           if (st.show === HEARD) { refuseHeard(); return; }
           var w = model.find(nd.id, v), k = nd.id + '>' + v; st.sel = k;
           if (w && w.lv[st.show] !== null) { render(); say(name(nd.id) + ' → ' + name(v) + ' already sends ' + pct(w.lv[st.show]) + ' at ' + LETTERS[st.show] + '.'); return; }
           model.setLevel(nd.id, v, st.show, DEFAULT); render();
-          say(name(nd.id) + ' → ' + name(v) + ' made at ' + LETTERS[st.show] + ', at its default, ' + pct(DEFAULT) + (model.isReturn(nd.id, v) ? ': a return wire, one sample late' : ''));
+          say(name(nd.id) + ' → ' + name(v) + ' made at ' + LETTERS[st.show] + ', at its default, ' + pct(DEFAULT) + (model.late(nd.id, v) ? ': a return wire, one sample late' : ''));
           changed('Wire ' + name(nd.id) + ' → ' + name(v) + ' made'); }
         window.addEventListener('pointermove', mvf); window.addEventListener('pointerup', up);
       });
@@ -9748,8 +9792,10 @@ window.Horde.MainStage = {
       rows.forEach(function (r) { g.appendChild(hd(r, true));
         cols.forEach(function (c) {
           if (r.id === c.id) { var s0 = tag('div', 'fr-cell self'); s0.setAttribute('aria-hidden', 'true'); g.appendChild(s0); return; }
-          var w = model.find(r.id, c.id), L = w ? model.levelAt(w, st.show, W()) : null, k = r.id + '>' + c.id, ret = model.isReturn(r.id, c.id), sty = styleOf(r);
-          var cell = tag('div', 'fr-cell' + (L !== null ? ' live' : '') + (ret ? ' ret' : '') + (held[k] ? ' held' : '') + (st.sel === k ? ' sel' : ''));
+          var w = model.find(r.id, c.id), L = w ? model.levelAt(w, st.show, W()) : null, k = r.id + '>' + c.id, ret = model.late(r.id, c.id), sty = styleOf(r), no = L === null ? model.canAt(r.id, c.id, st.show) : '';
+          /* a wire the rules forbid here (the voice boundary, a per-voice loop at this corner) is hatched with ✕, FX matrix's own "unavailable" mark; an edit says why */
+          var cell = tag('div', 'fr-cell' + (L !== null ? ' live' : '') + (ret ? ' ret' : '') + (no ? ' no' : '') + (held[k] ? ' held' : '') + (st.sel === k ? ' sel' : ''));
+          if (no) cell.setAttribute('aria-disabled', 'true');
           cell.setAttribute('data-k', k); cell.setAttribute('role', 'slider'); cell.tabIndex = keysOn(o) ? 0 : -1;
           cell.setAttribute('aria-valuemin', 0); cell.setAttribute('aria-valuemax', 100); cell.setAttribute('aria-label', r.name + ' to ' + c.name + (ret ? ' (a return wire, one sample late)' : ''));
           if (L !== null) { cell.setAttribute('aria-valuenow', Math.round(L * 100));
@@ -9759,7 +9805,7 @@ window.Horde.MainStage = {
           var pips = tag('span', 'fr-pips');
           for (var i = 0; i < 4; i++) { var on = w && w.lv[i] !== null, p = tag('span', 'fr-pip' + (on ? ' on' : '')); p.innerHTML = '<svg viewBox="0 0 10 10" width="6" height="6" aria-hidden="true"><path d="' + H.CORNERS[i].glyph + '" fill="' + (on ? 'var(--c' + LETTERS[i] + ')' : 'none') + '" stroke="var(--' + (on ? 'ink' : 'hair') + ')" stroke-width="1"/></svg>'; pips.appendChild(p); }
           cell.appendChild(pips);
-          cell.title = LETTERS.map(function (l, i) { return l + ' ' + (w && w.lv[i] !== null ? pct(w.lv[i]) : '—'); }).join('  ') + (ret ? '\nA return wire, one sample late' : '');
+          cell.title = LETTERS.map(function (l, i) { return l + ' ' + (w && w.lv[i] !== null ? pct(w.lv[i]) : '—'); }).join('  ') + (ret ? '\nA return wire, one sample late' : '') + (no ? '\nNot here: ' + no : '');
           editable(cell, r.id, c.id); g.appendChild(cell); }); });
       mv.replaceChildren(g);
     }
@@ -9771,6 +9817,7 @@ window.Horde.MainStage = {
         if (e.button !== 0) return; e.preventDefault(); st.sel = k;
         if (st.show === HEARD) { refuseHeard(); render(); return; }
         var c = st.show, w0 = model.find(u, v), start = w0 && w0.lv[c] !== null ? w0.lv[c] : 0, y0 = e.clientY, moved = false;
+        var no = start ? '' : model.canAt(u, v, c); if (no) { say(no[0].toUpperCase() + no.slice(1) + '.'); render(); return; }   // a refused cell says why, once
         function mvf(ev) { var L = start - (ev.clientY - y0) / (ev.altKey ? 600 : 150); L = Math.round(L * 1000) / 1000;
           if (model.setLevel(u, v, c, L)) moved = true; render(); var fw = model.find(u, v);
           say(name(u) + ' → ' + name(v) + ' at ' + LETTERS[c] + ': ' + (fw && fw.lv[c] !== null ? pct(fw.lv[c]) : 'no wire (0 removes it)')); }
@@ -9778,7 +9825,7 @@ window.Horde.MainStage = {
         window.addEventListener('pointermove', mvf); window.addEventListener('pointerup', up); render(); });
       node.addEventListener('dblclick', function () {
         if (st.show === HEARD) { refuseHeard(); return; }
-        var w = model.find(u, v), has = w && w.lv[st.show] !== null, why = model.can(u, v); if (why) { say(why); return; }
+        var w = model.find(u, v), has = w && w.lv[st.show] !== null, why = has ? '' : model.canAt(u, v, st.show); if (why) { say(why[0].toUpperCase() + why.slice(1) + '.'); return; }
         st.sel = k; var ch = model.setLevel(u, v, st.show, DEFAULT); render();
         say(name(u) + ' → ' + name(v) + (has ? ' back to its default, ' : ' made at its default, ') + pct(DEFAULT) + ', at ' + LETTERS[st.show]);
         if (ch) changed(name(u) + ' → ' + name(v) + ' to 100 %'); });
@@ -9790,6 +9837,7 @@ window.Horde.MainStage = {
         else if (e.key === 'Enter') L = DEFAULT;
         else return;
         e.preventDefault(); if (st.show === HEARD) { refuseHeard(); return; }
+        var no = cur === null && L !== null ? model.canAt(u, v, st.show) : ''; if (no) { say(no[0].toUpperCase() + no.slice(1) + '.'); return; }
         st.sel = k; var ch = model.setLevel(u, v, st.show, L); render();
         var n = el.querySelector((node.classList.contains('fr-cell') ? '.fr-cell' : '.fr-chip') + '[data-k="' + k + '"]') || el.querySelector('.fr-cell[data-k="' + k + '"]'); if (n) n.focus();
         if (ch) changed(name(u) + ' → ' + name(v) + ' level'); });
@@ -9797,7 +9845,7 @@ window.Horde.MainStage = {
 
     function render() {
       var Wn = W(), items = model.shown(st.show, Wn, prevent());
-      views.classList.toggle('stacked', (el.clientWidth || 980) < ROW_W);
+      views.classList.toggle('stacked', o.layout !== 'side' || (el.clientWidth || 980) < ROW_W);
       drawMatrix(items); drawWires(items); lastW = Wn.map(function (x) { return x.toFixed(4); }).join(',');
     }
     if (typeof ResizeObserver === 'function') { var lastWidth = -1; new ResizeObserver(function () { var wd = el.clientWidth; if (wd !== lastWidth) { lastWidth = wd; render(); } }).observe(el); }

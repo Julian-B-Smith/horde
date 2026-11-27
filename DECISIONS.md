@@ -12891,6 +12891,28 @@ The human, 2026-11-26: "Yes, start it", then "Yes, swap it".
 
 **FX device (ADR-254).** No sources or filters: its row starts at the audio input, and the graph is GUI-75's.
 
+### GUI-76 A1 — the filters' order, the wires not yet live, and the master (2026-11-27)
+
+**The human's engine-side answers (ADR-414, relayed by the lead, 2026-11-26):**
+- **The two filters: "Either order, no loop".** Filter 1 → Filter 2, Filter 2 → Filter 1 and parallel are all legal, never both directions at one corner. This narrows r1's "a filter wires to the other filter". A wire that would close a filter loop at the shown corner is refused, as the voice boundary is, and its matrix cell shows the refusal.
+- **Per-source taps and level sends: "Measure first, then rule".** Until then the views draw the source and filter wires, labelled as not yet live (MOCK).
+
+**The master** (`1795745352-7d86`):
+- `FxWires` gains `perVoice`, `boundary`, `canAt` (ADR-414's rule at a corner) and `late`.
+- `FxRouting` draws the voice boundary and stacks by default; `layout: 'side'` keeps GUI-75 r2.
+- `ChainConsole.flow` gains `fromGraph` and `F.graph`, so the Mix picture draws the graph.
+- `fx_routing_check` holds all of it on a third patch, the graph.
+
+**Readings (this session's, open to the human):**
+- **Filter 2 → Filter 1 is not a return.** It runs below the row, because it goes right to left, but solid and with no `z⁻¹`: it is serial in the other order, not one sample late. The band hint reads "right to left ↓".
+- **A refused cell** (the voice boundary, or the second filter direction at that corner) is hatched with `✕`, FX matrix's own unavailable mark, and says why when touched.
+- **MOCK on a card with a screen** (a filter) is a small caution badge over the screen's foot.
+- **In the Mix console's level model** Filter 2 → Filter 1 reads as silent, because the model runs in chain order. The picture draws the wire; the console's levels are a model, not a measurement.
+
+**State (GUI-27):** unchanged from GUI-76.
+
+**Engine impact:** GN-50 and GN-63, with GN-63 narrowed to ADR-414's rule. **FX device:** unchanged.
+
 ## ADR-365 — RULED by the human: the 8 Hz blocker for FM free in pitch FM; item 7.8's table remade; spec round 58 (B621, B623; 2026-11-04)
 
 **Context.** FM free in pitch FM runs an accumulator that never restarts, while each of C.16's readings starts it at 0, so the estimate cannot see its mean and BL-19 cannot hold by the law alone (Q-TA-71: engine-free, 95 of its 144 one-member cases over 0.003, up to 0.046). ADR-363 sent this to a scratch trial of C.16's existing blocker, with clips for the human. Separately, item 7.8's reference R2 places FM free's modulator half a cycle from round 56's start, and 7.8 plays before its settings settle (Q-TA-77).

@@ -1706,7 +1706,12 @@ canvas.hd-ring { outline:none; }
 .hd-fxroute .fr-node { cursor:crosshair; }
 .hd-fxroute .fr-node .fx-node { pointer-events:all; }
 .fr-svg text.fr-mock { font:800 7px/1 var(--font-mono); fill:var(--caution-tx); }
+.fr-svg .fr-mockbg { fill:var(--caution-bg); stroke:var(--caution-tx); stroke-width:.75; }
 .fr-svg text.fr-band { font:400 8px/1 var(--font-mono); fill:var(--hint); text-anchor:start; }
+.fr-svg .fr-boundary { stroke:var(--t2); stroke-width:1; stroke-dasharray:4 3; }
+.fr-svg text.fr-bnd { font:800 8px/1 var(--font-mono); fill:var(--t2); letter-spacing:.06em; }
+.fr-svg text.fr-bnd.l { text-anchor:end; }
+.fr-svg text.fr-bnd.r { text-anchor:start; }
 .fr-svg .fr-selring { fill:none; stroke:var(--focus-ring); opacity:.55; stroke-linecap:round; stroke-linejoin:round; }
 .fr-svg .fr-hit { cursor:pointer; }
 .fr-svg .fr-band-line { stroke:var(--ink); stroke-width:1.5; stroke-dasharray:4 3; pointer-events:none; }
@@ -1733,6 +1738,9 @@ canvas.hd-ring { outline:none; }
 .hd-fxroute .fr-pip { display:inline-flex; width:6px; height:6px; }
 .hd-fxroute .fr-pip svg { overflow:visible; }
 .hd-fxroute .fr-cell.self { background:var(--hair); border-color:var(--hair); cursor:default; }
+.hd-fxroute .fr-cell.no { background:repeating-linear-gradient(45deg, var(--div) 0 1px, transparent 1px 5px), var(--well); cursor:not-allowed; }
+.hd-fxroute .fr-cell.no .fr-pips { display:none; }
+.hd-fxroute .fr-cell.no::after { content:"✕"; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); font:700 11px/1 var(--font-mono); color:var(--t2); }
 .hd-fxroute .fr-cell.ret.live::after { content:"z⁻¹"; position:absolute; right:3px; top:3px; font:700 8px/1 var(--font-mono); color:var(--caution-tx); }
 .hd-fxroute .fr-cell.held .fr-pct { text-decoration:line-through; color:var(--t2); }
 .hd-fxroute .fr-cell.held::after { content:"held"; font-weight:800; }
