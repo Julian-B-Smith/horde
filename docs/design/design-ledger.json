@@ -7708,6 +7708,21 @@
    "superseded_by": null,
    "state": "ruled",
    "master_version": null
+  },
+  {
+   "id": "gui77-glass-gates",
+   "adr": "GUI-77",
+   "clause": "on an FX module's glass only a switch or mode hides a row; a row gated by a continuous value at the end of its range stays drawn, plainly; during a switch's fade rows follow its target; the vector monitor stays dark with TUBE's inks on a pale scheme",
+   "port_tab": null,
+   "note": "Ruled while writing B712's rules lists, from Scape's and Bulwark's glass answers. Next: the master's screens section (G6, G16, the vector monitor's line), after PR #1535 merges. Scope is the FX glasses; the shell's own continuous gates are a separate question. Engine: none. FX device: the same glasses and rules.",
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "lab": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null
   }
  ],
  "not_design": [
@@ -9116,7 +9131,8 @@
   "GUI-76": [
    "GN-50",
    "GN-63"
-  ]
+  ],
+  "GUI-77": "none: a module reports its own live-when data and horde's DOM view reads it; no horde engine row changes"
  },
  "audit_notes": [
   "[A] Counts: 33 design ADRs with 56 rows (ruled 31, of which 6 superseded and 7 legacy-only; wired 9; in-shell 7; vendored 4; in-master 4; unknown 1); 79 not_design. Every primary heading ADR-001..ADR-112 appears exactly once. Headings out of numeric order (ADR-052, ADR-053 before ADR-051; ADR-095, 094, 093, 092; ADR-091 A1-A4 after ADR-112 A3) were all covered. One non-ADR heading sits in range: 'NOTICE · Library standby (plugin-skeleton FOUNDATIONS)', line 661, not design and not listed.",

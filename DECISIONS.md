@@ -12893,6 +12893,28 @@ The human, 2026-11-26: "Yes, start it", then "Yes, swap it".
 
 **FX device (ADR-254).** No sources or filters: its row starts at the audio input, and the graph is GUI-75's.
 
+## GUI-77 — RULED by the human: on the FX glasses, a switch hides a row and a value at the end of its range doesn't; rows follow a switch's target, not its fade; the vector monitor stays dark on a pale scheme (B712; GUI-21, ADR-409; 2026-11-27)
+
+**Context.** The human, 2026-11-27: "Yes, glass rules". Writing the rules list per glass (B712 (2)), the GUI session read the first two module answers to ADR-409's briefs. Scape (its seq 2, 2026-11-27) and Bulwark (its seq 2, 2026-11-26) independently asked the same question of GUI-21. Scape measured its dead rows by null renders: ER size and decay when ER level is 0, mod rate when mod depth is 0, spin rate when spin depth is 0, every wet control at Mix 0, and glide time when delay motion is crossfade. Only the last is gated by a switch. Bulwark's RMS window is dead at exactly RMS 0. Taken literally, GUI-21 makes such a row appear and vanish as a morph or a macro sweeps its gate through the end, and at Mix 0 almost all of Scape's glass would go. Bulwark also asked which state a row follows during its 20 ms switch fades, when both sets of controls act. The vector monitor's policy (Kiln's EQ, ADR-409) was "dark schemes only", and the workshop already draws it black with TUBE's inks on a pale scheme (`docs/design/fx-screens-workshop.html:528-529`).
+
+**Rulings** (the human, 2026-11-27, by poll: "Flips hide, sliders don't (Recommended)", "Target value (Recommended)", "Black with TUBE's inks (Recommended)"):
+1. **On an FX module's glass, only a switch or mode hides a row.** A row gated by a continuous value reaching an end of its range (a level, depth or mix at 0) stays drawn, plainly: not greyed, and not dimmed. A row gated by a stepped key (a switch, a mode, a choice) hides, as GUI-21 says. This follows GUI-21's own wording, "a control that depends on a mode or a switch appears with it" (the master README, rule 4).
+2. **During a switch's fade, rows follow the switch's target value,** not the audible mix, so they change once when it flips and never blink.
+3. **The vector monitor is dark on every scheme.** On a dark scheme it takes the scheme's inks; on a pale one it still draws black with TUBE's inks.
+
+**Readings (the GUI session's, open to the human).**
+- **The scope is the FX glasses,** which is what was asked. The shell's own pages already hide about ten rows on continuous gates under GUI-21's readings (`docs/design/gui3/layout.json`'s `live_when`: for example Drift rate when Drift depth is 0, Pan motion when Width is 0, Sub character when Sub drive is 0, a blade's Edges when its width is under 0.004). Whether the same rule applies there is a separate question for the human, not taken from this ruling.
+- **A module's live-when data marks each gate stepped or continuous.** Bulwark's `rmsTime` and Scape's ER, mod and spin rows stay drawn; Scape's glide time and Bulwark's Branching, auto-release, sidechain and stereo rows hide.
+- **The house-style DOM view horde builds follows the same rule,** since both views draw one model (ADR-400 r1).
+
+**The rules list.** G6 of the master's screens section carries ruling 1, a new G16 carries ruling 2, and the vector monitor's line carries ruling 3. That hop waits for PR #1535 to merge, so the master isn't published over GUI-76's.
+
+**State.** None: what's drawn is a view of the module's own values, and nothing persists.
+
+**Engine impact:** none. A module reports its own live-when data, and horde's DOM view reads it; no horde engine row changes.
+
+**FX device (ADR-254):** the same. The FX device hosts the same glasses and the same rules.
+
 ## ADR-365 — RULED by the human: the 8 Hz blocker for FM free in pitch FM; item 7.8's table remade; spec round 58 (B621, B623; 2026-11-04)
 
 **Context.** FM free in pitch FM runs an accumulator that never restarts, while each of C.16's readings starts it at 0, so the estimate cannot see its mean and BL-19 cannot hold by the law alone (Q-TA-71: engine-free, 95 of its 144 one-member cases over 0.003, up to 0.046). ADR-363 sent this to a scratch trial of C.16's existing blocker, with clips for the human. Separately, item 7.8's reference R2 places FM free's modulator half a cycle from round 56's start, and 7.8 plays before its settings settle (Q-TA-77).
