@@ -6571,7 +6571,7 @@
   var flow = {
     make: function () { return { filters: 'serial', route: { osc1: 'f1', osc2: 'f1', sub: 'f1', noise: 'f1' }, fx: 'serial', byp: {}, tap: null }; },
     edges: function (F) {
-      if (typeof F.graph === 'function') return F.graph();   // GUI-76 r7: the picture draws the routing graph (flow.fromGraph); X13's selects don't apply
+      if (typeof F.graph === 'function') return flow.bypass(F.graph(), F.byp);   // GUI-76 r7: the picture draws the routing graph (flow.fromGraph); X13's selects don't apply
       var E = [], add = function (u, v) { E.push({ u: u, v: v }); };
       CC_SOURCES.forEach(function (s) {
         var r = F.route[s];
@@ -6592,7 +6592,11 @@
     },
     // what a bypassed module's strips read: the level going past it, from whatever feeds it
     feeds: function (F) {
-      var out = {}; if (typeof F.graph === 'function') return out;
+      var out = {};
+      if (typeof F.graph === 'function') {   // a bypassed slot's strips read what goes past it, when one stage feeds it; with several there is no one level to show
+        var E = F.graph(); Object.keys(F.byp || {}).forEach(function (k) { if (!F.byp[k]) return; var u = E.filter(function (e) { return e.v === 'x' + k + 'i' && e.u !== 'x' + k + 'o'; }); if (u.length === 1) out[k] = u[0].u; });
+        return out;
+      }
       CC_SHAPES[F.fx].forEach(function (branch) { var from = 'mk'; branch.forEach(function (k) { if (F.byp[k]) out[k] = from; else from = 'x' + k + 'o'; }); });
       return out;
     },
@@ -6624,6 +6628,19 @@
       model.shown(4, W, false).forEach(function (x) { if (model.late(x.w.u, x.w.v)) return; add(io(x.w.u)[1], io(x.w.v)[0]); fed[x.w.v] = 1; });
       model.nodes.forEach(function (n) { var q = io(n.id); if (fed[n.id] && q[0] !== q[1]) add(q[0], q[1]); });
       add('lim', 'vol');
+      return E;
+    },
+    /* GUI-14's bypass rule on the graph's edges (GUI-76 A2): a bypassed module isn't an edge at all, so every wire into its slot runs on to every place its slot fed.
+       The slot's own in -> out edge goes; nothing else moves. byp is { slot: true }, as make() keeps it. */
+    bypass: function (E, byp) {
+      var ks = Object.keys(byp || {}).filter(function (k) { return byp[k]; }); if (!ks.length) return E;
+      ks.forEach(function (k) {
+        var i = 'x' + k + 'i', o = 'x' + k + 'o', ins = [], outs = [], seen = {}, R = [];
+        E.forEach(function (e) { if (e.v === i && e.u !== o) ins.push(e.u); if (e.u === o) outs.push(e.v); });
+        E.forEach(function (e) { if (e.u !== i && e.v !== i && e.u !== o && e.v !== o) { seen[e.u + '>' + e.v] = 1; R.push(e); } });
+        ins.forEach(function (u) { outs.forEach(function (v) { if (!seen[u + '>' + v]) { seen[u + '>' + v] = 1; R.push({ u: u, v: v }); } }); });
+        E = R;
+      });
       return E;
     },
     // what you hear while a stage is soloed: that stage and whatever feeds it. Everything else dims.

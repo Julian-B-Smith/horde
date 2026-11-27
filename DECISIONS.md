@@ -12913,6 +12913,33 @@ The human, 2026-11-26: "Yes, start it", then "Yes, swap it".
 
 **Engine impact:** GN-50 and GN-63, with GN-63 narrowed to ADR-414's rule. **FX device:** unchanged.
 
+### GUI-76 A2 — the graph in the shell (2026-11-27)
+
+**The human, 2026-11-27:** "Yes, do the shell".
+
+**The shell** (`docs/design/gui3.html`, on master `1795750677-e33d`):
+- **The FX page draws the one graph** (r1): Osc 1, Osc 2, Sub, Noise, Filter 1, Filter 2, then Echo, Scape, Shriek and Bulwark, then Out. The sources and filters are MOCK (ADR-414): drawn, not live until measured. The voice boundary is drawn (r2), and the filters are marked per voice.
+- **The Mix console draws it at the pad** (r7), through `flow.fromGraph` over the same model. The FX page's four modules are the console's four slots, in the ladder's order.
+- **X13's selects are retired** (r1). The "Signal flow" bar under the window now says the routing is the FX page's graph.
+- **The self-checks:**
+  - **4c6** checks the boundary, the filters, a refused cell, a refused box drag and the filters' order.
+  - **4n** wires parallel filters and parallel FX in the graph, then puts it back.
+  - **Plants:** with no graph, and with the filters not per voice, each turned its line red.
+
+**The master** (`1795750677-e33d`). `ChainConsole.flow.bypass` puts GUI-14's bypass rule on the graph's edges: every wire into a bypassed slot runs on to every place the slot fed. A bypassed slot's strips read the stage feeding it when exactly one does. `fx_routing_check` holds this, with a control and a plant.
+
+**Readings (this session's, open to the human):**
+- **The house default is the chain the Mix page drew before:** X13's default (every source into Filter 1, Filter 1 into Filter 2, serial) as wires. Filter 2 feeds the first module, the modules run in order, and the last goes to Out, at 100 % at every corner. GUI-41's default (every input into the first module) has no filters to place.
+- **GUI-14's bypass applies to the graph unchanged**, so a bypassed module passes its wires through.
+- **SUM · VOICES and RACK IN draw unfed.** This is GUI-76's own reading, now held exactly: the console check names those two as the only unfed stages, and keeps its three-node allowance on the rest.
+
+**State (GUI-27).**
+- The wire model is made with the FX page, not on the page's first frame, so the Mix console reads it and Randomize and Copy write it before the FX page is opened.
+- It is still not in a patch, a snapshot or undo, and it is gone on reload, until the bridge publishes the wire model (GN-61).
+- Bypass on the Mix page is session state, as before.
+
+**Engine impact:** GN-50, GN-61 and GN-63, unchanged; nothing new is asked. **FX device (ADR-254):** unchanged. Its graph starts at its audio input, with no sources, filters or Mix console flow.
+
 ## ADR-365 — RULED by the human: the 8 Hz blocker for FM free in pitch FM; item 7.8's table remade; spec round 58 (B621, B623; 2026-11-04)
 
 **Context.** FM free in pitch FM runs an accumulator that never restarts, while each of C.16's readings starts it at 0, so the estimate cannot see its mean and BL-19 cannot hold by the law alone (Q-TA-71: engine-free, 95 of its 144 one-member cases over 0.003, up to 0.046). ADR-363 sent this to a scratch trial of C.16's existing blocker, with clips for the human. Separately, item 7.8's reference R2 places FM free's modulator half a cycle from round 56's start, and 7.8 plays before its settings settle (Q-TA-77).

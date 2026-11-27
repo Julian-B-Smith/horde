@@ -184,6 +184,10 @@
   {
    "version": "1795745352-7d86",
    "evidence": "docs/design/arp-face/README.md: FX routing as one graph from the sources to Out, the voice boundary, either order with no filter loop, stacked, the Mix console's flow from the graph, GUI-76 and A1, 2026-11-27"
+  },
+  {
+   "version": "1795750677-e33d",
+   "evidence": "docs/design/arp-face/README.md: GUI-14's bypass rule on the routing graph's console edges (ChainConsole.flow.bypass), GUI-76 A2, 2026-11-27; tools/labharness/fx_routing_check.mjs"
   }
  ],
  "vendoring": {
@@ -7703,15 +7707,15 @@
    "adr": "GUI-76",
    "clause": "one routing graph from the sources to Out with the filters in the row; source-to-filter sends are levels; the dry path is a wire to Out; one make-up at the master; the routing views stack; the voice boundary refuses wires backwards; the Mix picture draws the graph live",
    "port_tab": null,
-   "note": "Master: FxWires' voice boundary (perVoice, boundary, can), ADR-414's either order with no loop (canAt), late wires; FxRouting draws the boundary, stacks by default (layout 'side' keeps GUI-75 r2), hatches refused cells; ChainConsole.flow.fromGraph and F.graph draw the graph on the Mix console. Held by fx_routing_check's graph patch (168 views; 3 plants red). Next: the shell's FX page (sources and filters in the row, MOCK) and Mix page (the console from the graph). Engine: GN-50, GN-63, waiting on ADR-414's measurement. FX device: GUI-75's graph from its audio input.",
+   "note": "Master: FxWires' voice boundary (perVoice, boundary, can), ADR-414's either order with no loop (canAt), late wires; FxRouting draws the boundary, stacks by default (layout 'side' keeps GUI-75 r2), hatches refused cells; ChainConsole.flow.fromGraph and F.graph draw the graph on the Mix console. Held by fx_routing_check's graph patch (168 views; 3 plants red). Shell (GUI-76 A2, master 1795750677-e33d): the FX page draws the one graph (sources and both filters in the row, MOCK, the boundary drawn), the Mix console draws it at the pad with GUI-14's bypass on the graph (flow.bypass), X13's selects retired; gui3 self-checks 4c6 and 4n hold it (2 plants red). Engine: GN-50, GN-63, waiting on ADR-414's measurement. FX device: GUI-75's graph from its audio input.",
    "component": "FxRouting",
    "bundle": "FxRouting",
-   "shell": null,
+   "shell": "docs/design/gui3.html: FL.fromGraph(fxGraph(PG.fx)",
    "lab": "docs/design/source-routing-lab.html",
    "via": null,
    "superseded_by": null,
-   "state": "vendored",
-   "master_version": "1795745352-7d86"
+   "state": "in-shell",
+   "master_version": "1795750677-e33d"
   }
  ],
  "not_design": [

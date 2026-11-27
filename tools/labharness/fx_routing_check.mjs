@@ -24,7 +24,7 @@ import './sandbox_guard.mjs';
  *   feedback  with Prevent feedback on, a loop's back edge (echo -> weir at C) is held and a return wire that closes no
  *             loop is not; off, nothing is held
  *   GUI-76   the voice boundary refuses a module into a filter; ADR-414's "either order, no loop" refuses the second filter direction at a
- *            corner; a return on the summed side is late (z⁻¹) and Filter 2 into Filter 1 is not; the Mix console's flow (fromGraph) draws
+ *            corner; a return on the summed side is late (z⁻¹) and Filter 2 into Filter 1 is not; a bypassed slot on the graph passes its wires on (GUI-76 A2); the Mix console's flow (fromGraph) draws
  *            the graph live with the pad, without return wires
  *   randomize a seeded draw is repeatable, forward only, at 100 %, and leaves the other corners alone; a copy matches
  * Must-fail controls, each run every time (a control that reads clean means the instrument is blind, and the check is red):
@@ -170,6 +170,15 @@ const model = fresh();
   ok(!eB.some(k => k === 'x2o>x1i'), 'a return wire (Scape → Echo at B) is left out of the console picture');
   [0, 1, 2, 3].forEach(c => h.setLevel('osc2', 'shriek', c, null)); ok(!E(h, 0).includes('osc2>x3i'), 'CONTROL: Osc 2 → Shriek removed at every corner leaves the picture');
   const F = FLOW.make(); F.graph = () => [{ u: 'osc1', v: 'lim' }]; ok(FLOW.edges(F).length === 1 && Object.keys(FLOW.feeds(F)).length === 0 && FLOW.edges(FLOW.make()).some(e => e.u === 'mk'), 'a flow with a graph draws only the graph; CONTROL: a plain flow keeps X13\'s edges'); }
+// GUI-76 A2: GUI-14's bypass rule on the graph. Every wire into a bypassed slot runs on to every place it fed, its own edge goes, and its strips read the one stage
+// feeding it (none when two do). CONTROL: nothing bypassed leaves the graph's edges as they are.
+{ const G = [['x1o', 'x2i'], ['f1o', 'x2i'], ['x2i', 'x2o'], ['x2o', 'x3i'], ['x2o', 'lim'], ['x3i', 'x3o'], ['x3o', 'lim'], ['lim', 'vol']].map(q => ({ u: q[0], v: q[1] }));
+  const F = FLOW.make(); F.graph = () => G.slice(); const ks = () => FLOW.edges(F).map(e => e.u + '>' + e.v).sort().join();
+  ok(ks() === G.map(e => e.u + '>' + e.v).sort().join(), 'CONTROL: a graph with nothing bypassed was rewired');
+  F.byp = { 2: true }; const E = ks();
+  ok(['x1o>x3i', 'f1o>x3i', 'x1o>lim', 'f1o>lim', 'x3i>x3o'].every(k => E.split(',').includes(k)) && !/x2[io]/.test(E), `a bypassed slot 2 did not run its inputs on to its outputs: ${E}`);
+  ok(Object.keys(FLOW.feeds(F)).length === 0, 'a bypassed slot fed by two stages read one of them');
+  F.graph = () => G.filter(e => e.u !== 'f1o'); ok(FLOW.feeds(F)[2] === 'x1o', 'a bypassed slot fed by one stage did not read it'); }
 
 if (bad.length) { console.error('fx_routing_check: RED\n  ' + bad.join('\n  ')); process.exit(1); }
-console.log(`fx_routing_check: GREEN — ${views} ladder views (3 patches × 4 corners and Heard at 3 pads × prevent off/on × 4 widths): 0 shared ports, 0 overlaps, 0 band points, 0 chip clashes, closest ports ${worstGap.toFixed(2)} px, crossings up to ${maxCross} (interleaving spans); the one writer, Heard, held back edges, Randomize's draw and copy, the voice boundary, either order with no loop and the console's flow from the graph hold; 13 controls fired`);
+console.log(`fx_routing_check: GREEN — ${views} ladder views (3 patches × 4 corners and Heard at 3 pads × prevent off/on × 4 widths): 0 shared ports, 0 overlaps, 0 band points, 0 chip clashes, closest ports ${worstGap.toFixed(2)} px, crossings up to ${maxCross} (interleaving spans); the one writer, Heard, held back edges, Randomize's draw and copy, the voice boundary, either order with no loop and the console's flow from the graph and its bypass hold; 14 controls fired`);
