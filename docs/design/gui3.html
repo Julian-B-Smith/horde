@@ -2175,7 +2175,9 @@ if (BRIDGE) {
   // MAP makes no sound here: routes reach no engine (RC-4). The morph does once the bridge hosts it (B636, B639; GUI-59).
   if (!dev.sides().resolver) { $('morphOn').disabled = true; $('morphOn').closest('label').classList.add('inert'); $('morphOn').closest('label').title = INERT_SAYS + ': the morph'; }
   $('mapHost').classList.add('inert'); $('mapHost').title = INERT_SAYS + ': modulation';
-  // A mismatch the bridge reports for hello's hash is a banner in the window, never a silent play: the keys that differ are named.
+  /* A mismatch the bridge reports for hello's hash is a banner in the window, never a silent play: the keys that differ are named.
+     The bridge's `expected` is the ENGINE's hash and `got` is the one this page sent (tools/engine-preview/bridge_core.cpp,
+     check_hello). The banner printed them the other way round until GUI-46 A3; the browser check now reads which is which. */
   const banner = h('p', { class: 'hd-note bad bridge-banner', role: 'alert', hidden: true });
   $('win').prepend(banner);
   /* These three paint on every snapshot as well as every frame: a window that isn't drawing frames yet (offscreen, or not yet
@@ -2184,7 +2186,7 @@ if (BRIDGE) {
   const paintMismatch = () => {
     const mm = dev.bridge().mismatch, k = JSON.stringify(mm);
     if (k === mmKey) return; mmKey = k; banner.hidden = !mm;
-    if (mm) banner.textContent = 'This page doesn\u2019t match the engine (its manifest hash ' + String(mm.got).slice(0, 12) + '\u2026, the page\u2019s ' + String(mm.expected).slice(0, 12) + '\u2026). Rows that differ: ' + ((mm.keys || []).slice(0, 8).join(', ') || 'not listed') + ((mm.keys || []).length > 8 ? ' and ' + (mm.keys.length - 8) + ' more' : '') + '. Values may land on the wrong rows: rebuild the page from the engine\u2019s spec.';
+    if (mm) banner.textContent = 'This page doesn\u2019t match the engine (the engine\u2019s manifest hash ' + String(mm.expected).slice(0, 12) + '\u2026, the page\u2019s ' + String(mm.got).slice(0, 12) + '\u2026). Rows that differ: ' + ((mm.keys || []).slice(0, 8).join(', ') || 'not listed') + ((mm.keys || []).length > 8 ? ' and ' + (mm.keys.length - 8) + ' more' : '') + '. Values may land on the wrong rows: rebuild the page from the engine\u2019s spec.';
   };
   // The test plug-in's bank: its names arrive with the first frame that carries them, and a pick loads one by index.
   let bankKey = '', bar = null;
