@@ -480,6 +480,11 @@
    "adr": "ADR-302",
    "note": "GB11. The study behind ADR-302 rulings 3 and 4, copied from its Artifact at version 1793204183-5a81. The automaton's code is cleared to be public (the human, 2026-11-04: 'Yes, it can go public')."
   },
+  "source-routing-lab.html": {
+   "status": "ruled",
+   "adr": "GUI-76",
+   "note": "Ruled GUI-76 (A, A, A, B: levels, dry as a wire to Out, one make-up at the master, stacked). GB43: every source routed on its own to the filters, the FX and Out as one graph (the human, 2026-11-26), on the master's FxRouting with the voice boundary drawn and refused, and the Mix picture (GUI-14 r5) drawn from the graph. Asks Q1 (filter sends as levels or on/off), Q2 (the dry path: a wire to Out or a Σ VOICES box), Q3 (make-up per path or at the master), and Q4, a finding: 11 boxes beside the matrix scroll at 980 px. All levels MOCK; the engine half is GN-50, X13 and RC-1, a request until a spec round."
+  },
   "spectra-lab.html": {
    "status": "retired",
    "note": "Archived in the design index (its lab-archive tag): retired engine (H2-PLAN Archived engines). History, never a source."
@@ -7688,6 +7693,21 @@
    "superseded_by": null,
    "state": "in-shell",
    "master_version": "1795726426-0a41"
+  },
+  {
+   "id": "gui76-source-routing-graph",
+   "adr": "GUI-76",
+   "clause": "one routing graph from the sources to Out with the filters in the row; source-to-filter sends are levels; the dry path is a wire to Out; one make-up at the master; the routing views stack; the voice boundary refuses wires backwards; the Mix picture draws the graph live",
+   "port_tab": null,
+   "note": "Ruled from the source routing lab. Next: the master (FxRouting with filter and source nodes, the voice boundary, stacking at the page's width; ChainConsole's flow from the graph), then the shell's FX and Mix pages. The engine side is a request (GN-50, GN-63) and reopens ADR-411's Q15 pick, the lead's to put to the human. FX device: GUI-75's graph from its audio input.",
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "lab": "docs/design/source-routing-lab.html",
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null
   }
  ],
  "not_design": [
@@ -9092,6 +9112,10 @@
   "GUI-75": [
    "GN-61",
    "GN-62"
+  ],
+  "GUI-76": [
+   "GN-50",
+   "GN-63"
   ]
  },
  "audit_notes": [

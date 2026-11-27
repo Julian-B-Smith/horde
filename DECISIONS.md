@@ -12861,6 +12861,36 @@ The human, 2026-11-26: "Yes, start it", then "Yes, swap it".
 
 **Engine impact:** GN-61, GN-62, unchanged. **FX device:** the same.
 
+## GUI-76 — RULED by the human: one routing graph from the sources to Out, filters in the row; sends to filters are levels; the dry path is a wire to Out; one make-up at the master; the routing views stacked (GB43; GUI-75, GUI-14 r5; 2026-11-26)
+
+**The human, 2026-11-26**, on the Mix picture (GUI-14 r5): "Let's talk through this one. Ideally I would like each of the sources to be able to route to filters and FX independently". Then "Yes, build the lab". From `docs/design/source-routing-lab.html`, the answer was "A, A, A, B".
+
+**Rulings.**
+1. **One routing graph.** Osc 1, Osc 2, Sub and Noise, then Filter 1 and Filter 2, then the FX modules, then Out, all in one row, drawn and edited with GUI-75's ladder and send matrix and their gestures.
+   - A source wires to either filter, to any module, or to Out.
+   - A filter wires to the other filter (that is "serial"), to a module, or to Out.
+   - Modules wire as GUI-75 rules.
+   - X13's selects (each source to Filter 1, 2, both or neither; serial or parallel) give way to wires.
+2. **The voice boundary.** Sources and filters run per voice, and the FX on the voices summed, so no wire crosses back from the summed side into a filter or a source. The ladder draws the boundary as a dashed line, and a wire across it backwards is refused, in words.
+3. **Q1, A: a source's send into a filter is a level** that morphs by corner, like every FX send: drag it, 0 removes it, a double-click sets 100 %.
+4. **Q2, A: the dry path is a wire to Out.** A source or filter wired straight to Out is heard dry. No Σ VOICES box stays in the graph; SUM · VOICES and RACK IN stop being the one funnel into the rack.
+5. **Q3, A: one make-up gain, at the master.** No make-up per path.
+6. **Q4, B: the routing views stack.** With 11 boxes, the ladder runs at full width over the send matrix, because side by side at 980 px the ladder scrolls. This amends GUI-75 r2 (side by side) for the FX page.
+7. **The Mix picture (GUI-14 r5)** draws this graph, live at the pad: a source into a filter is source → F IN, a filter's out is F OUT, a module is its slot, Out is LIM IN. Return wires stay on the ladder.
+
+**Readings (this session's, open to the human).**
+- A module's console slot follows the ladder's order.
+- The lab's corner patch is MOCK.
+- With no Σ box, the console's SUM · VOICES and RACK IN stages draw unfed until the console's stages are revised.
+
+**Not ruled here: the engine side, which is the lead's to put to the human** (the lead, 2026-11-26). GUI-76 reopens ADR-411's pick on Q15 (X110): one engine input to the FX in 1.0, the per-source lanes drawn as mock, separate taps once their CPU is measured. Per-source taps in 1.0 or after, and the CPU measurement first, are their own ruling. Filters in the graph are a SPEC-ENGINE round (X13, RC-1), delivered to both clean-room repos, before any build. Until then this is a request (ADR-361). B714's S3 holds its node list open for it.
+
+**State (GUI-27).** Nothing changes in the shell or the master yet; the lab's model lives in its page. When built, the source and filter sends live in the patch with the FX sends (GN-61's model, with source and filter nodes), morph with the pad, and are undone one gesture per drag.
+
+**Engine impact.** GN-50 (each source and filter slot its own input to the rack, now with the voice boundary) and GN-63 (filter routing as levelled wires per corner, with sources and filters able to reach Out directly). Both are requests until a spec round.
+
+**FX device (ADR-254).** No sources or filters: its row starts at the audio input, and the graph is GUI-75's.
+
 ## ADR-365 — RULED by the human: the 8 Hz blocker for FM free in pitch FM; item 7.8's table remade; spec round 58 (B621, B623; 2026-11-04)
 
 **Context.** FM free in pitch FM runs an accumulator that never restarts, while each of C.16's readings starts it at 0, so the estimate cannot see its mean and BL-19 cannot hold by the law alone (Q-TA-71: engine-free, 95 of its 144 one-member cases over 0.003, up to 0.046). ADR-363 sent this to a scratch trial of C.16's existing blocker, with clips for the human. Separately, item 7.8's reference R2 places FM free's modulator half a cycle from round 56's start, and 7.8 plays before its settings settle (Q-TA-77).
