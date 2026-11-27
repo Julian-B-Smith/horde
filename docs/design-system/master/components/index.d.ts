@@ -253,7 +253,8 @@ export declare function FxRack(el: HTMLElement, get: () => FxState | null, sessi
 export declare function FxMatrix(el: HTMLElement, get: () => FxState | null, session?: Session): { render(force?: boolean): void; renders: number };
 
 /** GUI-75: FX routing. A wire holds a level per corner, in (0, 1], or null where it doesn't exist there; 0 % is never a wire's state. */
-export interface FxNode { id: string; kind: 'in' | 'mod' | 'out'; name: string; short: string; /** a module's screen key, or 'lane' | 'lane2' for an input */ style?: string; mock?: boolean }
+export interface FxNode { id: string; kind: 'in' | 'mod' | 'out'; name: string; short: string; /** a module's screen key, or 'lane' | 'lane2' for an input */ style?: string; mock?: boolean;
+  /** GUI-76: runs per voice (a filter); inputs always do */ voice?: boolean; /** the Mix console's [in, out] stages for flow.fromGraph */ io?: [string, string] }
 export interface FxWire { u: string; v: string; lv: [number | null, number | null, number | null, number | null] }
 /** The pure wire model: one writer, setLevel; corner 4 is Heard and is never written. */
 export declare class FxWires {
@@ -262,8 +263,13 @@ export declare class FxWires {
   static weights(x: number, y: number): [number, number, number, number];
   nodes: FxNode[]; wires: FxWire[];
   node(id: string): FxNode; find(u: string, v: string): FxWire | null; isReturn(u: string, v: string): boolean;
-  /** '' when u -> v may exist, else why not */
+  /** '' when u -> v may exist, else why not (with the voice boundary, GUI-76 r2) */
   can(u: string, v: string): string;
+  /** can(), plus ADR-414's per-voice no-loop rule at that corner */
+  canAt(u: string, v: string, corner: CornerIndex | 4): string;
+  perVoice(id: string): boolean; boundary(): number;
+  /** a return on the summed side: one sample late, z⁻¹ */
+  late(u: string, v: string): boolean;
   /** L null or <= 0 removes the wire at that corner; true when the model changed */
   setLevel(u: string, v: string, corner: CornerIndex, L: number | null): boolean;
   /** Randomize: corner c's wires replaced by a seeded forward-only draw at 100 %; returns the wire count */
@@ -284,7 +290,7 @@ export declare class FxWires {
   static chipText(wire: { held: boolean; dir: 'f' | 'r'; L: number }): string;
   static MIN_COL: 44; static CHIP_H: 13;
 }
-export interface FxRoutingOptions { nodes?: FxNode[]; wires?: FxWire[]; model?: FxWires; weights?: () => number[]; prevent?: () => boolean; keys?: boolean | (() => boolean);
+export interface FxRoutingOptions { /** 'stack' (default, GUI-76 r6) | 'side' (GUI-75 r2) */ layout?: 'stack' | 'side'; nodes?: FxNode[]; wires?: FxWire[]; model?: FxWires; weights?: () => number[]; prevent?: () => boolean; keys?: boolean | (() => boolean);
   start?: CornerIndex | 4; /** once per finished gesture: one undo step */ onChange?: (label: string) => void; say?: (text: string) => void }
 export declare function FxRouting(el: HTMLElement, o: FxRoutingOptions): { el: HTMLElement; model: FxWires; show(i: CornerIndex | 4): void; redraw(): void; step(): void; select(key: string): void; lastLayout: unknown };
 export declare function FxPanel(el: HTMLElement, get: () => FxState | null, session?: Session): { render(force?: boolean): void; renders: number };

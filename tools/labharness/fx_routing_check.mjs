@@ -23,6 +23,9 @@ import './sandbox_guard.mjs';
  *   heard     the wire exists where the dominant corner holds it, and its level blends over the corners that hold it
  *   feedback  with Prevent feedback on, a loop's back edge (echo -> weir at C) is held and a return wire that closes no
  *             loop is not; off, nothing is held
+ *   GUI-76   the voice boundary refuses a module into a filter; ADR-414's "either order, no loop" refuses the second filter direction at a
+ *            corner; a return on the summed side is late (z⁻¹) and Filter 2 into Filter 1 is not; a bypassed slot on the graph passes its wires on (GUI-76 A2); the Mix console's flow (fromGraph) draws
+ *            the graph live with the pad, without return wires
  *   randomize a seeded draw is repeatable, forward only, at 100 %, and leaves the other corners alone; a copy matches
  * Must-fail controls, each run every time (a control that reads clean means the instrument is blind, and the check is red):
  *   a pitch squeezed to 6 px must clash chips; every wire forced to one start port must count shared ports; a wire moved
@@ -44,6 +47,11 @@ if (START < 0 || END < 0) { console.error('fx_routing_check: RED — the GUI-75 
 const win = { Horde: {} };
 new Function('window', SRC.slice(START, END + END_MARK.length))(win);
 const W = win.Horde.FxWires;
+// GUI-76 r7: the Mix console's flow block (ChainConsole), found around its `var flow = {` and evaluated alone, so flow.fromGraph is held to the graph too
+const FI = SRC.indexOf('  var flow = {'), FA = SRC.lastIndexOf('(function (H) {', FI), FZ = SRC.indexOf('})(window.Horde);', FI) + '})(window.Horde);'.length;
+if (FI < 0 || FA < 0 || FZ < FI) { console.error('fx_routing_check: RED — the console flow block is not in the vendored bundle'); process.exit(1); }
+new Function('window', SRC.slice(FA, FZ))(win);
+const FLOW = win.Horde.ChainConsole.flow;
 
 // ---- the master preview's sample patch (components/FxRouting/preview.html) ----
 const M = (id, name, short, style) => ({ id, kind: 'mod', name, short, style });
@@ -58,6 +66,18 @@ const WIRES = [{ u: 'osc1', v: 'weir', lv: [1, .8, 1, .6] }, { u: 'osc2', v: 'we
   { u: 'echo', v: 'scape', lv: [.5, .4, .3, .5] }, { u: 'echo', v: 'out', lv: all(.6) }, { u: 'scape', v: 'out', lv: all(1) },
   { u: 'echo', v: 'weir', lv: [null, null, .2, .15] }, { u: 'scape', v: 'echo', lv: [null, .15, null, null] }];
 const fresh = () => new W({ nodes: NODES, wires: WIRES });
+// ---- GUI-76: one graph from the sources to Out (the master preview's), filters per voice; modules carry their console slot ----
+const GNODES = [{ id: 'osc1', kind: 'in', name: 'Osc 1', short: 'O1', style: 'lane' }, { id: 'osc2', kind: 'in', name: 'Osc 2', short: 'O2', style: 'lane' },
+  { id: 'sub', kind: 'in', name: 'Sub', short: 'Su', style: 'lane2' }, { id: 'noise', kind: 'in', name: 'Noise', short: 'Nz', style: 'lane2' },
+  { id: 'f1', kind: 'mod', name: 'Filter 1', short: 'F1', style: 'filter', voice: true, io: ['f1i', 'f1o'] }, { id: 'f2', kind: 'mod', name: 'Filter 2', short: 'F2', style: 'filter', voice: true, io: ['f2i', 'f2o'] },
+  Object.assign(M('echo', 'Echo', 'Ec', 'echo'), { io: ['x1i', 'x1o'] }), Object.assign(M('scape', 'Scape', 'Sc', 'scape'), { io: ['x2i', 'x2o'] }),
+  Object.assign(M('shriek', 'Shriek', 'Sh', 'shriek'), { io: ['x3i', 'x3o'] }), Object.assign(M('bulwark', 'Bulwark', 'Bw', 'bulwark'), { io: ['x4i', 'x4o'] }), { id: 'out', kind: 'out', name: 'Out', short: 'Out' }];
+const GWIRES = [{ u: 'osc1', v: 'f1', lv: [1, 1, 1, null] }, { u: 'osc2', v: 'f1', lv: [.8, .8, .8, .8] }, { u: 'noise', v: 'f2', lv: [.5, .5, .5, .5] }, { u: 'osc1', v: 'shriek', lv: [null, null, null, .9] },
+  { u: 'osc2', v: 'shriek', lv: [.4, null, .4, null] }, { u: 'noise', v: 'echo', lv: [null, null, .6, null] }, { u: 'f1', v: 'f2', lv: [null, 1, null, null] }, { u: 'f2', v: 'f1', lv: [null, null, .7, null] },
+  { u: 'f1', v: 'echo', lv: [1, null, 1, .8] }, { u: 'f1', v: 'out', lv: [.5, null, .5, .5] }, { u: 'f2', v: 'echo', lv: [null, 1, null, null] }, { u: 'f2', v: 'scape', lv: [.6, .6, null, .6] },
+  { u: 'echo', v: 'scape', lv: all(.7) }, { u: 'echo', v: 'out', lv: all(.5) }, { u: 'scape', v: 'out', lv: all(1) }, { u: 'shriek', v: 'out', lv: [.8, null, .8, .8] },
+  { u: 'scape', v: 'echo', lv: [null, .15, null, null] }, { u: 'sub', v: 'bulwark', lv: all(.8) }, { u: 'sub', v: 'out', lv: [null, .6, null, null] }, { u: 'bulwark', v: 'out', lv: all(1) }];
+const graph = () => new W({ nodes: GNODES, wires: GWIRES });
 
 // ---- the crowded patch: the shell's house default (six inputs into the first module, the modules in order, the last to Out), then seeded Randomize draws at B to D ----
 const mulberry = seed => () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
@@ -69,7 +89,7 @@ const crowded = () => { const ins = ['osc1', 'osc2', 'sub', 'noise', 'flt1', 'fl
 // ---- geometry, as drawn ----
 const PADS = [[.3, .35], [.8, .2], [.5, .9]];
 let views = 0, worstGap = Infinity, maxCross = 0;
-for (const [pname, model] of [['sample', fresh()], ['crowded', crowded()]]) for (const width of [333, 600, 693, 960]) for (const prevent of [false, true]) {
+for (const [pname, model] of [['sample', fresh()], ['crowded', crowded()], ['graph', graph()]]) for (const width of [333, 600, 693, 960]) for (const prevent of [false, true]) {
   const shows = [0, 1, 2, 3].map(c => ({ c, wt: W.weights(.3, .35), tag: 'ABCD'[c] })).concat(PADS.map(p => ({ c: W.HEARD, wt: W.weights(p[0], p[1]), tag: 'Heard@' + p })));
   for (const s of shows) {
     const L = W.ladder(model, model.shown(s.c, s.wt, prevent), width), m = W.measure(L.lay, L.P), where = `${pname} ${s.tag} at ${width} px, prevent ${prevent ? 'on' : 'off'}`;
@@ -133,5 +153,32 @@ const model = fresh();
   ok(a.copyCorner(0, 2) > 0 && snap(a, 2) === snap(a, 0), 'a copy from A to C does not match A');
   ok(a.copyCorner(1, 1) === 0, 'a copy onto its own corner changed something'); }
 
+// ---- GUI-76 and ADR-414: the voice boundary, either order with no loop, late wires, the console's flow from the graph ----
+{ const g = graph(), at = c => W.weights(...[[0, 0], [1, 0], [0, 1], [1, 1]][c]);
+  ok(g.boundary() === 5 && fresh().boundary() === -1, `the boundary sits after Filter 2 (${g.boundary()}), and a row with no per-voice node marked draws none`);
+  ok(g.can('echo', 'f1') !== '' && g.can('scape', 'f2') !== '' && !g.setLevel('echo', 'f1', 0, .5), 'the voice boundary: a module into a filter is refused and never written');
+  ok(g.can('f2', 'shriek') === '' && g.can('osc1', 'f2') === '' && g.can('f1', 'f2') === '', 'CONTROL: a filter into a module, a source into a filter and Filter 1 into Filter 2 are allowed');
+  ok(g.canAt('f2', 'f1', 1) !== '' && !g.setLevel('f2', 'f1', 1, .5) && g.find('f2', 'f1').lv[1] === null, 'either order, no loop: Filter 2 into Filter 1 at B, where Filter 1 feeds Filter 2, is refused');
+  ok(g.canAt('f1', 'f2', 2) !== '' && g.canAt('f2', 'f1', 0) === '' && g.setLevel('f2', 'f1', 0, .5), 'CONTROL: at A, where neither runs into the other, Filter 2 into Filter 1 is made; at C Filter 1 into Filter 2 is refused');
+  ok(g.late('scape', 'echo') && !g.late('f2', 'f1') && !g.late('f1', 'out'), 'a return on the summed side is late (z⁻¹); Filter 2 into Filter 1 is not, nor a forward wire');
+  const Lc = W.ladder(g, g.shown(2, at(2), false), 960), xf = Lc.lay.wires.find(x => x.w.u === 'f2' && x.w.v === 'f1');
+  ok(xf && xf.dir === 'r' && !xf.late && !/z/.test(xf.chip.txt), 'Filter 2 into Filter 1 runs below the row with no z⁻¹ (' + (xf && xf.chip.txt) + ')');
+  const E = (m, c) => FLOW.fromGraph(m, at(c)).map(e => e.u + '>' + e.v);
+  const h = graph(), eA = E(h, 0), eB = E(h, 1), eC = E(h, 2);   // a fresh graph: the controls above changed g
+  ok(['osc2>x3i', 'x3i>x3o', 'f1o>x1i', 'f1i>f1o', 'x2o>lim', 'sub>x4i', 'f1o>lim', 'lim>vol'].every(k => eA.includes(k)), 'the console draws the graph at A: Osc 2 into SHRIEK IN, F1 OUT into x1 IN, Scape to LIM IN, Filter 1 dry to LIM IN');
+  ok(eB.includes('f1o>f2i') && eC.includes('f2o>f1i') && !eA.includes('f1o>f2i') && !eA.includes('f2o>f1i'), 'live with the pad: B runs F1 → F2, C runs F2 → F1; CONTROL: A runs neither');
+  ok(!eB.some(k => k === 'x2o>x1i'), 'a return wire (Scape → Echo at B) is left out of the console picture');
+  [0, 1, 2, 3].forEach(c => h.setLevel('osc2', 'shriek', c, null)); ok(!E(h, 0).includes('osc2>x3i'), 'CONTROL: Osc 2 → Shriek removed at every corner leaves the picture');
+  const F = FLOW.make(); F.graph = () => [{ u: 'osc1', v: 'lim' }]; ok(FLOW.edges(F).length === 1 && Object.keys(FLOW.feeds(F)).length === 0 && FLOW.edges(FLOW.make()).some(e => e.u === 'mk'), 'a flow with a graph draws only the graph; CONTROL: a plain flow keeps X13\'s edges'); }
+// GUI-76 A2: GUI-14's bypass rule on the graph. Every wire into a bypassed slot runs on to every place it fed, its own edge goes, and its strips read the one stage
+// feeding it (none when two do). CONTROL: nothing bypassed leaves the graph's edges as they are.
+{ const G = [['x1o', 'x2i'], ['f1o', 'x2i'], ['x2i', 'x2o'], ['x2o', 'x3i'], ['x2o', 'lim'], ['x3i', 'x3o'], ['x3o', 'lim'], ['lim', 'vol']].map(q => ({ u: q[0], v: q[1] }));
+  const F = FLOW.make(); F.graph = () => G.slice(); const ks = () => FLOW.edges(F).map(e => e.u + '>' + e.v).sort().join();
+  ok(ks() === G.map(e => e.u + '>' + e.v).sort().join(), 'CONTROL: a graph with nothing bypassed was rewired');
+  F.byp = { 2: true }; const E = ks();
+  ok(['x1o>x3i', 'f1o>x3i', 'x1o>lim', 'f1o>lim', 'x3i>x3o'].every(k => E.split(',').includes(k)) && !/x2[io]/.test(E), `a bypassed slot 2 did not run its inputs on to its outputs: ${E}`);
+  ok(Object.keys(FLOW.feeds(F)).length === 0, 'a bypassed slot fed by two stages read one of them');
+  F.graph = () => G.filter(e => e.u !== 'f1o'); ok(FLOW.feeds(F)[2] === 'x1o', 'a bypassed slot fed by one stage did not read it'); }
+
 if (bad.length) { console.error('fx_routing_check: RED\n  ' + bad.join('\n  ')); process.exit(1); }
-console.log(`fx_routing_check: GREEN — ${views} ladder views (2 patches × 4 corners and Heard at 3 pads × prevent off/on × 4 widths): 0 shared ports, 0 overlaps, 0 band points, 0 chip clashes, closest ports ${worstGap.toFixed(2)} px, crossings up to ${maxCross} (interleaving spans); the one writer, Heard, held back edges, Randomize's draw and copy hold; 8 controls fired`);
+console.log(`fx_routing_check: GREEN — ${views} ladder views (3 patches × 4 corners and Heard at 3 pads × prevent off/on × 4 widths): 0 shared ports, 0 overlaps, 0 band points, 0 chip clashes, closest ports ${worstGap.toFixed(2)} px, crossings up to ${maxCross} (interleaving spans); the one writer, Heard, held back edges, Randomize's draw and copy, the voice boundary, either order with no loop and the console's flow from the graph and its bypass hold; 14 controls fired`);
