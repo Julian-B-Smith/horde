@@ -188,6 +188,10 @@
   {
    "version": "1795750677-e33d",
    "evidence": "docs/design/arp-face/README.md: GUI-14's bypass rule on the routing graph's console edges (ChainConsole.flow.bypass), GUI-76 A2, 2026-11-27; tools/labharness/fx_routing_check.mjs"
+  },
+  {
+   "version": "1795785582-38fb",
+   "evidence": "docs/design-system/master/screens.md: ADR-409's map, rules G1-G16 for every glass (GUI-77 in G6 and G16) and one list per glass, replacing the auditions table, 2026-11-27; B712 (2)"
   }
  ],
  "vendoring": {
@@ -7679,13 +7683,13 @@
    "lab": "docs/design/fx-screens-workshop.html",
    "via": null,
    "superseded_by": null,
-   "master_version": null,
+   "master_version": "1795785582-38fb",
    "bundle": null,
    "shell": null,
    "port_tab": null,
-   "component": null,
-   "state": "ruled",
-   "note": "The master's screens section takes the map, and each glass's rules list is written there; both are the GUI session's (ADR-336). The glasses' marks are GUI-58's. Engine: none. FX device: the same glasses."
+   "component": "screens.md",
+   "state": "in-master",
+   "note": "In the master's screens section (1795785582-38fb): the map, rules G1-G16 for every glass and one list per glass; the auditions table is gone. The modules design their glasses (ADR-409 r2), so no shell hop follows from horde until a revision is reviewed. The glasses' marks are GUI-58's. Engine: none. FX device: the same glasses."
   },
   {
    "id": "gui75-fx-routing-ladder",
@@ -7722,15 +7726,15 @@
    "adr": "GUI-77",
    "clause": "on an FX module's glass only a switch or mode hides a row; a row gated by a continuous value at the end of its range stays drawn, plainly; during a switch's fade rows follow its target; the vector monitor stays dark with TUBE's inks on a pale scheme",
    "port_tab": null,
-   "note": "Ruled while writing B712's rules lists, from Scape's and Bulwark's glass answers. Next: the master's screens section (G6, G16, the vector monitor's line), after PR #1535 merges. Scope is the FX glasses; the shell's own continuous gates are a separate question. Engine: none. FX device: the same glasses and rules.",
-   "component": null,
+   "note": "Ruled while writing B712's rules lists, from Scape's and Bulwark's glass answers. In the master's screens section (1795785582-38fb): G6, G16 and the vector monitor's line. Scope is the FX glasses; the shell's own continuous gates are a separate question. Engine: none. FX device: the same glasses and rules.",
+   "component": "screens.md",
    "bundle": null,
    "shell": null,
    "lab": null,
    "via": null,
    "superseded_by": null,
-   "state": "ruled",
-   "master_version": null
+   "state": "in-master",
+   "master_version": "1795785582-38fb"
   }
  ],
  "not_design": [

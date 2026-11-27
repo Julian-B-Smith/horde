@@ -3,7 +3,7 @@
 **What changed.**
 - **DECISIONS.md:** GUI-77, the human's three answers by poll.
 - **docs/design/design-ledger.json:** the ruled row `gui77-glass-gates` and its engine impact (none).
-- **Not yet in the master:** G6, a new G16 and the vector monitor's line in the screens section's rules list. That hop waits for PR #1535 to merge.
+- **In the master** (`1795785582-38fb`, see `traces/2026-11-27-glass-rules-master.md`): G6, a new G16 and the vector monitor's line.
 
 **Why.** The human, 2026-11-27: "Yes, glass rules". Scape's and Bulwark's answers to ADR-409's briefs (each its seq 2, in its own mailbox) independently asked whether GUI-21 hides a row gated by a continuous value. Bulwark also asked which state rows follow during a switch's fade.
 
