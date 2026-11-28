@@ -11489,7 +11489,7 @@ Three points stayed open, because the shell already marks a knob selected the mo
 - **A source that's off shows its header and its switch,** because PA-8 says its rows are inert. **Reversed by GUI-29.** A blade that's off does the same, which stands for now. A section where nothing can act, its own switch included, goes altogether (a Resonator while the noise is off).
 - **The envelopes' own rows stay on the Mod page whatever follows them,** though PA-8 calls an unfollowed envelope inert, because a route can read it. On a source's page they go with the source.
 - **The morph field still lists every row.** Its cells are each corner's settings, and a row that's inert at the puck can be live at a corner.
-- **What's shown follows what's heard:** the conditions read the shown value, so under morph a control can appear or go as the puck moves.
+- **What's shown follows what's heard:** the conditions read the shown value, so under morph a control can appear or go as the puck moves. **Narrowed by GUI-77 A1:** only a stepped condition hides a control; a continuous one leaves it drawn.
 - **Controls reflow.** Nothing reserves a hidden control's space, so the ones after it move. A readout slot keeps its width (ADR-340 A1).
 - **The map keeps the pad's puck and chips.** It goes in under the puck as a layer, so the player still moves where they listen. A click on the glass moves nothing, and a pin under the puck is reached by moving the puck (B269). Its pins, laws, maps and cross-section take the cross-section's card beside the pad, and the row's plain cross-section comes back with the plain pad.
 - **A row's dormant waypoints get one line under the pad** when another law or row is showing, since nothing else says they're there.
@@ -12360,6 +12360,8 @@ The GUI session recommends (c). Nothing is built until the human picks.
 6. **Captions:** under the carpet and voice map, the bridge says which is the engine's.
 
 **A2 (the human, 2026-11-05, through the lead's poll; B628): "One control: Polyphony".** The human heard 4 voices while the page showed Polyphony 16: the test plug-in's own Voices limit was capping them unseen. So Polyphony (`voice.polyphony`, a row on the Set page) is the one voice control. The page's Voices stepper and the `plugin {voices}` message are gone, and the schema refuses it. `plugin {build}` stays for the build label. In Live the bridge caps a loaded preset's Polyphony at 8, and the page shows the real number through the load's rows. Engine impact: none.
+**A3 (the GUI session's bug fix, 2026-11-27; the lead's probe of 2026-11-26 found it).** The mismatch banner printed the two hashes the wrong way round. The bridge's `mismatch` sends `expected` as the ENGINE's hash and `got` as the one the page sent (`tools/engine-preview/bridge_core.cpp`, `check_hello`). The banner printed `got` as the engine's and `expected` as the page's. It now reads "the engine's manifest hash" from `expected` and "the page's" from `got`. The browser check's plug-in run had the same swap in its fixture: it sent the page's own hash as `expected`. Now it sends a stand-in engine hash as `expected` and the page's hash as `got`, and fails unless each sits beside its own name. A plant restoring the old labels turned it red, quoting the swapped banner. State: none (the banner is words). Engine impact: none. FX device: none.
+
 ## GUI-58 — RULED by the human: a corner mark and a modulation mark for each of the eleven FX screens; glyphs on three (GB15; GUI-23 item 3; 2026-11-06)
 
 **The human, 2026-11-06,** reviewing `docs/design/fx-screen-marks-lab.html` with the Labs facilitator session, chose for every screen and then said "Done picking". The facilitator read the choices off the page and had told the human beforehand that an untouched choice keeps the lab's suggestion. The human changed three corner marks, all to glyphs, and kept the other 19 suggestions.
@@ -12939,6 +12941,35 @@ The human, 2026-11-26: "Yes, start it", then "Yes, swap it".
 - Bypass on the Mix page is session state, as before.
 
 **Engine impact:** GN-50, GN-61 and GN-63, unchanged; nothing new is asked. **FX device (ADR-254):** unchanged. Its graph starts at its audio input, with no sources, filters or Mix console flow.
+
+## GUI-77 — RULED by the human: on the FX glasses, a switch hides a row and a value at the end of its range doesn't; rows follow a switch's target, not its fade; the vector monitor stays dark on a pale scheme (B712; GUI-21, ADR-409; 2026-11-27)
+
+**Context.** The human, 2026-11-27: "Yes, glass rules". Writing the rules list per glass (B712 (2)), the GUI session read the first two module answers to ADR-409's briefs. Scape (its seq 2, 2026-11-27) and Bulwark (its seq 2, 2026-11-26) independently asked the same question of GUI-21. Scape measured its dead rows by null renders: ER size and decay when ER level is 0, mod rate when mod depth is 0, spin rate when spin depth is 0, every wet control at Mix 0, and glide time when delay motion is crossfade. Only the last is gated by a switch. Bulwark's RMS window is dead at exactly RMS 0. Taken literally, GUI-21 makes such a row appear and vanish as a morph or a macro sweeps its gate through the end, and at Mix 0 almost all of Scape's glass would go. Bulwark also asked which state a row follows during its 20 ms switch fades, when both sets of controls act. The vector monitor's policy (Kiln's EQ, ADR-409) was "dark schemes only", and the workshop already draws it black with TUBE's inks on a pale scheme (`docs/design/fx-screens-workshop.html:528-529`).
+
+**Rulings** (the human, 2026-11-27, by poll: "Flips hide, sliders don't (Recommended)", "Target value (Recommended)", "Black with TUBE's inks (Recommended)"):
+1. **On an FX module's glass, only a switch or mode hides a row.** A row gated by a continuous value reaching an end of its range (a level, depth or mix at 0) stays drawn, plainly: not greyed, and not dimmed. A row gated by a stepped key (a switch, a mode, a choice) hides, as GUI-21 says. This follows GUI-21's own wording, "a control that depends on a mode or a switch appears with it" (the master README, rule 4).
+2. **During a switch's fade, rows follow the switch's target value,** not the audible mix, so they change once when it flips and never blink.
+3. **The vector monitor is dark on every scheme.** On a dark scheme it takes the scheme's inks; on a pale one it still draws black with TUBE's inks.
+
+**Readings (the GUI session's, open to the human).**
+- **The scope is the FX glasses,** which is what was asked. The shell's own pages already hide about ten rows on continuous gates under GUI-21's readings (`docs/design/gui3/layout.json`'s `live_when`: for example Drift rate when Drift depth is 0, Pan motion when Width is 0, Sub character when Sub drive is 0, a blade's Edges when its width is under 0.004). Whether the same rule applies there was a separate question for the human, not taken from this ruling. A1 answers it: the same rule.
+- **A module's live-when data marks each gate stepped or continuous.** Bulwark's `rmsTime` and Scape's ER, mod and spin rows stay drawn; Scape's glide time and Bulwark's Branching, auto-release, sidechain and stereo rows hide.
+- **The house-style DOM view horde builds follows the same rule,** since both views draw one model (ADR-400 r1).
+
+**The rules list.** G6 of the master's screens section carries ruling 1, a new G16 carries ruling 2, and the vector monitor's line carries ruling 3. They are in the master at `1795785582-38fb` (2026-11-27, after PR #1535 merged).
+
+**State.** None: what's drawn is a view of the module's own values, and nothing persists.
+
+**Engine impact:** none. A module reports its own live-when data, and horde's DOM view reads it; no horde engine row changes.
+
+**FX device (ADR-254):** the same. The FX device hosts the same glasses and the same rules.
+
+**A1 (the human, 2026-11-27, after a demo of both rules side by side: "Right: stay drawn").** horde's own pages follow ruling 1 too. A control behind a continuous gate stays drawn at the gate's dead value, and only a stepped gate hides one. The shell had hidden about ten controls this way, for example Drift rate at Drift depth 0, Pan motion at Width 0, Sub character at Sub drive 0, and a blade's Edges under width 0.004.
+- **In the shell:** a new `drawn()` decides what's drawn and skips `gt` and `ne` comparisons on a row without options. `live()` still decides whether a control can act, so the info box still says "Inert now (PA-8): live when …" for Drift rate at depth 0. Every place that hid a control, section or table row now asks `drawn()`. The layout's `live_when` table is unchanged: it stays PA-8's facts.
+- **Checks:** the GUI-21 self-check now asks that no drawn control sits behind a shut stepped gate. A new self-check holds A1: with Sub drive at 0, Character is drawn and still known to be inert; with the wave not pulse, Pulse width is hidden (the control). A plant restoring the old rule turned it red.
+- **State:** none. Nothing persists differently, and a control that stays drawn writes what it always did.
+- **Engine impact:** none.
+- **FX device:** none: its pages hold no oscillator rows.
 
 ## ADR-365 — RULED by the human: the 8 Hz blocker for FM free in pitch FM; item 7.8's table remade; spec round 58 (B621, B623; 2026-11-04)
 

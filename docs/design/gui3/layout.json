@@ -18,7 +18,7 @@
     ]
   },
   "live_when": {
-    "note": "Which setting lets a control act (SPEC-ENGINE PA-8, GUI-21). Written per parameter, not per page: every page that shows a key obeys the same condition, and a control whose condition fails isn't drawn. A source's own switch hides nothing (GUI-29): you can set a source up before switching it on, so `sources`, which holds for every key under a prefix, is empty. A blade's switch hides nothing either (GUI-30), since a section opened while its blade is off must not be empty. {o} is each oscillator, {b} each blade. B587 replaces this with a table in the spec itself.",
+    "note": "Which setting lets a control act (SPEC-ENGINE PA-8, GUI-21). Written per parameter, not per page: every page that shows a key obeys the same condition, and a control whose condition fails isn't drawn, unless the failing part is a continuous comparison (gt, ne), which leaves it drawn and inert (GUI-77 A1). A source's own switch hides nothing (GUI-29): you can set a source up before switching it on, so `sources`, which holds for every key under a prefix, is empty. A blade's switch hides nothing either (GUI-30), since a section opened while its blade is off must not be empty. {o} is each oscillator, {b} each blade. B587 replaces this with a table in the spec itself.",
     "rows": [
       {
         "keys": [

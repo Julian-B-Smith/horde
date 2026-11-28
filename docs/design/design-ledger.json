@@ -188,6 +188,10 @@
   {
    "version": "1795750677-e33d",
    "evidence": "docs/design/arp-face/README.md: GUI-14's bypass rule on the routing graph's console edges (ChainConsole.flow.bypass), GUI-76 A2, 2026-11-27; tools/labharness/fx_routing_check.mjs"
+  },
+  {
+   "version": "1795785582-38fb",
+   "evidence": "docs/design-system/master/screens.md: ADR-409's map, rules G1-G16 for every glass (GUI-77 in G6 and G16) and one list per glass, replacing the auditions table, 2026-11-27; B712 (2)"
   }
  ],
  "vendoring": {
@@ -7679,13 +7683,13 @@
    "lab": "docs/design/fx-screens-workshop.html",
    "via": null,
    "superseded_by": null,
-   "master_version": null,
+   "master_version": "1795785582-38fb",
    "bundle": null,
    "shell": null,
    "port_tab": null,
-   "component": null,
-   "state": "ruled",
-   "note": "The master's screens section takes the map, and each glass's rules list is written there; both are the GUI session's (ADR-336). The glasses' marks are GUI-58's. Engine: none. FX device: the same glasses."
+   "component": "screens.md",
+   "state": "in-master",
+   "note": "In the master's screens section (1795785582-38fb): the map, rules G1-G16 for every glass and one list per glass; the auditions table is gone. The modules design their glasses (ADR-409 r2), so no shell hop follows from horde until a revision is reviewed. The glasses' marks are GUI-58's. Engine: none. FX device: the same glasses."
   },
   {
    "id": "gui75-fx-routing-ladder",
@@ -7716,6 +7720,21 @@
    "superseded_by": null,
    "state": "in-shell",
    "master_version": "1795750677-e33d"
+  },
+  {
+   "id": "gui77-glass-gates",
+   "adr": "GUI-77",
+   "clause": "on an FX module's glass only a switch or mode hides a row; a row gated by a continuous value at the end of its range stays drawn, plainly; during a switch's fade rows follow its target; the vector monitor stays dark with TUBE's inks on a pale scheme",
+   "port_tab": null,
+   "note": "Ruled while writing B712's rules lists, from Scape's and Bulwark's glass answers. In the master's screens section (1795785582-38fb): G6, G16 and the vector monitor's line. A1 (the human, 'Right: stay drawn'): horde's own pages follow r1 too; in the shell drawn() skips continuous comparisons, live() still reports inert, held by the 'Slider gates stay drawn' self-check. Engine: none. FX device: the same glasses and rules.",
+   "component": "screens.md",
+   "bundle": null,
+   "shell": "docs/design/gui3.html: function drawn(c)",
+   "lab": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "in-master",
+   "master_version": "1795785582-38fb"
   }
  ],
  "not_design": [
@@ -9124,7 +9143,8 @@
   "GUI-76": [
    "GN-50",
    "GN-63"
-  ]
+  ],
+  "GUI-77": "none: a module reports its own live-when data and horde's DOM view reads it; no horde engine row changes"
  },
  "audit_notes": [
   "[A] Counts: 33 design ADRs with 56 rows (ruled 31, of which 6 superseded and 7 legacy-only; wired 9; in-shell 7; vendored 4; in-master 4; unknown 1); 79 not_design. Every primary heading ADR-001..ADR-112 appears exactly once. Headings out of numeric order (ADR-052, ADR-053 before ADR-051; ADR-095, 094, 093, 092; ADR-091 A1-A4 after ADR-112 A3) were all covered. One non-ADR heading sits in range: 'NOTICE · Library standby (plugin-skeleton FOUNDATIONS)', line 661, not design and not listed.",

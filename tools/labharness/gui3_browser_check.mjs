@@ -282,11 +282,15 @@ const NPROBE = `(async () => {
   const win = R(document.getElementById('win')), first = window.__sent[0] || null;
   const plugin = document.documentElement.classList.contains('plugin'), chrome = ['bar', 'sizeBar', 'status'].filter(id => vis(document.getElementById(id)));
   const build = (document.getElementById('buildLabel') || {}).textContent || '', bar = (document.querySelector('#presetHost .pb-name') || {}).textContent || '';
-  window.hordeNativeSnapshot({ mismatch: { expected: window.GUI3_DATA.manifest_hash, got: 'ffff', keys: ['osc1.octave'] } }); await wait(150);
-  const b = document.querySelector('.bridge-banner'), shown = vis(b) && /osc1\\.octave/.test(b.textContent);
+  /* The bridge's meaning (bridge_core.cpp check_hello): expected is the ENGINE's hash, got is the page's own. The banner must say
+     which is which: the engine's beside "engine", the page's beside "page" (GUI-46 A3; it printed them swapped before). */
+  const eng = 'e0e0e0e0e0e0beef', mine = window.GUI3_DATA.manifest_hash;
+  window.hordeNativeSnapshot({ mismatch: { expected: eng, got: mine, keys: ['osc1.octave'] } }); await wait(150);
+  const b = document.querySelector('.bridge-banner'), bt = b ? b.textContent : '', shown = vis(b) && /osc1\\.octave/.test(bt);
+  const sides = /engine\u2019s manifest hash e0e0e0e0e0e0/.test(bt) && bt.indexOf('page\u2019s ' + String(mine).slice(0, 12)) >= 0;
   window.hordeNativeSnapshot({ mismatch: null }); await wait(150);
   return { plugin, chrome, top: win && Math.round(win.top), left: win && Math.round(win.left), w: win && Math.round(win.width), h: win && Math.round(win.height),
-    first, hash: window.GUI3_DATA.manifest_hash, build, bar, shown, gone: !vis(b) };
+    first, hash: window.GUI3_DATA.manifest_hash, build, bar, shown, sides, bannerText: bt.slice(0, 160), gone: !vis(b) };
 })()`;
 /* GUI-73 (the human, build 13: "the main page having to scroll for the XYs"). In the plug-in the bridge dims what this engine can't act
    on, and the line saying so stood on the page, so Main's stage lost 30 px and the XY ran 29 px past the window. Asserted, in plug-in
@@ -432,6 +436,7 @@ function nativeVerdict(r, red, frames, noFrames) {
   if (!n.first || n.first.type !== 'hello' || n.first.manifest_hash !== n.hash) red.push('plug-in mode: the first message was ' + JSON.stringify(n.first) + ', not hello with shell-data\\u2019s hash');
   if (n.build !== 'Build stand-in') red.push('plug-in mode: the build label reads "' + n.build + '"');
   if (!n.shown || !n.gone) red.push(`plug-in mode: a reported mismatch ${n.shown ? '' : 'never showed a banner naming its row'}${!n.shown || n.gone ? '' : ' stayed after it was cleared'}`);
+  if (n.shown && !n.sides) red.push(`plug-in mode: the mismatch banner doesn't put the engine's hash (the bridge's expected) beside "engine" and the page's (got) beside "page": "${n.bannerText}"`);
 }
 function replayVerdict(r, rc, frames, red) {
   if (!r.ready) { red.push('replay: the page never said Ready on GUI3_REPLAY'); return; }
@@ -499,6 +504,6 @@ try {
       `a knob and the Morph pad dragged onto a paragraph make the page unselectable mid-drag and selectable again on release, where a drag across the paragraph sets nothing and selects ${r.sel.control.sel} characters (control; headless Chrome can't show the WebKit bug itself); ` +
       `the Mindlathe splash covers the window painted (under the plug-in's policy too), swallows the first click and fades, fades on its own at 2.5 s, goes at once under reduced motion, and goes at once when hello says it isn't the first opening (controls: a later click opens Mix, it's still up at 1.2 s, and first_open true keeps it); ` +
       `the plug-in's one-file page runs under its policy with no violation, its bridge side holds on ${recorded ? 'the recorded' : 'SYNTHETIC'} frames, and a frozen replay reads frozen (control); ` +
-      `in plug-in mode the ${nat.n.w} x ${nat.n.h} device fills the view's top-left with no lab chrome, says hello with its hash, shows and clears a mismatch, and paints its bank and build with no frames drawn; Main fits the window there with no scroll, its pad ${nat.fit.pad.w} px and XY ${nat.fit.xy.w} px square and inside, the dimmed-controls note in the header meeting nothing (control: a 30 px line planted back on Main reads red); on the bridge's preview keys the FX page draws the test strip, the Test filter card before Scape's and Scape's card bound to them, a Decay drag is one gesture of preview sets, a frame repaints it and Undo stays off (controls: no hello.preview draws none of it, and an engine drag turns Undo on)`);
+      `in plug-in mode the ${nat.n.w} x ${nat.n.h} device fills the view's top-left with no lab chrome, says hello with its hash, shows and clears a mismatch with the engine's and the page's hashes each named as theirs, and paints its bank and build with no frames drawn; Main fits the window there with no scroll, its pad ${nat.fit.pad.w} px and XY ${nat.fit.xy.w} px square and inside, the dimmed-controls note in the header meeting nothing (control: a 30 px line planted back on Main reads red); on the bridge's preview keys the FX page draws the test strip, the Test filter card before Scape's and Scape's card bound to them, a Decay drag is one gesture of preview sets, a frame repaints it and Undo stays off (controls: no hello.preview draws none of it, and an engine drag turns Undo on)`);
 } finally { srv.close(); }
 process.exit(red.length ? 1 : 0);

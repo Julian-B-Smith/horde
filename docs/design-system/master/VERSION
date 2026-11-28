@@ -4,7 +4,7 @@
 # (python3 tools/design_vendor.py record-master --version <id> --date <d>) and re-vendor.
 # tools/design_chain_check.py holds the tree to these hashes: every file listed, none extra.
 artifact: https://claude.ai/artifact/EGDwetDHwcvxhTbNffCzJc
-version: 1795750677-e33d
+version: 1795785582-38fb
 date: 2026-11-27
 files: 199
 50673b85e562a05e3679af7a30357167b55628b390b28b544b724de81b881b0e  README.md
@@ -204,5 +204,5 @@ c9e9f591f9e497ed62ec02a91c6a8affe5ec6fcec975270e97b0f47d77fda686  components/bun
 c85b49352c69c06746fc293169781a2253dd0e52e41d23194b799b4a69131ef0  components/index.d.ts
 6c3f598e97da2ab5ed7ce3e02d35e32afb208bd1c7ddcb32335f97ee701c2901  contrast-audit.md
 b22892adec0ac89e9c3eb244e52d609e0e94a11a8a45fe986acd5a1c750ce8d3  design-system.json
-8d63158848e0838c4a1d439be6aff6e7c0c94312b52ae71359186a4154a72245  screens.md
+05e6fad9fa620e8c256a4ad0fb998d72f132b0eb6dae34eab8cfe60d88c7ee94  screens.md
 01d93c72eaa75f5913517e6e797dacc62917e163dd3618e52a2a930b7427f46b  tokens.json
